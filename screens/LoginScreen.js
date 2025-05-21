@@ -3,6 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'reac
 import { useNavigation } from '@react-navigation/native';
 import { UserContext } from '../context/UserContext';
 import { API_URL } from '../config';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function LoginScreen() {
     const { setUser } = useContext(UserContext);
@@ -11,26 +12,29 @@ export default function LoginScreen() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
 
+
     const handleLogin = async () => {
         try {
-            const response = await fetch(`${API_URL}/login`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                credentials: 'include',
-                body: JSON.stringify({ email, password }),
-            });
-
-            const data = await response.json();
-
-            if (!response.ok) throw new Error(data.error || 'Login failed');
-            setUser(data);
-            navigation.navigate('Home');
+          const response = await fetch(`${API_URL}/login`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Mobile-App': 'true',
+            },
+            body: JSON.stringify({ email, password }),
+          });
+      
+          const data = await response.json();
+      
+          if (!response.ok) throw new Error(data.error || 'Login failed');
+      
+          await AsyncStorage.setItem('jwt', data.token);
+          setUser(data.user);
+          navigation.navigate('Home');
         } catch (error) {
-            Alert.alert('Error', error.message);
+          Alert.alert('Error', error.message);
         }
-    };
+      };
 
     return (
         <View style={styles.container}>
