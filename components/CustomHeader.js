@@ -1,32 +1,41 @@
 import React, { useContext } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { UserContext } from '../context/UserContext';
 import { Ionicons } from '@expo/vector-icons';
+import VoxxyLogo from '../assets/header.svg'; // ✅ SVG component
 
-export default function CustomHeader({ title }) {
+export default function CustomHeader() {
     const { user } = useContext(UserContext);
     const navigation = useNavigation();
 
     return (
         <View style={styles.container}>
-            <TouchableOpacity onPress={() => navigation.navigate('Home')}>
-                <Text style={[styles.title, !user && styles.landing]}>
-                    {title || 'Voxxy'}
-                </Text>
-            </TouchableOpacity>
-            <View style={styles.menu}>
-                {user ? (
-                    <TouchableOpacity onPress={() => navigation.navigate('FAQ')}>
-                        <Ionicons name="help-circle-outline" size={28} color="#000" />
+            <View style={styles.left}>
+                {navigation.canGoBack() ? (
+                    <TouchableOpacity onPress={() => navigation.goBack()}>
+                        <Ionicons name="arrow-back" size={24} color="#6c63ff" />
                     </TouchableOpacity>
+                ) : null}
+                <TouchableOpacity onPress={() => navigation.navigate('/')}>
+                    <VoxxyLogo height={36} width={120} />
+                </TouchableOpacity>
+            </View>
+
+            <View style={styles.right}>
+                {user ? (
+                    <>
+                        <TouchableOpacity onPress={() => navigation.navigate('/')}>
+                            <Text style={styles.link}>Dashboard</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => navigation.navigate('FAQ')}>
+                            <Text style={styles.link}>Help</Text>
+                        </TouchableOpacity>
+                    </>
                 ) : (
                     <>
-                        <TouchableOpacity onPress={() => navigation.navigate('SignUp')}>
-                            <Text style={styles.button}>Sign Up</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-                            <Text style={styles.button}>Log In</Text>
+                        <TouchableOpacity onPress={() => navigation.navigate('FAQ')}>
+                            <Text style={styles.link}>Help</Text>
                         </TouchableOpacity>
                     </>
                 )}
@@ -39,29 +48,39 @@ const styles = StyleSheet.create({
     container: {
         paddingTop: 60,
         paddingBottom: 20,
-        paddingHorizontal: 20,
-        backgroundColor: '#fff',
+        paddingHorizontal: 16,
+        backgroundColor: '#201925',
         borderBottomWidth: 1,
-        borderColor: '#eee',
+        borderColor: '#3c2f4c',
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
     },
-    title: {
-        fontSize: 24,
-        fontWeight: '700',
-        color: '#000',
-    },
-    landing: {
-        color: '#6c63ff',
-    },
-    menu: {
+    left: {
         flexDirection: 'row',
-        gap: 16,
+        alignItems: 'center',
+        gap: 12,
     },
-    button: {
-        fontSize: 16,
-        color: '#6c63ff',
-        marginLeft: 16,
+    logo: {
+        height: 32,
+        width: 100,
+        resizeMode: 'contain',
+    },
+    right: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    link: {
+        color: '#cfc1e2',
+        fontSize: 14,
+        fontWeight: '500',
+        paddingHorizontal: 8,
+    },
+    logout: {
+        color: '#ff6b6b',
+        fontSize: 14,
+        fontWeight: '500',
+        paddingHorizontal: 8,
     },
 });
