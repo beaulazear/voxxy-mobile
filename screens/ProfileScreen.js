@@ -138,6 +138,8 @@ export default function ProfileScreen() {
                     <Text style={styles.secondaryText}>Log Out</Text>
                 </TouchableOpacity>
 
+                <Text style={styles.danger}>⚠️ Danger Zone ⚠️</Text>
+
                 <TouchableOpacity style={styles.deleteButton} onPress={handleDelete}>
                     <Text style={styles.buttonText}>Delete Account</Text>
                 </TouchableOpacity>
@@ -176,6 +178,13 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         color: '#fff',
         marginBottom: 10,
+    },
+    danger: {
+        fontSize: 22,
+        fontWeight: '700',
+        color: '#FF0000',
+        marginBottom: 10,
+        marginTop: 20,
     },
     input: {
         backgroundColor: '#fff',

@@ -2,6 +2,7 @@ import React, { useState, useContext, useRef, useEffect } from 'react';
 import {
     View,
     Text,
+    Linking,
     TextInput,
     TouchableOpacity,
     StyleSheet,
@@ -70,15 +71,13 @@ export default function LoginScreen() {
                     <TestImage />
 
                     <View style={styles.header}>
-                        <Text style={styles.headerTitle}>Welcome Back to Voxxy Beta ✨</Text>
+                        <Text style={styles.headerTitle}>Log in to Voxxy Beta ✨</Text>
                         <Text style={styles.headerSubtitle}>
                             You’re getting full access to the Voxxy experience and your feedback shapes our product.
                         </Text>
                     </View>
 
                     <View style={styles.form}>
-                        <Text style={styles.heading}>Log in to your account</Text>
-
                         <View style={styles.inputGroup}>
                             <Text style={styles.label}>Email</Text>
                             <TextInput

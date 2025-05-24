@@ -35,10 +35,10 @@ export default function YourCommunity({ showInvitePopup, onSelectUser, onInviteP
             <View style={styles.noContainer}>
                 <Image source={SmallTriangle} style={styles.avatar} />
                 <Text style={styles.noTitle}>No Voxxy Crew Yet</Text>
-                <Text style={styles.noSub}>Invite friends to start Voxxing together!</Text>
+                <Text style={styles.noSub}>Visit the web application, start your first activiy, and invite friends to start Voxxing together!</Text>
                 {onInvitePress && (
                     <TouchableOpacity style={styles.button} onPress={onInvitePress}>
-                        <Text style={styles.btnText}>Invite Friends</Text>
+                        <Text style={styles.btnText}>Get Started Now</Text>
                     </TouchableOpacity>
                 )}
             </View>
@@ -72,7 +72,6 @@ export default function YourCommunity({ showInvitePopup, onSelectUser, onInviteP
                 </TouchableOpacity>
             )}
 
-            {/* Peer details modal */}
             <Modal visible={!!selectedPeer} transparent animationType="fade">
                 <TouchableOpacity style={styles.modalOverlay} onPress={() => setSelectedPeer(null)}>
                     <View style={styles.modalContent}>
@@ -112,7 +111,7 @@ const styles = StyleSheet.create({
     lastAct: { color: colors.textSecondary, fontSize: 12, marginTop: 4 },
     showMore: { color: colors.primaryButton, textAlign: 'center', marginTop: 8, textDecorationLine: 'underline' },
 
-    noContainer: { alignItems: 'center', padding: 24, marginTop: 24 },
+    noContainer: { alignItems: 'center', padding: 24, marginTop: 24, marginBottom: 24  },
     noTitle: { fontSize: 18, color: '#fff', fontWeight: '600', marginTop: 12 },
     noSub: { color: colors.textSecondary, textAlign: 'center', marginVertical: 12 },
     button: { backgroundColor: colors.primaryButton, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20 },

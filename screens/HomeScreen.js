@@ -13,6 +13,7 @@ import {
 import { UserContext } from '../context/UserContext'
 import YourCommunity from '../components/YourCommunity'
 import VoxxyFooter from '../components/VoxxyFooter'
+import TestImage from '../components/TestImage'
 
 const FILTERS = ['All', 'Upcoming', 'Past']
 const PREVIEW_COUNT = 3
@@ -85,14 +86,12 @@ export default function HomeScreen() {
     )
   }
 
-  // decide which slice to render
   const previewData = showAll ? data : data.slice(0, PREVIEW_COUNT)
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" />
       <ScrollView contentContainerStyle={styles.scrollContainer}>
-        {/* Header & Filters */}
         <View style={styles.titleSection}>
           <Text style={styles.title}>
             Welcome to <Text style={styles.highlight}>Voxxy</Text>
@@ -131,7 +130,6 @@ export default function HomeScreen() {
           ))}
         </View>
 
-        {/* Activities */}
         {data.length === 0 ? (
           <Text style={styles.emptyText}>No activities to show.</Text>
         ) : (
@@ -166,7 +164,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0f0f14' },
   scrollContainer: { paddingBottom: 40 },
 
-  header: { fontSize: 24, fontWeight: '700', color: '#fff', marginBottom: 12, paddingHorizontal: 20, paddingVertical: 0, borderRadius: 20,},
+  header: { fontSize: 24, fontWeight: '700', color: '#fff', marginBottom: 12, paddingHorizontal: 20, paddingVertical: 0, borderRadius: 20, textAlign: 'center' },
   webButton: {
     marginTop: 20,
     backgroundColor: '#cc31e8',
@@ -183,7 +181,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   titleSection: {
-    padding: 24,
+    padding: 50,
     alignItems: 'center',
   },
   title: {

@@ -1,5 +1,5 @@
 import React, { useState, useContext } from 'react';
-import { ScrollView, View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { ScrollView, View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Linking } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { UserContext } from '../context/UserContext';
 
@@ -50,8 +50,6 @@ export default function SignUpScreen() {
             </View>
 
             <View style={styles.form}>
-                <Text style={styles.heading}>Create an account</Text>
-
                 <View style={styles.inputGroup}>
                     <Text style={styles.label}>What should we call you?</Text>
                     <TextInput
@@ -98,13 +96,15 @@ export default function SignUpScreen() {
                 </TouchableOpacity>
 
                 <TouchableOpacity >
-                    <Text style={styles.textLink}>
-                        By continuing, you agree to our{' '}
-                        <Text style={styles.textLinkAction}>Terms of Service</Text> and{' '}
-                        <Text style={styles.textLinkAction}>Privacy Policy</Text>.
-                    </Text>
                     <Text onPress={() => navigation.navigate('/')} style={styles.textLink}>
                         Already have an account? <Text style={styles.textLinkAction}>Log in</Text>
+                    </Text>
+                </TouchableOpacity>
+                <TouchableOpacity>
+                    <Text style={styles.textLink}>
+                        By continuing, you agree to our{' '}
+                        <Text onPress={() => Linking.openURL('https://www.voxxyai.com/#terms')} style={styles.textLinkAction}>Terms of Service</Text> and{' '}
+                        <Text onPress={() => Linking.openURL('https://www.voxxyai.com/#/privacy')} style={styles.textLinkAction}>Privacy Policy</Text>.
                     </Text>
                 </TouchableOpacity>
             </View>

@@ -5,7 +5,15 @@
     "build": {
         "production": {
             "developmentClient": false,
-            "distribution": "app-store"
+            "distribution": "internal"
+        },
+        "release": {
+            "developmentClient": false,
+            "distribution": "store"
         }
+    },
+    "submit": {
+        "production": {},
+        "release": {}
     }
 }
