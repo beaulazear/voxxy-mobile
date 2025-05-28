@@ -1,223 +1,203 @@
 import React, { useState, useContext, useRef, useEffect } from 'react';
 import {
-    View,
-    Text,
-    Linking,
-    TextInput,
-    TouchableOpacity,
-    StyleSheet,
-    Alert,
-    KeyboardAvoidingView,
-    Platform,
-    TouchableWithoutFeedback,
-    Keyboard,
-    ScrollView
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  Alert,
+  SafeAreaView,
+  Keyboard,
+  TouchableWithoutFeedback,
+  Platform,
+  Linking,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { UserContext } from '../context/UserContext';
 import { API_URL } from '../config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import TestImage from '../components/TestImage';
+import HeaderSvg from '../assets/header.svg';
 
 export default function LoginScreen() {
-    const { setUser } = useContext(UserContext);
-    const navigation = useNavigation();
-    const passwordRef = useRef();
+  const { setUser } = useContext(UserContext) || {};
+  const navigation = useNavigation();
+  const passwordRef = useRef();
 
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
-    useEffect(() => {
-        AsyncStorage.getItem('jwt').then(token => {
-            if (token) navigation.replace('Home');
-        });
-    }, []);
+  // Redirect if already logged in
+  useEffect(() => {
+    AsyncStorage.getItem('jwt').then(token => {
+      if (token) navigation.replace('Home');
+    });
+  }, []);
 
-    const handleLogin = async () => {
-        Keyboard.dismiss();
-        try {
-            const response = await fetch(`${API_URL}/login`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-Mobile-App': 'true',
-                },
-                body: JSON.stringify({
-                    email: email.toLowerCase().trim(),
-                    password,
-                }),
-            });
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.error || 'Login failed');
-            await AsyncStorage.setItem('jwt', data.token);
-            setUser(data);
-            navigation.replace('/');
-        } catch (error) {
-            Alert.alert('Error', error.message);
-        }
-    };
+  const handleLogin = async () => {
+    if (isLoading) return;
+    setIsLoading(true);
+    Keyboard.dismiss();
+    try {
+      const res = await fetch(`${API_URL}/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Mobile-App': 'true',
+        },
+        body: JSON.stringify({
+          email: email.toLowerCase().trim(),
+          password,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Login failed');
+      await AsyncStorage.setItem('jwt', data.token);
+      setUser(data);
+      navigation.replace('/');  // Redirect to home ("/")
+    } catch (err) {
+      Alert.alert('Error', err.message);
+      setIsLoading(false);
+    }
+  };
 
-    return (
-        <KeyboardAvoidingView
-            style={{ flex: 1 }}
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            keyboardVerticalOffset={Platform.select({ ios: 60, android: 20 })}
-        >
-            <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-                <ScrollView
-                    contentContainerStyle={styles.container}
-                    keyboardShouldPersistTaps="handled"
-                >
-                    <TestImage />
+  return (
+    <SafeAreaView style={styles.container}>
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <View style={styles.inner}>
+          {/* HEADER */}
+          <View style={styles.header}>
+            <HeaderSvg width={260} height={60} />
+            <Text style={styles.loginTitle}>Welcome Back ✨</Text>
+          </View>
 
-                    <View style={styles.header}>
-                        <Text style={styles.headerTitle}>Log in to Voxxy Beta ✨</Text>
-                        <Text style={styles.headerSubtitle}>
-                            You’re getting full access to the Voxxy experience and your feedback shapes our product.
-                        </Text>
-                    </View>
+          {/* FORM */}
+          <View style={styles.form}>
+            <TextInput
+              style={styles.input}
+              placeholder="Email"
+              placeholderTextColor="#888"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoFocus
+              returnKeyType="next"
+              textContentType="emailAddress"
+              onSubmitEditing={() => passwordRef.current?.focus()}
+            />
 
-                    <View style={styles.form}>
-                        <View style={styles.inputGroup}>
-                            <Text style={styles.label}>Email</Text>
-                            <TextInput
-                                value={email}
-                                onChangeText={setEmail}
-                                style={styles.input}
-                                keyboardType="email-address"
-                                autoCapitalize="none"
-                                returnKeyType="next"
-                                onSubmitEditing={() => passwordRef.current?.focus()}
-                                blurOnSubmit={false}
-                            />
-                        </View>
+            <TextInput
+              ref={passwordRef}
+              style={styles.input}
+              placeholder="Password"
+              placeholderTextColor="#888"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+              returnKeyType="go"
+              textContentType="password"
+              onSubmitEditing={handleLogin}
+            />
 
-                        <View style={styles.inputGroup}>
-                            <Text style={styles.label}>Password</Text>
-                            <TextInput
-                                ref={passwordRef}
-                                value={password}
-                                onChangeText={setPassword}
-                                style={styles.input}
-                                secureTextEntry
-                                returnKeyType="go"
-                                onSubmitEditing={handleLogin}
-                            />
-                        </View>
+            <TouchableOpacity
+              style={[styles.submitButton, isLoading && styles.submitButtonDisabled]}
+              onPress={handleLogin}
+              disabled={isLoading}
+            >
+              <Text style={styles.submitText}>
+                {isLoading ? 'Checking your itinerary…' : 'Log in'}
+              </Text>
+            </TouchableOpacity>
 
-                        <TouchableOpacity style={styles.submitButton} onPress={handleLogin}>
-                            <Text style={styles.submitButtonText}>Log in</Text>
-                        </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => navigation.navigate('SignUp')}
+              style={styles.linkRow}
+            >
+              <Text style={styles.linkText}>
+                New here? <Text style={styles.linkAction}>Sign up</Text>
+              </Text>
+            </TouchableOpacity>
 
-                        <TouchableOpacity onPress={() => navigation.navigate('SignUp')}>
-                            <Text style={styles.textLink}>
-                                New here? <Text style={styles.textLinkAction}>Sign up</Text>
-                            </Text>
-                        </TouchableOpacity>
-                    </View>
-
-                    <View style={styles.footer}>
-                        <Text
-                            style={[styles.footerLink, styles.forgot]}
-                            onPress={() => navigation.navigate('ForgotPassword')}
-                        >
-                            Forgot Password?
-                        </Text>
-                    </View>
-                </ScrollView>
-            </TouchableWithoutFeedback>
-        </KeyboardAvoidingView>
-    );
+            <TouchableOpacity
+              onPress={() =>
+                Linking.openURL('https://www.voxxyai.com/#/forgot-password')
+              }
+              style={styles.linkRow}
+            >
+              <Text style={styles.linkText}>
+                <Text style={styles.linkAction}>Forgot Password?</Text>
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </TouchableWithoutFeedback>
+    </SafeAreaView>
+  );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flexGrow: 1,
-        backgroundColor: '#201925',
-        paddingHorizontal: 30,
-        paddingVertical: 10,
-        justifyContent: 'center',
-    },
-    header: {
-        marginBottom: 32,
-        alignItems: 'center',
-        paddingHorizontal: 8,
-    },
-    headerTitle: {
-        fontSize: 28,
-        fontWeight: '700',
-        color: '#fff',
-        textAlign: 'center',
-        marginBottom: 8,
-    },
-    headerSubtitle: {
-        fontSize: 14,
-        color: '#ccc',
-        textAlign: 'center',
-        lineHeight: 20,
-    },
-    form: {
-        paddingHorizontal: 8,
-    },
-    heading: {
-        fontSize: 22,
-        fontWeight: '600',
-        color: '#fff',
-        textAlign: 'center',
-        marginBottom: 24,
-    },
-    inputGroup: {
-        marginBottom: 16,
-    },
-    label: {
-        fontSize: 14,
-        color: '#fff',
-        marginBottom: 4,
-        fontWeight: '500',
-    },
-    input: {
-        width: '100%',
-        backgroundColor: '#211825',
-        borderRadius: 8,
-        paddingVertical: 12,
-        paddingHorizontal: 16,
-        fontSize: 16,
-        color: '#fff',
-        borderWidth: 1.5,
-        borderColor: '#592566',
-    },
-    submitButton: {
-        marginTop: 8,
-        backgroundColor: '#cc31e8',
-        paddingVertical: 14,
-        borderRadius: 50,
-        alignItems: 'center',
-    },
-    submitButtonText: {
-        color: '#fff',
-        fontSize: 16,
-        fontWeight: '600',
-    },
-    textLink: {
-        fontSize: 14,
-        color: '#ccc',
-        textAlign: 'center',
-        marginTop: 16,
-    },
-    textLinkAction: {
-        color: '#cc31e8',
-        textDecorationLine: 'underline',
-        fontWeight: '500',
-    },
-    footer: {
-        marginTop: 32,
-        alignItems: 'center',
-    },
-    footerLink: {
-        color: '#cc31e8',
-        textDecorationLine: 'underline',
-    },
-    forgot: {
-        marginTop: 8,
-    },
+  container: {
+    flex: 1,
+    backgroundColor: '#201925',
+  },
+  inner: {
+    flex: 1,
+    paddingHorizontal: 12,
+    justifyContent: 'flex-start',
+  },
+  header: {
+    alignItems: 'center',
+    marginTop: Platform.OS === 'ios' ? 40 : 20,
+    marginBottom: 30,
+  },
+  loginTitle: {
+    marginTop: 12,
+    color: '#ccc',
+    fontSize: 18,
+    fontWeight: '500',
+  },
+  form: {
+    width: '100%',
+  },
+  input: {
+    width: '100%',
+    backgroundColor: '#211825',
+    borderRadius: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    fontSize: 16,
+    color: '#fff',
+    marginBottom: 16,
+    borderWidth: 1.5,
+    borderColor: '#592566',
+  },
+  submitButton: {
+    backgroundColor: '#cc31e8',
+    paddingVertical: 14,
+    borderRadius: 50,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  submitButtonDisabled: {
+    opacity: 0.6,
+  },
+  submitText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  linkRow: {
+    marginTop: 16,
+    alignItems: 'center',
+  },
+  linkText: {
+    color: '#888',
+    fontSize: 14,
+  },
+  linkAction: {
+    color: '#cc31e8',
+    textDecorationLine: 'underline',
+    fontWeight: '500',
+  },
 });

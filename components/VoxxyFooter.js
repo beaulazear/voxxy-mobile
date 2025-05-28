@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { UserContext } from '../context/UserContext';
 import Woman from '../assets/voxxy-triangle.png';
+import colors from '../styles/Colors';
 
 export default function VoxxyFooter() {
     const navigation = useNavigation();
@@ -13,11 +14,11 @@ export default function VoxxyFooter() {
     return (
         <View style={styles.container}>
             <TouchableOpacity style={styles.iconButton} onPress={() => navigation.navigate('/')}>
-                <Ionicons name="home-outline" size={28} color="#fff" />
+                <Ionicons visible name="home-outline" size={28} color="#fff" />
             </TouchableOpacity>
 
             <TouchableOpacity onPress={() => navigation.navigate('Profile')}>
-                <Image source={Woman} style={styles.avatar} />
+                <Image  source={Woman} style={styles.avatar} />
             </TouchableOpacity>
         </View>
     );
@@ -31,17 +32,12 @@ const styles = StyleSheet.create({
         right: 0,
         paddingHorizontal: 32,
         paddingVertical: Platform.OS === 'ios' ? 20 : 14,
-        backgroundColor: 'rgba(13,11,31,0.95)',
-        borderTopWidth: 1,
-        borderColor: 'rgba(255,255,255,0.1)',
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
         zIndex: 100,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: -4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 6,
+        backgroundColor: '#201925',
+        opacity: 2,
         elevation: 10,
     },
     iconButton: {
@@ -54,7 +50,8 @@ const styles = StyleSheet.create({
         width: 40,
         height: 40,
         borderRadius: 25,
-        borderColor: '#000',
+        borderColor: colors.primaryButton,
         backgroundColor: '#fff',
+        paddingTop: 2,
     },
 });

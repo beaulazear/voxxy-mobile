@@ -14,9 +14,9 @@ export default function TestImage() {
             <Image
                 source={Woman}
                 style={{
-                    width: 120,
-                    height: 120,
-                    marginBottom: 20,        // use margin instead of padding
+                    width: 100,
+                    height: 100,
+                    marginBottom: 15,        // use margin instead of padding
                 }}
                 resizeMode="contain"     // ensures the PNG scales inside its box
             />

@@ -14,6 +14,7 @@ import Woman from '../assets/voxxy-triangle.png';
 import { useNavigation } from '@react-navigation/native';
 import { API_URL } from '../config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import CustomHeader from '../components/CustomHeader';
 
 export default function ProfileScreen() {
     const { user, setUser } = useContext(UserContext);
@@ -76,75 +77,72 @@ export default function ProfileScreen() {
             });
     };
 
-    const handleDelete = () => {
-        Alert.alert(
-            'Delete Account',
-            'Are you sure? This cannot be undone.',
-            [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                    text: 'Delete',
-                    style: 'destructive',
-                    onPress: () => {
-                        fetch(`${API_URL}/users/${user.id}`, {
-                            method: 'DELETE',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${token}`, // ✅ CRITICAL
-                            },
-                        })
-                            .then((res) => {
-                                if (!res.ok) throw new Error('Failed to delete account');
-                                setUser(null);
-                            })
-                            .catch((err) => {
-                                console.error('Delete error:', err);
-                                Alert.alert('Error', 'Failed to delete account.');
-                            });
-                    },
-                },
-            ]
-        );
-    };
+    // const handleDelete = () => {
+    //     Alert.alert(
+    //         'Delete Account',
+    //         'Are you sure? This cannot be undone.',
+    //         [
+    //             { text: 'Cancel', style: 'cancel' },
+    //             {
+    //                 text: 'Delete',
+    //                 style: 'destructive',
+    //                 onPress: () => {
+    //                     fetch(`${API_URL}/users/${user.id}`, {
+    //                         method: 'DELETE',
+    //                         headers: {
+    //                             'Content-Type': 'application/json',
+    //                             'Authorization': `Bearer ${token}`, // ✅ CRITICAL
+    //                         },
+    //                     })
+    //                         .then((res) => {
+    //                             if (!res.ok) throw new Error('Failed to delete account');
+    //                             setUser(null);
+    //                         })
+    //                         .catch((err) => {
+    //                             console.error('Delete error:', err);
+    //                             Alert.alert('Error', 'Failed to delete account.');
+    //                         });
+    //                 },
+    //             },
+    //         ]
+    //     );
+    // };
 
     return (
-        <ScrollView contentContainerStyle={styles.container}>
-            <View style={styles.profileCard}>
-                <Image source={Woman} style={styles.avatar} />
+        <>
+            <CustomHeader />
+            <ScrollView contentContainerStyle={styles.container}>
+                <View style={styles.profileCard}>
+                    <Image source={Woman} style={styles.avatar} />
 
-                {isEditing ? (
-                    <>
-                        <TextInput
-                            style={styles.input}
-                            value={newName}
-                            onChangeText={setNewName}
-                            placeholder="Enter your name"
-                            placeholderTextColor="#aaa"
-                        />
-                        <TouchableOpacity style={styles.button} onPress={handleSave}>
-                            <Text style={styles.buttonText}>Save</Text>
-                        </TouchableOpacity>
-                    </>
-                ) : (
-                    <>
-                        <Text style={styles.name}>{user?.name || 'User'}</Text>
-                        <TouchableOpacity style={styles.button} onPress={() => setIsEditing(true)}>
-                            <Text style={styles.buttonText}>Edit Name</Text>
-                        </TouchableOpacity>
-                    </>
-                )}
+                    {isEditing ? (
+                        <>
+                            <TextInput
+                                style={styles.input}
+                                value={newName}
+                                onChangeText={setNewName}
+                                placeholder="Enter your name"
+                                placeholderTextColor="#aaa"
+                            />
+                            <TouchableOpacity style={styles.button} onPress={handleSave}>
+                                <Text style={styles.buttonText}>Save</Text>
+                            </TouchableOpacity>
+                        </>
+                    ) : (
+                        <>
+                            <Text style={styles.name}>{user?.name || 'User'}</Text>
+                            <TouchableOpacity style={styles.button} onPress={() => setIsEditing(true)}>
+                                <Text style={styles.buttonText}>Edit Name</Text>
+                            </TouchableOpacity>
+                        </>
+                    )}
 
-                <TouchableOpacity style={styles.secondaryButton} onPress={handleLogout}>
-                    <Text style={styles.secondaryText}>Log Out</Text>
-                </TouchableOpacity>
-
-                <Text style={styles.danger}>⚠️ Danger Zone ⚠️</Text>
-
-                <TouchableOpacity style={styles.deleteButton} onPress={handleDelete}>
-                    <Text style={styles.buttonText}>Delete Account</Text>
-                </TouchableOpacity>
-            </View>
-        </ScrollView>
+                    <TouchableOpacity style={styles.secondaryButton} onPress={handleLogout}>
+                        <Text style={styles.secondaryText}>Log Out</Text>
+                    </TouchableOpacity>
+                </View>
+            </ScrollView>
+        </>
     );
 }
 

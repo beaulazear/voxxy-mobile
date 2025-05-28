@@ -9,9 +9,16 @@ import LoginScreen from './screens/LoginScreen';
 import SignUpScreen from './screens/SignUpScreen';
 import FAQScreen from './screens/FAQScreen';
 import ProfileScreen from './screens/ProfileScreen';
-import CustomHeader from './components/CustomHeader';
+import LandingScreen from './screens/LandingScreen';
 
 import { ActivityIndicator, View } from 'react-native';
+
+// expo-fonts
+import {
+  useFonts,
+  Montserrat_400Regular,
+  Montserrat_700Bold
+} from '@expo-google-fonts/montserrat';
 
 const Stack = createNativeStackNavigator();
 
@@ -30,21 +37,36 @@ const AppNavigator = () => {
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen
         name="/"
-        component={user ? HomeScreen : LoginScreen}
-        key={user ? 'home' : 'login'} // ✅ Forces remount when user changes
+        component={user ? HomeScreen : LandingScreen}
+        key={user ? 'home' : 'login'}
       />
+      <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="SignUp" component={SignUpScreen} />
       <Stack.Screen name="FAQ" component={FAQScreen} />
       <Stack.Screen name="Profile" component={ProfileScreen} />
+      <Stack.Screen name="AccountCreated" component={ProfileScreen} />
     </Stack.Navigator>
   );
 };
 
 export default function App() {
+  const [fontsLoaded] = useFonts({
+    Montserrat_400Regular,
+    Montserrat_700Bold,
+  });
+
+  if (!fontsLoaded) {
+    // show a spinner until fonts are ready
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#8e44ad" />
+      </View>
+    );
+  }
+
   return (
     <UserProvider>
       <NavigationContainer>
-        <CustomHeader />
         <AppNavigator />
       </NavigationContainer>
     </UserProvider>

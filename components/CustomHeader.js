@@ -4,6 +4,7 @@ import { useNavigation } from '@react-navigation/native';
 import { UserContext } from '../context/UserContext';
 import { Ionicons } from '@expo/vector-icons';
 import VoxxyLogo from '../assets/header.svg'; // ✅ SVG component
+import { HelpCircle } from 'react-native-feather'
 
 export default function CustomHeader() {
     const { user } = useContext(UserContext);
@@ -25,11 +26,8 @@ export default function CustomHeader() {
             <View style={styles.right}>
                 {user ? (
                     <>
-                        <TouchableOpacity onPress={() => navigation.navigate('/')}>
-                            <Text style={styles.link}>Dashboard</Text>
-                        </TouchableOpacity>
                         <TouchableOpacity onPress={() => navigation.navigate('FAQ')}>
-                            <Text style={styles.link}>Help</Text>
+                            <HelpCircle style={styles.link}>Help</HelpCircle>
                         </TouchableOpacity>
                     </>
                 ) : (

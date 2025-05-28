@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking } from 'react-native';
+import CustomHeader from '../components/CustomHeader';
 
 const colors = {
     background: '#201925',
@@ -68,62 +69,65 @@ export default function FAQScreen() {
     };
 
     return (
-        <View style={styles.container}>
-            <Text style={styles.header}>Help & FAQ</Text>
-            <View style={styles.tabContainer}>
-                <TouchableOpacity
-                    style={[
-                        styles.tabButton,
-                        selectedTab === 'faq' && styles.activeTab,
-                    ]}
-                    onPress={() => setSelectedTab('faq')}
-                >
-                    <Text style={[styles.tabText, selectedTab === 'faq' && styles.activeTabText]}>FAQs</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                    style={[
-                        styles.tabButton,
-                        selectedTab === 'steps' && styles.activeTab,
-                    ]}
-                    onPress={() => setSelectedTab('steps')}
-                >
-                    <Text style={[styles.tabText, selectedTab === 'steps' && styles.activeTabText]}>Guide</Text>
-                </TouchableOpacity>
-            </View>
-            <ScrollView contentContainerStyle={styles.scrollContainer}>
-                {selectedTab === 'faq' && faqs.map((item, idx) => (
-                    <View key={idx} style={styles.card}>
-                        <TouchableOpacity onPress={() => toggleExpand(idx)}>
-                            <View style={styles.cardHeader}>
-                                <Text style={styles.question}>{item.question}</Text>
-                                <Text style={styles.indicator}>{expanded[idx] ? '-' : '+'}</Text>
-                            </View>
-                        </TouchableOpacity>
-                        {expanded[idx] && (
-                            <Text style={styles.answer}>{item.answer}</Text>
-                        )}
-                    </View>
-                ))}
+        <>
+            <CustomHeader />
+            <View style={styles.container}>
+                <Text style={styles.header}>Help & FAQ</Text>
+                <View style={styles.tabContainer}>
+                    <TouchableOpacity
+                        style={[
+                            styles.tabButton,
+                            selectedTab === 'faq' && styles.activeTab,
+                        ]}
+                        onPress={() => setSelectedTab('faq')}
+                    >
+                        <Text style={[styles.tabText, selectedTab === 'faq' && styles.activeTabText]}>FAQs</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={[
+                            styles.tabButton,
+                            selectedTab === 'steps' && styles.activeTab,
+                        ]}
+                        onPress={() => setSelectedTab('steps')}
+                    >
+                        <Text style={[styles.tabText, selectedTab === 'steps' && styles.activeTabText]}>Guide</Text>
+                    </TouchableOpacity>
+                </View>
+                <ScrollView contentContainerStyle={styles.scrollContainer}>
+                    {selectedTab === 'faq' && faqs.map((item, idx) => (
+                        <View key={idx} style={styles.card}>
+                            <TouchableOpacity onPress={() => toggleExpand(idx)}>
+                                <View style={styles.cardHeader}>
+                                    <Text style={styles.question}>{item.question}</Text>
+                                    <Text style={styles.indicator}>{expanded[idx] ? '-' : '+'}</Text>
+                                </View>
+                            </TouchableOpacity>
+                            {expanded[idx] && (
+                                <Text style={styles.answer}>{item.answer}</Text>
+                            )}
+                        </View>
+                    ))}
 
-                {selectedTab === 'steps' && steps.map((step, idx) => (
-                    <View key={idx} style={styles.stepCard}>
-                        <View style={styles.accentBar} />
-                        <View style={styles.stepContent}>
-                            <View style={styles.stepIcon}>
-                                <Text style={styles.stepIconText}>{idx + 1}</Text>
-                            </View>
-                            <View style={styles.stepTextGroup}>
-                                <Text style={styles.stepTitle}>{step.title}</Text>
-                                <Text style={styles.stepDescription}>{step.description}</Text>
+                    {selectedTab === 'steps' && steps.map((step, idx) => (
+                        <View key={idx} style={styles.stepCard}>
+                            <View style={styles.accentBar} />
+                            <View style={styles.stepContent}>
+                                <View style={styles.stepIcon}>
+                                    <Text style={styles.stepIconText}>{idx + 1}</Text>
+                                </View>
+                                <View style={styles.stepTextGroup}>
+                                    <Text style={styles.stepTitle}>{step.title}</Text>
+                                    <Text style={styles.stepDescription}>{step.description}</Text>
+                                </View>
                             </View>
                         </View>
-                    </View>
-                ))}
-                <TouchableOpacity style={styles.webButton} onPress={() => Linking.openURL('https://www.voxxyai.com')}>
-                    <Text style={styles.webButtonText}>Open Web App</Text>
-                </TouchableOpacity>
-            </ScrollView>
-        </View>
+                    ))}
+                    <TouchableOpacity style={styles.webButton} onPress={() => Linking.openURL('https://www.voxxyai.com')}>
+                        <Text style={styles.webButtonText}>Open Web App</Text>
+                    </TouchableOpacity>
+                </ScrollView>
+            </View>
+        </>
     );
 }
 

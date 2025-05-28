@@ -2,6 +2,7 @@
   "expo": {
     "name": "voxxy-mobile",
     "slug": "voxxy-mobile",
+    "displayName": "Voxxy Beta",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -15,7 +16,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.beaulazear.voxxymobile",
-      "buildNumber": "1.0.1",
+      "buildNumber": "1.0.3",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -33,6 +34,9 @@
       "eas": {
         "projectId": "51d3ea24-e5e3-4902-b331-73b2a9987477"
       }
-    }
+    },
+    "plugins": [
+      "expo-font"
+    ]
   }
 }
