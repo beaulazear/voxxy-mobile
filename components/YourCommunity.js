@@ -12,6 +12,40 @@ import {
 import { UserContext } from '../context/UserContext'
 import { Users, Calendar, MapPin, Utensils, Clock } from 'react-native-feather'
 import SmallTriangle from '../assets/voxxy-triangle.png'
+import { API_URL } from '../config'
+
+// Avatar mapping for relative paths
+const avatarMap = {
+    // Avatar series
+    'Avatar1.jpg': require('../assets/Avatar1.jpg'),
+    'Avatar2.jpg': require('../assets/Avatar2.jpg'),
+    'Avatar3.jpg': require('../assets/Avatar3.jpg'),
+    'Avatar4.jpg': require('../assets/Avatar4.jpg'),
+    'Avatar5.jpg': require('../assets/Avatar5.jpg'),
+    'Avatar6.jpg': require('../assets/Avatar6.jpg'),
+    'Avatar7.jpg': require('../assets/Avatar7.jpg'),
+    'Avatar8.jpg': require('../assets/Avatar8.jpg'),
+    'Avatar9.jpg': require('../assets/Avatar9.jpg'),
+    'Avatar10.jpg': require('../assets/Avatar10.jpg'),
+    'Avatar11.jpg': require('../assets/Avatar11.jpg'),
+
+    // Weird series
+    'Weird1.jpg': require('../assets/Weird1.jpg'),
+    'Weird2.jpg': require('../assets/Weird2.jpg'),
+    'Weird3.jpg': require('../assets/Weird3.jpg'),
+    'Weird4.jpg': require('../assets/Weird4.jpg'),
+    'Weird5.jpg': require('../assets/Weird5.jpg'),
+}
+
+// Helper function to safely get avatar
+const getAvatarFromMap = (filename) => {
+    try {
+        return avatarMap[filename] || null
+    } catch (error) {
+        console.log(`⚠️ Avatar ${filename} not found in mapping`)
+        return null
+    }
+}
 
 const { width: screenWidth } = Dimensions.get('window')
 
@@ -21,6 +55,51 @@ export default function YourCommunity({ showInvitePopup, onSelectUser, onCreateB
     const [selectedPeer, setSelectedPeer] = useState(null)
 
     if (!user) return null
+
+    // Comprehensive avatar handling function
+    const getDisplayImage = (userObj) => {
+        console.log(`🖼️ Getting image for user:`, {
+            name: userObj?.name,
+            profile_pic_url: userObj?.profile_pic_url,
+            avatar: userObj?.avatar
+        })
+
+        // Check for profile_pic_url first (full URL)
+        if (userObj?.profile_pic_url) {
+            const profilePicUrl = userObj.profile_pic_url.startsWith('http')
+                ? userObj.profile_pic_url
+                : `${API_URL}${userObj.profile_pic_url}`
+            console.log(`📸 Using profile pic URL: ${profilePicUrl}`)
+            return { uri: profilePicUrl }
+        }
+
+        // Check for avatar (relative path)
+        if (userObj?.avatar && userObj.avatar !== SmallTriangle) {
+            // Extract filename from path if it includes directory
+            const avatarFilename = userObj.avatar.includes('/')
+                ? userObj.avatar.split('/').pop()
+                : userObj.avatar
+
+            console.log(`🎭 Looking for avatar: ${avatarFilename}`)
+
+            // Check if we have this avatar in our mapping
+            const mappedAvatar = getAvatarFromMap(avatarFilename)
+            if (mappedAvatar) {
+                console.log(`✅ Found avatar in mapping: ${avatarFilename}`)
+                return mappedAvatar
+            }
+
+            // If it's a full URL, use it
+            if (userObj.avatar.startsWith('http')) {
+                console.log(`🌐 Using avatar URL: ${userObj.avatar}`)
+                return { uri: userObj.avatar }
+            }
+        }
+
+        // Fallback to default icon
+        console.log(`🔄 Using default icon`)
+        return SmallTriangle
+    }
 
     const allUsersMap = new Map()
 
@@ -210,11 +289,13 @@ export default function YourCommunity({ showInvitePopup, onSelectUser, onCreateB
                         >
                             <View style={styles.cardHeader}>
                                 <Image
-                                    source={peerData.user.avatar ? { uri: peerData.user.avatar } : SmallTriangle}
+                                    source={getDisplayImage(peerData.user)}
                                     style={[
                                         styles.avatar,
-                                        peerData.user.avatar ? styles.avatarWithImage : styles.avatarDefault
+                                        peerData.user.avatar || peerData.user.profile_pic_url ? styles.avatarWithImage : styles.avatarDefault
                                     ]}
+                                    onError={() => console.log(`❌ Avatar failed to load for ${peerData.user?.name}`)}
+                                    onLoad={() => console.log(`✅ Avatar loaded for ${peerData.user?.name}`)}
                                 />
                                 <View style={styles.userInfo}>
                                     <Text style={styles.peerName}>{peerData.user.name}</Text>
@@ -296,11 +377,13 @@ export default function YourCommunity({ showInvitePopup, onSelectUser, onCreateB
 
                             <View style={styles.modalHeader}>
                                 <Image
-                                    source={selectedPeer.user.avatar ? { uri: selectedPeer.user.avatar } : SmallTriangle}
+                                    source={getDisplayImage(selectedPeer.user)}
                                     style={[
                                         styles.modalAvatar,
-                                        selectedPeer.user.avatar ? styles.avatarWithImage : styles.avatarDefault
+                                        selectedPeer.user.avatar || selectedPeer.user.profile_pic_url ? styles.avatarWithImage : styles.avatarDefault
                                     ]}
+                                    onError={() => console.log(`❌ Modal avatar failed to load for ${selectedPeer.user?.name}`)}
+                                    onLoad={() => console.log(`✅ Modal avatar loaded for ${selectedPeer.user?.name}`)}
                                 />
                                 <View style={styles.userDetails}>
                                     <Text style={styles.modalPeerName}>{selectedPeer.user.name}</Text>
@@ -387,7 +470,7 @@ export default function YourCommunity({ showInvitePopup, onSelectUser, onCreateB
 
 const styles = StyleSheet.create({
     wrapper: {
-        paddingBottom: 20,
+        paddingBottom: 60,
     },
 
     header: {

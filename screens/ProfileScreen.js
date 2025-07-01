@@ -9,6 +9,8 @@ import {
     Alert,
     ScrollView,
     Switch,
+    Modal,
+    FlatList,
 } from 'react-native';
 import { UserContext } from '../context/UserContext';
 import Woman from '../assets/voxxy-triangle.png';
@@ -16,6 +18,39 @@ import { useNavigation } from '@react-navigation/native';
 import { API_URL } from '../config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import CustomHeader from '../components/CustomHeader';
+
+// Avatar mapping for relative paths
+const avatarMap = {
+    // Avatar series
+    'Avatar1.jpg': require('../assets/Avatar1.jpg'),
+    'Avatar2.jpg': require('../assets/Avatar2.jpg'),
+    'Avatar3.jpg': require('../assets/Avatar3.jpg'),
+    'Avatar4.jpg': require('../assets/Avatar4.jpg'),
+    'Avatar5.jpg': require('../assets/Avatar5.jpg'),
+    'Avatar6.jpg': require('../assets/Avatar6.jpg'),
+    'Avatar7.jpg': require('../assets/Avatar7.jpg'),
+    'Avatar8.jpg': require('../assets/Avatar8.jpg'),
+    'Avatar9.jpg': require('../assets/Avatar9.jpg'),
+    'Avatar10.jpg': require('../assets/Avatar10.jpg'),
+    'Avatar11.jpg': require('../assets/Avatar11.jpg'),
+
+    // Weird series
+    'Weird1.jpg': require('../assets/Weird1.jpg'),
+    'Weird2.jpg': require('../assets/Weird2.jpg'),
+    'Weird3.jpg': require('../assets/Weird3.jpg'),
+    'Weird4.jpg': require('../assets/Weird4.jpg'),
+    'Weird5.jpg': require('../assets/Weird5.jpg'),
+}
+
+// Helper function to safely get avatar
+const getAvatarFromMap = (filename) => {
+    try {
+        return avatarMap[filename] || null
+    } catch (error) {
+        console.log(`⚠️ Avatar ${filename} not found in mapping`)
+        return null
+    }
+}
 
 export default function ProfileScreen() {
     const { user, setUser } = useContext(UserContext);
@@ -33,11 +68,57 @@ export default function ProfileScreen() {
 
     // Tab state
     const [activeTab, setActiveTab] = useState('profile');
+    const [showAvatarModal, setShowAvatarModal] = useState(false);
 
     const token = user?.token;
 
     console.log('💬 User in ProfileScreen:', user);
     console.log('💬 Token in ProfileScreen:', token);
+
+    // Comprehensive avatar handling function
+    const getDisplayImage = (userObj) => {
+        console.log(`🖼️ Getting image for user:`, {
+            name: userObj?.name,
+            profile_pic_url: userObj?.profile_pic_url,
+            avatar: userObj?.avatar
+        })
+
+        // Check for profile_pic_url first (full URL)
+        if (userObj?.profile_pic_url) {
+            const profilePicUrl = userObj.profile_pic_url.startsWith('http')
+                ? userObj.profile_pic_url
+                : `${API_URL}${userObj.profile_pic_url}`
+            console.log(`📸 Using profile pic URL: ${profilePicUrl}`)
+            return { uri: profilePicUrl }
+        }
+
+        // Check for avatar (relative path)
+        if (userObj?.avatar && userObj.avatar !== Woman) {
+            // Extract filename from path if it includes directory
+            const avatarFilename = userObj.avatar.includes('/')
+                ? userObj.avatar.split('/').pop()
+                : userObj.avatar
+
+            console.log(`🎭 Looking for avatar: ${avatarFilename}`)
+
+            // Check if we have this avatar in our mapping
+            const mappedAvatar = getAvatarFromMap(avatarFilename)
+            if (mappedAvatar) {
+                console.log(`✅ Found avatar in mapping: ${avatarFilename}`)
+                return mappedAvatar
+            }
+
+            // If it's a full URL, use it
+            if (userObj.avatar.startsWith('http')) {
+                console.log(`🌐 Using avatar URL: ${userObj.avatar}`)
+                return { uri: userObj.avatar }
+            }
+        }
+
+        // Fallback to default icon
+        console.log(`🔄 Using default icon`)
+        return Woman
+    }
 
     useEffect(() => {
         setNewName(user?.name || '');
@@ -169,6 +250,30 @@ export default function ProfileScreen() {
             });
     };
 
+    const handleSaveAvatar = (selectedAvatar) => {
+        fetch(`${API_URL}/users/${user.id}`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+            },
+            body: JSON.stringify({ avatar: selectedAvatar }),
+        })
+            .then((res) => {
+                if (!res.ok) throw new Error('Failed to update avatar');
+                return res.json();
+            })
+            .then((updatedUser) => {
+                setUser({ ...user, avatar: updatedUser.avatar });
+                setShowAvatarModal(false);
+                Alert.alert('Success', 'Avatar updated!');
+            })
+            .catch((err) => {
+                console.error('Update error:', err);
+                Alert.alert('Error', 'Failed to update avatar.');
+            });
+    };
+
     const handleDelete = () => {
         Alert.alert(
             'Delete Account',
@@ -204,9 +309,20 @@ export default function ProfileScreen() {
         <View style={styles.tabContent}>
             {/* Avatar and Name Section */}
             <View style={styles.profileSection}>
-                <View style={styles.avatarContainer}>
-                    <Image source={Woman} style={styles.avatar} />
-                </View>
+                <TouchableOpacity
+                    style={styles.avatarContainer}
+                    onPress={() => setShowAvatarModal(true)}
+                >
+                    <Image
+                        source={getDisplayImage(user)}
+                        style={styles.avatar}
+                        onError={() => console.log(`❌ Avatar failed to load for ${user?.name}`)}
+                        onLoad={() => console.log(`✅ Avatar loaded for ${user?.name}`)}
+                    />
+                    <View style={styles.avatarEditIndicator}>
+                        <Text style={styles.avatarEditText}>✏️</Text>
+                    </View>
+                </TouchableOpacity>
 
                 <View style={styles.nameContainer}>
                     {!isEditingName ? (
@@ -355,6 +471,40 @@ export default function ProfileScreen() {
 
                     {activeTab === 'profile' ? renderProfileTab() : renderSettingsTab()}
                 </View>
+
+                {/* Avatar Selection Modal */}
+                <Modal
+                    visible={showAvatarModal}
+                    transparent={true}
+                    animationType="fade"
+                    onRequestClose={() => setShowAvatarModal(false)}
+                >
+                    <View style={styles.modalOverlay}>
+                        <View style={styles.avatarModal}>
+                            <View style={styles.modalHeader}>
+                                <Text style={styles.modalTitle}>Choose Your Avatar</Text>
+                                <TouchableOpacity onPress={() => setShowAvatarModal(false)}>
+                                    <Text style={styles.modalCloseText}>✕</Text>
+                                </TouchableOpacity>
+                            </View>
+
+                            <FlatList
+                                data={Object.keys(avatarMap)}
+                                numColumns={3}
+                                keyExtractor={(item) => item}
+                                contentContainerStyle={styles.avatarGrid}
+                                renderItem={({ item }) => (
+                                    <TouchableOpacity
+                                        style={styles.avatarOption}
+                                        onPress={() => handleSaveAvatar(item)}
+                                    >
+                                        <Image source={avatarMap[item]} style={styles.avatarOptionImage} />
+                                    </TouchableOpacity>
+                                )}
+                            />
+                        </View>
+                    </View>
+                </Modal>
             </ScrollView>
         </>
     );
@@ -431,13 +581,31 @@ const styles = StyleSheet.create({
     },
     avatarContainer: {
         alignItems: 'center',
+        position: 'relative',
     },
     avatar: {
         width: 80,
         height: 80,
         borderRadius: 40,
         borderWidth: 2,
-        borderColor: '#444',
+        borderColor: '#CC31E8',
+    },
+    avatarEditIndicator: {
+        position: 'absolute',
+        bottom: -2,
+        right: -2,
+        width: 24,
+        height: 24,
+        borderRadius: 12,
+        backgroundColor: '#CC31E8',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 2,
+        borderColor: '#201925',
+    },
+    avatarEditText: {
+        fontSize: 12,
+        color: '#fff',
     },
     nameContainer: {
         flex: 1,
@@ -548,16 +716,16 @@ const styles = StyleSheet.create({
     },
     deleteButton: {
         backgroundColor: '#d11a2a',
-        paddingVertical: 12,
-        paddingHorizontal: 20,
+        paddingVertical: 8,
+        paddingHorizontal: 16,
         borderRadius: 8,
         flex: 1,
         alignItems: 'center',
     },
     logoutButton: {
         backgroundColor: '#6b6b6b',
-        paddingVertical: 12,
-        paddingHorizontal: 20,
+        paddingVertical: 8,
+        paddingHorizontal: 16,
         borderRadius: 8,
         flex: 1,
         alignItems: 'center',
@@ -565,7 +733,59 @@ const styles = StyleSheet.create({
     buttonText: {
         color: '#fff',
         fontWeight: '600',
-        fontSize: 16,
+        fontSize: 14,
         textAlign: 'center',
+    },
+
+    // Modal Styles
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20,
+    },
+    avatarModal: {
+        backgroundColor: '#2A1E30',
+        borderRadius: 16,
+        padding: 20,
+        width: '90%',
+        maxWidth: 400,
+        borderWidth: 1,
+        borderColor: '#444',
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 20,
+    },
+    modalTitle: {
+        fontSize: 18,
+        fontWeight: '600',
+        color: '#fff',
+    },
+    modalCloseText: {
+        fontSize: 18,
+        color: '#CC31E8',
+        fontWeight: '600',
+    },
+    avatarGrid: {
+        justifyContent: 'center',
+        gap: 16,
+    },
+    avatarOption: {
+        width: 70,
+        height: 70,
+        borderRadius: 35,
+        borderWidth: 2,
+        borderColor: '#444',
+        margin: 8,
+        overflow: 'hidden',
+    },
+    avatarOptionImage: {
+        width: '100%',
+        height: '100%',
+        borderRadius: 35,
     },
 });

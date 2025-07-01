@@ -23,6 +23,40 @@ import {
 } from 'react-native-feather'
 
 import DefaultIcon from '../assets/icon.png'
+import { API_URL } from '../config'
+
+// Avatar mapping for relative paths (copied from ParticipantsSection)
+const avatarMap = {
+    // Avatar series
+    'Avatar1.jpg': require('../assets/Avatar1.jpg'),
+    'Avatar2.jpg': require('../assets/Avatar2.jpg'),
+    'Avatar3.jpg': require('../assets/Avatar3.jpg'),
+    'Avatar4.jpg': require('../assets/Avatar4.jpg'),
+    'Avatar5.jpg': require('../assets/Avatar5.jpg'),
+    'Avatar6.jpg': require('../assets/Avatar6.jpg'),
+    'Avatar7.jpg': require('../assets/Avatar7.jpg'),
+    'Avatar8.jpg': require('../assets/Avatar8.jpg'),
+    'Avatar9.jpg': require('../assets/Avatar9.jpg'),
+    'Avatar10.jpg': require('../assets/Avatar10.jpg'),
+    'Avatar11.jpg': require('../assets/Avatar11.jpg'),
+
+    // Weird series
+    'Weird1.jpg': require('../assets/Weird1.jpg'),
+    'Weird2.jpg': require('../assets/Weird2.jpg'),
+    'Weird3.jpg': require('../assets/Weird3.jpg'),
+    'Weird4.jpg': require('../assets/Weird4.jpg'),
+    'Weird5.jpg': require('../assets/Weird5.jpg'),
+}
+
+// Helper function to safely get avatar (copied from ParticipantsSection)
+const getAvatarFromMap = (filename) => {
+    try {
+        return avatarMap[filename] || null
+    } catch (error) {
+        console.log(`⚠️ Avatar ${filename} not found in mapping`)
+        return null
+    }
+}
 
 export default function ActivityHeader({
     activity,
@@ -118,14 +152,48 @@ export default function ActivityHeader({
         return `${hour}:${rawMin} ${suffix}`
     }
 
+    // Updated getDisplayImage function with comprehensive avatar handling
     const getDisplayImage = (userObj) => {
-        const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001'
+        console.log(`🖼️ Getting image for user:`, {
+            name: userObj?.name,
+            profile_pic_url: userObj?.profile_pic_url,
+            avatar: userObj?.avatar
+        })
+
+        // Check for profile_pic_url first (full URL)
         if (userObj?.profile_pic_url) {
             const profilePicUrl = userObj.profile_pic_url.startsWith('http')
                 ? userObj.profile_pic_url
                 : `${API_URL}${userObj.profile_pic_url}`
+            console.log(`📸 Using profile pic URL: ${profilePicUrl}`)
             return { uri: profilePicUrl }
         }
+
+        // Check for avatar (relative path)
+        if (userObj?.avatar && userObj.avatar !== DefaultIcon) {
+            // Extract filename from path if it includes directory
+            const avatarFilename = userObj.avatar.includes('/')
+                ? userObj.avatar.split('/').pop()
+                : userObj.avatar
+
+            console.log(`🎭 Looking for avatar: ${avatarFilename}`)
+
+            // Check if we have this avatar in our mapping
+            const mappedAvatar = getAvatarFromMap(avatarFilename)
+            if (mappedAvatar) {
+                console.log(`✅ Found avatar in mapping: ${avatarFilename}`)
+                return mappedAvatar
+            }
+
+            // If it's a full URL, use it
+            if (userObj.avatar.startsWith('http')) {
+                console.log(`🌐 Using avatar URL: ${userObj.avatar}`)
+                return { uri: userObj.avatar }
+            }
+        }
+
+        // Fallback to default icon
+        console.log(`🔄 Using default icon`)
         return DefaultIcon
     }
 
@@ -272,6 +340,8 @@ export default function ActivityHeader({
                             source={getDisplayImage(activity.user)}
                             style={styles.hostImage}
                             defaultSource={DefaultIcon}
+                            onError={() => console.log(`❌ Avatar failed to load for ${activity.user?.name}`)}
+                            onLoad={() => console.log(`✅ Avatar loaded for ${activity.user?.name}`)}
                         />
                         <View style={styles.hostBadge}>
                             <Star stroke="#fff" width={12} height={12} fill="#fff" />
