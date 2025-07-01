@@ -17,6 +17,8 @@ import VoxxyFooter from '../components/VoxxyFooter'
 import { Users, Calendar, Clock, HelpCircle, X } from 'react-native-feather'
 import CustomHeader from '../components/CustomHeader'
 import YourCommunity from '../components/YourCommunity'
+import { useNavigation } from '@react-navigation/native';
+
 
 const FILTERS = ['In Progress', 'Finalized', 'Past', 'Invites']
 const PREVIEW_PAST = 3
@@ -158,6 +160,7 @@ function HelpModal({ visible, onClose }) {
 
 export default function HomeScreen() {
   const { user } = useContext(UserContext)
+  const navigation = useNavigation() // Add this line!
   const [filter, setFilter] = useState('In Progress')
   const [showAllPast, setShowAllPast] = useState(false)
   const [helpVisible, setHelpVisible] = useState(false)
@@ -181,7 +184,6 @@ export default function HomeScreen() {
     ?.filter(p => !p.accepted)
     .map(p => p.activity) || []
 
-  // Auto-set filter based on available content
   useEffect(() => {
     if (invites.length > 0) {
       setFilter('Invites')
@@ -274,8 +276,8 @@ export default function HomeScreen() {
           index === 0 && styles.firstCard,
           index === displayedActivities.length - 1 && styles.lastCard
         ]}
+        onPress={() => navigation.navigate('ActivityDetails', { activityId: item.id })} // Updated this line!
       >
-        {/* Tags */}
         <View style={[styles.hostTag, isInvite && styles.inviteTag]}>
           <Users stroke="#fff" width={10} height={10} />
           <Text style={styles.tagText}>{firstName}</Text>
@@ -286,14 +288,12 @@ export default function HomeScreen() {
           </Text>
         </View>
 
-        {/* Invite Badge */}
         {isInvite && (
           <View style={styles.inviteBadge}>
             <Text style={styles.inviteBadgeText}>🎉 PENDING INVITE 🎉</Text>
           </View>
         )}
 
-        {/* Main Content Area */}
         <View style={styles.cardContent}>
           {countdownTs ? (
             <CountdownText targetTs={countdownTs} activityType={item.activity_type} />
@@ -309,7 +309,6 @@ export default function HomeScreen() {
           )}
         </View>
 
-        {/* Card Footer */}
         <View style={styles.cardFooter}>
           <Text style={styles.cardTitle}>{item.activity_name}</Text>
           <View style={styles.metaRow}>
@@ -323,11 +322,11 @@ export default function HomeScreen() {
             </View>
           </View>
           <View style={styles.bottomRow}>
-            <TouchableOpacity onPress={() => Linking.openURL(`https://www.voxxyai.com/login`)}>
+            <View style={styles.viewLinkContainer}>
               <Text style={styles.viewLink}>
                 {isInvite ? 'View invite' : isInProgress ? 'Continue planning' : 'View board'} →
               </Text>
-            </TouchableOpacity>
+            </View>
             <View style={styles.partCount}>
               <Text style={styles.partText}>{(item.participants?.length || 0) + 1} ppl</Text>
             </View>
@@ -788,6 +787,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+
+  viewLinkContainer: {
+    flex: 1,
   },
 
   partCount: {

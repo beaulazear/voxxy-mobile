@@ -10,10 +10,10 @@ import SignUpScreen from './screens/SignUpScreen';
 import FAQScreen from './screens/FAQScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import LandingScreen from './screens/LandingScreen';
+import ActivityDetailsScreen from './screens/ActivityDetailsScreen';
 
 import { ActivityIndicator, View } from 'react-native';
 
-// expo-fonts
 import {
   useFonts,
   Montserrat_400Regular,
@@ -42,6 +42,11 @@ const AppNavigator = () => {
       />
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="SignUp" component={SignUpScreen} />
+      <Stack.Screen
+        name="ActivityDetails"
+        component={ActivityDetailsScreen}
+        options={{ headerShown: false }}
+      />
       <Stack.Screen name="FAQ" component={FAQScreen} />
       <Stack.Screen name="Profile" component={ProfileScreen} />
       <Stack.Screen name="AccountCreated" component={ProfileScreen} />
@@ -56,7 +61,6 @@ export default function App() {
   });
 
   if (!fontsLoaded) {
-    // show a spinner until fonts are ready
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
         <ActivityIndicator size="large" color="#8e44ad" />

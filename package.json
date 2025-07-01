@@ -28,7 +28,9 @@
   "devDependencies": {
     "@babel/core": "^7.20.0",
     "@react-native-community/cli": "latest",
-    "react-native-svg-transformer": "^1.5.1"
+    "react-native-svg-transformer": "^1.5.1",
+    "typescript": "~5.8.3",
+    "@types/react": "~19.0.10"
   },
   "private": true
 }
