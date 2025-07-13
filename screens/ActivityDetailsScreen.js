@@ -16,7 +16,67 @@ import { useNavigation } from '@react-navigation/native'
 import { ArrowLeft, X } from 'react-native-feather'
 import ActivityHeader from '../components/ActivityHeader'
 import ParticipantsSection from '../components/ParticipantsSection'
+import AIRecommendations from '../components/AIRecommendations'
+import CommentsSection from '../components/CommentsSection'
 import { API_URL } from '../config' // Import API_URL from config like ProfileScreen
+
+// Adventures array for activity type information
+const adventures = [
+    {
+        name: 'Lets Eat',
+        emoji: '🍜',
+        active: true,
+        description: 'Schedule your next group meal together.'
+    },
+    {
+        name: 'Night Out',
+        emoji: '🍸',
+        active: true,
+        description: 'Plan your perfect night out with friends.'
+    },
+    {
+        name: 'Lets Meet',
+        emoji: '⏰',
+        active: true,
+        description: 'Find a time that works for everyone.'
+    },
+    {
+        name: 'Game Night',
+        emoji: '🎮',
+        active: true,
+        description: 'Set up a memorable game night.'
+    },
+    {
+        name: 'Find a Destination',
+        emoji: '🗺️',
+        active: false,
+        description: 'Discover new travel destinations.'
+    },
+    {
+        name: 'Movie Night',
+        emoji: '🎥',
+        active: false,
+        description: 'Plan your perfect movie night.'
+    },
+    {
+        name: 'Kids Play Date',
+        emoji: '👩‍👧‍👦',
+        active: false,
+        description: 'Coordinate a fun playdate for little ones.'
+    },
+    {
+        name: 'Family Reunion',
+        emoji: '👨‍👩‍👧‍👦',
+        active: false,
+        description: 'Plan a family gathering.'
+    },
+]
+
+// Helper function to get activity details
+const getActivityDetails = (activityType) => {
+    return adventures.find(adventure => adventure.name === activityType) ||
+        { emoji: '🎉', description: 'Join this exciting activity!' };
+}
 
 export default function ActivityDetailsScreen({ route }) {
     const { activityId } = route.params
@@ -145,10 +205,12 @@ export default function ActivityDetailsScreen({ route }) {
         if (!pendingInvite) return
 
         try {
-            const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001'
             const response = await fetch(`${API_URL}/activity_participants/accept`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
                 credentials: 'include',
                 body: JSON.stringify({
                     email: user.email,
@@ -170,6 +232,11 @@ export default function ActivityDetailsScreen({ route }) {
                         ? { ...p, accepted: true, activity: updatedActivity }
                         : p
                 ),
+                activities: prevUser.activities.map(activity =>
+                    activity.id === updatedActivity.id
+                        ? updatedActivity
+                        : activity
+                ),
             }))
 
             Alert.alert('Success', 'Welcome to the board!')
@@ -184,10 +251,12 @@ export default function ActivityDetailsScreen({ route }) {
         if (!pendingInvite) return
 
         try {
-            const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001'
             const response = await fetch(`${API_URL}/activity_participants/decline`, {
                 method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
                 credentials: 'include',
                 body: JSON.stringify({
                     email: user.email,
@@ -451,19 +520,14 @@ export default function ActivityDetailsScreen({ route }) {
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={styles.contentContainer}
             >
-                {/* Header Section - ActivityHeader component */}
                 <ActivityHeader
                     activity={currentActivity}
                     isOwner={isOwner}
                     onBack={handleBack}
                     onEdit={() => setShowUpdateModal(true)}
-                    onDelete={handleDelete}
-                    onLeave={handleLeaveActivity}
                 />
 
-                {/* Content Section */}
                 <View style={[styles.contentSection, pendingInvite && styles.blurred]}>
-                    {/* ParticipantsSection */}
                     <ParticipantsSection
                         activity={currentActivity}
                         votes={currentActivity.activity_type === 'Meeting' ? pinned : pinnedActivities}
@@ -472,12 +536,17 @@ export default function ActivityDetailsScreen({ route }) {
                         onRemoveParticipant={handleRemoveParticipant}
                     />
 
-                    {/* Placeholder for ActivityCommentSection */}
-                    <View style={styles.commentsPlaceholder}>
-                        <Text style={styles.placeholderText}>
-                            Comments Section Placeholder
-                        </Text>
-                    </View>
+                    <AIRecommendations
+                        activity={currentActivity}
+                        pinnedActivities={pinnedActivities}
+                        setPinnedActivities={setPinnedActivities}
+                        setPinned={setPinned}
+                        setRefreshTrigger={setRefreshTrigger}
+                        isOwner={isOwner}
+                        onEdit={() => setShowUpdateModal(true)}
+                    />
+
+                    <CommentsSection activity={currentActivity} />
                 </View>
             </ScrollView>
 
@@ -517,7 +586,6 @@ export default function ActivityDetailsScreen({ route }) {
     )
 }
 
-// Animated Background Component
 function AnimatedBackground({ backgroundAnim, smokeAnim1, smokeAnim2 }) {
     return (
         <View style={styles.backgroundContainer}>
@@ -564,8 +632,9 @@ function AnimatedBackground({ backgroundAnim, smokeAnim1, smokeAnim2 }) {
     )
 }
 
-// Invite Prompt Overlay Component
 function InvitePromptOverlay({ activity, onAccept, onDecline, onClose }) {
+    const activityDetails = getActivityDetails(activity.activity_type);
+
     return (
         <Modal
             visible={true}
@@ -575,29 +644,27 @@ function InvitePromptOverlay({ activity, onAccept, onDecline, onClose }) {
             <View style={styles.inviteOverlay}>
                 <View style={styles.inviteCard}>
                     <TouchableOpacity style={styles.inviteCloseButton} onPress={onClose}>
-                        <X stroke="#fff" width={20} height={20} />
+                        <X stroke="#fff" width={18} height={18} />
                     </TouchableOpacity>
 
                     <Text style={styles.inviteTitle}>🎉 You're Invited!</Text>
 
-                    <Text style={styles.inviteSubtitle}>
-                        <Text style={styles.hostName}>{activity.user?.name}</Text> invited you to join{' '}
+                    <Text style={styles.hostInvite}>
+                        <Text style={styles.hostName}>{activity.user?.name}</Text> invited you to{' '}
                         <Text style={styles.activityNameHighlight}>{activity.activity_name}</Text>
                     </Text>
 
-                    {activity.welcome_message && (
-                        <Text style={styles.welcomeMessage}>
-                            "{activity.welcome_message}"
-                        </Text>
-                    )}
+                    <Text style={styles.funMessage}>
+                        Have fun with the {activityDetails.emoji}
+                    </Text>
 
                     <View style={styles.inviteButtons}>
                         <TouchableOpacity style={styles.acceptButton} onPress={onAccept}>
-                            <Text style={styles.acceptButtonText}>Accept Invite</Text>
+                            <Text style={styles.acceptButtonText}>Join</Text>
                         </TouchableOpacity>
 
                         <TouchableOpacity style={styles.declineButton} onPress={onDecline}>
-                            <Text style={styles.declineButtonText}>Decline</Text>
+                            <Text style={styles.declineButtonText}>Pass</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -749,10 +816,10 @@ const styles = StyleSheet.create({
         fontSize: 16,
     },
 
-    // Invite Overlay Styles
+    // Sleek Invite Overlay Styles
     inviteOverlay: {
         flex: 1,
-        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        backgroundColor: 'rgba(0, 0, 0, 0.85)',
         justifyContent: 'center',
         alignItems: 'center',
         padding: 20,
@@ -760,33 +827,43 @@ const styles = StyleSheet.create({
 
     inviteCard: {
         backgroundColor: '#2C1E33',
-        borderRadius: 20,
-        padding: 30,
-        width: '100%',
-        maxWidth: 400,
+        borderRadius: 24,
+        padding: 28,
+        width: '90%',
+        maxWidth: 350,
         alignItems: 'center',
         borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.1)',
+        borderColor: 'rgba(255, 255, 255, 0.12)',
+        shadowColor: '#000',
+        shadowOffset: {
+            width: 0,
+            height: 8,
+        },
+        shadowOpacity: 0.3,
+        shadowRadius: 16,
+        elevation: 8,
     },
 
     inviteCloseButton: {
         position: 'absolute',
-        top: 15,
-        right: 15,
-        padding: 5,
+        top: 12,
+        right: 12,
+        padding: 8,
+        borderRadius: 20,
+        backgroundColor: 'rgba(255, 255, 255, 0.1)',
     },
 
     inviteTitle: {
         color: '#fff',
-        fontSize: 22,
+        fontSize: 24,
         fontWeight: '700',
-        marginBottom: 16,
+        marginBottom: 20,
         textAlign: 'center',
     },
 
-    inviteSubtitle: {
-        color: 'rgba(255, 255, 255, 0.8)',
-        fontSize: 16,
+    hostInvite: {
+        color: 'rgba(255, 255, 255, 0.9)',
+        fontSize: 17,
         textAlign: 'center',
         marginBottom: 16,
         lineHeight: 24,
@@ -802,45 +879,55 @@ const styles = StyleSheet.create({
         fontWeight: '600',
     },
 
-    welcomeMessage: {
-        color: '#ccc',
-        fontSize: 14,
-        fontStyle: 'italic',
+    funMessage: {
+        color: 'rgba(255, 255, 255, 0.7)',
+        fontSize: 15,
         textAlign: 'center',
-        marginBottom: 24,
-        lineHeight: 20,
+        marginBottom: 28,
+        fontWeight: '500',
     },
 
     inviteButtons: {
         flexDirection: 'row',
-        gap: 12,
+        gap: 14,
+        width: '100%',
     },
 
     acceptButton: {
         backgroundColor: '#cf38dd',
-        paddingHorizontal: 24,
-        paddingVertical: 12,
-        borderRadius: 12,
+        paddingHorizontal: 28,
+        paddingVertical: 14,
+        borderRadius: 16,
         flex: 1,
+        shadowColor: '#cf38dd',
+        shadowOffset: {
+            width: 0,
+            height: 4,
+        },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 4,
     },
 
     acceptButtonText: {
         color: '#fff',
-        fontWeight: '600',
+        fontWeight: '700',
         fontSize: 16,
         textAlign: 'center',
     },
 
     declineButton: {
-        backgroundColor: '#e74c3c',
-        paddingHorizontal: 24,
-        paddingVertical: 12,
-        borderRadius: 12,
+        backgroundColor: 'rgba(255, 255, 255, 0.08)',
+        paddingHorizontal: 28,
+        paddingVertical: 14,
+        borderRadius: 16,
         flex: 1,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.15)',
     },
 
     declineButtonText: {
-        color: '#fff',
+        color: 'rgba(255, 255, 255, 0.8)',
         fontWeight: '600',
         fontSize: 16,
         textAlign: 'center',

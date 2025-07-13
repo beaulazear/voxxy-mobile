@@ -7,19 +7,31 @@ import {
   StyleSheet,
   TouchableOpacity,
   FlatList,
+  ScrollView,
   Linking,
   Alert,
   Modal,
+  Haptics,
+  Animated,
+  Dimensions,
 } from 'react-native'
 import { UserContext } from '../context/UserContext'
 import AccountCreatedScreen from './AccountCreatedScreen'
 import VoxxyFooter from '../components/VoxxyFooter'
-import { Users, Calendar, Clock, HelpCircle, X } from 'react-native-feather'
+import { Users, Calendar, Clock, HelpCircle, X, Plus, Zap, CheckCircle, BookOpen, Mail, Coffee, MapPin, Star, User } from 'react-native-feather'
 import CustomHeader from '../components/CustomHeader'
 import YourCommunity from '../components/YourCommunity'
 import { useNavigation } from '@react-navigation/native';
 
-const FILTERS = ['In Progress', 'Finalized', 'Past', 'Invites']
+const { width: screenWidth } = Dimensions.get('window')
+
+const FILTERS = [
+  { key: 'In Progress', icon: Zap, label: 'In Progress' },
+  { key: 'Finalized', icon: CheckCircle, label: 'Finalized' },
+  { key: 'Past', icon: BookOpen, label: 'Past' },
+  { key: 'Invites', icon: Mail, label: 'Invites' }
+]
+
 const PREVIEW_PAST = 3
 const CARD_MARGIN = 12
 const CARD_PADDING = 16
@@ -29,22 +41,26 @@ const ACTIVITY_CONFIG = {
   'Restaurant': {
     displayText: 'Lets Eat!',
     countdownText: 'MEAL STARTS',
-    countdownLabel: 'Meal Starts In'
+    countdownLabel: 'Meal Starts In',
+    emoji: '🍜'
   },
   'Meeting': {
     displayText: 'Lets Meet!',
     countdownText: 'MEETING STARTED',
-    countdownLabel: 'Meeting Starts In'
+    countdownLabel: 'Meeting Starts In',
+    emoji: '⏰'
   },
   'Game Night': {
     displayText: 'Game Time!',
     countdownText: 'GAME NIGHT STARTED',
-    countdownLabel: 'Game Night Starts In'
+    countdownLabel: 'Game Night Starts In',
+    emoji: '🎮'
   },
   'Cocktails': {
     displayText: 'Lets Go Out!',
     countdownText: 'NIGHT OUT STARTED',
-    countdownLabel: 'Night Out Starts In'
+    countdownLabel: 'Night Out Starts In',
+    emoji: '🍸'
   }
 }
 
@@ -53,7 +69,8 @@ function getActivityDisplayInfo(activityType) {
   return ACTIVITY_CONFIG[activityType] || {
     displayText: 'Lets Meet!',
     countdownText: 'ACTIVITY STARTED',
-    countdownLabel: 'Activity Starts In'
+    countdownLabel: 'Activity Starts In',
+    emoji: '🎉'
   }
 }
 
@@ -133,7 +150,6 @@ function ProgressDisplay({ activity }) {
 
   if (hasSelectedPin && hasDateTime) {
     stage = 'finalized'
-    // Use different text based on activity type
     const displayInfo = getActivityDisplayInfo(activity.activity_type)
     stageDisplay = 'Ready to Go'
     progress = 100
@@ -153,47 +169,95 @@ function ProgressDisplay({ activity }) {
   )
 }
 
-function HelpModal({ visible, onClose }) {
+// Create New Activity Card
+function CreateCard({ navigation, isLast }) {
   return (
-    <Modal
-      visible={visible}
-      transparent={true}
-      animationType="fade"
-      onRequestClose={onClose}
+    <TouchableOpacity
+      style={[
+        styles.createCard,
+        isLast && styles.lastCard
+      ]}
+      onPress={() => {
+        if (Haptics?.impactAsync) {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+        }
+        navigation.navigate('TripDashboardScreen')
+      }}
+      activeOpacity={0.9}
     >
-      <TouchableOpacity style={styles.helpOverlay} onPress={onClose}>
-        <View style={styles.helpModal}>
-          <View style={styles.helpHeader}>
-            <Text style={styles.helpTitle}>How to use this page</Text>
-            <TouchableOpacity onPress={onClose}>
-              <X stroke="#fff" width={20} height={20} />
-            </TouchableOpacity>
+      <View style={styles.createCardGlow} />
+
+      <View style={styles.createCardContent}>
+        <View style={styles.createIconContainer}>
+          <Plus stroke="#4ECDC4" width={28} height={28} strokeWidth={2.5} />
+        </View>
+
+        <Text style={styles.createTitle}>Create New Activity</Text>
+        <Text style={styles.createSubtitle}>Start planning something amazing!</Text>
+
+        <View style={styles.createSuggestions}>
+          <View style={styles.suggestionIcon}>
+            <Coffee stroke="#FF6B6B" width={18} height={18} strokeWidth={2} />
           </View>
-          <View style={styles.helpContent}>
-            <View style={styles.helpItem}>
-              <Text style={styles.helpItemTitle}>✨ Create a New Board</Text>
-              <Text style={styles.helpItemText}>Kick things off by clicking "Create Board" to start planning your next adventure.</Text>
-            </View>
-            <View style={styles.helpItem}>
-              <Text style={styles.helpItemTitle}>📩 Accept Invitations</Text>
-              <Text style={styles.helpItemText}>See a board you've been invited to? Join in and start collaborating with your crew.</Text>
-            </View>
-            <View style={styles.helpItem}>
-              <Text style={styles.helpItemTitle}>🕰 Revisit Past Boards</Text>
-              <Text style={styles.helpItemText}>Scroll through your finalized activities to relive the moments or get inspo for what's next.</Text>
-            </View>
-            <View style={styles.helpItem}>
-              <Text style={styles.helpItemTitle}>🎭 Meet Your Voxxy Crew</Text>
-              <Text style={styles.helpItemText}>Tap into your community! The "Voxxy Crew" section shows everyone you've planned with before.</Text>
-            </View>
-            <View style={styles.helpItem}>
-              <Text style={styles.helpItemTitle}>⚙️ Edit Your Profile & Get Help</Text>
-              <Text style={styles.helpItemText}>Need to update your info or ask a question? Use the top-right nav bar to visit your profile or the Help Center.</Text>
-            </View>
+          <View style={styles.suggestionIcon}>
+            <Star stroke="#4ECDC4" width={18} height={18} strokeWidth={2} />
+          </View>
+          <View style={styles.suggestionIcon}>
+            <MapPin stroke="#FFE66D" width={18} height={18} strokeWidth={2} />
+          </View>
+          <View style={styles.suggestionIcon}>
+            <User stroke="#A8E6CF" width={18} height={18} strokeWidth={2} />
           </View>
         </View>
-      </TouchableOpacity>
-    </Modal>
+
+        <View style={styles.createArrow}>
+          <Text style={styles.createArrowText}>Tap to start →</Text>
+        </View>
+      </View>
+    </TouchableOpacity>
+  )
+}
+
+// Modern Tab Component
+function ModernTab({ filter, isActive, onPress, count }) {
+  const handlePress = () => {
+    if (Haptics?.impactAsync) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+    }
+    onPress()
+  }
+
+  const IconComponent = filter.icon
+
+  return (
+    <TouchableOpacity
+      style={[
+        styles.modernTab,
+        isActive && styles.modernTabActive
+      ]}
+      onPress={handlePress}
+      activeOpacity={0.7}
+    >
+      <View style={styles.tabContent}>
+        <IconComponent
+          stroke={isActive ? '#fff' : '#B8A5C4'}
+          width={16}
+          height={16}
+          strokeWidth={isActive ? 2.5 : 2}
+        />
+        <Text style={[
+          styles.tabLabel,
+          isActive && styles.tabLabelActive
+        ]}>
+          {filter.label}
+        </Text>
+        {filter.key === 'Invites' && count > 0 && (
+          <View style={styles.tabBadge}>
+            <Text style={styles.tabBadgeText}>{count}</Text>
+          </View>
+        )}
+      </View>
+    </TouchableOpacity>
   )
 }
 
@@ -202,7 +266,6 @@ export default function HomeScreen() {
   const navigation = useNavigation()
   const [filter, setFilter] = useState('In Progress')
   const [showAllPast, setShowAllPast] = useState(false)
-  const [helpVisible, setHelpVisible] = useState(false)
 
   if (user && !user.confirmed_at) {
     return <AccountCreatedScreen />
@@ -317,33 +380,46 @@ export default function HomeScreen() {
           index === 0 && styles.firstCard,
           index === displayedActivities.length - 1 && styles.lastCard
         ]}
-        onPress={() => navigation.navigate('ActivityDetails', { activityId: item.id })}
+        onPress={() => {
+          if (Haptics?.impactAsync) {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+          }
+          navigation.navigate('ActivityDetails', { activityId: item.id })
+        }}
+        activeOpacity={0.9}
       >
-        <View style={[styles.hostTag, isInvite && styles.inviteTag]}>
+        <View style={styles.hostTag}>
           <Users stroke="#fff" width={10} height={10} />
           <Text style={styles.tagText}>{firstName}</Text>
         </View>
-        <View style={[styles.typeTag, isInvite && styles.inviteTag]}>
+        <View style={[
+          styles.typeTag,
+          isInvite && styles.inviteTag,
+          isInvite && styles.centeredTag
+        ]}>
           <Text style={styles.tagText}>
             {item.emoji} {displayInfo.displayText}
           </Text>
         </View>
 
-        {isInvite && (
-          <View style={styles.inviteBadge}>
-            <Text style={styles.inviteBadgeText}>🎉 PENDING INVITE 🎉</Text>
-          </View>
-        )}
-
         <View style={styles.cardContent}>
-          {countdownTs ? (
+          {isInvite ? (
+            <View style={styles.inviteContainer}>
+              <View style={styles.inviteHeader}>
+                <Mail stroke="#d394f5" width={16} height={16} />
+                <Text style={styles.inviteLabel}>{firstName} invited you!</Text>
+              </View>
+              <Text style={styles.funMessage}>
+                Have fun with the {displayInfo.emoji}
+              </Text>
+            </View>
+          ) : countdownTs ? (
             <CountdownText targetTs={countdownTs} activityType={item.activity_type} />
           ) : isInProgress ? (
             <ProgressDisplay activity={item} />
           ) : isCompleted ? (
             <View style={styles.completedContainer}>
               <Text style={styles.completedLabel}>ACTIVITY COMPLETED</Text>
-              <Text style={styles.activityTypeEmoji}>{item.emoji}</Text>
             </View>
           ) : (
             <View style={styles.placeholderContent}>
@@ -389,49 +465,42 @@ export default function HomeScreen() {
           <Text style={styles.heroTitle}>Welcome back, {user.name}! 👋</Text>
           <Text style={styles.heroSub}>What are you planning today?</Text>
         </View>
-        <TouchableOpacity style={styles.helpButton} onPress={() => setHelpVisible(true)}>
-          <HelpCircle stroke="#fff" width={24} height={24} />
-        </TouchableOpacity>
       </View>
 
-      <FlatList
-        data={[{ key: 'new' }, ...FILTERS.map(f => ({ key: f }))]}
-        horizontal
-        keyExtractor={item => item.key}
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: CARD_MARGIN }}
-        renderItem={({ item }) => {
-          if (item.key === 'new') {
+      {/* Modern Tab Bar */}
+      <View style={styles.tabContainer}>
+        <View style={styles.tabBar}>
+          {FILTERS.map((filterItem) => {
+            const count = filterItem.key === 'Invites' ? invites.length : 0
+            const isActive = filter === filterItem.key
             return (
-              <TouchableOpacity style={styles.newBtn} onPress={() => navigation.navigate('TripDashboardScreen')}>
-                <Text style={styles.newBtnText}>+ New</Text>
-              </TouchableOpacity>
+              <ModernTab
+                key={filterItem.key}
+                filter={filterItem}
+                isActive={isActive}
+                onPress={() => {
+                  setFilter(filterItem.key)
+                  setShowAllPast(false)
+                }}
+                count={count}
+              />
             )
-          }
-
-          const isActive = filter === item.key
-          const count = item.key === 'Invites' ? invites.length : filteredActivities?.length || 0
-
-          return (
-            <TouchableOpacity
-              style={[styles.tab, isActive && styles.tabActive]}
-              onPress={() => {
-                setFilter(item.key)
-                setShowAllPast(false)
-              }}
-            >
-              <Text style={[styles.tabText, isActive && styles.tabTextActive]}>
-                {item.key}{item.key === 'Invites' && count > 0 ? ` (${count})` : ''}
-              </Text>
-            </TouchableOpacity>
-          )
-        }}
-      />
+          })}
+        </View>
+      </View>
 
       {filteredActivities.length === 0 && (
         <View style={styles.emptyContainer}>
+          <Text style={styles.emptyIcon}>
+            {filter === 'Invites' ? '💌' : '📱'}
+          </Text>
           <Text style={styles.empty}>
             {filter === 'Invites' ? 'No pending invites!' : 'No activities to show.'}
+          </Text>
+          <Text style={styles.emptySub}>
+            {filter === 'Invites'
+              ? 'Check back later for new invitations'
+              : 'Start by creating your first activity below!'}
           </Text>
         </View>
       )}
@@ -443,7 +512,13 @@ export default function HomeScreen() {
       {filter === 'Past' && filteredActivities.length > PREVIEW_PAST && (
         <TouchableOpacity
           style={styles.showMore}
-          onPress={() => setShowAllPast(v => !v)}
+          onPress={() => {
+            if (Haptics?.impactAsync) {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+            }
+            setShowAllPast(v => !v)
+          }}
+          activeOpacity={0.8}
         >
           <Text style={styles.showMoreText}>
             {showAllPast ? 'Show Less' : `Show ${filteredActivities.length - PREVIEW_PAST} More`}
@@ -466,26 +541,30 @@ export default function HomeScreen() {
           ListHeaderComponent={ListHeader}
           ListFooterComponent={() => (
             <>
-              {filteredActivities.length > 0 && (
-                <FlatList
-                  data={displayedActivities}
-                  keyExtractor={i => String(i.id)}
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  renderItem={renderCard}
-                  contentContainerStyle={styles.horizontalGrid}
-                  snapToAlignment="start"
-                  decelerationRate="fast"
-                  snapToInterval={296} // card width + margin (280 + 16)
-                />
-              )}
+              {/* Always show activities section with create card at the end */}
+              <FlatList
+                data={[...displayedActivities, { isCreateCard: true }]}
+                keyExtractor={(item, index) => item.isCreateCard ? 'create-card' : String(item.id)}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                renderItem={({ item, index }) => {
+                  if (item.isCreateCard) {
+                    return <CreateCard navigation={navigation} isLast={true} />
+                  }
+                  return renderCard({ item, index })
+                }}
+                contentContainerStyle={styles.horizontalGrid}
+                snapToAlignment="start"
+                decelerationRate="fast"
+                snapToInterval={296} // card width + margin (280 + 16)
+              />
               <ListFooter />
             </>
           )}
           contentContainerStyle={styles.grid}
+          showsVerticalScrollIndicator={false}
         />
         <VoxxyFooter />
-        <HelpModal visible={helpVisible} onClose={() => setHelpVisible(false)} />
       </SafeAreaView>
     </>
   )
@@ -510,7 +589,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 30,
+    paddingHorizontal: 24,
+    paddingTop: 20,
+    paddingBottom: 20,
   },
 
   heroContent: {
@@ -519,69 +600,223 @@ const styles = StyleSheet.create({
 
   heroTitle: {
     color: '#fff',
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: '700',
     fontFamily: 'Montserrat_700Bold',
+    lineHeight: 32,
   },
 
   heroSub: {
-    color: '#ccc',
-    marginTop: 8,
+    color: '#B8A5C4',
+    marginTop: 6,
     fontSize: 16,
+    fontWeight: '400',
   },
 
-  helpButton: {
-    padding: 8,
+  // Modern Tab Styles
+  tabContainer: {
+    paddingHorizontal: 16,
+    marginBottom: 24,
   },
 
-  newBtn: {
-    backgroundColor: '#1f7a8c',
-    padding: 10,
-    borderRadius: 20,
-    marginRight: 8,
-    marginBottom: 8,
+  tabBar: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(42, 30, 46, 0.6)',
+    borderRadius: 18,
+    padding: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(185, 84, 236, 0.2)',
+    shadowColor: 'rgba(185, 84, 236, 0.15)',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 1,
+    shadowRadius: 12,
   },
 
-  newBtnText: {
+  modernTab: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderRadius: 14,
+    position: 'relative',
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+
+  modernTabActive: {
+    backgroundColor: 'rgba(185, 84, 236, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(185, 84, 236, 0.3)',
+    shadowColor: 'rgba(185, 84, 236, 0.4)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 8,
+  },
+
+  tabContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+    gap: 4,
+  },
+
+  tabLabel: {
+    color: '#B8A5C4',
+    fontSize: 10,
+    fontWeight: '500',
+    textAlign: 'center',
+    letterSpacing: 0.2,
+  },
+
+  tabLabelActive: {
     color: '#fff',
     fontWeight: '600',
   },
 
-  tab: {
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    padding: 10,
-    borderRadius: 20,
-    marginRight: 8,
-    marginBottom: 8,
+  tabBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -6,
+    backgroundColor: '#CF38DD',
+    borderRadius: 8,
+    minWidth: 14,
+    height: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#201925',
   },
 
-  tabActive: {
-    backgroundColor: '#b931d6',
-  },
-
-  tabText: {
-    color: '#ccc',
-    fontWeight: '600',
-  },
-
-  tabTextActive: {
+  tabBadgeText: {
     color: '#fff',
+    fontSize: 8,
+    fontWeight: '700',
+  },
+
+  // Create Card Styles
+  createCard: {
+    width: 280,
+    height: 320,
+    marginRight: 16,
+    backgroundColor: 'rgba(42, 30, 46, 0.6)',
+    borderRadius: 24,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: 'rgba(78, 205, 196, 0.4)',
+    borderStyle: 'dashed',
+    shadowColor: 'rgba(78, 205, 196, 0.3)',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 1,
+    shadowRadius: 20,
+    elevation: 15,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+  },
+
+  createCardGlow: {
+    position: 'absolute',
+    top: -50,
+    left: -50,
+    right: -50,
+    bottom: -50,
+    backgroundColor: 'rgba(78, 205, 196, 0.05)',
+    borderRadius: 100,
+  },
+
+  createCardContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 32,
+    paddingVertical: 40,
+    gap: 16,
+    zIndex: 1,
+  },
+
+  createIconContainer: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(78, 205, 196, 0.15)',
+    borderWidth: 2,
+    borderColor: 'rgba(78, 205, 196, 0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+    shadowColor: 'rgba(78, 205, 196, 0.4)',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 1,
+    shadowRadius: 12,
+  },
+
+  createTitle: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '700',
+    textAlign: 'center',
+    lineHeight: 24,
+  },
+
+  createSubtitle: {
+    color: '#B8A5C4',
+    fontSize: 14,
+    fontWeight: '500',
+    textAlign: 'center',
+    lineHeight: 20,
+    opacity: 0.8,
+  },
+
+  createSuggestions: {
+    flexDirection: 'row',
+    gap: 16,
+    marginTop: 8,
+  },
+
+  suggestionIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: 'rgba(0, 0, 0, 0.2)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 4,
+  },
+
+  createArrow: {
+    marginTop: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: 'rgba(78, 205, 196, 0.1)',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(78, 205, 196, 0.3)',
+  },
+
+  createArrowText: {
+    color: '#4ECDC4',
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: 0.5,
   },
 
   card: {
     width: 280,
-    height: 300,
+    height: 320,
     marginRight: 16,
-    backgroundColor: 'rgba(42, 30, 46, 0.8)',
-    borderRadius: 16,
+    backgroundColor: 'rgba(42, 30, 46, 0.95)',
+    borderRadius: 24,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(64, 51, 71, 0.3)',
+    borderColor: 'rgba(64, 51, 71, 0.5)',
     shadowColor: 'rgba(0, 0, 0, 0.3)',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 1,
-    shadowRadius: 8,
-    elevation: 8,
+    shadowRadius: 20,
+    elevation: 15,
   },
 
   firstCard: {
@@ -593,95 +828,72 @@ const styles = StyleSheet.create({
   },
 
   inviteCard: {
-    borderColor: 'rgba(211, 148, 245, 0.6)',
+    borderColor: 'rgba(211, 148, 245, 0.8)',
     borderWidth: 2,
     shadowColor: 'rgba(211, 148, 245, 0.4)',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 1,
-    shadowRadius: 12,
+    shadowRadius: 24,
+    elevation: 18,
   },
 
   hostTag: {
     position: 'absolute',
-    top: 12,
-    left: 12,
-    backgroundColor: 'rgba(185, 84, 236, 0.9)',
+    top: 20,
+    left: 20,
+    backgroundColor: 'rgba(185, 84, 236, 0.95)',
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 22,
     zIndex: 10,
     borderWidth: 1,
-    borderColor: 'rgba(244, 240, 245, 0.3)',
+    borderColor: 'rgba(255, 255, 255, 0.15)',
     shadowColor: 'rgba(185, 84, 236, 0.4)',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 1,
-    shadowRadius: 4,
+    shadowRadius: 8,
   },
 
   typeTag: {
     position: 'absolute',
-    top: 12,
-    right: 12,
-    backgroundColor: 'rgba(207, 56, 221, 0.9)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 999,
+    top: 20,
+    right: 20,
+    backgroundColor: 'rgba(207, 56, 221, 0.95)',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 22,
     zIndex: 10,
     borderWidth: 1,
-    borderColor: 'rgba(244, 240, 245, 0.3)',
+    borderColor: 'rgba(255, 255, 255, 0.15)',
     shadowColor: 'rgba(207, 56, 221, 0.4)',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 1,
-    shadowRadius: 4,
+    shadowRadius: 8,
   },
 
   inviteTag: {
     backgroundColor: 'rgba(211, 148, 245, 0.95)',
-    borderColor: 'rgba(255, 255, 255, 0.5)',
-    shadowColor: 'rgba(211, 148, 245, 0.6)',
-    shadowRadius: 6,
-  },
-
-  inviteBadge: {
-    position: 'absolute',
-    top: 46,
-    left: 12,
-    backgroundColor: 'rgba(207, 56, 221, 0.95)',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 999,
-    zIndex: 10,
-    borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.8)',
-    shadowColor: 'rgba(207, 56, 221, 0.6)',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 6,
-  },
-
-  inviteBadgeText: {
-    color: '#fff',
-    fontSize: 8,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    borderColor: 'rgba(255, 255, 255, 0.25)',
+    shadowColor: 'rgba(211, 148, 245, 0.5)',
+    shadowRadius: 10,
   },
 
   tagText: {
     color: '#fff',
-    fontSize: 10,
-    marginLeft: 4,
+    fontSize: 12,
+    marginLeft: 5,
     fontWeight: '600',
-    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowColor: 'rgba(0, 0, 0, 0.4)',
     textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 2,
+    textShadowRadius: 3,
+    letterSpacing: 0.3,
   },
 
   cardContent: {
     flex: 1,
-    marginTop: 32,
+    marginTop: 50,
     marginBottom: 8,
   },
 
@@ -690,9 +902,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'rgba(42, 30, 46, 0.95)',
-    marginHorizontal: 12,
-    marginVertical: 8,
-    borderRadius: 12,
+    marginHorizontal: 20,
+    marginVertical: 16,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: 'rgba(207, 56, 221, 0.3)',
   },
@@ -710,12 +922,12 @@ const styles = StyleSheet.create({
   countdownGrid: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    gap: 8,
   },
 
   countdownBlock: {
     alignItems: 'center',
-    minWidth: 50,
+    minWidth: 40,
   },
 
   countdownNumber: {
@@ -739,13 +951,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'rgba(42, 30, 46, 0.95)',
-    marginHorizontal: 12,
-    marginVertical: 8,
-    borderRadius: 12,
+    marginHorizontal: 20,
+    marginVertical: 16,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: 'rgba(207, 56, 221, 0.3)',
-    paddingVertical: 16,
-    paddingHorizontal: 20,
+    paddingVertical: 20,
+    paddingHorizontal: 24,
   },
 
   progressStage: {
@@ -787,11 +999,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'rgba(42, 30, 46, 0.95)',
-    marginHorizontal: 12,
-    marginVertical: 8,
-    borderRadius: 12,
+    marginHorizontal: 20,
+    marginVertical: 16,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: 'rgba(100, 100, 100, 0.3)',
+    paddingVertical: 24,
+    paddingHorizontal: 24,
+    gap: 12,
   },
 
   completedLabel: {
@@ -800,14 +1015,52 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textTransform: 'uppercase',
     letterSpacing: 1,
-    marginBottom: 12,
     textAlign: 'center',
+  },
+
+  inviteContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(42, 30, 46, 0.95)',
+    marginHorizontal: 20,
+    marginVertical: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(211, 148, 245, 0.4)',
+    paddingVertical: 24,
+    paddingHorizontal: 24,
+    gap: 16,
+  },
+
+  inviteHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+
+  inviteLabel: {
+    color: '#d394f5',
+    fontSize: 12,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    textAlign: 'center',
+  },
+
+  funMessage: {
+    color: 'rgba(255, 255, 255, 0.85)',
+    fontSize: 15,
+    fontWeight: '500',
+    textAlign: 'center',
+    lineHeight: 20,
   },
 
   placeholderContent: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: 20,
   },
 
   activityTypeEmoji: {
@@ -819,24 +1072,28 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontWeight: '600',
+    textAlign: 'center',
   },
 
   cardFooter: {
-    padding: 16,
-    backgroundColor: 'rgba(15, 15, 20, 0.9)',
+    padding: 24,
+    backgroundColor: 'rgba(15, 15, 20, 0.98)',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(64, 51, 71, 0.3)',
   },
 
   cardTitle: {
     color: '#fff',
     fontWeight: '600',
-    fontSize: 16,
-    marginBottom: 8,
+    fontSize: 17,
+    marginBottom: 12,
+    lineHeight: 22,
   },
 
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 12,
     gap: 16,
   },
 
@@ -846,9 +1103,10 @@ const styles = StyleSheet.create({
   },
 
   metaText: {
-    color: '#fff',
+    color: '#B8A5C4',
     fontSize: 12,
-    marginLeft: 4,
+    marginLeft: 6,
+    fontWeight: '500',
   },
 
   bottomRow: {
@@ -867,8 +1125,9 @@ const styles = StyleSheet.create({
   },
 
   partText: {
-    color: '#ccc',
+    color: '#B8A5C4',
     fontSize: 12,
+    fontWeight: '500',
   },
 
   viewLink: {
@@ -878,14 +1137,29 @@ const styles = StyleSheet.create({
   },
 
   emptyContainer: {
-    padding: 20,
+    padding: 32,
     alignItems: 'center',
+    marginHorizontal: 24,
+  },
+
+  emptyIcon: {
+    fontSize: 48,
+    marginBottom: 16,
   },
 
   empty: {
+    color: '#B8A5C4',
+    textAlign: 'center',
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+
+  emptySub: {
     color: '#777',
     textAlign: 'center',
-    fontSize: 16,
+    fontSize: 14,
+    lineHeight: 20,
   },
 
   footerContainer: {
@@ -894,74 +1168,23 @@ const styles = StyleSheet.create({
 
   showMore: {
     alignSelf: 'center',
-    marginVertical: CARD_MARGIN,
+    marginVertical: 20,
     backgroundColor: 'rgba(207, 56, 221, 0.9)',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 999,
+    paddingHorizontal: 28,
+    paddingVertical: 14,
+    borderRadius: 25,
     borderWidth: 1,
     borderColor: 'rgba(207, 56, 221, 0.6)',
-    shadowColor: 'rgba(207, 56, 221, 0.4)',
-    shadowOffset: { width: 0, height: 2 },
+    shadowColor: 'rgba(207, 56, 221, 0.5)',
+    shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 1,
-    shadowRadius: 8,
+    shadowRadius: 12,
   },
 
   showMoreText: {
     color: '#fff',
     fontWeight: '600',
     fontSize: 14,
-  },
-
-  // Help Modal Styles
-  helpOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-
-  helpModal: {
-    backgroundColor: '#2C1E33',
-    borderRadius: 12,
-    padding: 20,
-    width: '100%',
-    maxWidth: 400,
-    maxHeight: '80%',
-  },
-
-  helpHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-
-  helpTitle: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '700',
-  },
-
-  helpContent: {
-    maxHeight: 400,
-  },
-
-  helpItem: {
-    marginBottom: 16,
-  },
-
-  helpItemTitle: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-
-  helpItemText: {
-    color: '#ccc',
-    fontSize: 13,
-    lineHeight: 18,
+    letterSpacing: 0.3,
   },
 })

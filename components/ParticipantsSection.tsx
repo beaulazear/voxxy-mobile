@@ -720,7 +720,7 @@ export default function ParticipantsSection({
                             )}
 
                             <Text style={styles.headerTitle}>
-                                {inviteMode === 'selection' ? 'Gather your crew ✨' :
+                                {inviteMode === 'selection' ? 'Round Up the Crew 🎉' :
                                     inviteMode === 'crew' ? 'Select Crew Members' : 'Add by Email'}
                             </Text>
 
@@ -758,7 +758,6 @@ export default function ParticipantsSection({
                 </View>
             </Modal>
 
-            {/* View All Participants Modal (unchanged) */}
             <Modal
                 visible={showAllParticipants}
                 transparent={true}

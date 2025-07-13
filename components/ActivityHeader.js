@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useContext } from 'react'
 import {
     View,
     Text,
@@ -21,6 +21,8 @@ import {
     Clock,
     Star
 } from 'react-native-feather'
+import { useNavigation } from '@react-navigation/native'
+import { UserContext } from '../context/UserContext'
 
 import DefaultIcon from '../assets/icon.png'
 import { API_URL } from '../config'
@@ -95,13 +97,16 @@ export default function ActivityHeader({
     activity,
     isOwner,
     onBack,
-    onEdit,
-    onDelete,
-    onLeave
+    onEdit
 }) {
+    const { user, setUser } = useContext(UserContext)
+    const navigation = useNavigation()
     const [helpVisible, setHelpVisible] = useState(false)
     const [helpStep, setHelpStep] = useState(0)
     const [isBouncing, setIsBouncing] = useState(true)
+
+    // Get token for API calls
+    const token = user?.token
 
     // Animation for help button bounce
     const bounceAnim = useRef(new Animated.Value(0)).current
@@ -230,7 +235,8 @@ export default function ActivityHeader({
         return DefaultIcon
     }
 
-    const handleDelete = () => {
+    // Updated delete functionality with API call
+    const handleDeleteActivity = async () => {
         Alert.alert(
             'Delete Activity',
             'Are you sure you want to delete this activity? This action is permanent and cannot be undone.',
@@ -239,13 +245,47 @@ export default function ActivityHeader({
                 {
                     text: 'Delete',
                     style: 'destructive',
-                    onPress: () => onDelete(activity.id)
+                    onPress: performDelete
                 }
             ]
         )
     }
 
-    const handleLeave = () => {
+    const performDelete = async () => {
+        try {
+            const response = await fetch(`${API_URL}/activities/${activity.id}`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+                credentials: 'include',
+            })
+
+            if (response.ok) {
+                console.log(`Activity with ID ${activity.id} deleted successfully`)
+
+                setUser(prevUser => ({
+                    ...prevUser,
+                    activities: prevUser.activities.filter(
+                        activityItem => activityItem.id !== activity.id
+                    ),
+                }))
+
+                Alert.alert('Success', 'Activity deleted successfully.')
+                navigation.goBack()
+            } else {
+                console.error('Failed to delete activity')
+                Alert.alert('Error', 'Failed to delete activity.')
+            }
+        } catch (error) {
+            console.error('Error deleting activity:', error)
+            Alert.alert('Error', 'Failed to delete activity.')
+        }
+    }
+
+    // Updated leave functionality with API call
+    const handleLeaveActivity = async () => {
         Alert.alert(
             'Leave Activity',
             'Are you sure you want to leave this activity? This action is permanent and you cannot rejoin unless invited again.',
@@ -254,10 +294,44 @@ export default function ActivityHeader({
                 {
                     text: 'Leave',
                     style: 'destructive',
-                    onPress: onLeave
+                    onPress: performLeave
                 }
             ]
         )
+    }
+
+    const performLeave = async () => {
+        try {
+            const response = await fetch(`${API_URL}/activity_participants/leave`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+                credentials: 'include',
+                body: JSON.stringify({ activity_id: activity.id }),
+            })
+
+            const data = await response.json()
+
+            if (!response.ok) {
+                Alert.alert('Error', data.error || 'Failed to leave activity.')
+                return
+            }
+
+            setUser(prevUser => ({
+                ...prevUser,
+                participant_activities: prevUser.participant_activities.filter(
+                    p => p.activity.id !== activity.id
+                ),
+            }))
+
+            Alert.alert('Success', 'You have successfully left the activity.')
+            navigation.goBack()
+        } catch (error) {
+            console.error('Error leaving activity:', error)
+            Alert.alert('Error', 'Failed to leave activity.')
+        }
     }
 
     // Help content based on activity type and whether it uses AI recommendations or time slots
@@ -339,12 +413,12 @@ export default function ActivityHeader({
                             <TouchableOpacity style={styles.editButton} onPress={onEdit}>
                                 <Edit stroke="#8b5cf6" width={20} height={20} />
                             </TouchableOpacity>
-                            <TouchableOpacity style={styles.deleteButton} onPress={handleDelete}>
+                            <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteActivity}>
                                 <Trash stroke="#ef4444" width={20} height={20} />
                             </TouchableOpacity>
                         </>
                     ) : (
-                        <TouchableOpacity style={styles.leaveButton} onPress={handleLeave}>
+                        <TouchableOpacity style={styles.leaveButton} onPress={handleLeaveActivity}>
                             <LogOut stroke="#ef4444" width={18} height={18} />
                             <Text style={styles.leaveButtonText}>Leave</Text>
                         </TouchableOpacity>

@@ -13,6 +13,8 @@ import LandingScreen from './screens/LandingScreen';
 import ActivityDetailsScreen from './screens/ActivityDetailsScreen';
 import TripDashboardScreen from './screens/TripDashboardScreen';
 
+import { InvitationNotificationProvider } from './services/InvitationNotificationService';
+
 import { ActivityIndicator, View } from 'react-native';
 
 import {
@@ -72,9 +74,11 @@ export default function App() {
 
   return (
     <UserProvider>
-      <NavigationContainer>
-        <AppNavigator />
-      </NavigationContainer>
+      <InvitationNotificationProvider>
+        <NavigationContainer>
+          <AppNavigator />
+        </NavigationContainer>
+      </InvitationNotificationProvider>
     </UserProvider>
   );
 }

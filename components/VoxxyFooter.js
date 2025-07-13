@@ -97,22 +97,18 @@ export default function VoxxyFooter() {
 
     return (
         <View style={styles.container}>
-            {/* Top border separator */}
             <View style={styles.topBorder} />
 
-            {/* Footer content */}
             <View style={styles.content}>
-                {/* Home Button */}
                 <TouchableOpacity style={styles.iconButton} onPress={() => navigation.navigate('/')}>
                     <Ionicons name="home-outline" size={26} color="#fff" />
                 </TouchableOpacity>
 
-                {/* Plus Button (Center) */}
-                <TouchableOpacity style={styles.plusButton} onPress={handlePlusPress}>
+                <TouchableOpacity style={styles.plusButton} onPress={() => navigation.navigate('TripDashboardScreen')}
+                >
                     <Ionicons name="add" size={28} color="#fff" />
                 </TouchableOpacity>
 
-                {/* Profile Avatar */}
                 <TouchableOpacity
                     style={styles.avatarButton}
                     onPress={() => navigation.navigate('Profile')}
