@@ -11,6 +11,7 @@ import FAQScreen from './screens/FAQScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import LandingScreen from './screens/LandingScreen';
 import ActivityDetailsScreen from './screens/ActivityDetailsScreen';
+import TripDashboardScreen from './screens/TripDashboardScreen';
 
 import { ActivityIndicator, View } from 'react-native';
 
@@ -48,6 +49,7 @@ const AppNavigator = () => {
         options={{ headerShown: false }}
       />
       <Stack.Screen name="FAQ" component={FAQScreen} />
+      <Stack.Screen name="TripDashboardScreen" component={TripDashboardScreen} />
       <Stack.Screen name="Profile" component={ProfileScreen} />
       <Stack.Screen name="AccountCreated" component={ProfileScreen} />
     </Stack.Navigator>

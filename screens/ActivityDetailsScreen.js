@@ -472,15 +472,6 @@ export default function ActivityDetailsScreen({ route }) {
                         onRemoveParticipant={handleRemoveParticipant}
                     />
 
-                    {/* Placeholder for main content (AIRecommendations or TimeSlots) */}
-                    <View style={styles.mainContentPlaceholder}>
-                        <Text style={styles.placeholderText}>
-                            {currentActivity.activity_type === 'Restaurant'
-                                ? 'AI Recommendations Component Placeholder'
-                                : 'Time Slots Component Placeholder'}
-                        </Text>
-                    </View>
-
                     {/* Placeholder for ActivityCommentSection */}
                     <View style={styles.commentsPlaceholder}>
                         <Text style={styles.placeholderText}>

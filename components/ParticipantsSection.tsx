@@ -10,6 +10,7 @@ import {
     TextInput,
     Alert,
     FlatList,
+    Dimensions,
 } from 'react-native'
 import {
     Users,
@@ -19,12 +20,18 @@ import {
     CheckCircle,
     XCircle,
     Clock,
-    Star
+    Star,
+    Check,
+    Calendar,
+    ArrowLeft,
+    Mail
 } from 'react-native-feather'
 import { UserContext } from '../context/UserContext'
 import { API_URL } from '../config'
 
 import DefaultIcon from '../assets/icon.png'
+
+const { width: screenWidth, height: screenHeight } = Dimensions.get('window')
 
 // Avatar mapping for relative paths
 const avatarMap = {
@@ -49,7 +56,6 @@ const avatarMap = {
     'Weird5.jpg': require('../assets/Weird5.jpg'),
 }
 
-// Helper function to safely get avatar
 const getAvatarFromMap = (filename) => {
     try {
         return avatarMap[filename] || null
@@ -71,6 +77,8 @@ export default function ParticipantsSection({
     const [showAllParticipants, setShowAllParticipants] = useState(false)
     const [manualInput, setManualInput] = useState('')
     const [manualEmails, setManualEmails] = useState([])
+    const [selectedCrewMembers, setSelectedCrewMembers] = useState([])
+    const [inviteMode, setInviteMode] = useState('selection') // 'selection', 'crew', 'manual'
 
     const { responses = [] } = activity
 
@@ -81,7 +89,6 @@ export default function ParticipantsSection({
             avatar: userObj?.avatar
         })
 
-        // Check for profile_pic_url first (full URL)
         if (userObj?.profile_pic_url) {
             const profilePicUrl = userObj.profile_pic_url.startsWith('http')
                 ? userObj.profile_pic_url
@@ -90,33 +97,134 @@ export default function ParticipantsSection({
             return { uri: profilePicUrl }
         }
 
-        // Check for avatar (relative path)
         if (userObj?.avatar && userObj.avatar !== DefaultIcon) {
-            // Extract filename from path if it includes directory
             const avatarFilename = userObj.avatar.includes('/')
                 ? userObj.avatar.split('/').pop()
                 : userObj.avatar
 
             console.log(`🎭 Looking for avatar: ${avatarFilename}`)
 
-            // Check if we have this avatar in our mapping
             const mappedAvatar = getAvatarFromMap(avatarFilename)
             if (mappedAvatar) {
                 console.log(`✅ Found avatar in mapping: ${avatarFilename}`)
                 return mappedAvatar
             }
 
-            // If it's a full URL, use it
             if (userObj.avatar.startsWith('http')) {
                 console.log(`🌐 Using avatar URL: ${userObj.avatar}`)
                 return { uri: userObj.avatar }
             }
         }
 
-        // Fallback to default icon
         console.log(`🔄 Using default icon`)
         return DefaultIcon
     }
+
+    const buildVoxxyCrew = () => {
+        if (!user) return []
+
+        const allUsersMap = new Map()
+
+        user.activities?.forEach(act => {
+            act.participants?.forEach(p => {
+                if (p.id !== user.id) {
+                    const existing = allUsersMap.get(p.id) || {
+                        user: p,
+                        lastDate: null,
+                        lastName: '',
+                        count: 0,
+                        sharedActivities: [],
+                        firstActivity: null
+                    }
+                    existing.count += 1
+                    existing.sharedActivities.push({
+                        name: act.activity_name,
+                        type: act.activity_type,
+                        emoji: act.emoji,
+                        date: act.date_day
+                    })
+
+                    const date = new Date(act.date_day)
+                    if (!existing.lastDate || date > existing.lastDate) {
+                        existing.lastDate = date
+                        existing.lastName = act.activity_name
+                    }
+                    if (!existing.firstActivity || date < new Date(existing.firstActivity)) {
+                        existing.firstActivity = act.date_day
+                    }
+                    allUsersMap.set(p.id, existing)
+                }
+            })
+        })
+
+        // Process participant activities
+        user.participant_activities?.forEach(pa => {
+            const { activity: act } = pa
+            const host = act.user
+            if (host?.id !== user.id) {
+                const existing = allUsersMap.get(host.id) || {
+                    user: host,
+                    lastDate: null,
+                    lastName: '',
+                    count: 0,
+                    sharedActivities: [],
+                    firstActivity: null
+                }
+                existing.count += 1
+                existing.sharedActivities.push({
+                    name: act.activity_name,
+                    type: act.activity_type,
+                    emoji: act.emoji,
+                    date: act.date_day
+                })
+
+                const date = new Date(act.date_day)
+                if (!existing.lastDate || date > existing.lastDate) {
+                    existing.lastDate = date
+                    existing.lastName = act.activity_name
+                }
+                if (!existing.firstActivity || date < new Date(existing.firstActivity)) {
+                    existing.firstActivity = act.date_day
+                }
+                allUsersMap.set(host.id, existing)
+            }
+
+            act.participants?.forEach(p => {
+                if (p.id !== user.id) {
+                    const existing = allUsersMap.get(p.id) || {
+                        user: p,
+                        lastDate: null,
+                        lastName: '',
+                        count: 0,
+                        sharedActivities: [],
+                        firstActivity: null
+                    }
+                    existing.count += 1
+                    existing.sharedActivities.push({
+                        name: act.activity_name,
+                        type: act.activity_type,
+                        emoji: act.emoji,
+                        date: act.date_day
+                    })
+
+                    const date = new Date(act.date_day)
+                    if (!existing.lastDate || date > existing.lastDate) {
+                        existing.lastDate = date
+                        existing.lastName = act.activity_name
+                    }
+                    if (!existing.firstActivity || date < new Date(existing.firstActivity)) {
+                        existing.firstActivity = act.date_day
+                    }
+                    allUsersMap.set(p.id, existing)
+                }
+            })
+        })
+
+        return Array.from(allUsersMap.values())
+            .sort((a, b) => b.count - a.count || a.user.name.localeCompare(b.user.name))
+    }
+
+    const voxxyCrew = buildVoxxyCrew()
 
     // Build participants arrays
     const participantsArray = Array.isArray(activity.participants) ? activity.participants : []
@@ -161,19 +269,12 @@ export default function ParticipantsSection({
         })),
     ]
 
-    // Debug logging
-    console.log('📊 ParticipantsSection Debug:', {
-        activityId: activity.id,
-        totalParticipants: allParticipants.length,
-        confirmedParticipants: allParticipants.filter(p => p.confirmed).length,
-        pendingInvites: allParticipants.filter(p => !p.confirmed).length,
-        participants: allParticipants.map(p => ({
-            name: p.name,
-            email: p.email,
-            avatar: p.avatar,
-            profile_pic_url: p.profile_pic_url
-        }))
-    })
+    // Filter out crew members who are already participants
+    const availableCrewMembers = voxxyCrew.filter(crewMember =>
+        !allParticipants.some(participant =>
+            participant.email === crewMember.user.email
+        )
+    )
 
     // Helper functions for tracking responses and votes
     const hasVoted = (participant) => {
@@ -216,6 +317,8 @@ export default function ParticipantsSection({
     const handleInviteClick = () => {
         setManualInput('')
         setManualEmails([])
+        setSelectedCrewMembers([])
+        setInviteMode('selection')
         setShowInviteModal(true)
     }
 
@@ -237,17 +340,36 @@ export default function ParticipantsSection({
         setManualEmails(prev => prev.filter((_, i) => i !== index))
     }
 
+    const handleToggleCrewMember = (crewMember) => {
+        setSelectedCrewMembers(prev => {
+            const isSelected = prev.some(member => member.user.id === crewMember.user.id)
+            if (isSelected) {
+                return prev.filter(member => member.user.id !== crewMember.user.id)
+            } else {
+                return [...prev, crewMember]
+            }
+        })
+    }
+
     const handleInviteSubmit = () => {
-        if (manualEmails.length === 0) {
-            Alert.alert('No Emails', 'Please add at least one email address.')
+        const totalInvites = manualEmails.length + selectedCrewMembers.length
+
+        if (totalInvites === 0) {
+            Alert.alert('No Invites', 'Please select crew members or add email addresses.')
             return
         }
 
+        // Send manual email invites
         manualEmails.forEach(email => {
             onInvite(email)
         })
 
-        Alert.alert('Success', 'Invitation(s) sent!')
+        // Send crew member invites (using their email)
+        selectedCrewMembers.forEach(crewMember => {
+            onInvite(crewMember.user.email)
+        })
+
+        Alert.alert('Success', `${totalInvites} invitation(s) sent!`)
         setShowInviteModal(false)
     }
 
@@ -266,11 +388,17 @@ export default function ParticipantsSection({
         )
     }
 
+    const formatDate = (dateString) => {
+        if (!dateString) return ''
+        const d = new Date(dateString)
+        return d.toLocaleString('en-US', { month: 'short', day: 'numeric' })
+    }
+
     const renderParticipantAvatar = ({ item, index }) => {
         return (
             <View style={[styles.participantAvatar, item.isHost && styles.hostAvatar, !item.confirmed && styles.pendingAvatar]}>
                 <Image
-                    source={getDisplayImage(item)}  // ✅ Fixed: was getImageSource(item)
+                    source={getDisplayImage(item)}
                     style={styles.avatarImage}
                     onError={() => console.log(`❌ Avatar failed to load for ${item.name}`)}
                     onLoad={() => console.log(`✅ Avatar loaded for ${item.name}`)}
@@ -299,14 +427,12 @@ export default function ParticipantsSection({
     }
 
     const renderParticipantListItem = ({ item, index }) => {
-        console.log(`🧑‍🤝‍🧑 Rendering participant ${index}:`, item.name, item.email)
-
         return (
             <View style={styles.participantItem}>
                 <View style={styles.participantInfo}>
                     <View style={styles.participantCircle}>
                         <Image
-                            source={getDisplayImage(item)}  // ✅ Fixed: was getImageSource(item)
+                            source={getDisplayImage(item)}
                             style={styles.participantImage}
                             onError={() => console.log(`❌ Failed to load image for ${item.name}`)}
                             onLoad={() => console.log(`✅ Image loaded for ${item.name}`)}
@@ -357,6 +483,155 @@ export default function ParticipantsSection({
             </View>
         )
     }
+
+    const renderCrewMemberCard = ({ item, index }) => {
+        const isSelected = selectedCrewMembers.some(member => member.user.id === item.user.id)
+
+        return (
+            <TouchableOpacity
+                style={[styles.crewCard, isSelected && styles.crewCardSelected]}
+                onPress={() => handleToggleCrewMember(item)}
+                activeOpacity={0.8}
+            >
+                <View style={styles.crewCardHeader}>
+                    <View style={styles.crewAvatarContainer}>
+                        <Image
+                            source={getDisplayImage(item.user)}
+                            style={styles.crewAvatar}
+                            onError={() => console.log(`❌ Failed to load image for ${item.user.name}`)}
+                            onLoad={() => console.log(`✅ Image loaded for ${item.user.name}`)}
+                            defaultSource={DefaultIcon}
+                        />
+                        {isSelected && (
+                            <View style={styles.crewSelectedOverlay}>
+                                <Check stroke="#fff" width={20} height={20} strokeWidth={3} />
+                            </View>
+                        )}
+                    </View>
+
+                    <View style={styles.crewInfo}>
+                        <Text style={styles.crewName}>{item.user.name}</Text>
+                        <View style={styles.crewStats}>
+                            <Text style={styles.crewActivityCount}>{item.count} activities together</Text>
+                        </View>
+                    </View>
+                </View>
+
+                <View style={styles.crewLastActivity}>
+                    <Calendar stroke="#8b5cf6" width={14} height={14} />
+                    <Text style={styles.crewLastActivityText} numberOfLines={1}>
+                        Last: {item.lastName}
+                    </Text>
+                </View>
+            </TouchableOpacity>
+        )
+    }
+
+    const renderModeSelection = () => (
+        <View style={styles.modeSelectionContainer}>
+            <View style={styles.modeHeader}>
+                <Text style={styles.modeTitle}>Invite Participants</Text>
+                <Text style={styles.modeSubtitle}>Choose how you'd like to invite people</Text>
+            </View>
+
+            {availableCrewMembers.length > 0 && (
+                <TouchableOpacity
+                    style={styles.modeOption}
+                    onPress={() => setInviteMode('crew')}
+                    activeOpacity={0.8}
+                >
+                    <View style={styles.modeOptionIcon}>
+                        <Users stroke="#8b5cf6" width={24} height={24} />
+                    </View>
+                    <View style={styles.modeOptionContent}>
+                        <Text style={styles.modeOptionTitle}>Invite Voxxy Crew</Text>
+                        <Text style={styles.modeOptionDescription}>
+                            Select from {availableCrewMembers.length} people you've done activities with
+                        </Text>
+                    </View>
+                    <View style={styles.modeOptionArrow}>
+                        <Text style={styles.arrow}>→</Text>
+                    </View>
+                </TouchableOpacity>
+            )}
+
+            <TouchableOpacity
+                style={styles.modeOption}
+                onPress={() => setInviteMode('manual')}
+                activeOpacity={0.8}
+            >
+                <View style={styles.modeOptionIcon}>
+                    <Mail stroke="#8b5cf6" width={24} height={24} />
+                </View>
+                <View style={styles.modeOptionContent}>
+                    <Text style={styles.modeOptionTitle}>Add by Email</Text>
+                    <Text style={styles.modeOptionDescription}>
+                        Manually enter email addresses to invite new people
+                    </Text>
+                </View>
+                <View style={styles.modeOptionArrow}>
+                    <Text style={styles.arrow}>→</Text>
+                </View>
+            </TouchableOpacity>
+        </View>
+    )
+
+    const renderCrewSelection = () => (
+        <View style={styles.crewSelectionContainer}>
+            {selectedCrewMembers.length > 0 && (
+                <View style={styles.selectionSummary}>
+                    <Text style={styles.selectionSummaryText}>
+                        {selectedCrewMembers.length} member{selectedCrewMembers.length !== 1 ? 's' : ''} selected
+                    </Text>
+                </View>
+            )}
+
+            <FlatList
+                data={availableCrewMembers}
+                renderItem={renderCrewMemberCard}
+                keyExtractor={(item) => item.user.id.toString()}
+                style={styles.crewList}
+                contentContainerStyle={styles.crewListContent}
+                showsVerticalScrollIndicator={false}
+                numColumns={1}
+            />
+        </View>
+    )
+
+    const renderManualEntry = () => (
+        <View style={styles.manualEntryContainer}>
+            <View style={styles.inputSection}>
+                <View style={styles.inputGroup}>
+                    <TextInput
+                        style={styles.emailInput}
+                        placeholder="Enter email address..."
+                        placeholderTextColor="#64748b"
+                        value={manualInput}
+                        onChangeText={setManualInput}
+                        onSubmitEditing={handleAddEmail}
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                    />
+                    <TouchableOpacity style={styles.addButton} onPress={handleAddEmail}>
+                        <Plus stroke="#fff" width={20} height={20} />
+                    </TouchableOpacity>
+                </View>
+
+                {manualEmails.length > 0 && (
+                    <ScrollView style={styles.emailsContainer} showsVerticalScrollIndicator={false}>
+                        {manualEmails.map((email, index) => (
+                            <View key={index} style={styles.emailPill}>
+                                <Text style={styles.emailPillText}>{email}</Text>
+                                <TouchableOpacity onPress={() => handleRemoveEmail(index)}>
+                                    <X stroke="#8b5cf6" width={16} height={16} />
+                                </TouchableOpacity>
+                            </View>
+                        ))}
+                    </ScrollView>
+                )}
+            </View>
+        </View>
+    )
 
     return (
         <View style={styles.container}>
@@ -422,7 +697,7 @@ export default function ParticipantsSection({
                         ))}
             </ScrollView>
 
-            {/* Invite Modal */}
+            {/* Modern Full-Screen Invite Modal */}
             <Modal
                 visible={showInviteModal}
                 transparent={true}
@@ -430,64 +705,60 @@ export default function ParticipantsSection({
                 onRequestClose={() => setShowInviteModal(false)}
             >
                 <View style={styles.modalOverlay}>
-                    <View style={styles.inviteModal}>
-                        <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>Invite Participants</Text>
-                            <TouchableOpacity onPress={() => setShowInviteModal(false)}>
-                                <X stroke="#fff" width={20} height={20} />
-                            </TouchableOpacity>
-                        </View>
-
-                        <View style={styles.inputSection}>
-                            <View style={styles.inputGroup}>
-                                <TextInput
-                                    style={styles.emailInput}
-                                    placeholder="Enter email address..."
-                                    placeholderTextColor="#64748b"
-                                    value={manualInput}
-                                    onChangeText={setManualInput}
-                                    onSubmitEditing={handleAddEmail}
-                                    keyboardType="email-address"
-                                    autoCapitalize="none"
-                                />
-                                <TouchableOpacity style={styles.addButton} onPress={handleAddEmail}>
-                                    <Plus stroke="#fff" width={18} height={18} />
+                    <View style={styles.modernModal}>
+                        {/* Unified Header */}
+                        <View style={styles.unifiedHeader}>
+                            {inviteMode !== 'selection' ? (
+                                <TouchableOpacity
+                                    style={styles.headerButton}
+                                    onPress={() => setInviteMode('selection')}
+                                >
+                                    <ArrowLeft stroke="#8b5cf6" width={20} height={20} />
                                 </TouchableOpacity>
-                            </View>
-
-                            {manualEmails.length > 0 && (
-                                <ScrollView style={styles.emailsContainer}>
-                                    {manualEmails.map((email, index) => (
-                                        <View key={index} style={styles.emailPill}>
-                                            <Text style={styles.emailPillText}>{email}</Text>
-                                            <TouchableOpacity onPress={() => handleRemoveEmail(index)}>
-                                                <X stroke="#8b5cf6" width={14} height={14} />
-                                            </TouchableOpacity>
-                                        </View>
-                                    ))}
-                                </ScrollView>
+                            ) : (
+                                <View style={styles.headerSpacer} />
                             )}
-                        </View>
 
-                        <View style={styles.modalActions}>
+                            <Text style={styles.headerTitle}>
+                                {inviteMode === 'selection' ? 'Gather your crew ✨' :
+                                    inviteMode === 'crew' ? 'Select Crew Members' : 'Add by Email'}
+                            </Text>
+
                             <TouchableOpacity
-                                style={[styles.actionButton, styles.cancelButton]}
+                                style={styles.headerButton}
                                 onPress={() => setShowInviteModal(false)}
                             >
-                                <Text style={styles.cancelButtonText}>Cancel</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={[styles.actionButton, styles.inviteSubmitButton]}
-                                onPress={handleInviteSubmit}
-                            >
-                                <Text style={styles.inviteSubmitButtonText}>Send Invites</Text>
+                                <X stroke="#8b5cf6" width={20} height={20} />
                             </TouchableOpacity>
                         </View>
+
+                        {/* Dynamic Content Based on Mode */}
+                        {inviteMode === 'selection' && renderModeSelection()}
+                        {inviteMode === 'crew' && renderCrewSelection()}
+                        {inviteMode === 'manual' && renderManualEntry()}
+
+                        {/* Action Buttons */}
+                        {(inviteMode === 'crew' || inviteMode === 'manual') && (
+                            <View style={styles.actionBar}>
+                                <TouchableOpacity
+                                    style={[
+                                        styles.submitButton,
+                                        (selectedCrewMembers.length === 0 && manualEmails.length === 0) && styles.submitButtonDisabled
+                                    ]}
+                                    onPress={handleInviteSubmit}
+                                    disabled={selectedCrewMembers.length === 0 && manualEmails.length === 0}
+                                >
+                                    <Text style={styles.submitButtonText}>
+                                        Send {selectedCrewMembers.length + manualEmails.length} Invite{selectedCrewMembers.length + manualEmails.length !== 1 ? 's' : ''}
+                                    </Text>
+                                </TouchableOpacity>
+                            </View>
+                        )}
                     </View>
                 </View>
             </Modal>
 
-            {/* View All Participants Modal */}
+            {/* View All Participants Modal (unchanged) */}
             <Modal
                 visible={showAllParticipants}
                 transparent={true}
@@ -530,8 +801,8 @@ export default function ParticipantsSection({
                                     showsVerticalScrollIndicator={true}
                                     scrollIndicatorInsets={{ right: 1 }}
                                     bounces={true}
-                                    removeClippedSubviews={false} // Ensure all items render
-                                    nestedScrollEnabled={true} // Enable nested scrolling in modal
+                                    removeClippedSubviews={false}
+                                    nestedScrollEnabled={true}
                                 />
                             ) : (
                                 <View style={styles.emptyState}>
@@ -710,35 +981,343 @@ const styles = StyleSheet.create({
         borderColor: '#201925',
     },
 
-    // Modal Styles
+    // Modern Modal Styles
     modalOverlay: {
         flex: 1,
-        backgroundColor: 'rgba(0, 0, 0, 0.8)',
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: 20,
-        paddingTop: 60, // Account for status bar
-        paddingBottom: 60, // Account for bottom safe area
+        backgroundColor: 'rgba(0, 0, 0, 0.9)',
+        justifyContent: 'flex-end',
     },
 
-    inviteModal: {
-        backgroundColor: '#2C1E33',
-        borderRadius: 16,
+    modernModal: {
+        backgroundColor: '#1a1025',
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        height: screenHeight * 0.9,
         width: '100%',
-        maxWidth: 400,
-        borderWidth: 1,
-        borderColor: 'rgba(64, 51, 71, 0.3)',
+        position: 'relative',
     },
 
+    // Unified Header Styles
+    unifiedHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 24,
+        paddingTop: 20,
+        paddingBottom: 20,
+        borderBottomWidth: 1,
+        borderBottomColor: 'rgba(64, 51, 71, 0.3)',
+    },
+
+    headerButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: 'rgba(139, 92, 246, 0.2)',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+
+    headerTitle: {
+        fontSize: 20,
+        fontWeight: '700',
+        color: '#fff',
+        textAlign: 'center',
+        flex: 1,
+        marginHorizontal: 16,
+    },
+
+    headerSpacer: {
+        width: 40,
+    },
+
+    // Mode Selection Styles
+    modeSelectionContainer: {
+        flex: 1,
+        paddingHorizontal: 24,
+    },
+
+    modeHeader: {
+        alignItems: 'center',
+        marginBottom: 48,
+        marginTop: 40,
+    },
+
+    modeTitle: {
+        fontSize: 28,
+        fontWeight: '700',
+        color: '#fff',
+        marginBottom: 8,
+        textAlign: 'center',
+    },
+
+    modeSubtitle: {
+        fontSize: 16,
+        color: '#8b5cf6',
+        textAlign: 'center',
+    },
+
+    modeOption: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        borderWidth: 2,
+        borderColor: 'rgba(139, 92, 246, 0.3)',
+        borderRadius: 20,
+        padding: 24,
+        marginBottom: 16,
+    },
+
+    modeOptionIcon: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        backgroundColor: 'rgba(139, 92, 246, 0.2)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 20,
+    },
+
+    modeOptionContent: {
+        flex: 1,
+    },
+
+    modeOptionTitle: {
+        fontSize: 18,
+        fontWeight: '600',
+        color: '#fff',
+        marginBottom: 4,
+    },
+
+    modeOptionDescription: {
+        fontSize: 14,
+        color: '#8b5cf6',
+        lineHeight: 20,
+    },
+
+    modeOptionArrow: {
+        marginLeft: 12,
+    },
+
+    arrow: {
+        fontSize: 20,
+        color: '#8b5cf6',
+        fontWeight: '600',
+    },
+
+    crewSelectionContainer: {
+        flex: 1,
+        marginTop: 10,
+    },
+
+    selectionSummary: {
+        backgroundColor: 'rgba(139, 92, 246, 0.1)',
+        borderWidth: 1,
+        borderColor: 'rgba(139, 92, 246, 0.3)',
+        borderRadius: 12,
+        padding: 16,
+        marginHorizontal: 24,
+        marginBottom: 20,
+        marginTop: 20,
+    },
+
+    selectionSummaryText: {
+        fontSize: 14,
+        color: '#8b5cf6',
+        fontWeight: '600',
+        textAlign: 'center',
+    },
+
+    crewList: {
+        flex: 1,
+        paddingHorizontal: 24,
+    },
+
+    crewListContent: {
+        paddingBottom: 100,
+    },
+
+    crewCard: {
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        borderWidth: 2,
+        borderColor: 'rgba(64, 51, 71, 0.3)',
+        borderRadius: 16,
+        padding: 20,
+        marginBottom: 16,
+    },
+
+    crewCardSelected: {
+        backgroundColor: 'rgba(139, 92, 246, 0.1)',
+        borderColor: '#8b5cf6',
+        borderWidth: 2,
+    },
+
+    crewCardHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 12,
+    },
+
+    crewAvatarContainer: {
+        position: 'relative',
+        marginRight: 16,
+    },
+
+    crewAvatar: {
+        width: 56,
+        height: 56,
+        borderRadius: 28,
+    },
+
+    crewSelectedOverlay: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(139, 92, 246, 0.8)',
+        borderRadius: 28,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+
+    crewInfo: {
+        flex: 1,
+    },
+
+    crewName: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: '#fff',
+        marginBottom: 4,
+    },
+
+    crewStats: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+
+    crewActivityCount: {
+        fontSize: 14,
+        color: '#8b5cf6',
+        fontWeight: '500',
+    },
+
+    crewLastActivity: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+
+    crewLastActivityText: {
+        fontSize: 14,
+        color: '#cbd5e1',
+        flex: 1,
+    },
+
+    // Manual Entry Styles
+    manualEntryContainer: {
+        flex: 1,
+    },
+
+    inputSection: {
+        paddingHorizontal: 24,
+        paddingTop: 20,
+    },
+
+    inputGroup: {
+        flexDirection: 'row',
+        gap: 12,
+        marginBottom: 20,
+    },
+
+    emailInput: {
+        flex: 1,
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        color: '#fff',
+        borderWidth: 2,
+        borderColor: 'rgba(139, 92, 246, 0.3)',
+        borderRadius: 16,
+        paddingHorizontal: 20,
+        paddingVertical: 16,
+        fontSize: 16,
+    },
+
+    addButton: {
+        backgroundColor: '#8b5cf6',
+        width: 56,
+        height: 56,
+        borderRadius: 16,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+
+    emailsContainer: {
+        maxHeight: 200,
+    },
+
+    emailPill: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        backgroundColor: 'rgba(139, 92, 246, 0.1)',
+        borderWidth: 1,
+        borderColor: 'rgba(139, 92, 246, 0.3)',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderRadius: 999,
+        marginBottom: 12,
+    },
+
+    emailPillText: {
+        color: '#8b5cf6',
+        fontSize: 14,
+        flex: 1,
+        fontWeight: '500',
+    },
+
+    // Action Bar Styles
+    actionBar: {
+        padding: 24,
+        borderTopWidth: 1,
+        borderTopColor: 'rgba(64, 51, 71, 0.3)',
+        backgroundColor: '#1a1025',
+    },
+
+    submitButton: {
+        backgroundColor: '#8b5cf6',
+        borderRadius: 16,
+        paddingVertical: 18,
+        alignItems: 'center',
+        shadowColor: '#8b5cf6',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 8,
+    },
+
+    submitButtonDisabled: {
+        backgroundColor: 'rgba(139, 92, 246, 0.3)',
+        shadowOpacity: 0,
+        elevation: 0,
+    },
+
+    submitButtonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '700',
+    },
+
+    // View All Modal Styles (kept the same)
     viewAllModal: {
         backgroundColor: '#2C1E33',
         borderRadius: 16,
         width: '100%',
         maxWidth: 500,
-        height: '80%', // Fixed height instead of maxHeight
+        height: '80%',
         borderWidth: 1,
         borderColor: 'rgba(64, 51, 71, 0.3)',
-        overflow: 'hidden', // Prevent content from spilling out
+        overflow: 'hidden',
         display: 'flex',
         flexDirection: 'column',
     },
@@ -747,11 +1326,11 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        padding: 16, // Reduced padding
+        padding: 16,
         borderBottomWidth: 1,
         borderBottomColor: 'rgba(64, 51, 71, 0.3)',
-        backgroundColor: '#2C1E33', // Ensure consistent background
-        flexShrink: 0, // Don't shrink this header
+        backgroundColor: '#2C1E33',
+        flexShrink: 0,
     },
 
     modalTitle: {
@@ -761,106 +1340,12 @@ const styles = StyleSheet.create({
         fontFamily: 'Montserrat_600SemiBold',
     },
 
-    // Input Styles
-    inputSection: {
-        padding: 20,
-    },
-
-    inputGroup: {
-        flexDirection: 'row',
-        gap: 8,
-        marginBottom: 12,
-    },
-
-    emailInput: {
-        flex: 1,
-        backgroundColor: 'rgba(255, 255, 255, 0.05)',
-        color: '#fff',
-        borderWidth: 1,
-        borderColor: 'rgba(64, 51, 71, 0.3)',
-        borderRadius: 10,
-        paddingHorizontal: 12,
-        paddingVertical: 10,
-        fontSize: 14,
-    },
-
-    addButton: {
-        backgroundColor: '#8b5cf6',
-        width: 40,
-        height: 40,
-        borderRadius: 10,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-
-    emailsContainer: {
-        maxHeight: 120,
-    },
-
-    emailPill: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-        backgroundColor: 'rgba(139, 92, 246, 0.1)',
-        borderWidth: 1,
-        borderColor: 'rgba(139, 92, 246, 0.3)',
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 999,
-        marginBottom: 8,
-    },
-
-    emailPillText: {
-        color: '#8b5cf6',
-        fontSize: 12,
-        flex: 1,
-    },
-
-    // Action Buttons
-    modalActions: {
-        flexDirection: 'row',
-        gap: 12,
-        padding: 20,
-        borderTopWidth: 1,
-        borderTopColor: 'rgba(64, 51, 71, 0.3)',
-    },
-
-    actionButton: {
-        flex: 1,
-        paddingVertical: 12,
-        borderRadius: 10,
-        alignItems: 'center',
-    },
-
-    cancelButton: {
-        backgroundColor: 'transparent',
-        borderWidth: 1,
-        borderColor: 'rgba(64, 51, 71, 0.3)',
-    },
-
-    cancelButtonText: {
-        color: '#64748b',
-        fontSize: 14,
-        fontWeight: '600',
-    },
-
-    inviteSubmitButton: {
-        backgroundColor: '#8b5cf6',
-    },
-
-    inviteSubmitButtonText: {
-        color: '#fff',
-        fontSize: 14,
-        fontWeight: '600',
-    },
-
-    // Progress Styles
     progressContainer: {
-        padding: 16, // Reduced padding
+        padding: 16,
         borderBottomWidth: 1,
         borderBottomColor: 'rgba(64, 51, 71, 0.3)',
-        backgroundColor: '#2C1E33', // Ensure consistent background
-        flexShrink: 0, // Don't shrink this section
+        backgroundColor: '#2C1E33',
+        flexShrink: 0,
     },
 
     progressText: {
@@ -882,22 +1367,21 @@ const styles = StyleSheet.create({
         borderRadius: 3,
     },
 
-    // Participants List Styles
     participantsListContainer: {
-        flex: 1, // Take remaining space in modal
-        backgroundColor: '#2C1E33', // Same as modal background
-        overflow: 'hidden', // Prevent overflow
+        flex: 1,
+        backgroundColor: '#2C1E33',
+        overflow: 'hidden',
     },
 
     participantsList: {
         flex: 1,
-        backgroundColor: '#2C1E33', // Same as modal background
+        backgroundColor: '#2C1E33',
     },
 
     participantsListContent: {
         padding: 12,
-        paddingBottom: 20, // Extra padding at bottom
-        flexGrow: 1, // Allow content to grow
+        paddingBottom: 20,
+        flexGrow: 1,
     },
 
     emptyState: {
@@ -923,8 +1407,8 @@ const styles = StyleSheet.create({
         marginBottom: 8,
         borderWidth: 1,
         borderColor: 'rgba(64, 51, 71, 0.3)',
-        width: '100%', // Ensure full width
-        alignSelf: 'stretch', // Stretch to container width
+        width: '100%',
+        alignSelf: 'stretch',
     },
 
     participantInfo: {

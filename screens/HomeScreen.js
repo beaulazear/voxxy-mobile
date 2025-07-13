@@ -19,11 +19,43 @@ import CustomHeader from '../components/CustomHeader'
 import YourCommunity from '../components/YourCommunity'
 import { useNavigation } from '@react-navigation/native';
 
-
 const FILTERS = ['In Progress', 'Finalized', 'Past', 'Invites']
 const PREVIEW_PAST = 3
 const CARD_MARGIN = 12
 const CARD_PADDING = 16
+
+// Activity type configuration
+const ACTIVITY_CONFIG = {
+  'Restaurant': {
+    displayText: 'Lets Eat!',
+    countdownText: 'MEAL STARTS',
+    countdownLabel: 'Meal Starts In'
+  },
+  'Meeting': {
+    displayText: 'Lets Meet!',
+    countdownText: 'MEETING STARTED',
+    countdownLabel: 'Meeting Starts In'
+  },
+  'Game Night': {
+    displayText: 'Game Time!',
+    countdownText: 'GAME NIGHT STARTED',
+    countdownLabel: 'Game Night Starts In'
+  },
+  'Cocktails': {
+    displayText: 'Lets Go Out!',
+    countdownText: 'NIGHT OUT STARTED',
+    countdownLabel: 'Night Out Starts In'
+  }
+}
+
+// Helper function to get activity display info
+function getActivityDisplayInfo(activityType) {
+  return ACTIVITY_CONFIG[activityType] || {
+    displayText: 'Lets Meet!',
+    countdownText: 'ACTIVITY STARTED',
+    countdownLabel: 'Activity Starts In'
+  }
+}
 
 function useCountdown(targetTs) {
   const [timeLeft, setTimeLeft] = useState(Math.max(targetTs - Date.now(), 0))
@@ -48,12 +80,13 @@ function useCountdown(targetTs) {
 
 function CountdownText({ targetTs, activityType }) {
   const countdown = useCountdown(targetTs)
+  const displayInfo = getActivityDisplayInfo(activityType)
 
   if (countdown.days === 0 && countdown.hrs === 0 && countdown.mins === 0 && countdown.secs === 0) {
     return (
       <View style={styles.countdownContainer}>
         <Text style={styles.countdownLabel}>
-          {activityType === 'Meeting' ? 'MEETING STARTED' : 'ACTIVITY STARTED'}
+          {displayInfo.countdownText}
         </Text>
       </View>
     )
@@ -62,7 +95,7 @@ function CountdownText({ targetTs, activityType }) {
   return (
     <View style={styles.countdownContainer}>
       <Text style={styles.countdownLabel}>
-        {activityType === 'Meeting' ? 'Meeting Starts In' : 'Activity Starts In'}
+        {displayInfo.countdownLabel}
       </Text>
       <View style={styles.countdownGrid}>
         {countdown.days > 0 && (
@@ -78,6 +111,10 @@ function CountdownText({ targetTs, activityType }) {
         <View style={styles.countdownBlock}>
           <Text style={styles.countdownNumber}>{countdown.mins}</Text>
           <Text style={styles.countdownUnit}>min</Text>
+        </View>
+        <View style={styles.countdownBlock}>
+          <Text style={styles.countdownNumber}>{countdown.secs}</Text>
+          <Text style={styles.countdownUnit}>sec</Text>
         </View>
       </View>
     </View>
@@ -96,7 +133,9 @@ function ProgressDisplay({ activity }) {
 
   if (hasSelectedPin && hasDateTime) {
     stage = 'finalized'
-    stageDisplay = activity.activity_type === 'Meeting' ? 'Ready to Meet' : 'Ready to Go'
+    // Use different text based on activity type
+    const displayInfo = getActivityDisplayInfo(activity.activity_type)
+    stageDisplay = 'Ready to Go'
     progress = 100
   } else if (ideas > 0) {
     stage = 'voting'
@@ -160,7 +199,7 @@ function HelpModal({ visible, onClose }) {
 
 export default function HomeScreen() {
   const { user } = useContext(UserContext)
-  const navigation = useNavigation() // Add this line!
+  const navigation = useNavigation()
   const [filter, setFilter] = useState('In Progress')
   const [showAllPast, setShowAllPast] = useState(false)
   const [helpVisible, setHelpVisible] = useState(false)
@@ -262,6 +301,8 @@ export default function HomeScreen() {
     const isInvite = invites.some(invite => invite.id === item.id)
     const isInProgress = !item.finalized && !item.completed && !isInvite
     const isFinalizedWithDateTime = item.finalized && item.date_day && item.date_time
+    const isCompleted = item.completed
+    const displayInfo = getActivityDisplayInfo(item.activity_type)
 
     let countdownTs = null
     if (isFinalizedWithDateTime) {
@@ -276,7 +317,7 @@ export default function HomeScreen() {
           index === 0 && styles.firstCard,
           index === displayedActivities.length - 1 && styles.lastCard
         ]}
-        onPress={() => navigation.navigate('ActivityDetails', { activityId: item.id })} // Updated this line!
+        onPress={() => navigation.navigate('ActivityDetails', { activityId: item.id })}
       >
         <View style={[styles.hostTag, isInvite && styles.inviteTag]}>
           <Users stroke="#fff" width={10} height={10} />
@@ -284,7 +325,7 @@ export default function HomeScreen() {
         </View>
         <View style={[styles.typeTag, isInvite && styles.inviteTag]}>
           <Text style={styles.tagText}>
-            {item.emoji} {item.activity_type === 'Restaurant' ? 'Lets Eat!' : 'Lets Meet!'}
+            {item.emoji} {displayInfo.displayText}
           </Text>
         </View>
 
@@ -299,11 +340,16 @@ export default function HomeScreen() {
             <CountdownText targetTs={countdownTs} activityType={item.activity_type} />
           ) : isInProgress ? (
             <ProgressDisplay activity={item} />
+          ) : isCompleted ? (
+            <View style={styles.completedContainer}>
+              <Text style={styles.completedLabel}>ACTIVITY COMPLETED</Text>
+              <Text style={styles.activityTypeEmoji}>{item.emoji}</Text>
+            </View>
           ) : (
             <View style={styles.placeholderContent}>
               <Text style={styles.activityTypeEmoji}>{item.emoji}</Text>
               <Text style={styles.activityTypeName}>
-                {item.activity_type === 'Restaurant' ? 'Lets Eat!' : 'Lets Meet!'}
+                {displayInfo.displayText}
               </Text>
             </View>
           )}
@@ -357,7 +403,7 @@ export default function HomeScreen() {
         renderItem={({ item }) => {
           if (item.key === 'new') {
             return (
-              <TouchableOpacity style={styles.newBtn} onPress={() => {/* create logic */ }}>
+              <TouchableOpacity style={styles.newBtn} onPress={() => navigation.navigate('TripDashboardScreen')}>
                 <Text style={styles.newBtnText}>+ New</Text>
               </TouchableOpacity>
             )
@@ -734,6 +780,28 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 1,
     shadowRadius: 8,
+  },
+
+  completedContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(42, 30, 46, 0.95)',
+    marginHorizontal: 12,
+    marginVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(100, 100, 100, 0.3)',
+  },
+
+  completedLabel: {
+    color: '#aaa',
+    fontSize: 11,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 12,
+    textAlign: 'center',
   },
 
   placeholderContent: {

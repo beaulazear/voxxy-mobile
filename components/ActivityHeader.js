@@ -48,6 +48,39 @@ const avatarMap = {
     'Weird5.jpg': require('../assets/Weird5.jpg'),
 }
 
+// Activity type configuration for display and help steps
+const ACTIVITY_CONFIG = {
+    'Restaurant': {
+        displayText: 'Lets Eat! 🍜',
+        emoji: '🍜',
+        usesAIRecommendations: true
+    },
+    'Meeting': {
+        displayText: 'Lets Meet! 👥',
+        emoji: '👥',
+        usesAIRecommendations: true
+    },
+    'Cocktails': {
+        displayText: 'Lets Go Out! 🌃',
+        emoji: '🌃',
+        usesAIRecommendations: true
+    },
+    'Game Night': {
+        displayText: 'Game Time! 🎮',
+        emoji: '🎮',
+        usesAIRecommendations: false
+    }
+}
+
+// Helper function to get activity display info
+function getActivityDisplayInfo(activityType) {
+    return ACTIVITY_CONFIG[activityType] || {
+        displayText: 'Lets Meet! 👥',
+        emoji: '👥',
+        usesAIRecommendations: true
+    }
+}
+
 // Helper function to safely get avatar (copied from ParticipantsSection)
 const getAvatarFromMap = (filename) => {
     try {
@@ -227,8 +260,27 @@ export default function ActivityHeader({
         )
     }
 
-    // Help content based on activity type
-    const meetingSteps = [
+    // Help content based on activity type and whether it uses AI recommendations or time slots
+    const aiRecommendationSteps = [
+        {
+            title: "1️⃣ Invite & Submit Preferences",
+            desc: "Participants & organizer take the quiz and share their feedback to help tailor the group's recommendations."
+        },
+        {
+            title: "2️⃣ Vote on Your Favorites!",
+            desc: "Everyone (host + participants) casts their vote on their favorite AI-generated recommendations."
+        },
+        {
+            title: "3️⃣ Organizer Confirms & Finalizes",
+            desc: "Organizer locks in the winning option and finalizes the activity details."
+        },
+        {
+            title: "4️⃣ Add to Calendar",
+            desc: "Host shares a link with a one-click calendar option so no one misses the fun."
+        }
+    ]
+
+    const timeSlotSteps = [
         {
             title: "1️⃣ Everyone Submits Availability",
             desc: "Both host and participants fill out when they're free so you can compare slots."
@@ -243,26 +295,11 @@ export default function ActivityHeader({
         }
     ]
 
-    const restaurantSteps = [
-        {
-            title: "1️⃣ Invite & Submit Your Preferences",
-            desc: "Participants & organizer take the quiz and share their feedback to help tailor the group's recommendations."
-        },
-        {
-            title: "2️⃣ Vote on your favorites!",
-            desc: "Everyone (host + participants) casts their vote on their favorite restaurant recommendations."
-        },
-        {
-            title: "3️⃣ Organizer Confirms & Reserves",
-            desc: "Organizer locks in the winning restaurant and books the reservation."
-        },
-        {
-            title: "4️⃣ Add to Calendar",
-            desc: "Host shares a share page with a one-click calendar link so no one misses dinner."
-        }
-    ]
+    // Get activity configuration and determine which steps to show
+    const activityInfo = getActivityDisplayInfo(activity.activity_type)
+    const steps = activityInfo.usesAIRecommendations ? aiRecommendationSteps : timeSlotSteps
 
-    const steps = activity.activity_type === 'Restaurant' ? restaurantSteps : meetingSteps
+    console.log(activityInfo)
 
     const handleHelpClose = () => {
         setHelpStep(0)
@@ -291,7 +328,7 @@ export default function ActivityHeader({
                 <View style={styles.centerContent}>
                     <View style={styles.activityTypeChip}>
                         <Text style={styles.activityTypeText}>
-                            {activity.activity_type === 'Restaurant' ? 'Lets Eat! 🍜' : '👥 Lets Meet!'}
+                            {activityInfo.displayText}
                         </Text>
                     </View>
                 </View>
