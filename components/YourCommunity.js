@@ -8,9 +8,10 @@ import {
     ScrollView,
     StyleSheet,
     Dimensions,
+    FlatList,
 } from 'react-native'
 import { UserContext } from '../context/UserContext'
-import { Users, Calendar, MapPin, Utensils, Clock } from 'react-native-feather'
+import { Users, Calendar, MapPin, Utensils, Clock, Star, X, ChevronRight } from 'react-native-feather'
 import SmallTriangle from '../assets/voxxy-triangle.png'
 import { API_URL } from '../config'
 
@@ -28,7 +29,6 @@ const avatarMap = {
     'Avatar9.jpg': require('../assets/Avatar9.jpg'),
     'Avatar10.jpg': require('../assets/Avatar10.jpg'),
     'Avatar11.jpg': require('../assets/Avatar11.jpg'),
-
     // Weird series
     'Weird1.jpg': require('../assets/Weird1.jpg'),
     'Weird2.jpg': require('../assets/Weird2.jpg'),
@@ -47,11 +47,13 @@ const getAvatarFromMap = (filename) => {
     }
 }
 
-const { width: screenWidth } = Dimensions.get('window')
+const { width: screenWidth, height: screenHeight } = Dimensions.get('window')
+const CARD_WIDTH = 200
+const CARD_HEIGHT = 200
+const CARD_MARGIN = 16
 
 export default function YourCommunity({ showInvitePopup, onSelectUser, onCreateBoard }) {
     const { user } = useContext(UserContext)
-    const [showAll, setShowAll] = useState(false)
     const [selectedPeer, setSelectedPeer] = useState(null)
 
     if (!user) return null
@@ -75,21 +77,18 @@ export default function YourCommunity({ showInvitePopup, onSelectUser, onCreateB
 
         // Check for avatar (relative path)
         if (userObj?.avatar && userObj.avatar !== SmallTriangle) {
-            // Extract filename from path if it includes directory
             const avatarFilename = userObj.avatar.includes('/')
                 ? userObj.avatar.split('/').pop()
                 : userObj.avatar
 
             console.log(`🎭 Looking for avatar: ${avatarFilename}`)
 
-            // Check if we have this avatar in our mapping
             const mappedAvatar = getAvatarFromMap(avatarFilename)
             if (mappedAvatar) {
                 console.log(`✅ Found avatar in mapping: ${avatarFilename}`)
                 return mappedAvatar
             }
 
-            // If it's a full URL, use it
             if (userObj.avatar.startsWith('http')) {
                 console.log(`🌐 Using avatar URL: ${userObj.avatar}`)
                 return { uri: userObj.avatar }
@@ -244,292 +243,370 @@ export default function YourCommunity({ showInvitePopup, onSelectUser, onCreateB
     const community = Array.from(allUsersMap.values())
         .sort((a, b) => b.count - a.count || a.user.name.localeCompare(b.user.name))
 
+    const openModal = (peerData) => {
+        setSelectedPeer(peerData)
+    }
+
+    const closeModal = () => {
+        setSelectedPeer(null)
+    }
+
+    function handleCardPress(peerData) {
+        if (showInvitePopup && onSelectUser) {
+            onSelectUser(peerData.user)
+        } else {
+            openModal(peerData)
+        }
+    }
+
+    // Empty state
     if (community.length === 0) {
         return (
-            <View style={styles.noCommunityContainer}>
-                <Image source={SmallTriangle} style={styles.noCommunityAvatar} />
-                <Text style={styles.noCommunityTitle}>No Voxxy Crew Yet</Text>
-                <Text style={styles.noCommunitySubtitle}>
-                    Start an activity and invite friends to build your crew!
-                </Text>
-                {onCreateBoard && (
-                    <TouchableOpacity style={styles.createButton} onPress={onCreateBoard}>
-                        <Text style={styles.createButtonText}>Get Started Now</Text>
-                    </TouchableOpacity>
-                )}
+            <View style={styles.section}>
+                <View style={styles.header}>
+                    <Text style={styles.titleText}>Your Voxxy Crew 🎭</Text>
+                    <Text style={styles.subtitle}>Friends you've gone on adventures with</Text>
+                </View>
+
+                <View style={styles.emptyStateContainer}>
+                    <View style={styles.emptyStateCard}>
+                        <View style={styles.emptyIconContainer}>
+                            <Image source={SmallTriangle} style={styles.emptyIcon} />
+                            <View style={styles.emptyPulse} />
+                        </View>
+                        <Text style={styles.emptyTitle}>No Voxxy Crew Yet</Text>
+                        <Text style={styles.emptySubtitle}>
+                            Start an activity and invite friends to build your crew!
+                        </Text>
+                        {onCreateBoard && (
+                            <TouchableOpacity
+                                style={styles.emptyButton}
+                                onPress={onCreateBoard}
+                                activeOpacity={0.8}
+                            >
+                                <Text style={styles.emptyButtonText}>Get Started Now</Text>
+                                <ChevronRight stroke="#fff" width={16} height={16} />
+                            </TouchableOpacity>
+                        )}
+                    </View>
+                </View>
             </View>
         )
     }
 
-    const displayed = showAll ? community : community.slice(0, 3)
+    const renderUserCard = ({ item: peerData, index }) => (
+        <TouchableOpacity
+            style={[
+                styles.userCard,
+                index === 0 && styles.firstCard,
+                index === community.length - 1 && styles.lastCard
+            ]}
+            onPress={() => handleCardPress(peerData)}
+            activeOpacity={0.85}
+        >
+            {/* Glow effect */}
+            <View style={styles.cardGlow} />
 
-    function handleCardClick(peerData) {
-        if (showInvitePopup && onSelectUser) {
-            onSelectUser(peerData.user)
-        } else {
-            setSelectedPeer(peerData)
-        }
-    }
-
-    return (
-        <View style={styles.wrapper}>
-            <View style={styles.header}>
-                <Text style={styles.titleText}>Your Voxxy Crew 🎭</Text>
-                <Text style={styles.subtitle}>Friends you've gone on adventures with</Text>
+            {/* Avatar section */}
+            <View style={styles.avatarSection}>
+                <View style={styles.avatarContainer}>
+                    <Image
+                        source={getDisplayImage(peerData.user)}
+                        style={[
+                            styles.avatar,
+                            peerData.user.avatar || peerData.user.profile_pic_url ? styles.avatarWithImage : styles.avatarDefault
+                        ]}
+                        onError={() => console.log(`❌ Avatar failed to load for ${peerData.user?.name}`)}
+                        onLoad={() => console.log(`✅ Avatar loaded for ${peerData.user?.name}`)}
+                    />
+                    <View style={styles.avatarRing} />
+                </View>
             </View>
 
-            <ScrollView style={styles.scrollArea} showsVerticalScrollIndicator={false}>
-                <View style={styles.grid}>
-                    {displayed.map(peerData => (
-                        <TouchableOpacity
-                            key={peerData.user.id}
-                            style={styles.card}
-                            onPress={() => handleCardClick(peerData)}
-                            activeOpacity={0.8}
-                        >
-                            <View style={styles.cardHeader}>
-                                <Image
-                                    source={getDisplayImage(peerData.user)}
-                                    style={[
-                                        styles.avatar,
-                                        peerData.user.avatar || peerData.user.profile_pic_url ? styles.avatarWithImage : styles.avatarDefault
-                                    ]}
-                                    onError={() => console.log(`❌ Avatar failed to load for ${peerData.user?.name}`)}
-                                    onLoad={() => console.log(`✅ Avatar loaded for ${peerData.user?.name}`)}
-                                />
-                                <View style={styles.userInfo}>
-                                    <Text style={styles.peerName}>{peerData.user.name}</Text>
-                                    <View style={styles.joinDate}>
-                                        <Calendar stroke="#d8cce2" width={12} height={12} />
-                                        <Text style={styles.joinDateText}>
-                                            On Voxxy since {formatSince(peerData.firstActivity)}
-                                        </Text>
-                                    </View>
-                                </View>
-                                <View style={styles.activityBadge}>
-                                    <Text style={styles.badgeCount}>{peerData.count}</Text>
-                                    <Text style={styles.badgeLabel}>Activities</Text>
-                                </View>
-                            </View>
-
-                            {peerData.recentRestaurants.length > 0 && (
-                                <View style={styles.recentVenue}>
-                                    <MapPin stroke="#cf38dd" width={12} height={12} />
-                                    <Text style={styles.recentVenueText} numberOfLines={1}>
-                                        Recent: {peerData.recentRestaurants[peerData.recentRestaurants.length - 1].name}
-                                    </Text>
-                                    {peerData.recentRestaurants[peerData.recentRestaurants.length - 1].rating && (
-                                        <Text style={styles.rating}>
-                                            ⭐ {peerData.recentRestaurants[peerData.recentRestaurants.length - 1].rating}
-                                        </Text>
-                                    )}
-                                </View>
-                            )}
-
-                            <View style={styles.lastActivity}>
-                                <Clock stroke="#b954ec" width={12} height={12} />
-                                <Text style={styles.lastActivityText} numberOfLines={1}>
-                                    Last: <Text style={styles.lastActivityName}>{peerData.lastName}</Text>
-                                </Text>
-                            </View>
-
-                            <View style={styles.activityCountTag}>
-                                <Text style={styles.activityCountTagText}>
-                                    {peerData.count}+ activities
-                                </Text>
-                            </View>
-                        </TouchableOpacity>
-                    ))}
+            {/* User info */}
+            <View style={styles.userInfo}>
+                <Text style={styles.userName} numberOfLines={1}>{peerData.user.name}</Text>
+                <View style={styles.joinInfo}>
+                    <Calendar stroke="#d8cce2" width={10} height={10} />
+                    <Text style={styles.joinText}>Since {formatSince(peerData.firstActivity)}</Text>
                 </View>
-            </ScrollView>
+            </View>
 
-            {community.length > 3 && (
-                <TouchableOpacity
-                    style={styles.toggle}
-                    onPress={() => setShowAll(v => !v)}
-                    activeOpacity={0.8}
-                >
-                    <Text style={styles.toggleText}>
-                        {showAll ? 'Show Less' : `View All ${community.length} Members`}
-                    </Text>
-                </TouchableOpacity>
-            )}
+            {/* Activity count at bottom */}
+            <View style={styles.adventureCount}>
+                <Text style={styles.adventureText}>
+                    {peerData.count} adventure{peerData.count !== 1 ? 's' : ''} together
+                </Text>
+            </View>
+        </TouchableOpacity>
+    )
 
-            {selectedPeer && !showInvitePopup && (
-                <Modal
-                    visible={true}
-                    transparent={true}
-                    animationType="fade"
-                    onRequestClose={() => setSelectedPeer(null)}
-                >
+    return (
+        <View style={styles.section}>
+            <View style={styles.header}>
+                <Text style={styles.titleText}>Your Voxxy Crew 🎭</Text>
+                <Text style={styles.subtitle}>
+                    {community.length} friend{community.length !== 1 ? 's' : ''} you've adventured with
+                </Text>
+            </View>
+
+            <FlatList
+                data={community}
+                renderItem={renderUserCard}
+                keyExtractor={(item) => item.user.id.toString()}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.listContainer}
+                snapToAlignment="start"
+                decelerationRate="fast"
+                snapToInterval={CARD_WIDTH + CARD_MARGIN}
+            />
+
+            {/* Simple Modal */}
+            <Modal
+                visible={!!selectedPeer}
+                transparent
+                animationType="slide"
+                onRequestClose={closeModal}
+            >
+                <View style={styles.modalOverlay}>
                     <TouchableOpacity
-                        style={styles.modalOverlay}
+                        style={styles.modalBackground}
                         activeOpacity={1}
-                        onPress={() => setSelectedPeer(null)}
-                    >
-                        <View style={styles.modalContent}>
+                        onPress={closeModal}
+                    />
+
+                    <View style={styles.modalContent}>
+                        {/* Modal header */}
+                        <View style={styles.modalHeader}>
                             <TouchableOpacity
                                 style={styles.closeButton}
-                                onPress={() => setSelectedPeer(null)}
+                                onPress={closeModal}
+                                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                             >
-                                <Text style={styles.closeButtonText}>×</Text>
+                                <X stroke="#fff" width={20} height={20} strokeWidth={2.5} />
                             </TouchableOpacity>
+                        </View>
 
-                            <View style={styles.modalHeader}>
-                                <Image
-                                    source={getDisplayImage(selectedPeer.user)}
-                                    style={[
-                                        styles.modalAvatar,
-                                        selectedPeer.user.avatar || selectedPeer.user.profile_pic_url ? styles.avatarWithImage : styles.avatarDefault
-                                    ]}
-                                    onError={() => console.log(`❌ Modal avatar failed to load for ${selectedPeer.user?.name}`)}
-                                    onLoad={() => console.log(`✅ Modal avatar loaded for ${selectedPeer.user?.name}`)}
-                                />
-                                <View style={styles.userDetails}>
-                                    <Text style={styles.modalPeerName}>{selectedPeer.user.name}</Text>
-                                    <View style={styles.modalJoinDate}>
-                                        <Calendar stroke="#d8cce2" width={14} height={14} />
-                                        <Text style={styles.modalJoinDateText}>
-                                            Voxxing since {formatSince(selectedPeer.firstActivity)}
-                                        </Text>
+                        {selectedPeer && (
+                            <>
+                                {/* User profile section */}
+                                <View style={styles.modalProfile}>
+                                    <View style={styles.modalAvatarContainer}>
+                                        <Image
+                                            source={getDisplayImage(selectedPeer.user)}
+                                            style={[
+                                                styles.modalAvatar,
+                                                selectedPeer.user.avatar || selectedPeer.user.profile_pic_url
+                                                    ? styles.avatarWithImage
+                                                    : styles.avatarDefault
+                                            ]}
+                                        />
+                                        <View style={styles.modalAvatarRing} />
                                     </View>
-                                    <View style={styles.activityCount}>
-                                        <Users stroke="#d394f5" width={14} height={14} />
-                                        <Text style={styles.activityCountText}>
-                                            {selectedPeer.count} shared activities
-                                        </Text>
+
+                                    <Text style={styles.modalUserName}>{selectedPeer.user.name}</Text>
+
+                                    <View style={styles.modalStats}>
+                                        <View style={styles.statItem}>
+                                            <Users stroke="#d394f5" width={16} height={16} />
+                                            <Text style={styles.statValue}>{selectedPeer.count}</Text>
+                                            <Text style={styles.statLabel}>Adventures</Text>
+                                        </View>
+                                        <View style={styles.statDivider} />
+                                        <View style={styles.statItem}>
+                                            <Calendar stroke="#d394f5" width={16} height={16} />
+                                            <Text style={styles.statValue}>{formatSince(selectedPeer.firstActivity)}</Text>
+                                            <Text style={styles.statLabel}>Since</Text>
+                                        </View>
                                     </View>
                                 </View>
-                            </View>
 
-                            <ScrollView style={styles.modalScrollView} showsVerticalScrollIndicator={false}>
-                                {selectedPeer.recentRestaurants.length > 0 && (
-                                    <View style={styles.section}>
-                                        <View style={styles.sectionTitle}>
-                                            <Utensils stroke="#cf38dd" width={16} height={16} />
-                                            <Text style={styles.sectionTitleText}>Recent Restaurant Picks</Text>
+                                {/* Content sections */}
+                                <ScrollView
+                                    style={styles.modalScrollView}
+                                    showsVerticalScrollIndicator={false}
+                                    contentContainerStyle={styles.scrollContent}
+                                >
+                                    {/* Last Activity */}
+                                    <View style={styles.modalSection}>
+                                        <View style={styles.sectionHeader}>
+                                            <Clock stroke="#cf38dd" width={18} height={18} />
+                                            <Text style={styles.sectionTitle}>Last Activity</Text>
                                         </View>
-                                        <View style={styles.restaurantList}>
-                                            {selectedPeer.recentRestaurants
+                                        <View style={styles.lastActivityCard}>
+                                            <Text style={styles.lastActivityName}>{selectedPeer.lastName}</Text>
+                                            <Text style={styles.lastActivityDate}>
+                                                {formatDate(selectedPeer.lastDate?.toISOString()?.split('T')[0] || '')}
+                                            </Text>
+                                        </View>
+                                    </View>
+
+                                    {/* Recent restaurants */}
+                                    {selectedPeer.recentRestaurants.length > 0 && (
+                                        <View style={styles.modalSection}>
+                                            <View style={styles.sectionHeader}>
+                                                <Utensils stroke="#cf38dd" width={18} height={18} />
+                                                <Text style={styles.sectionTitle}>Recent Spots</Text>
+                                            </View>
+
+                                            <View style={styles.restaurantGrid}>
+                                                {selectedPeer.recentRestaurants
+                                                    .sort((a, b) => new Date(b.date) - new Date(a.date))
+                                                    .slice(0, 3)
+                                                    .map((restaurant, idx) => (
+                                                        <View key={idx} style={styles.restaurantCard}>
+                                                            <Text style={styles.restaurantName} numberOfLines={1}>
+                                                                {restaurant.name}
+                                                            </Text>
+                                                            <View style={styles.restaurantMeta}>
+                                                                {restaurant.rating && (
+                                                                    <View style={styles.ratingBadge}>
+                                                                        <Star stroke="#FFD700" fill="#FFD700" width={10} height={10} />
+                                                                        <Text style={styles.ratingValue}>{restaurant.rating}</Text>
+                                                                    </View>
+                                                                )}
+                                                                <Text style={styles.restaurantDate}>
+                                                                    {formatDate(restaurant.date)}
+                                                                </Text>
+                                                            </View>
+                                                        </View>
+                                                    ))}
+                                            </View>
+                                        </View>
+                                    )}
+
+                                    {/* Shared activities */}
+                                    <View style={styles.modalSection}>
+                                        <View style={styles.sectionHeader}>
+                                            <Calendar stroke="#cf38dd" width={18} height={18} />
+                                            <Text style={styles.sectionTitle}>
+                                                Shared Adventures ({selectedPeer.count})
+                                            </Text>
+                                        </View>
+
+                                        <View style={styles.activitiesGrid}>
+                                            {selectedPeer.sharedActivities
                                                 .sort((a, b) => new Date(b.date) - new Date(a.date))
-                                                .slice(0, 3)
-                                                .map((restaurant, idx) => (
-                                                    <View key={idx} style={styles.restaurantItem}>
-                                                        <Text style={styles.restaurantName}>{restaurant.name}</Text>
-                                                        <View style={styles.restaurantMeta}>
-                                                            {restaurant.rating && (
-                                                                <Text style={styles.restaurantRating}>⭐ {restaurant.rating}</Text>
-                                                            )}
-                                                            <Text style={styles.restaurantDate}>{formatDate(restaurant.date)}</Text>
+                                                .slice(0, 6)
+                                                .map((activity, idx) => (
+                                                    <View key={idx} style={styles.activityCard}>
+                                                        <Text style={styles.activityEmoji}>{activity.emoji}</Text>
+                                                        <View style={styles.activityDetails}>
+                                                            <Text style={styles.activityName} numberOfLines={1}>
+                                                                {activity.name}
+                                                            </Text>
+                                                            <Text style={styles.activityMeta}>
+                                                                {activity.type} • {formatDate(activity.date)}
+                                                            </Text>
                                                         </View>
                                                     </View>
                                                 ))}
                                         </View>
-                                    </View>
-                                )}
 
-                                <View style={styles.section}>
-                                    <View style={styles.sectionTitle}>
-                                        <Calendar stroke="#cf38dd" width={16} height={16} />
-                                        <Text style={styles.sectionTitleText}>
-                                            Shared Activities ({selectedPeer.count})
-                                        </Text>
-                                    </View>
-                                    <View style={styles.activitiesList}>
-                                        {selectedPeer.sharedActivities
-                                            .sort((a, b) => new Date(b.date) - new Date(a.date))
-                                            .slice(0, 5)
-                                            .map((activity, idx) => (
-                                                <View key={idx} style={styles.activityItem}>
-                                                    <Text style={styles.activityEmoji}>{activity.emoji}</Text>
-                                                    <View style={styles.activityDetails}>
-                                                        <Text style={styles.activityName} numberOfLines={1}>
-                                                            {activity.name}
-                                                        </Text>
-                                                        <Text style={styles.activityMeta}>
-                                                            {activity.type} • {formatDate(activity.date)}
-                                                        </Text>
-                                                    </View>
-                                                </View>
-                                            ))}
-                                        {selectedPeer.sharedActivities.length > 5 && (
+                                        {selectedPeer.sharedActivities.length > 6 && (
                                             <Text style={styles.moreActivities}>
-                                                +{selectedPeer.sharedActivities.length - 5} more activities
+                                                +{selectedPeer.sharedActivities.length - 6} more adventures
                                             </Text>
                                         )}
                                     </View>
-                                </View>
-                            </ScrollView>
-                        </View>
-                    </TouchableOpacity>
-                </Modal>
-            )}
+                                </ScrollView>
+                            </>
+                        )}
+                    </View>
+                </View>
+            </Modal>
         </View>
     )
 }
 
 const styles = StyleSheet.create({
-    wrapper: {
+    section: {
         paddingBottom: 60,
     },
 
     header: {
-        paddingHorizontal: 16,
-        paddingTop: 48,
-        paddingBottom: 16,
+        paddingHorizontal: 24,
+        paddingTop: 32,
+        paddingBottom: 20,
     },
 
     titleText: {
         fontFamily: 'Montserrat_700Bold',
-        fontSize: Math.min(screenWidth * 0.06, 28),
+        fontSize: Math.min(screenWidth * 0.06, 26),
         fontWeight: '700',
         color: '#f4f0f5',
-        marginBottom: 8,
+        marginBottom: 6,
     },
 
     subtitle: {
         fontFamily: 'Inter_400Regular',
-        fontSize: Math.min(screenWidth * 0.04, 18),
+        fontSize: Math.min(screenWidth * 0.035, 16),
         color: '#d8cce2',
+        opacity: 0.8,
     },
 
-    scrollArea: {
-        paddingHorizontal: 16,
+    listContainer: {
+        paddingHorizontal: 24,
+        paddingVertical: 8,
     },
 
-    grid: {
-        gap: 16,
-    },
-
-    card: {
-        backgroundColor: 'rgba(42, 30, 46, 0.9)',
-        borderWidth: 2,
-        borderColor: 'rgba(207, 56, 221, 0.3)',
-        borderRadius: 16,
-        padding: 16,
-        shadowColor: 'rgba(207, 56, 221, 0.2)',
-        shadowOffset: { width: 0, height: 4 },
+    userCard: {
+        width: CARD_WIDTH,
+        height: CARD_HEIGHT,
+        marginRight: CARD_MARGIN,
+        backgroundColor: 'rgba(42, 30, 46, 0.95)',
+        borderRadius: 24,
+        borderWidth: 1,
+        borderColor: 'rgba(207, 56, 221, 0.2)',
+        padding: 20,
+        position: 'relative',
+        overflow: 'hidden',
+        shadowColor: 'rgba(207, 56, 221, 0.3)',
+        shadowOffset: { width: 0, height: 8 },
         shadowOpacity: 1,
-        shadowRadius: 8,
-        elevation: 8,
+        shadowRadius: 16,
+        elevation: 12,
     },
 
-    cardHeader: {
-        flexDirection: 'row',
-        alignItems: 'flex-start',
-        marginBottom: 12,
-        gap: 16,
+    firstCard: {
+        marginLeft: 0,
+    },
+
+    lastCard: {
+        marginRight: 24,
+    },
+
+    cardGlow: {
+        position: 'absolute',
+        top: -20,
+        left: -20,
+        right: -20,
+        bottom: -20,
+        backgroundColor: 'rgba(207, 56, 221, 0.03)',
+        borderRadius: 40,
+    },
+
+    avatarSection: {
+        alignItems: 'center',
+        marginTop: 8,
+        marginBottom: 16,
+        position: 'relative',
+    },
+
+    avatarContainer: {
+        position: 'relative',
     },
 
     avatar: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
+        width: 80,
+        height: 80,
+        borderRadius: 40,
         backgroundColor: '#f4f0f5',
     },
 
     avatarWithImage: {
-        borderWidth: 3,
+        borderWidth: 4,
         borderColor: 'rgba(207, 56, 221, 0.6)',
     },
 
@@ -538,358 +615,376 @@ const styles = StyleSheet.create({
         borderColor: '#cf38dd',
     },
 
-    userInfo: {
-        flex: 1,
-        minWidth: 0,
+    avatarRing: {
+        position: 'absolute',
+        top: -3,
+        left: -3,
+        right: -3,
+        bottom: -3,
+        borderRadius: 43,
+        borderWidth: 2,
+        borderColor: 'rgba(207, 56, 221, 0.3)',
     },
 
-    peerName: {
-        fontSize: 18,
+    userInfo: {
+        alignItems: 'center',
+        marginBottom: 16,
+        flex: 1,
+        justifyContent: 'center',
+    },
+
+    userName: {
+        fontSize: 16,
         fontWeight: '700',
         color: '#f4f0f5',
         marginBottom: 4,
-        textShadowColor: 'rgba(0, 0, 0, 0.3)',
-        textShadowOffset: { width: 1, height: 1 },
-        textShadowRadius: 2,
+        textAlign: 'center',
     },
 
-    joinDate: {
+    joinInfo: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 4,
     },
 
-    joinDateText: {
-        fontSize: 12,
+    joinText: {
+        fontSize: 10,
         color: '#d8cce2',
+        opacity: 0.8,
     },
 
-    activityBadge: {
-        backgroundColor: '#cf38dd',
-        borderRadius: 10,
-        paddingVertical: 6,
-        paddingHorizontal: 10,
-        alignItems: 'center',
-        minWidth: 55,
-        borderWidth: 2,
-        borderColor: 'rgba(244, 240, 245, 0.2)',
-    },
-
-    badgeCount: {
-        fontSize: 16,
-        fontWeight: '800',
-        color: '#f4f0f5',
-        textShadowColor: 'rgba(0, 0, 0, 0.5)',
-        textShadowOffset: { width: 1, height: 1 },
-        textShadowRadius: 2,
-    },
-
-    badgeLabel: {
-        fontSize: 9,
-        color: 'rgba(244, 240, 245, 0.9)',
-        textTransform: 'uppercase',
-        fontWeight: '600',
-    },
-
-    recentVenue: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-        marginBottom: 8,
-        padding: 6,
-        backgroundColor: 'rgba(207, 56, 221, 0.1)',
-        borderRadius: 8,
-        borderWidth: 1,
-        borderColor: 'rgba(207, 56, 221, 0.2)',
-    },
-
-    recentVenueText: {
-        flex: 1,
-        fontSize: 13,
-        color: '#d394f5',
-        fontWeight: '500',
-    },
-
-    rating: {
-        fontSize: 11,
-        color: '#d394f5',
-    },
-
-    lastActivity: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-    },
-
-    lastActivityText: {
-        flex: 1,
-        fontSize: 12,
-        color: '#d8cce2',
-    },
-
-    lastActivityName: {
-        color: '#cf38dd',
-        fontWeight: '500',
-        fontStyle: 'italic',
-    },
-
-    toggle: {
-        alignSelf: 'center',
-        marginTop: 32,
-        marginBottom: 16,
-        backgroundColor: '#cf38dd',
-        borderWidth: 2,
-        borderColor: 'rgba(207, 56, 221, 0.6)',
-        paddingVertical: 12,
-        paddingHorizontal: 24,
-        borderRadius: 999,
-        shadowColor: 'rgba(207, 56, 221, 0.4)',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 1,
-        shadowRadius: 8,
-    },
-
-    toggleText: {
-        fontSize: 14,
-        fontWeight: '600',
-        color: '#f4f0f5',
-    },
-
-    activityCountTag: {
-        marginTop: 8,
-        alignSelf: 'flex-start',
-        backgroundColor: 'rgba(185, 84, 236, 0.2)',
-        borderWidth: 1,
-        borderColor: 'rgba(185, 84, 236, 0.4)',
+    adventureCount: {
+        backgroundColor: 'rgba(207, 56, 221, 0.15)',
         borderRadius: 12,
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-    },
-
-    activityCountTagText: {
-        fontSize: 11,
-        color: '#b954ec',
-        fontWeight: '600',
-        textTransform: 'uppercase',
-        letterSpacing: 0.5,
-    },
-
-    // No Community Styles
-    noCommunityContainer: {
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderWidth: 1,
+        borderColor: 'rgba(207, 56, 221, 0.3)',
         alignItems: 'center',
-        padding: 48,
-        marginVertical: 24,
     },
 
-    noCommunityAvatar: {
-        width: 80,
-        height: 80,
+    adventureText: {
+        fontSize: 11,
+        color: '#d394f5',
+        fontWeight: '600',
+        textAlign: 'center',
+    },
+
+    // Empty State Styles
+    emptyStateContainer: {
+        paddingHorizontal: 24,
+        alignItems: 'center',
+    },
+
+    emptyStateCard: {
+        backgroundColor: 'rgba(42, 30, 46, 0.6)',
+        borderRadius: 24,
+        borderWidth: 2,
+        borderColor: 'rgba(207, 56, 221, 0.3)',
+        borderStyle: 'dashed',
+        padding: 40,
+        alignItems: 'center',
+        width: '100%',
+        maxWidth: 320,
+        shadowColor: 'rgba(207, 56, 221, 0.2)',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 1,
+        shadowRadius: 16,
+    },
+
+    emptyIconContainer: {
+        position: 'relative',
         marginBottom: 24,
+    },
+
+    emptyIcon: {
+        width: 64,
+        height: 64,
         opacity: 0.6,
     },
 
-    noCommunityTitle: {
-        fontSize: 24,
+    emptyPulse: {
+        position: 'absolute',
+        top: -8,
+        left: -8,
+        right: -8,
+        bottom: -8,
+        borderRadius: 40,
+        borderWidth: 2,
+        borderColor: 'rgba(207, 56, 221, 0.3)',
+    },
+
+    emptyTitle: {
+        fontSize: 20,
         color: '#f4f0f5',
         fontWeight: '700',
-        marginBottom: 12,
+        marginBottom: 8,
         textAlign: 'center',
     },
 
-    noCommunitySubtitle: {
+    emptySubtitle: {
         color: '#d8cce2',
-        fontSize: 16,
+        fontSize: 14,
         textAlign: 'center',
         marginBottom: 24,
-        paddingHorizontal: 32,
-        lineHeight: 22,
+        lineHeight: 20,
+        opacity: 0.8,
     },
 
-    createButton: {
+    emptyButton: {
         backgroundColor: '#cf38dd',
-        paddingHorizontal: 32,
-        paddingVertical: 16,
-        borderRadius: 999,
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 24,
+        paddingVertical: 12,
+        borderRadius: 20,
         borderWidth: 2,
         borderColor: 'rgba(207, 56, 221, 0.6)',
         shadowColor: 'rgba(207, 56, 221, 0.4)',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 1,
         shadowRadius: 8,
+        gap: 8,
     },
 
-    createButtonText: {
+    emptyButtonText: {
         color: '#fff',
         fontWeight: '700',
-        fontSize: 16,
+        fontSize: 14,
     },
 
     // Modal Styles
     modalOverlay: {
         flex: 1,
-        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        backgroundColor: 'rgba(0, 0, 0, 0.85)',
         justifyContent: 'center',
         alignItems: 'center',
-        padding: 16,
+    },
+
+    modalBackground: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
     },
 
     modalContent: {
-        backgroundColor: 'rgba(42, 30, 46, 0.95)',
+        backgroundColor: 'rgba(42, 30, 46, 0.98)',
+        borderRadius: 28,
         borderWidth: 2,
         borderColor: 'rgba(207, 56, 221, 0.4)',
-        borderRadius: 20,
-        padding: 32,
-        width: '100%',
-        maxWidth: 480,
-        maxHeight: '80%',
-        position: 'relative',
-        shadowColor: 'rgba(207, 56, 221, 0.3)',
+        width: screenWidth - 32,
+        maxWidth: 400,
+        maxHeight: screenHeight * 0.85,
+        shadowColor: 'rgba(207, 56, 221, 0.4)',
         shadowOffset: { width: 0, height: 20 },
         shadowOpacity: 1,
         shadowRadius: 40,
-    },
-
-    closeButton: {
-        position: 'absolute',
-        top: 16,
-        right: 16,
-        backgroundColor: 'rgba(207, 56, 221, 0.2)',
-        borderWidth: 2,
-        borderColor: 'rgba(207, 56, 221, 0.4)',
-        borderRadius: 18,
-        width: 36,
-        height: 36,
-        justifyContent: 'center',
-        alignItems: 'center',
-        zIndex: 10,
-    },
-
-    closeButtonText: {
-        fontSize: 20,
-        color: '#f4f0f5',
-        fontWeight: '600',
+        overflow: 'hidden',
     },
 
     modalHeader: {
         flexDirection: 'row',
+        justifyContent: 'flex-end',
+        padding: 20,
+        paddingBottom: 0,
+    },
+
+    closeButton: {
+        backgroundColor: 'rgba(207, 56, 221, 0.2)',
+        borderRadius: 20,
+        width: 40,
+        height: 40,
+        justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: 32,
-        gap: 16,
+        borderWidth: 1,
+        borderColor: 'rgba(207, 56, 221, 0.4)',
+    },
+
+    modalProfile: {
+        alignItems: 'center',
+        paddingHorizontal: 32,
+        paddingBottom: 24,
+    },
+
+    modalAvatarContainer: {
+        position: 'relative',
+        marginBottom: 16,
     },
 
     modalAvatar: {
-        width: 60,
-        height: 60,
-        borderRadius: 30,
+        width: 80,
+        height: 80,
+        borderRadius: 40,
         backgroundColor: '#f4f0f5',
     },
 
-    userDetails: {
-        flex: 1,
+    modalAvatarRing: {
+        position: 'absolute',
+        top: -4,
+        left: -4,
+        right: -4,
+        bottom: -4,
+        borderRadius: 44,
+        borderWidth: 3,
+        borderColor: 'rgba(207, 56, 221, 0.4)',
     },
 
-    modalPeerName: {
-        fontSize: 20,
+    modalUserName: {
+        fontSize: 22,
         fontWeight: '700',
         color: '#f4f0f5',
-        marginBottom: 4,
+        marginBottom: 16,
+        textAlign: 'center',
     },
 
-    modalJoinDate: {
+    modalStats: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 6,
-        marginBottom: 8,
+        backgroundColor: 'rgba(207, 56, 221, 0.1)',
+        borderRadius: 16,
+        padding: 16,
+        borderWidth: 1,
+        borderColor: 'rgba(207, 56, 221, 0.2)',
     },
 
-    modalJoinDateText: {
-        fontSize: 14,
+    statItem: {
+        alignItems: 'center',
+        flex: 1,
+        gap: 4,
+    },
+
+    statValue: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: '#f4f0f5',
+    },
+
+    statLabel: {
+        fontSize: 11,
         color: '#d8cce2',
+        opacity: 0.8,
     },
 
-    activityCount: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-    },
-
-    activityCountText: {
-        fontSize: 14,
-        color: '#d394f5',
+    statDivider: {
+        width: 1,
+        height: 40,
+        backgroundColor: 'rgba(207, 56, 221, 0.3)',
+        marginHorizontal: 16,
     },
 
     modalScrollView: {
-        maxHeight: 400,
+        flex: 1,
     },
 
-    section: {
+    scrollContent: {
+        paddingHorizontal: 24,
+        paddingBottom: 32,
+    },
+
+    modalSection: {
         marginBottom: 24,
     },
 
-    sectionTitle: {
+    sectionHeader: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 8,
         marginBottom: 16,
     },
 
-    sectionTitleText: {
+    sectionTitle: {
         fontSize: 16,
         fontWeight: '700',
         color: '#f4f0f5',
     },
 
-    restaurantList: {
-        gap: 12,
-    },
-
-    restaurantItem: {
-        backgroundColor: 'rgba(207, 56, 221, 0.1)',
-        borderWidth: 1,
-        borderColor: 'rgba(207, 56, 221, 0.2)',
-        borderRadius: 8,
+    lastActivityCard: {
+        backgroundColor: 'rgba(185, 84, 236, 0.1)',
+        borderRadius: 12,
         padding: 12,
+        borderWidth: 1,
+        borderColor: 'rgba(185, 84, 236, 0.2)',
     },
 
-    restaurantName: {
+    lastActivityName: {
+        fontSize: 14,
         fontWeight: '600',
         color: '#f4f0f5',
         marginBottom: 4,
+    },
+
+    lastActivityDate: {
+        fontSize: 12,
+        color: '#b954ec',
+        opacity: 0.8,
+    },
+
+    restaurantGrid: {
+        gap: 12,
+    },
+
+    restaurantCard: {
+        backgroundColor: 'rgba(207, 56, 221, 0.1)',
+        borderRadius: 12,
+        padding: 12,
+        borderWidth: 1,
+        borderColor: 'rgba(207, 56, 221, 0.2)',
+    },
+
+    restaurantName: {
         fontSize: 14,
+        fontWeight: '600',
+        color: '#f4f0f5',
+        marginBottom: 6,
     },
 
     restaurantMeta: {
         flexDirection: 'row',
         justifyContent: 'space-between',
+        alignItems: 'center',
     },
 
-    restaurantRating: {
-        fontSize: 12,
-        color: '#d8cce2',
+    ratingBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        backgroundColor: 'rgba(255, 215, 0, 0.15)',
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        borderRadius: 8,
+    },
+
+    ratingValue: {
+        fontSize: 11,
+        color: '#FFD700',
+        fontWeight: '600',
     },
 
     restaurantDate: {
-        fontSize: 12,
+        fontSize: 11,
         color: '#d8cce2',
+        opacity: 0.8,
     },
 
-    activitiesList: {
+    activitiesGrid: {
         gap: 12,
     },
 
-    activityItem: {
+    activityCard: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 12,
-        padding: 12,
         backgroundColor: 'rgba(64, 51, 71, 0.5)',
-        borderRadius: 8,
+        borderRadius: 12,
+        padding: 12,
         borderWidth: 1,
         borderColor: 'rgba(207, 56, 221, 0.1)',
+        gap: 12,
     },
 
     activityEmoji: {
-        fontSize: 24,
+        fontSize: 20,
     },
 
     activityDetails: {
@@ -898,22 +993,24 @@ const styles = StyleSheet.create({
     },
 
     activityName: {
+        fontSize: 14,
         fontWeight: '600',
         color: '#f4f0f5',
-        marginBottom: 4,
-        fontSize: 14,
+        marginBottom: 2,
     },
 
     activityMeta: {
-        fontSize: 12,
+        fontSize: 11,
         color: '#d8cce2',
+        opacity: 0.8,
     },
 
     moreActivities: {
         textAlign: 'center',
-        fontSize: 13,
+        fontSize: 12,
         color: '#cf38dd',
         fontStyle: 'italic',
-        padding: 8,
+        marginTop: 8,
+        opacity: 0.8,
     },
 })

@@ -169,13 +169,18 @@ function ProgressDisplay({ activity }) {
   )
 }
 
-// Create New Activity Card
-function CreateCard({ navigation, isLast }) {
+// Create New Activity Card with conditional content
+function CreateCard({ navigation, isLast, isInvitesEmpty = false }) {
+  const title = isInvitesEmpty ? 'No Current Invites' : 'Create New Activity'
+  const subtitle = isInvitesEmpty ? 'Be the first to invite your friends!' : 'Start planning something amazing!'
+  const actionText = isInvitesEmpty ? 'Start planning now →' : 'Tap to start →'
+
   return (
     <TouchableOpacity
       style={[
         styles.createCard,
-        isLast && styles.lastCard
+        isLast && styles.lastCard,
+        isInvitesEmpty && styles.invitesEmptyCard
       ]}
       onPress={() => {
         if (Haptics?.impactAsync) {
@@ -185,33 +190,45 @@ function CreateCard({ navigation, isLast }) {
       }}
       activeOpacity={0.9}
     >
-      <View style={styles.createCardGlow} />
+      <View style={[styles.createCardGlow, isInvitesEmpty && styles.invitesGlow]} />
 
       <View style={styles.createCardContent}>
-        <View style={styles.createIconContainer}>
-          <Plus stroke="#4ECDC4" width={28} height={28} strokeWidth={2.5} />
+        <View style={[styles.createIconContainer, isInvitesEmpty && styles.invitesIconContainer]}>
+          {isInvitesEmpty ? (
+            <Mail stroke="#d394f5" width={28} height={28} strokeWidth={2.5} />
+          ) : (
+            <Plus stroke="#4ECDC4" width={28} height={28} strokeWidth={2.5} />
+          )}
         </View>
 
-        <Text style={styles.createTitle}>Create New Activity</Text>
-        <Text style={styles.createSubtitle}>Start planning something amazing!</Text>
+        <Text style={styles.createTitle}>{title}</Text>
+        <Text style={styles.createSubtitle}>{subtitle}</Text>
 
-        <View style={styles.createSuggestions}>
-          <View style={styles.suggestionIcon}>
-            <Coffee stroke="#FF6B6B" width={18} height={18} strokeWidth={2} />
+        {!isInvitesEmpty && (
+          <View style={styles.createSuggestions}>
+            <View style={styles.suggestionIcon}>
+              <Coffee stroke="#FF6B6B" width={18} height={18} strokeWidth={2} />
+            </View>
+            <View style={styles.suggestionIcon}>
+              <Star stroke="#4ECDC4" width={18} height={18} strokeWidth={2} />
+            </View>
+            <View style={styles.suggestionIcon}>
+              <MapPin stroke="#FFE66D" width={18} height={18} strokeWidth={2} />
+            </View>
+            <View style={styles.suggestionIcon}>
+              <User stroke="#A8E6CF" width={18} height={18} strokeWidth={2} />
+            </View>
           </View>
-          <View style={styles.suggestionIcon}>
-            <Star stroke="#4ECDC4" width={18} height={18} strokeWidth={2} />
-          </View>
-          <View style={styles.suggestionIcon}>
-            <MapPin stroke="#FFE66D" width={18} height={18} strokeWidth={2} />
-          </View>
-          <View style={styles.suggestionIcon}>
-            <User stroke="#A8E6CF" width={18} height={18} strokeWidth={2} />
-          </View>
-        </View>
+        )}
 
-        <View style={styles.createArrow}>
-          <Text style={styles.createArrowText}>Tap to start →</Text>
+        {isInvitesEmpty && (
+          <View style={styles.invitesEmptyIcon}>
+            <Text style={styles.invitesEmptyEmoji}>💌</Text>
+          </View>
+        )}
+
+        <View style={[styles.createArrow, isInvitesEmpty && styles.invitesArrow]}>
+          <Text style={[styles.createArrowText, isInvitesEmpty && styles.invitesArrowText]}>{actionText}</Text>
         </View>
       </View>
     </TouchableOpacity>
@@ -489,18 +506,13 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      {filteredActivities.length === 0 && (
+      {/* Only show empty state for non-invites tabs */}
+      {filteredActivities.length === 0 && filter !== 'Invites' && (
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyIcon}>
-            {filter === 'Invites' ? '💌' : '📱'}
-          </Text>
-          <Text style={styles.empty}>
-            {filter === 'Invites' ? 'No pending invites!' : 'No activities to show.'}
-          </Text>
+          <Text style={styles.emptyIcon}>📱</Text>
+          <Text style={styles.empty}>No activities to show.</Text>
           <Text style={styles.emptySub}>
-            {filter === 'Invites'
-              ? 'Check back later for new invitations'
-              : 'Start by creating your first activity below!'}
+            Start by creating your first activity below!
           </Text>
         </View>
       )}
@@ -529,6 +541,9 @@ export default function HomeScreen() {
     </View>
   )
 
+  // Check if we should show invites empty state in create card
+  const isInvitesEmpty = filter === 'Invites' && filteredActivities.length === 0
+
   return (
     <>
       <CustomHeader />
@@ -549,7 +564,7 @@ export default function HomeScreen() {
                 showsHorizontalScrollIndicator={false}
                 renderItem={({ item, index }) => {
                   if (item.isCreateCard) {
-                    return <CreateCard navigation={navigation} isLast={true} />
+                    return <CreateCard navigation={navigation} isLast={true} isInvitesEmpty={isInvitesEmpty} />
                   }
                   return renderCard({ item, index })
                 }}
@@ -713,6 +728,11 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
 
+  invitesEmptyCard: {
+    borderColor: 'rgba(211, 148, 245, 0.4)',
+    shadowColor: 'rgba(211, 148, 245, 0.3)',
+  },
+
   createCardGlow: {
     position: 'absolute',
     top: -50,
@@ -721,6 +741,10 @@ const styles = StyleSheet.create({
     bottom: -50,
     backgroundColor: 'rgba(78, 205, 196, 0.05)',
     borderRadius: 100,
+  },
+
+  invitesGlow: {
+    backgroundColor: 'rgba(211, 148, 245, 0.05)',
   },
 
   createCardContent: {
@@ -746,6 +770,12 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 1,
     shadowRadius: 12,
+  },
+
+  invitesIconContainer: {
+    backgroundColor: 'rgba(211, 148, 245, 0.15)',
+    borderColor: 'rgba(211, 148, 245, 0.4)',
+    shadowColor: 'rgba(211, 148, 245, 0.4)',
   },
 
   createTitle: {
@@ -786,6 +816,14 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
   },
 
+  invitesEmptyIcon: {
+    marginTop: 8,
+  },
+
+  invitesEmptyEmoji: {
+    fontSize: 32,
+  },
+
   createArrow: {
     marginTop: 8,
     paddingHorizontal: 16,
@@ -796,11 +834,20 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(78, 205, 196, 0.3)',
   },
 
+  invitesArrow: {
+    backgroundColor: 'rgba(211, 148, 245, 0.1)',
+    borderColor: 'rgba(211, 148, 245, 0.3)',
+  },
+
   createArrowText: {
     color: '#4ECDC4',
     fontSize: 12,
     fontWeight: '600',
     letterSpacing: 0.5,
+  },
+
+  invitesArrowText: {
+    color: '#d394f5',
   },
 
   card: {
