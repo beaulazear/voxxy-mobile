@@ -18,9 +18,10 @@ import ActivityHeader from '../components/ActivityHeader'
 import ParticipantsSection from '../components/ParticipantsSection'
 import AIRecommendations from '../components/AIRecommendations'
 import CommentsSection from '../components/CommentsSection'
-import { API_URL } from '../config' // Import API_URL from config like ProfileScreen
+import UpdateDetailsModal from '../components/UpdateDetailsModal'
+import FinalizeActivityModal from '../components/FinalizeActivityModal'
+import { API_URL } from '../config'
 
-// Adventures array for activity type information
 const adventures = [
     {
         name: 'Lets Eat',
@@ -92,6 +93,7 @@ export default function ActivityDetailsScreen({ route }) {
     const [currentActivity, setCurrentActivity] = useState(null)
     const [refreshTrigger, setRefreshTrigger] = useState(false)
     const [showUpdateModal, setShowUpdateModal] = useState(false)
+    const [showFinalizeModal, setShowFinalizeModal] = useState(false)
     const [pinnedActivities, setPinnedActivities] = useState([])
     const [pinned, setPinned] = useState([])
 
@@ -485,6 +487,29 @@ export default function ActivityDetailsScreen({ route }) {
         }
     }
 
+    const handleFinalize = () => {
+        setShowFinalizeModal(true)
+    }
+
+    const handleFinalizeSuccess = (finalizedActivity) => {
+        // Update the activity in user context
+        setUser(prevUser => ({
+            ...prevUser,
+            activities: prevUser.activities.map(act =>
+                act.id === finalizedActivity.id ? finalizedActivity : act
+            ),
+            participant_activities: prevUser.participant_activities.map(p =>
+                p.activity.id === finalizedActivity.id
+                    ? { ...p, activity: finalizedActivity }
+                    : p
+            ),
+        }))
+
+        setCurrentActivity(finalizedActivity)
+        setRefreshTrigger(prev => !prev)
+        setShowFinalizeModal(false)
+    }
+
     if (!currentActivity) {
         return (
             <SafeAreaView style={styles.safe}>
@@ -507,14 +532,12 @@ export default function ActivityDetailsScreen({ route }) {
         <SafeAreaView style={styles.safe}>
             <StatusBar barStyle="light-content" />
 
-            {/* Animated Background */}
             <AnimatedBackground
                 backgroundAnim={backgroundAnim}
                 smokeAnim1={smokeAnim1}
                 smokeAnim2={smokeAnim2}
             />
 
-            {/* Main Content */}
             <ScrollView
                 style={styles.container}
                 showsVerticalScrollIndicator={false}
@@ -525,6 +548,7 @@ export default function ActivityDetailsScreen({ route }) {
                     isOwner={isOwner}
                     onBack={handleBack}
                     onEdit={() => setShowUpdateModal(true)}
+                    onFinalize={handleFinalize}
                 />
 
                 <View style={[styles.contentSection, pendingInvite && styles.blurred]}>
@@ -543,7 +567,7 @@ export default function ActivityDetailsScreen({ route }) {
                         setPinned={setPinned}
                         setRefreshTrigger={setRefreshTrigger}
                         isOwner={isOwner}
-                        onEdit={() => setShowUpdateModal(true)}
+                        onEdit={() => handleFinalize()}
                     />
 
                     <CommentsSection activity={currentActivity} />
@@ -560,28 +584,55 @@ export default function ActivityDetailsScreen({ route }) {
                 />
             )}
 
-            {/* Update Modal Placeholder */}
-            <Modal
+            {/* Update Details Modal */}
+            <UpdateDetailsModal
+                activity={currentActivity}
                 visible={showUpdateModal}
-                transparent={true}
-                animationType="slide"
-                onRequestClose={() => setShowUpdateModal(false)}
-            >
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
-                        <Text style={styles.modalTitle}>Update Activity</Text>
-                        <Text style={styles.modalPlaceholder}>
-                            UpdateActivityModal Component Placeholder
-                        </Text>
-                        <TouchableOpacity
-                            style={styles.closeButton}
-                            onPress={() => setShowUpdateModal(false)}
-                        >
-                            <Text style={styles.closeButtonText}>Close</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-            </Modal>
+                onClose={() => setShowUpdateModal(false)}
+                onUpdate={(updatedActivity) => {
+                    // Update the activity in user context
+                    setUser(prevUser => ({
+                        ...prevUser,
+                        activities: prevUser.activities.map(act =>
+                            act.id === updatedActivity.id ? updatedActivity : act
+                        ),
+                        participant_activities: prevUser.participant_activities.map(p =>
+                            p.activity.id === updatedActivity.id
+                                ? { ...p, activity: updatedActivity }
+                                : p
+                        ),
+                    }))
+
+                    setCurrentActivity(updatedActivity)
+                    setRefreshTrigger(prev => !prev)
+                }}
+            />
+
+            {/* Finalize Activity Modal */}
+            <FinalizeActivityModal
+                activity={currentActivity}
+                visible={showFinalizeModal}
+                onClose={() => setShowFinalizeModal(false)}
+                onFinalize={handleFinalizeSuccess}
+                pinnedActivities={pinnedActivities}
+                pinned={pinned}
+                onUpdate={(updatedActivity) => {
+                    setUser(prevUser => ({
+                        ...prevUser,
+                        activities: prevUser.activities.map(act =>
+                            act.id === updatedActivity.id ? updatedActivity : act
+                        ),
+                        participant_activities: prevUser.participant_activities.map(p =>
+                            p.activity.id === updatedActivity.id
+                                ? { ...p, activity: updatedActivity }
+                                : p
+                        ),
+                    }))
+
+                    setCurrentActivity(updatedActivity)
+                    setRefreshTrigger(prev => !prev)
+                }}
+            />
         </SafeAreaView>
     )
 }

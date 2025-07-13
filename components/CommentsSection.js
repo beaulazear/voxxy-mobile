@@ -704,6 +704,9 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         marginBottom: 2,
+        paddingLeft: 11,
+        paddingBottom: 4,
+        
     },
     sendButtonActive: {
         backgroundColor: '#cc31e8',

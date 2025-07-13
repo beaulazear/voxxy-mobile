@@ -40,26 +40,26 @@ const CARD_PADDING = 16
 const ACTIVITY_CONFIG = {
   'Restaurant': {
     displayText: 'Lets Eat!',
-    countdownText: 'MEAL STARTS',
+    countdownText: 'Hope you and your crew savored every bite together! 🥂',
     countdownLabel: 'Meal Starts In',
     emoji: '🍜'
   },
   'Meeting': {
     displayText: 'Lets Meet!',
-    countdownText: 'MEETING STARTED',
+    countdownText: 'Convos unlocked and plans locked in—high-five to your crew! 🙌',
     countdownLabel: 'Meeting Starts In',
     emoji: '⏰'
   },
   'Game Night': {
     displayText: 'Game Time!',
-    countdownText: 'GAME NIGHT STARTED',
+    countdownText: 'Dice rolled, friendships scored—your group leveled up the fun! 🏆',
     countdownLabel: 'Game Night Starts In',
     emoji: '🎮'
   },
   'Cocktails': {
     displayText: 'Lets Go Out!',
-    countdownText: 'NIGHT OUT STARTED',
-    countdownLabel: 'Night Out Starts In',
+    countdownText: 'Cheers to wild laughs and brighter memories—what a crew! 🥂',
+    countdownLabel: 'Your Outing Starts In',
     emoji: '🍸'
   }
 }
@@ -155,7 +155,7 @@ function ProgressDisplay({ activity }) {
     progress = 100
   } else if (ideas > 0) {
     stage = 'voting'
-    stageDisplay = 'Voting Phase'
+    stageDisplay = 'Finalizing Plans'
     progress = 67
   }
 
@@ -891,8 +891,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(185, 84, 236, 0.95)',
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderRadius: 22,
     zIndex: 10,
     borderWidth: 1,
@@ -908,8 +908,8 @@ const styles = StyleSheet.create({
     top: 20,
     right: 20,
     backgroundColor: 'rgba(207, 56, 221, 0.95)',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderRadius: 22,
     zIndex: 10,
     borderWidth: 1,

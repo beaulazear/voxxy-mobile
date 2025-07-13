@@ -344,7 +344,6 @@ export const FormStyles = StyleSheet.create({
         borderTopWidth: 1,
         borderTopColor: colors.border,
         gap: 12, // Increased gap
-        backgroundColor: colors.backgroundSecondary,
     },
 
     buttonPrimary: {

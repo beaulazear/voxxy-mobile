@@ -17,7 +17,7 @@ import {
 } from 'react-native';
 import { UserContext } from '../context/UserContext';
 import { API_URL } from '../config';
-// Temporarily using text icons - you can replace with react-native-vector-icons later
+
 const Icons = {
     Users: () => <Text style={styles.iconText}>👥</Text>,
     Share: () => <Text style={styles.iconText}>📤</Text>,
@@ -37,14 +37,13 @@ const Icons = {
     Star: () => <Text style={styles.iconText}>⭐</Text>,
 };
 
-// Import chat components (you'll need to create React Native versions)
-// import CuisineChat from './CuisineChat';
-// import BarChat from '../cocktails/BarChat';
-// import GameNightPreferenceChat from '../gamenight/GameNightPreferenceChat';
+import CuisineResponseForm from './CuisineResponseForm';
+import NightOutResponseForm from './NightOutResponseForm';
+import GameNightResponseForm from './GameNightResponseForm';
+import LetsMeetScheduler from './LetsMeetScheduler';
 
 const { width: screenWidth } = Dimensions.get('window');
 
-// Helper functions
 const safeJsonParse = (data, fallback = []) => {
     if (!data) return fallback;
     if (typeof data === 'object') return data;
@@ -247,7 +246,6 @@ const PhotoGallery = ({ photos }) => {
     );
 };
 
-// Progress Bar Component
 const ProgressBar = ({ percent }) => {
     return (
         <View style={styles.progressBarContainer}>
@@ -256,7 +254,6 @@ const ProgressBar = ({ percent }) => {
     );
 };
 
-// Main Component
 export default function AIRecommendations({
     activity,
     pinnedActivities,
@@ -276,23 +273,24 @@ export default function AIRecommendations({
 
     const { id, responses, activity_location, date_notes, collecting, voting, finalized, selected_pinned_activity_id } = activity;
 
-    // Determine activity type for dynamic text and API calls
     const activityType = activity.activity_type || 'Restaurant';
-    const isCocktailsActivity = activityType === 'Cocktails';
-    const isGameNightActivity = activityType === 'Game Night';
 
-    // Dynamic text based on activity type
+    const isNightOutActivity = activityType === 'Cocktails';
+    const isLetsEatActivity = activityType === 'Restaurant';
+    const isGameNightActivity = activityType === 'Game Night';
+    const isMeetingActivity = activityType === 'Meeting';
+
     const getActivityText = () => {
-        if (isCocktailsActivity) {
+        if (isNightOutActivity) {
             return {
-                submitTitle: 'Submit Your Bar Preferences',
-                submitDescription: 'Help us find the perfect bar by sharing your drink preferences and atmosphere needs',
-                planningTitle: 'Bar Planning',
-                votingTitle: 'Vote on Bars',
-                finalizedTitle: 'Activity Finalized',
-                preferencesQuiz: 'Take Bar Preferences Quiz',
-                resubmitPreferences: 'Resubmit Bar Preferences',
-                reasonTitle: 'Why This Bar?',
+                submitTitle: 'Submit Your Night Out Preferences',
+                submitDescription: 'Help us plan the perfect night out by sharing your food, drink, and atmosphere preferences',
+                planningTitle: 'Night Out Planning',
+                votingTitle: 'Vote on Night Out Options',
+                finalizedTitle: 'Night Out Finalized',
+                preferencesQuiz: 'Take Night Out Preferences Quiz',
+                resubmitPreferences: 'Resubmit Night Out Preferences',
+                reasonTitle: 'Why This Option?',
                 apiEndpoint: '/api/openai/bar_recommendations'
             };
         }
@@ -308,6 +306,20 @@ export default function AIRecommendations({
                 resubmitPreferences: 'Resubmit Game Preferences',
                 reasonTitle: 'Why This Game?',
                 apiEndpoint: '/api/openai/game_recommendations'
+            };
+        }
+
+        if (isMeetingActivity) {
+            return {
+                submitTitle: 'Submit Your Meeting Preferences',
+                submitDescription: 'Help us find the perfect meeting spot by sharing your workspace and atmosphere needs',
+                planningTitle: 'Meeting Planning',
+                votingTitle: 'Vote on Meeting Locations',
+                finalizedTitle: 'Meeting Finalized',
+                preferencesQuiz: 'Take Meeting Preferences Quiz',
+                resubmitPreferences: 'Resubmit Meeting Preferences',
+                reasonTitle: 'Why This Location?',
+                apiEndpoint: '/api/openai/meeting_recommendations'
             };
         }
 
@@ -343,8 +355,91 @@ export default function AIRecommendations({
     const votingRate = (participantsWithVotes.size / totalParticipants) * 100;
 
     const handleStartChat = () => {
-        // TODO: Implement analytics tracking for production
         setShowChat(true);
+    };
+
+    const handleChatComplete = (response, comment) => {
+        console.log('Chat completed:', { response, comment });
+        setShowChat(false);
+        // Trigger a refresh to update the UI
+        if (setRefreshTrigger) {
+            setRefreshTrigger(prev => !prev);
+        }
+    };
+
+    const handleChatClose = () => {
+        setShowChat(false);
+    };
+
+    // Render the appropriate chat component based on activity type
+    const renderChatComponent = () => {
+        if (!showChat) return null;
+
+        const cleanActivityType = activityType?.trim();
+
+        switch (cleanActivityType) {
+            case 'Restaurant':
+                return (
+                    <CuisineResponseForm
+                        visible={showChat}
+                        onClose={handleChatClose}
+                        activityId={id}
+                        onResponseComplete={handleChatComplete}
+                        guestMode={false}
+                    />
+                );
+
+            case 'Cocktails':
+                return (
+                    <NightOutResponseForm
+                        visible={showChat}
+                        onClose={handleChatClose}
+                        activityId={id}
+                        onResponseComplete={handleChatComplete}
+                        guestMode={false}
+                    />
+                );
+
+            case 'Game Night':
+                return (
+                    <GameNightResponseForm
+                        visible={showChat}
+                        onClose={handleChatClose}
+                        activityId={id}
+                        onResponseComplete={handleChatComplete}
+                        guestMode={false}
+                    />
+                );
+
+            case 'Meeting':
+                return (
+                    <LetsMeetScheduler
+                        visible={showChat}
+                        onClose={handleChatClose}
+                        activityId={id}
+                        currentActivity={activity}
+                        responseSubmitted={false}
+                        isUpdate={!!currentUserResponse}
+                        onAvailabilityUpdate={handleChatComplete}
+                        guestMode={false}
+                        guestToken={null}
+                        guestEmail={null}
+                        onChatComplete={handleChatComplete}
+                    />
+                );
+
+            default:
+                // Fallback to cuisine form for unknown types
+                return (
+                    <CuisineResponseForm
+                        visible={showChat}
+                        onClose={handleChatClose}
+                        activityId={id}
+                        onResponseComplete={handleChatComplete}
+                        guestMode={false}
+                    />
+                );
+        }
     };
 
     const moveToVotingPhase = async () => {
@@ -567,121 +662,126 @@ export default function AIRecommendations({
     // COLLECTING PHASE
     if (collecting && !voting) {
         return (
-            <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-                <View style={styles.header}>
-                    <Text style={styles.heading}>{activityText.submitTitle}</Text>
-                </View>
-
-                {error ? <Text style={styles.errorText}>{error}</Text> : null}
-
-                <View style={styles.phaseIndicator}>
-                    <View style={styles.phaseContent}>
-                        <Icons.HelpCircle />
-                        <Text style={styles.phaseTitle}>Group Status</Text>
+            <>
+                <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+                    <View style={styles.header}>
+                        <Text style={styles.heading}>{activityText.submitTitle}</Text>
                     </View>
 
-                    <Text style={styles.phaseSubtitle}>
-                        {responses.length}/{totalParticipants} participants have submitted
-                        {activity.allow_participant_time_selection && ' preferences & availability'}
-                    </Text>
+                    {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-                    {isOwner && (
-                        <TouchableOpacity
-                            style={styles.phaseActionButton}
-                            onPress={() => setShowMoveToVotingModal(true)}
-                        >
-                            <Icons.Vote />
-                            <Text style={styles.phaseActionButtonText}>Move to Voting</Text>
-                        </TouchableOpacity>
-                    )}
-                </View>
-
-                <ProgressBar percent={responseRate} />
-
-                <AvailabilityDisplay responses={responses} activity={activity} />
-
-                {user && !currentUserResponse ? (
-                    <View style={styles.preferencesCard}>
-                        <Icons.BookHeart />
-                        <Text style={styles.preferencesTitle}>Submit Your Preferences!</Text>
-                        <Text style={styles.preferencesText}>
-                            {activityText.submitDescription}
-                            {activity.allow_participant_time_selection && ' and your availability'}.
-                        </Text>
-                        <TouchableOpacity style={styles.preferencesButton} onPress={handleStartChat}>
+                    <View style={styles.phaseIndicator}>
+                        <View style={styles.phaseContent}>
                             <Icons.HelpCircle />
-                            <Text style={styles.preferencesButtonText}>
-                                {activity.allow_participant_time_selection ? `${activityText.preferencesQuiz} & Availability` : activityText.preferencesQuiz}
-                            </Text>
-                        </TouchableOpacity>
-                    </View>
-                ) : user && currentUserResponse ? (
-                    <View style={styles.submittedCard}>
-                        <Icons.CheckCircle />
-                        <Text style={styles.submittedTitle}>Thank you for submitting your response!</Text>
-                        <Text style={styles.submittedText}>
-                            The organizer will gather recommendations shortly. You can resubmit your preferences
-                            {activity.allow_participant_time_selection && ' and availability'} if you'd like to make changes.
-                        </Text>
-                        <TouchableOpacity style={styles.resubmitButton} onPress={handleStartChat}>
-                            <Icons.HelpCircle />
-                            <Text style={styles.resubmitButtonText}>
-                                {activity.allow_participant_time_selection ? `${activityText.resubmitPreferences} & Availability` : activityText.resubmitPreferences}
-                            </Text>
-                        </TouchableOpacity>
-                    </View>
-                ) : null}
-
-                {/* Move to Voting Modal */}
-                <Modal
-                    visible={showMoveToVotingModal}
-                    transparent
-                    animationType="slide"
-                    onRequestClose={() => setShowMoveToVotingModal(false)}
-                >
-                    <SafeAreaView style={styles.modalOverlay}>
-                        <View style={styles.votingModalContainer}>
-                            <TouchableOpacity
-                                style={styles.votingModalCloseButton}
-                                onPress={() => setShowMoveToVotingModal(false)}
-                            >
-                                <Icons.X />
-                            </TouchableOpacity>
-
-                            <View style={styles.votingModalContent}>
-                                <Text style={styles.votingModalTitle}>Move to voting phase?</Text>
-                                <Text style={styles.votingModalDescription}>
-                                    Generate recommendations and start group voting
-                                </Text>
-
-                                <View style={styles.votingModalProgressSection}>
-                                    <ProgressBar percent={responseRate} />
-                                    <View style={styles.progressInfo}>
-                                        <View style={styles.progressLeft}>
-                                            <Icons.Users />
-                                            <Text style={styles.progressText}>{responses.length}/{totalParticipants} users submitted</Text>
-                                        </View>
-                                        <Text style={styles.progressPercentage}>{Math.round(responseRate)}%</Text>
-                                    </View>
-                                </View>
-
-                                {responseRate < 50 && (
-                                    <View style={styles.warningBox}>
-                                        <Text style={styles.warningText}>
-                                            ⚠️ Less than 50% of participants have submitted their preferences. Consider waiting for more responses to get better recommendations.
-                                        </Text>
-                                    </View>
-                                )}
-
-                                <TouchableOpacity style={styles.votingModalButton} onPress={moveToVotingPhase}>
-                                    <Icons.Zap />
-                                    <Text style={styles.votingModalButtonText}>Generate Recommendations</Text>
-                                </TouchableOpacity>
-                            </View>
+                            <Text style={styles.phaseTitle}>Group Status</Text>
                         </View>
-                    </SafeAreaView>
-                </Modal>
-            </ScrollView>
+
+                        <Text style={styles.phaseSubtitle}>
+                            {responses.length}/{totalParticipants} participants have submitted
+                            {activity.allow_participant_time_selection && ' preferences & availability'}
+                        </Text>
+
+                        {isOwner && (
+                            <TouchableOpacity
+                                style={styles.phaseActionButton}
+                                onPress={() => setShowMoveToVotingModal(true)}
+                            >
+                                <Icons.Vote />
+                                <Text style={styles.phaseActionButtonText}>Move to Voting</Text>
+                            </TouchableOpacity>
+                        )}
+                    </View>
+
+                    <ProgressBar percent={responseRate} />
+
+                    <AvailabilityDisplay responses={responses} activity={activity} />
+
+                    {user && !currentUserResponse ? (
+                        <View style={styles.preferencesCard}>
+                            <Icons.BookHeart />
+                            <Text style={styles.preferencesTitle}>Submit Your Preferences!</Text>
+                            <Text style={styles.preferencesText}>
+                                {activityText.submitDescription}
+                                {activity.allow_participant_time_selection && ' and your availability'}.
+                            </Text>
+                            <TouchableOpacity style={styles.preferencesButton} onPress={handleStartChat}>
+                                <Icons.HelpCircle />
+                                <Text style={styles.preferencesButtonText}>
+                                    {activity.allow_participant_time_selection ? `${activityText.preferencesQuiz} & Availability` : activityText.preferencesQuiz}
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+                    ) : user && currentUserResponse ? (
+                        <View style={styles.submittedCard}>
+                            <Icons.CheckCircle />
+                            <Text style={styles.submittedTitle}>Thank you for submitting your response!</Text>
+                            <Text style={styles.submittedText}>
+                                The organizer will gather recommendations shortly. You can resubmit your preferences
+                                {activity.allow_participant_time_selection && ' and availability'} if you'd like to make changes.
+                            </Text>
+                            <TouchableOpacity style={styles.resubmitButton} onPress={handleStartChat}>
+                                <Icons.HelpCircle />
+                                <Text style={styles.resubmitButtonText}>
+                                    {activity.allow_participant_time_selection ? `${activityText.resubmitPreferences} & Availability` : activityText.resubmitPreferences}
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+                    ) : null}
+
+                    {/* Move to Voting Modal */}
+                    <Modal
+                        visible={showMoveToVotingModal}
+                        transparent
+                        animationType="slide"
+                        onRequestClose={() => setShowMoveToVotingModal(false)}
+                    >
+                        <SafeAreaView style={styles.modalOverlay}>
+                            <View style={styles.votingModalContainer}>
+                                <TouchableOpacity
+                                    style={styles.votingModalCloseButton}
+                                    onPress={() => setShowMoveToVotingModal(false)}
+                                >
+                                    <Icons.X />
+                                </TouchableOpacity>
+
+                                <View style={styles.votingModalContent}>
+                                    <Text style={styles.votingModalTitle}>Move to voting phase?</Text>
+                                    <Text style={styles.votingModalDescription}>
+                                        Generate recommendations and start group voting
+                                    </Text>
+
+                                    <View style={styles.votingModalProgressSection}>
+                                        <ProgressBar percent={responseRate} />
+                                        <View style={styles.progressInfo}>
+                                            <View style={styles.progressLeft}>
+                                                <Icons.Users />
+                                                <Text style={styles.progressText}>{responses.length}/{totalParticipants} users submitted</Text>
+                                            </View>
+                                            <Text style={styles.progressPercentage}>{Math.round(responseRate)}%</Text>
+                                        </View>
+                                    </View>
+
+                                    {responseRate < 50 && (
+                                        <View style={styles.warningBox}>
+                                            <Text style={styles.warningText}>
+                                                ⚠️ Less than 50% of participants have submitted their preferences. Consider waiting for more responses to get better recommendations.
+                                            </Text>
+                                        </View>
+                                    )}
+
+                                    <TouchableOpacity style={styles.votingModalButton} onPress={moveToVotingPhase}>
+                                        <Icons.Zap />
+                                        <Text style={styles.votingModalButtonText}>Generate Recommendations</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
+                        </SafeAreaView>
+                    </Modal>
+                </ScrollView>
+
+                {/* Render Chat Component Conditionally */}
+                {renderChatComponent()}
+            </>
         );
     }
 
@@ -1056,6 +1156,7 @@ export default function AIRecommendations({
     );
 }
 
+// [All the styles remain exactly the same as the original]
 const styles = StyleSheet.create({
     // Icon text style for emoji icons
     iconText: {

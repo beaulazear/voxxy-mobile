@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.beaulazear.voxxymobile",
-      "buildNumber": "1.0.7",
+      "buildNumber": "1.0.8",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
