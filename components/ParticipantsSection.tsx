@@ -24,8 +24,10 @@ import {
     Check,
     Calendar,
     ArrowLeft,
-    Mail
+    Mail,
+    Phone,
 } from 'react-native-feather'
+import * as Contacts from 'expo-contacts'
 import { UserContext } from '../context/UserContext'
 import { API_URL } from '../config'
 
@@ -78,7 +80,10 @@ export default function ParticipantsSection({
     const [manualInput, setManualInput] = useState('')
     const [manualEmails, setManualEmails] = useState([])
     const [selectedCrewMembers, setSelectedCrewMembers] = useState([])
-    const [inviteMode, setInviteMode] = useState('selection') // 'selection', 'crew', 'manual'
+    const [selectedContacts, setSelectedContacts] = useState([])
+    const [phoneContacts, setPhoneContacts] = useState([])
+    const [contactsLoading, setContactsLoading] = useState(false)
+    const [inviteMode, setInviteMode] = useState('selection') // 'selection', 'crew', 'manual', 'contacts'
 
     const { responses = [] } = activity
 
@@ -276,6 +281,44 @@ export default function ParticipantsSection({
         )
     )
 
+    // Function to load contacts using Expo Contacts
+    const loadContacts = async () => {
+        setContactsLoading(true)
+        try {
+            const { status } = await Contacts.requestPermissionsAsync()
+            if (status === 'granted') {
+                const { data } = await Contacts.getContactsAsync({
+                    fields: [Contacts.Fields.Name, Contacts.Fields.Emails, Contacts.Fields.Image],
+                })
+
+                // Filter contacts that have email addresses and aren't already participants
+                const contactsWithEmails = data
+                    .filter(contact => contact.emails && contact.emails.length > 0)
+                    .filter(contact =>
+                        !allParticipants.some(participant =>
+                            contact.emails.some(email => email.email === participant.email)
+                        )
+                    )
+                    .map(contact => ({
+                        id: contact.id,
+                        name: contact.name || 'Unknown',
+                        emails: contact.emails.map(email => email.email),
+                        primaryEmail: contact.emails[0].email,
+                        image: contact.image,
+                    }))
+                    .sort((a, b) => a.name.localeCompare(b.name))
+
+                setPhoneContacts(contactsWithEmails)
+            } else {
+                Alert.alert('Permission Denied', 'Cannot access contacts without permission.')
+            }
+        } catch (error) {
+            console.error('Error loading contacts:', error)
+            Alert.alert('Error', 'Failed to load contacts.')
+        }
+        setContactsLoading(false)
+    }
+
     // Helper functions for tracking responses and votes
     const hasVoted = (participant) => {
         if (!participant.confirmed || !participant.apId) return false
@@ -318,6 +361,7 @@ export default function ParticipantsSection({
         setManualInput('')
         setManualEmails([])
         setSelectedCrewMembers([])
+        setSelectedContacts([])
         setInviteMode('selection')
         setShowInviteModal(true)
     }
@@ -351,11 +395,22 @@ export default function ParticipantsSection({
         })
     }
 
+    const handleToggleContact = (contact) => {
+        setSelectedContacts(prev => {
+            const isSelected = prev.some(c => c.id === contact.id)
+            if (isSelected) {
+                return prev.filter(c => c.id !== contact.id)
+            } else {
+                return [...prev, contact]
+            }
+        })
+    }
+
     const handleInviteSubmit = () => {
-        const totalInvites = manualEmails.length + selectedCrewMembers.length
+        const totalInvites = manualEmails.length + selectedCrewMembers.length + selectedContacts.length
 
         if (totalInvites === 0) {
-            Alert.alert('No Invites', 'Please select crew members or add email addresses.')
+            Alert.alert('No Invites', 'Please select crew members, contacts, or add email addresses.')
             return
         }
 
@@ -367,6 +422,11 @@ export default function ParticipantsSection({
         // Send crew member invites (using their email)
         selectedCrewMembers.forEach(crewMember => {
             onInvite(crewMember.user.email)
+        })
+
+        // Send contact invites (using their primary email)
+        selectedContacts.forEach(contact => {
+            onInvite(contact.primaryEmail)
         })
 
         Alert.alert('Success', `${totalInvites} invitation(s) sent!`)
@@ -427,6 +487,35 @@ export default function ParticipantsSection({
     }
 
     const renderParticipantListItem = ({ item, index }) => {
+        // Display logic for participant name
+        const getDisplayName = () => {
+            if (item.isHost) {
+                return `${item.name} (Organizer)`
+            }
+
+            // If it's a pending invite and the current user is the owner, show the email
+            if (!item.confirmed && isOwner) {
+                return item.email || 'Invite Pending'
+            }
+
+            // For confirmed participants or non-owners viewing pending invites
+            return item.name
+        }
+
+        // Display logic for participant subtitle (email for confirmed users, status for pending)
+        const getDisplaySubtitle = () => {
+            if (item.confirmed && !item.isHost && isOwner) {
+                return item.email
+            }
+            if (!item.confirmed && isOwner) {
+                return 'Pending invitation'
+            }
+            if (!item.confirmed) {
+                return 'Invitation pending'
+            }
+            return null
+        }
+
         return (
             <View style={styles.participantItem}>
                 <View style={styles.participantInfo}>
@@ -447,8 +536,14 @@ export default function ParticipantsSection({
 
                     <View style={styles.participantDetails}>
                         <Text style={styles.participantName}>
-                            {item.name}{item.isHost && ' (Organizer)'}
+                            {getDisplayName()}
                         </Text>
+
+                        {getDisplaySubtitle() && (
+                            <Text style={styles.participantEmail}>
+                                {getDisplaySubtitle()}
+                            </Text>
+                        )}
 
                         <View style={styles.statusRow}>
                             {hasResponded(item) ? (
@@ -527,6 +622,51 @@ export default function ParticipantsSection({
         )
     }
 
+    const renderContactCard = ({ item }) => {
+        const isSelected = selectedContacts.some(contact => contact.id === item.id)
+
+        return (
+            <TouchableOpacity
+                style={[styles.contactCard, isSelected && styles.contactCardSelected]}
+                onPress={() => handleToggleContact(item)}
+                activeOpacity={0.8}
+            >
+                <View style={styles.contactCardHeader}>
+                    <View style={styles.contactAvatarContainer}>
+                        {item.image ? (
+                            <Image
+                                source={{ uri: item.image.uri }}
+                                style={styles.contactAvatar}
+                                defaultSource={DefaultIcon}
+                            />
+                        ) : (
+                            <View style={styles.contactAvatarPlaceholder}>
+                                <Text style={styles.contactAvatarText}>
+                                    {item.name.charAt(0).toUpperCase()}
+                                </Text>
+                            </View>
+                        )}
+                        {isSelected && (
+                            <View style={styles.contactSelectedOverlay}>
+                                <Check stroke="#fff" width={20} height={20} strokeWidth={3} />
+                            </View>
+                        )}
+                    </View>
+
+                    <View style={styles.contactInfo}>
+                        <Text style={styles.contactName}>{item.name}</Text>
+                        <Text style={styles.contactEmail}>{item.primaryEmail}</Text>
+                        {item.emails.length > 1 && (
+                            <Text style={styles.contactEmailCount}>
+                                +{item.emails.length - 1} more email{item.emails.length > 2 ? 's' : ''}
+                            </Text>
+                        )}
+                    </View>
+                </View>
+            </TouchableOpacity>
+        )
+    }
+
     const renderModeSelection = () => (
         <View style={styles.modeSelectionContainer}>
             <View style={styles.modeHeader}>
@@ -554,6 +694,28 @@ export default function ParticipantsSection({
                     </View>
                 </TouchableOpacity>
             )}
+
+            <TouchableOpacity
+                style={styles.modeOption}
+                onPress={() => {
+                    setInviteMode('contacts')
+                    loadContacts()
+                }}
+                activeOpacity={0.8}
+            >
+                <View style={styles.modeOptionIcon}>
+                    <Phone stroke="#8b5cf6" width={24} height={24} />
+                </View>
+                <View style={styles.modeOptionContent}>
+                    <Text style={styles.modeOptionTitle}>Invite from Contacts</Text>
+                    <Text style={styles.modeOptionDescription}>
+                        Select friends from your phone's contacts
+                    </Text>
+                </View>
+                <View style={styles.modeOptionArrow}>
+                    <Text style={styles.arrow}>→</Text>
+                </View>
+            </TouchableOpacity>
 
             <TouchableOpacity
                 style={styles.modeOption}
@@ -598,6 +760,43 @@ export default function ParticipantsSection({
         </View>
     )
 
+    const renderContactsSelection = () => (
+        <View style={styles.contactsSelectionContainer}>
+            {contactsLoading ? (
+                <View style={styles.loadingContainer}>
+                    <Text style={styles.loadingText}>Loading contacts...</Text>
+                </View>
+            ) : (
+                <>
+                    {selectedContacts.length > 0 && (
+                        <View style={styles.selectionSummary}>
+                            <Text style={styles.selectionSummaryText}>
+                                {selectedContacts.length} contact{selectedContacts.length !== 1 ? 's' : ''} selected
+                            </Text>
+                        </View>
+                    )}
+
+                    {phoneContacts.length > 0 ? (
+                        <FlatList
+                            data={phoneContacts}
+                            renderItem={renderContactCard}
+                            keyExtractor={(item) => item.id.toString()}
+                            style={styles.contactsList}
+                            contentContainerStyle={styles.contactsListContent}
+                            showsVerticalScrollIndicator={false}
+                        />
+                    ) : (
+                        <View style={styles.emptyContactsState}>
+                            <Text style={styles.emptyContactsText}>
+                                No contacts with email addresses found
+                            </Text>
+                        </View>
+                    )}
+                </>
+            )}
+        </View>
+    )
+
     const renderManualEntry = () => (
         <View style={styles.manualEntryContainer}>
             <View style={styles.inputSection}>
@@ -632,6 +831,45 @@ export default function ParticipantsSection({
             </View>
         </View>
     )
+
+    const renderModalContent = () => {
+        switch (inviteMode) {
+            case 'selection':
+                return renderModeSelection()
+            case 'crew':
+                return renderCrewSelection()
+            case 'contacts':
+                return renderContactsSelection()
+            case 'manual':
+                return renderManualEntry()
+            default:
+                return renderModeSelection()
+        }
+    }
+
+    const getHeaderTitle = () => {
+        switch (inviteMode) {
+            case 'selection':
+                return 'Round Up the Crew 🎉'
+            case 'crew':
+                return 'Select Crew Members'
+            case 'contacts':
+                return 'Select Contacts'
+            case 'manual':
+                return 'Add by Email'
+            default:
+                return 'Round Up the Crew 🎉'
+        }
+    }
+
+    const getSubmitButtonText = () => {
+        const totalSelected = selectedCrewMembers.length + manualEmails.length + selectedContacts.length
+        return `Send ${totalSelected} Invite${totalSelected !== 1 ? 's' : ''}`
+    }
+
+    const isSubmitDisabled = () => {
+        return selectedCrewMembers.length === 0 && manualEmails.length === 0 && selectedContacts.length === 0
+    }
 
     return (
         <View style={styles.container}>
@@ -720,8 +958,7 @@ export default function ParticipantsSection({
                             )}
 
                             <Text style={styles.headerTitle}>
-                                {inviteMode === 'selection' ? 'Round Up the Crew 🎉' :
-                                    inviteMode === 'crew' ? 'Select Crew Members' : 'Add by Email'}
+                                {getHeaderTitle()}
                             </Text>
 
                             <TouchableOpacity
@@ -733,23 +970,21 @@ export default function ParticipantsSection({
                         </View>
 
                         {/* Dynamic Content Based on Mode */}
-                        {inviteMode === 'selection' && renderModeSelection()}
-                        {inviteMode === 'crew' && renderCrewSelection()}
-                        {inviteMode === 'manual' && renderManualEntry()}
+                        {renderModalContent()}
 
                         {/* Action Buttons */}
-                        {(inviteMode === 'crew' || inviteMode === 'manual') && (
+                        {(inviteMode === 'crew' || inviteMode === 'manual' || inviteMode === 'contacts') && (
                             <View style={styles.actionBar}>
                                 <TouchableOpacity
                                     style={[
                                         styles.submitButton,
-                                        (selectedCrewMembers.length === 0 && manualEmails.length === 0) && styles.submitButtonDisabled
+                                        isSubmitDisabled() && styles.submitButtonDisabled
                                     ]}
                                     onPress={handleInviteSubmit}
-                                    disabled={selectedCrewMembers.length === 0 && manualEmails.length === 0}
+                                    disabled={isSubmitDisabled()}
                                 >
                                     <Text style={styles.submitButtonText}>
-                                        Send {selectedCrewMembers.length + manualEmails.length} Invite{selectedCrewMembers.length + manualEmails.length !== 1 ? 's' : ''}
+                                        {getSubmitButtonText()}
                                     </Text>
                                 </TouchableOpacity>
                             </View>
@@ -1104,6 +1339,7 @@ const styles = StyleSheet.create({
         fontWeight: '600',
     },
 
+    // Crew Selection Styles
     crewSelectionContainer: {
         flex: 1,
         marginTop: 10,
@@ -1214,6 +1450,130 @@ const styles = StyleSheet.create({
         flex: 1,
     },
 
+    // Contacts Selection Styles
+    contactsSelectionContainer: {
+        flex: 1,
+        marginTop: 10,
+    },
+
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 40,
+    },
+
+    loadingText: {
+        color: '#8b5cf6',
+        fontSize: 16,
+        fontWeight: '500',
+    },
+
+    contactsList: {
+        flex: 1,
+        paddingHorizontal: 24,
+    },
+
+    contactsListContent: {
+        paddingBottom: 100,
+    },
+
+    contactCard: {
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        borderWidth: 2,
+        borderColor: 'rgba(64, 51, 71, 0.3)',
+        borderRadius: 16,
+        padding: 20,
+        marginBottom: 16,
+    },
+
+    contactCardSelected: {
+        backgroundColor: 'rgba(139, 92, 246, 0.1)',
+        borderColor: '#8b5cf6',
+        borderWidth: 2,
+    },
+
+    contactCardHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+
+    contactAvatarContainer: {
+        position: 'relative',
+        marginRight: 16,
+    },
+
+    contactAvatar: {
+        width: 56,
+        height: 56,
+        borderRadius: 28,
+    },
+
+    contactAvatarPlaceholder: {
+        width: 56,
+        height: 56,
+        borderRadius: 28,
+        backgroundColor: 'rgba(139, 92, 246, 0.3)',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+
+    contactAvatarText: {
+        color: '#fff',
+        fontSize: 24,
+        fontWeight: '600',
+    },
+
+    contactSelectedOverlay: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(139, 92, 246, 0.8)',
+        borderRadius: 28,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+
+    contactInfo: {
+        flex: 1,
+    },
+
+    contactName: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: '#fff',
+        marginBottom: 4,
+    },
+
+    contactEmail: {
+        fontSize: 14,
+        color: '#8b5cf6',
+        fontWeight: '500',
+        marginBottom: 2,
+    },
+
+    contactEmailCount: {
+        fontSize: 12,
+        color: '#cbd5e1',
+        fontStyle: 'italic',
+    },
+
+    emptyContactsState: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 40,
+    },
+
+    emptyContactsText: {
+        color: '#64748b',
+        fontSize: 16,
+        textAlign: 'center',
+        lineHeight: 24,
+    },
+
     // Manual Entry Styles
     manualEntryContainer: {
         flex: 1,
@@ -1307,7 +1667,7 @@ const styles = StyleSheet.create({
         fontWeight: '700',
     },
 
-    // View All Modal Styles (kept the same)
+    // View All Modal Styles
     viewAllModal: {
         backgroundColor: '#2C1E33',
         borderRadius: 16,
@@ -1452,7 +1812,14 @@ const styles = StyleSheet.create({
         fontSize: 14,
         fontWeight: '600',
         color: '#fff',
-        marginBottom: 4,
+        marginBottom: 2,
+    },
+
+    participantEmail: {
+        fontSize: 12,
+        color: '#8b5cf6',
+        marginBottom: 6,
+        fontStyle: 'italic',
     },
 
     statusRow: {

@@ -686,7 +686,10 @@ export default function ActivityHeader({
 
                     <View style={styles.hostInfo}>
                         <Text style={styles.hostName}>
-                            Organized by {activity.user?.name || 'Unknown'}
+                            {isOwner
+                                ? 'Your message for the group'
+                                : `Organized by ${activity.user?.name || 'Unknown'}`
+                            }
                         </Text>
                         <Text style={styles.welcomeMessage}>
                             {activity.welcome_message || "Welcome to this activity! Let's make it amazing together 🎉"}
@@ -695,7 +698,6 @@ export default function ActivityHeader({
                 </View>
             </View>
 
-            {/* Date Picker Modal */}
             <Modal
                 visible={showDatePicker}
                 transparent={true}

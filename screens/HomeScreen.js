@@ -9,7 +9,6 @@ import {
   FlatList,
   ScrollView,
   Linking,
-  Alert,
   Modal,
   Haptics,
   Animated,
@@ -22,6 +21,9 @@ import { Users, Calendar, Clock, HelpCircle, X, Plus, Zap, CheckCircle, BookOpen
 import CustomHeader from '../components/CustomHeader'
 import YourCommunity from '../components/YourCommunity'
 import { useNavigation } from '@react-navigation/native';
+import PushNotificationService from '../services/PushNotificationService';
+import { API_URL } from '../config';
+import { Alert } from 'react-native';
 
 const { width: screenWidth } = Dimensions.get('window')
 
@@ -278,6 +280,56 @@ function ModernTab({ filter, isActive, onPress, count }) {
   )
 }
 
+// Add this component near your other components in HomeScreen.js
+function TestNotificationButton() {
+  const { user } = useContext(UserContext);
+
+  const sendTestNotification = async () => {
+    try {
+      // Send a local test notification
+      await PushNotificationService.sendTestNotification();
+
+      // Also test sending through your backend
+      if (user?.token) {
+        const response = await fetch(`${API_URL}/test_notification`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${user.token}`,
+          },
+          body: JSON.stringify({
+            title: 'Test from Backend! 🚀',
+            body: 'Your push notifications are working!'
+          }),
+        });
+
+        if (response.ok) {
+          console.log('Backend test notification sent!');
+        }
+      }
+    } catch (error) {
+      console.error('Error sending test notification:', error);
+    }
+  };
+
+  return (
+    <TouchableOpacity
+      style={{
+        backgroundColor: '#4ECDC4',
+        padding: 12,
+        borderRadius: 8,
+        margin: 16,
+        alignItems: 'center',
+      }}
+      onPress={sendTestNotification}
+    >
+      <Text style={{ color: '#fff', fontWeight: '600' }}>
+        🔔 Test Push Notification
+      </Text>
+    </TouchableOpacity>
+  );
+}
+
 export default function HomeScreen() {
   const { user } = useContext(UserContext)
   const navigation = useNavigation()
@@ -375,6 +427,70 @@ export default function HomeScreen() {
     const [h, m, s] = rawTime.split(':').map(Number)
     return new Date(Y, M - 1, D, h, m, s).getTime()
   }
+
+  function TestNotificationButton() {
+    const { user } = useContext(UserContext);
+
+    const sendTestNotification = async () => {
+      try {
+        // Send a local test notification (this works in production builds)
+        await PushNotificationService.sendTestNotification();
+
+        // Show alert for local testing
+        Alert.alert(
+          'Test Notification Sent! 📱',
+          'In Expo Go: Notifications don\'t work\nIn Production: You should see a notification!',
+          [{ text: 'Got it!' }]
+        );
+
+        // Only try backend call if we have a user token and we're not in development
+        if (user?.token && API_URL && !__DEV__) {
+          try {
+            const response = await fetch(`${API_URL}/test_notification`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${user.token}`,
+              },
+              body: JSON.stringify({
+                title: 'Test from Backend! 🚀',
+                body: 'Your push notifications are working!'
+              }),
+            });
+
+            if (response.ok) {
+              console.log('Backend test notification sent!');
+            }
+          } catch (backendError) {
+            console.log('Backend test skipped (normal in development):', backendError.message);
+          }
+        } else {
+          console.log('Backend test skipped - running in development mode');
+        }
+      } catch (error) {
+        console.error('Error sending test notification:', error);
+        Alert.alert('Error', 'Failed to send test notification');
+      }
+    };
+
+    return (
+      <TouchableOpacity
+        style={{
+          backgroundColor: '#7b298d',
+          padding: 12,
+          borderRadius: 8,
+          margin: 'auto',
+          alignItems: 'center',
+        }}
+        onPress={sendTestNotification}
+      >
+        <Text style={{ color: '#fff', fontWeight: '600' }}>
+          🔔 Test Push Notification
+        </Text>
+      </TouchableOpacity>
+    );
+  }
+
 
   function renderCard({ item, index }) {
     const firstName = item.user?.name?.split(' ')[0] || ''
@@ -573,6 +689,7 @@ export default function HomeScreen() {
                 decelerationRate="fast"
                 snapToInterval={296} // card width + margin (280 + 16)
               />
+              <TestNotificationButton />
               <ListFooter />
             </>
           )}

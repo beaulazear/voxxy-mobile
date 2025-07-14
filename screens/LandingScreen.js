@@ -26,7 +26,7 @@ export default function LandingScreen() {
                     style={styles.bigButton}
                     onPress={() => navigation.navigate('Login')}
                 >
-                    <Text style={styles.bigButtonText}>Resume Your Planning</Text>
+                    <Text style={styles.bigButtonText}>Log In</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                     style={[styles.bigButton, styles.signUpButton]}

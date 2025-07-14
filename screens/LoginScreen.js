@@ -27,10 +27,9 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  // Redirect if already logged in
   useEffect(() => {
     AsyncStorage.getItem('jwt').then(token => {
-      if (token) navigation.replace('Home');
+      if (token) navigation.replace('/');
     });
   }, []);
 
@@ -54,7 +53,7 @@ export default function LoginScreen() {
       if (!res.ok) throw new Error(data.error || 'Login failed');
       await AsyncStorage.setItem('jwt', data.token);
       setUser(data);
-      navigation.replace('/');  // Redirect to home ("/")
+      navigation.replace('/');
     } catch (err) {
       Alert.alert('Error', err.message);
       setIsLoading(false);
@@ -71,7 +70,6 @@ export default function LoginScreen() {
             <Text style={styles.loginTitle}>Welcome Back ✨</Text>
           </View>
 
-          {/* FORM */}
           <View style={styles.form}>
             <TextInput
               style={styles.input}
@@ -106,7 +104,7 @@ export default function LoginScreen() {
               disabled={isLoading}
             >
               <Text style={styles.submitText}>
-                {isLoading ? 'Checking your itinerary…' : 'Log in'}
+                {isLoading ? 'Logging you in…' : 'Log in'}
               </Text>
             </TouchableOpacity>
 

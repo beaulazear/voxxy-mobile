@@ -1,8 +1,9 @@
 // App.js
-import React, { useContext } from 'react';
+import React, { useContext, useRef, useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { UserProvider, UserContext } from './context/UserContext';
+import * as Notifications from 'expo-notifications';
 
 import HomeScreen from './screens/HomeScreen';
 import LoginScreen from './screens/LoginScreen';
@@ -25,12 +26,38 @@ import {
 
 const Stack = createNativeStackNavigator();
 
+// Create a global navigation reference
+export const navigationRef = React.createRef();
+
+export function navigate(name, params) {
+  navigationRef.current?.navigate(name, params);
+}
+
 const AppNavigator = () => {
   const { user, loading } = useContext(UserContext);
 
+  // Handle notification responses for navigation
+  useEffect(() => {
+    const subscription = Notifications.addNotificationResponseReceivedListener(response => {
+      const { notification } = response;
+      const data = notification.request.content.data;
+
+      // Handle different notification types
+      if (data?.type === 'activity_invite' && data?.activityId) {
+        navigate('ActivityDetails', { activityId: data.activityId });
+      } else if (data?.type === 'activity_update' && data?.activityId) {
+        navigate('ActivityDetails', { activityId: data.activityId });
+      } else if (data?.type === 'general') {
+        navigate('/'); // Navigate to home
+      }
+    });
+
+    return () => subscription.remove();
+  }, []);
+
   if (loading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#201925' }}>
         <ActivityIndicator size="large" color="#8e44ad" />
       </View>
     );
@@ -66,7 +93,7 @@ export default function App() {
 
   if (!fontsLoaded) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#201925' }}>
         <ActivityIndicator size="large" color="#8e44ad" />
       </View>
     );
@@ -75,7 +102,7 @@ export default function App() {
   return (
     <UserProvider>
       <InvitationNotificationProvider>
-        <NavigationContainer>
+        <NavigationContainer ref={navigationRef}>
           <AppNavigator />
         </NavigationContainer>
       </InvitationNotificationProvider>

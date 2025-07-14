@@ -18,6 +18,8 @@ import { useNavigation } from '@react-navigation/native';
 import { API_URL } from '../config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import CustomHeader from '../components/CustomHeader';
+import NotificationSettings from '../components/NotificationSettings';
+import PushNotificationService from '../services/PushNotificationService'
 
 // Avatar mapping for relative paths
 const avatarMap = {
@@ -384,43 +386,7 @@ export default function ProfileScreen() {
 
     const renderSettingsTab = () => (
         <View style={styles.tabContent}>
-            <View style={styles.section}>
-                <Text style={styles.subtitle}>Notification Preferences</Text>
-
-                <View style={styles.switchContainer}>
-                    <Text style={styles.switchLabel}>Email Notifications</Text>
-                    <Switch
-                        value={emailNotifications}
-                        onValueChange={setEmailNotifications}
-                        trackColor={{ false: '#444', true: '#CC31E8' }}
-                        thumbColor={emailNotifications ? '#fff' : '#ccc'}
-                    />
-                </View>
-
-                <View style={styles.switchContainer}>
-                    <Text style={styles.switchLabel}>SMS Alerts</Text>
-                    <Switch
-                        value={textNotifications}
-                        onValueChange={setTextNotifications}
-                        trackColor={{ false: '#444', true: '#CC31E8' }}
-                        thumbColor={textNotifications ? '#fff' : '#ccc'}
-                    />
-                </View>
-
-                <View style={styles.switchContainer}>
-                    <Text style={styles.switchLabel}>Push Notifications</Text>
-                    <Switch
-                        value={pushNotifications}
-                        onValueChange={setPushNotifications}
-                        trackColor={{ false: '#444', true: '#CC31E8' }}
-                        thumbColor={pushNotifications ? '#fff' : '#ccc'}
-                    />
-                </View>
-
-                <TouchableOpacity style={styles.primaryButton} onPress={handleSaveNotifications}>
-                    <Text style={styles.buttonText}>Save Notification Settings</Text>
-                </TouchableOpacity>
-            </View>
+            <NotificationSettings />
 
             {/* Account Actions */}
             <View style={styles.section}>
