@@ -200,13 +200,12 @@ export default function LetsEatChat({ visible, onClose }) {
                 : location.trim(),
             radius,
             group_size: groupSize,
-            // Always TBD for specific date/time
             date_day: 'TBD',
             date_time: 'TBD',
             activity_name: eventName.trim(),
             welcome_message: welcomeMessage.trim(),
             allow_participant_time_selection: false,
-            date_notes: timeOfDay, // Save the selected time of day
+            date_notes: timeOfDay,
             participants: [],
             collecting: true
         }
@@ -235,8 +234,12 @@ export default function LetsEatChat({ visible, onClose }) {
                 ],
             }))
 
-            Alert.alert('Success!', 'Your restaurant activity has been created!')
             onClose(data.id)
+
+            setTimeout(() => {
+                Alert.alert('Success!', 'Your restaurant activity has been created!')
+            }, 300)
+
         } catch (error) {
             console.error('Error creating activity:', error)
             Alert.alert('Error', 'Failed to create activity. Please try again.')

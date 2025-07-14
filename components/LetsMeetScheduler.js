@@ -13,6 +13,7 @@ import {
 } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { UserContext } from '../context/UserContext'
+import { API_URL } from '../config'
 
 const { width: screenWidth } = Dimensions.get('window')
 
@@ -237,87 +238,108 @@ export default function LetsMeetScheduler({
             // mixpanel tracking if needed
         }
 
-        const availability = slotsByDate
-        const notes = "LetsMeetAvailabilityResponse"
+        const availability = slotsByDate;
+        const notes = "LetsMeetAvailabilityResponse";
 
-        const requestBody = {
-            response: {
-                notes,
-                availability
-            }
+        // Validate that we have availability data
+        if (!availability || Object.keys(availability).length === 0) {
+            Alert.alert('Error', 'Please select at least one time slot.');
+            return;
         }
-
-        const API_URL = process.env.REACT_APP_API_URL || "http://localhost:3001"
-        const url = guestMode
-            ? `${API_URL}/activities/${activityId}/respond/${guestToken}`
-            : `${API_URL}/responses`
-
-        if (!guestMode) {
-            requestBody.response.activity_id = activityId
-        }
-
-        const headers = { "Content-Type": "application/json" }
 
         try {
-            const res = await fetch(url, {
-                method: "POST",
-                headers,
-                credentials: guestMode ? "omit" : "include",
-                body: JSON.stringify(requestBody),
-            })
-
-            if (!res.ok) {
-                const errorData = await res.json()
-                console.error("❌ Failed to save availability:", errorData)
-                Alert.alert('Error', 'Failed to submit availability. Please try again.')
-                return
-            }
-
-            const responseData = await res.json()
-            const newResponse = responseData.response
-            const newComment = responseData.comment
+            let endpoint, requestOptions;
 
             if (guestMode) {
-                if (onChatComplete) {
-                    onChatComplete()
-                }
+                // Guest mode - same pattern as working NightOutResponseForm
+                endpoint = `${API_URL}/activities/${activityId}/respond/${guestToken}`;
+                requestOptions = {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        response: {
+                            notes,
+                            availability
+                        },
+                    }),
+                };
             } else {
+                // User mode - same pattern as working NightOutResponseForm
+                endpoint = `${API_URL}/responses`;
+                requestOptions = {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${user?.token}`,
+                    },
+                    body: JSON.stringify({
+                        response: {
+                            notes,
+                            activity_id: activityId,
+                            availability
+                        },
+                    }),
+                };
+            }
+
+            const res = await fetch(endpoint, requestOptions);
+
+            if (!res.ok) {
+                const errorData = await res.json();
+                console.error('❌ Failed to save availability:', errorData);
+                Alert.alert('Error', 'Failed to submit availability. Please try again.');
+                return;
+            }
+
+            const data = await res.json();
+
+            // Update user state for authenticated users - same pattern as working version
+            if (!guestMode && user) {
+                const { response: newResponse, comment: newComment } = data;
+
                 setUser(prev => {
                     const updateActivityResponses = (activity) => {
-                        if (activity.id !== activityId) return activity
+                        if (activity.id !== activityId) return activity;
 
+                        // Remove old availability response and add new one
                         const otherResponses = activity.responses?.filter(r =>
                             !(r.notes === "LetsMeetAvailabilityResponse" && r.user_id === user.id)
-                        ) || []
+                        ) || [];
 
                         return {
                             ...activity,
                             responses: [...otherResponses, newResponse],
                             comments: [...(activity.comments || []), newComment]
-                        }
-                    }
+                        };
+                    };
 
-                    const updActs = prev.activities.map(updateActivityResponses)
-                    const updPart = prev.participant_activities.map(part => ({
+                    const updActs = prev.activities.map(updateActivityResponses);
+                    const updPart = prev.participant_activities.map((part) => ({
                         ...part,
                         activity: updateActivityResponses(part.activity)
-                    }))
+                    }));
 
-                    return { ...prev, activities: updActs, participant_activities: updPart }
-                })
+                    return { ...prev, activities: updActs, participant_activities: updPart };
+                });
 
                 if (onAvailabilityUpdate) {
-                    onAvailabilityUpdate(newResponse, newComment)
+                    onAvailabilityUpdate(newResponse, newComment);
+                }
+            } else {
+                // Guest mode
+                if (onChatComplete) {
+                    onChatComplete();
                 }
             }
 
-            Alert.alert('Success!', 'Your availability has been submitted!')
-            onClose()
+            Alert.alert('Success!', 'Your availability has been submitted!');
+            onClose();
+
         } catch (err) {
-            console.error("❌ Error saving availability:", err)
-            Alert.alert('Error', 'Failed to submit availability. Please try again.')
+            console.error('❌ Error saving availability:', err);
+            Alert.alert('Error', 'Failed to submit availability. Please try again.');
         }
-    }
+    };
 
     const canSubmit = (dateSelectionType === 'single' || selectedDates.length > 0) &&
         Object.values(slotsByDate).some(times => times.length > 0)
@@ -669,15 +691,19 @@ const styles = StyleSheet.create({
         fontSize: 14,
         fontWeight: '600',
         color: '#cc31e8',
-        marginBottom: 12,
+        marginBottom: 16,
         textTransform: 'uppercase',
         letterSpacing: 0.5,
+        textAlign: 'center',
     },
 
     dateGrid: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        gap: 8,
+        justifyContent: 'center',
+        alignItems: 'center',
+        gap: 10,
+        paddingHorizontal: 8,
     },
 
     dateCard: {
@@ -686,19 +712,22 @@ const styles = StyleSheet.create({
         borderColor: 'rgba(255, 255, 255, 0.1)',
         borderRadius: 12,
         padding: 12,
-        minWidth: (screenWidth - 72) / 5,
+        width: (screenWidth - 80) / 4, // Exactly 4 per row with consistent spacing
         alignItems: 'center',
         justifyContent: 'center',
-        minHeight: 70,
+        height: 75,
+        marginBottom: 8,
     },
 
     dateCardSelected: {
         backgroundColor: 'rgba(204, 49, 232, 0.15)',
         borderColor: '#cc31e8',
         shadowColor: '#cc31e8',
-        shadowOffset: { width: 0, height: 0 },
+        shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.3,
         shadowRadius: 8,
+        elevation: 8, // Android shadow
+        transform: [{ scale: 1.02 }], // Slight scale up when selected
     },
 
     dateCardDisabled: {
@@ -706,21 +735,24 @@ const styles = StyleSheet.create({
     },
 
     dateDayText: {
-        fontSize: 10,
+        fontSize: 9,
         fontWeight: '500',
         color: '#999',
         marginBottom: 2,
+        textAlign: 'center',
     },
 
     dateDayTextSelected: {
         color: '#cc31e8',
+        fontWeight: '600',
     },
 
     dateNumberText: {
-        fontSize: 16,
+        fontSize: 18,
         fontWeight: '700',
         color: '#fff',
         marginBottom: 2,
+        textAlign: 'center',
     },
 
     dateNumberTextSelected: {
@@ -728,13 +760,38 @@ const styles = StyleSheet.create({
     },
 
     dateMonthText: {
-        fontSize: 10,
+        fontSize: 9,
         fontWeight: '500',
         color: '#999',
+        textAlign: 'center',
     },
 
     dateMonthTextSelected: {
         color: '#cc31e8',
+        fontWeight: '600',
+    },
+
+    // Alternative grid style for smaller screens
+    dateGridCompact: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        justifyContent: 'space-evenly',
+        alignItems: 'center',
+        paddingHorizontal: 4,
+    },
+
+    dateCardCompact: {
+        backgroundColor: 'rgba(255, 255, 255, 0.03)',
+        borderWidth: 2,
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+        borderRadius: 10,
+        padding: 8,
+        width: (screenWidth - 60) / 5, // 5 per row for smaller cards
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: 65,
+        marginBottom: 6,
+        marginHorizontal: 2,
     },
 
     timeSlotsSection: {

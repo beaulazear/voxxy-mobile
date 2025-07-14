@@ -1,1 +1,1 @@
-export const API_URL = 'https://voxxy-rails-react-staging.onrender.com';
+export const API_URL = 'https://www.voxxyai.com/';

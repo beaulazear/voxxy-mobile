@@ -82,7 +82,7 @@ export default function NightOutResponseForm({
     ]
 
     const atmosphereOptions = [
-        { label: 'Upscale Dining', emoji: '🍾' },
+        { label: 'LGTBQ+', emoji: '🏳️‍🌈' },
         { label: 'Casual & Fun', emoji: '🎉' },
         { label: 'Rooftop Views', emoji: '🌆' },
         { label: 'Live Music', emoji: '🎵' },
@@ -1150,7 +1150,6 @@ const styles = StyleSheet.create({
         paddingHorizontal: 24,
         paddingVertical: 16,
         gap: 8,
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
     },
 
     closeButton: {

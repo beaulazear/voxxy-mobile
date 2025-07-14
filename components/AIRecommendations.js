@@ -15,26 +15,28 @@ import {
     Linking,
     SafeAreaView,
 } from 'react-native';
+import Icon from 'react-native-vector-icons/Feather';
 import { UserContext } from '../context/UserContext';
 import { API_URL } from '../config';
 
+// Updated Icons object using Feather icons
 const Icons = {
-    Users: () => <Text style={styles.iconText}>👥</Text>,
-    Share: () => <Text style={styles.iconText}>📤</Text>,
-    HelpCircle: () => <Text style={styles.iconText}>❓</Text>,
-    CheckCircle: () => <Text style={styles.iconText}>✅</Text>,
-    Clock: () => <Text style={styles.iconText}>🕐</Text>,
-    Vote: () => <Text style={styles.iconText}>🗳️</Text>,
-    BookHeart: () => <Text style={styles.iconText}>📚</Text>,
-    Flag: () => <Text style={styles.iconText}>🏁</Text>,
-    X: () => <Text style={styles.iconText}>✕</Text>,
-    ExternalLink: () => <Text style={styles.iconText}>🔗</Text>,
-    MapPin: () => <Text style={styles.iconText}>📍</Text>,
-    DollarSign: () => <Text style={styles.iconText}>💰</Text>,
-    Globe: () => <Text style={styles.iconText}>🌐</Text>,
-    Zap: () => <Text style={styles.iconText}>⚡</Text>,
-    Calendar: () => <Text style={styles.iconText}>📅</Text>,
-    Star: () => <Text style={styles.iconText}>⭐</Text>,
+    Users: (props) => <Icon name="users" size={16} color="#667eea" {...props} />,
+    Share: (props) => <Icon name="share" size={16} color="#667eea" {...props} />,
+    HelpCircle: (props) => <Icon name="help-circle" size={16} color="#667eea" {...props} />,
+    CheckCircle: (props) => <Icon name="check-circle" size={16} color="#667eea" {...props} />,
+    Clock: (props) => <Icon name="clock" size={16} color="#667eea" {...props} />,
+    Vote: (props) => <Icon name="check-square" size={16} color="#667eea" {...props} />,
+    BookHeart: (props) => <Icon name="book" size={16} color="#667eea" {...props} />,
+    Flag: (props) => <Icon name="flag" size={16} color="#667eea" {...props} />,
+    X: (props) => <Icon name="x" size={16} color="#667eea" {...props} />,
+    ExternalLink: (props) => <Icon name="external-link" size={16} color="#667eea" {...props} />,
+    MapPin: (props) => <Icon name="map-pin" size={16} color="#667eea" {...props} />,
+    DollarSign: (props) => <Icon name="dollar-sign" size={16} color="#667eea" {...props} />,
+    Globe: (props) => <Icon name="globe" size={16} color="#667eea" {...props} />,
+    Zap: (props) => <Icon name="zap" size={16} color="#667eea" {...props} />,
+    Calendar: (props) => <Icon name="calendar" size={16} color="#667eea" {...props} />,
+    Star: (props) => <Icon name="star" size={16} color="#667eea" {...props} />,
 };
 
 import CuisineResponseForm from './CuisineResponseForm';
@@ -144,7 +146,10 @@ const AvailabilityDisplay = ({ responses, activity }) => {
 
             {Object.keys(availabilityData).length > 0 && (
                 <View style={styles.overlapAnalysis}>
-                    <Text style={styles.overlapTitle}>📊 Best Times (Most Available)</Text>
+                    <View style={styles.overlapTitleContainer}>
+                        <Icon name="bar-chart-2" size={16} color="#fff" />
+                        <Text style={styles.overlapTitle}>Best Times (Most Available)</Text>
+                    </View>
                     {Object.entries(availabilityData).map(([date, timeData]) => {
                         const sortedTimes = Object.entries(timeData)
                             .sort(([, a], [, b]) => b.length - a.length)
@@ -198,7 +203,7 @@ const TruncatedReview = ({ review, maxLength = 150 }) => {
                 <Text style={styles.reviewAuthor}>{review.author_name || 'Anonymous'}</Text>
                 {review.rating && (
                     <View style={styles.reviewRating}>
-                        <Icons.Star />
+                        <Icons.Star color="#D4AF37" />
                         <Text style={styles.reviewRatingText}>{review.rating}/5</Text>
                     </View>
                 )}
@@ -227,7 +232,8 @@ const PhotoGallery = ({ photos }) => {
     return (
         <View style={styles.photoSection}>
             <View style={styles.sectionHeader}>
-                <Text style={styles.sectionHeaderText}>📸 Photos ({validPhotos.length})</Text>
+                <Icon name="camera" size={16} color="#fff" />
+                <Text style={styles.sectionHeaderText}>Photos ({validPhotos.length})</Text>
             </View>
             <FlatList
                 data={validPhotos}
@@ -763,8 +769,9 @@ export default function AIRecommendations({
 
                                     {responseRate < 50 && (
                                         <View style={styles.warningBox}>
+                                            <Icon name="alert-triangle" size={16} color="#ffc107" style={styles.warningIcon} />
                                             <Text style={styles.warningText}>
-                                                ⚠️ Less than 50% of participants have submitted their preferences. Consider waiting for more responses to get better recommendations.
+                                                Less than 50% of participants have submitted their preferences. Consider waiting for more responses to get better recommendations.
                                             </Text>
                                         </View>
                                     )}
@@ -848,13 +855,20 @@ export default function AIRecommendations({
                                                     ]}
                                                     onPress={() => handleLike(p)}
                                                 >
-                                                    <Text style={styles.likeButtonText}>
-                                                        {(p.voters || []).some(v => v.id === user.id) ? '❤️' : '🤍'} {(p.votes || []).length}
-                                                    </Text>
+                                                    <Icon
+                                                        name="heart"
+                                                        size={14}
+                                                        color={(p.voters || []).some(v => v.id === user.id) ? '#e74c3c' : '#fff'}
+                                                        fill={(p.voters || []).some(v => v.id === user.id) ? '#e74c3c' : 'none'}
+                                                    />
+                                                    <Text style={styles.likeButtonText}>{(p.votes || []).length}</Text>
                                                 </TouchableOpacity>
                                             )}
                                             {!user && (
-                                                <Text style={styles.voteCount}>❤️ {(p.votes || []).length}</Text>
+                                                <View style={styles.voteCount}>
+                                                    <Icon name="heart" size={14} color="rgba(255, 255, 255, 0.7)" />
+                                                    <Text style={styles.voteCountText}>{(p.votes || []).length}</Text>
+                                                </View>
                                             )}
                                         </View>
                                     </View>
@@ -1026,7 +1040,10 @@ export default function AIRecommendations({
                                                     </>
                                                 )}
                                             </View>
-                                            <Text style={styles.voteCount}>❤️ {(p.votes || []).length}</Text>
+                                            <View style={styles.voteCount}>
+                                                <Icon name="heart" size={14} color="rgba(255, 255, 255, 0.7)" />
+                                                <Text style={styles.voteCountText}>{(p.votes || []).length}</Text>
+                                            </View>
                                         </View>
                                     </TouchableOpacity>
                                 </View>
@@ -1156,13 +1173,8 @@ export default function AIRecommendations({
     );
 }
 
-// [All the styles remain exactly the same as the original]
+// Updated styles with new icon styles
 const styles = StyleSheet.create({
-    // Icon text style for emoji icons
-    iconText: {
-        fontSize: 16,
-        color: '#667eea',
-    },
     container: {
         flex: 1,
         backgroundColor: '#201925',
@@ -1201,8 +1213,8 @@ const styles = StyleSheet.create({
         borderRadius: 8,
     },
     phaseIndicator: {
-        flexDirection: 'column', // Changed from row to column for stacked layout
-        alignItems: 'center', // Center everything
+        flexDirection: 'column',
+        alignItems: 'center',
         backgroundColor: 'rgba(255, 255, 255, 0.08)',
         borderColor: 'rgba(255, 255, 255, 0.1)',
         borderWidth: 1,
@@ -1213,7 +1225,7 @@ const styles = StyleSheet.create({
     phaseContent: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 12, // Add space below title section
+        marginBottom: 12,
     },
     phaseTitle: {
         color: '#fff',
@@ -1224,8 +1236,8 @@ const styles = StyleSheet.create({
     phaseSubtitle: {
         color: 'rgba(255, 255, 255, 0.7)',
         fontSize: 14,
-        textAlign: 'center', // Center the description
-        marginBottom: 16, // Add space below description
+        textAlign: 'center',
+        marginBottom: 16,
         lineHeight: 20,
     },
     phaseActionButton: {
@@ -1236,7 +1248,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 24,
         paddingVertical: 12,
         borderRadius: 12,
-        width: '100%', // Full width button
+        width: '100%',
     },
     phaseActionButtonText: {
         color: '#fff',
@@ -1327,11 +1339,16 @@ const styles = StyleSheet.create({
         borderTopColor: 'rgba(255, 255, 255, 0.1)',
         borderTopWidth: 1,
     },
+    overlapTitleContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 12,
+    },
     overlapTitle: {
         color: '#fff',
         fontSize: 16,
         fontWeight: '600',
-        marginBottom: 12,
+        marginLeft: 8,
     },
     bestTimeCard: {
         backgroundColor: 'rgba(40, 167, 69, 0.1)',
@@ -1510,6 +1527,8 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     likeButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
         backgroundColor: 'rgba(255, 255, 255, 0.1)',
         paddingHorizontal: 12,
         paddingVertical: 6,
@@ -1525,11 +1544,17 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 13,
         fontWeight: '600',
+        marginLeft: 6,
     },
     voteCount: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    voteCountText: {
         color: 'rgba(255, 255, 255, 0.7)',
         fontSize: 13,
         fontWeight: '600',
+        marginLeft: 4,
     },
     modalOverlay: {
         flex: 1,
@@ -1538,7 +1563,6 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         padding: 20,
     },
-    // New voting modal styles
     votingModalContainer: {
         backgroundColor: '#2C1E33',
         borderRadius: 20,
@@ -1595,7 +1619,6 @@ const styles = StyleSheet.create({
         fontSize: 16,
         marginLeft: 8,
     },
-    // Old modal styles (keeping for compatibility)
     modalContainer: {
         backgroundColor: '#2C1E33',
         borderRadius: 16,
@@ -1656,6 +1679,8 @@ const styles = StyleSheet.create({
         fontWeight: '600',
     },
     warningBox: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
         backgroundColor: 'rgba(255, 193, 7, 0.1)',
         borderColor: 'rgba(255, 193, 7, 0.3)',
         borderWidth: 1,
@@ -1664,10 +1689,15 @@ const styles = StyleSheet.create({
         marginBottom: 16,
         width: '100%',
     },
+    warningIcon: {
+        marginRight: 8,
+        marginTop: 2,
+    },
     warningText: {
         color: '#ffc107',
         fontSize: 13,
-        textAlign: 'center',
+        flex: 1,
+        lineHeight: 18,
     },
     detailModal: {
         flex: 1,
@@ -1687,11 +1717,11 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         flex: 1,
         textAlign: 'center',
-        paddingRight: 40, // Give space for the close button
+        paddingRight: 40,
     },
     detailCloseButton: {
         position: 'absolute',
-        top: 10, // Back to normal position since we're using SafeAreaView
+        top: 10,
         right: 15,
         padding: 15,
         backgroundColor: 'rgba(255, 255, 255, 0.2)',

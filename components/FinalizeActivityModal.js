@@ -76,6 +76,8 @@ export default function FinalizeActivityModal({
 
     const canSubmit = hasBasicDetails && timeSlotValid && pinnedActivityValid && welcomeMessageValid
 
+    console.log(activity)
+
     // Auto-select highest voted pinned activity
     useEffect(() => {
         if (pinnedActivities?.length) {
@@ -103,6 +105,8 @@ export default function FinalizeActivityModal({
     }
 
     const formatTo12h = (isoTimestamp) => {
+        if (!isoTimestamp) return 'TBD'
+
         const timeHM = isoTimestamp.slice(11, 16)
         let [hour, minute] = timeHM.split(':').map(Number)
 

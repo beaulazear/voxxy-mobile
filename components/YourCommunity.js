@@ -48,8 +48,8 @@ const getAvatarFromMap = (filename) => {
 }
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window')
-const CARD_WIDTH = 200
-const CARD_HEIGHT = 200
+const CARD_WIDTH = 220
+const CARD_HEIGHT = 260
 const CARD_MARGIN = 16
 
 export default function YourCommunity({ showInvitePopup, onSelectUser, onCreateBoard }) {
@@ -321,10 +321,6 @@ export default function YourCommunity({ showInvitePopup, onSelectUser, onCreateB
                     />
                     <View style={styles.avatarRing} />
                 </View>
-            </View>
-
-            {/* User info */}
-            <View style={styles.userInfo}>
                 <Text style={styles.userName} numberOfLines={1}>{peerData.user.name}</Text>
                 <View style={styles.joinInfo}>
                     <Calendar stroke="#d8cce2" width={10} height={10} />
@@ -334,9 +330,8 @@ export default function YourCommunity({ showInvitePopup, onSelectUser, onCreateB
 
             {/* Activity count at bottom */}
             <View style={styles.adventureCount}>
-                <Text style={styles.adventureText}>
-                    {peerData.count} adventure{peerData.count !== 1 ? 's' : ''} together
-                </Text>
+                <Text style={styles.adventureNumber}>{peerData.count}</Text>
+                <Text style={styles.adventureLabel}>Adventure{peerData.count !== 1 ? 's' : ''} Together</Text>
             </View>
         </TouchableOpacity>
     )
@@ -590,18 +585,20 @@ const styles = StyleSheet.create({
     avatarSection: {
         alignItems: 'center',
         marginTop: 8,
-        marginBottom: 16,
+        marginBottom: 20,
         position: 'relative',
+        flex: 1,
     },
 
     avatarContainer: {
         position: 'relative',
+        marginBottom: 12,
     },
 
     avatar: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
+        width: 90,
+        height: 90,
+        borderRadius: 45,
         backgroundColor: '#f4f0f5',
     },
 
@@ -621,56 +618,71 @@ const styles = StyleSheet.create({
         left: -3,
         right: -3,
         bottom: -3,
-        borderRadius: 43,
+        borderRadius: 48,
         borderWidth: 2,
         borderColor: 'rgba(207, 56, 221, 0.3)',
     },
 
-    userInfo: {
-        alignItems: 'center',
-        marginBottom: 16,
-        flex: 1,
-        justifyContent: 'center',
-    },
-
     userName: {
-        fontSize: 16,
-        fontWeight: '700',
-        color: '#f4f0f5',
-        marginBottom: 4,
+        fontSize: 18,
+        fontWeight: '800',
+        color: '#ffffff',
         textAlign: 'center',
+        textShadowColor: 'rgba(0, 0, 0, 0.5)',
+        textShadowOffset: { width: 0, height: 1 },
+        textShadowRadius: 3,
+        letterSpacing: 0.3,
+        fontFamily: 'Montserrat_700Bold',
+        paddingHorizontal: 8,
+        marginBottom: 8,
     },
 
     joinInfo: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 4,
+        justifyContent: 'center',
     },
 
     joinText: {
         fontSize: 10,
         color: '#d8cce2',
         opacity: 0.8,
+        fontWeight: '500',
     },
 
     adventureCount: {
         backgroundColor: 'rgba(207, 56, 221, 0.15)',
         borderRadius: 12,
         paddingHorizontal: 12,
-        paddingVertical: 8,
+        paddingVertical: 10,
         borderWidth: 1,
         borderColor: 'rgba(207, 56, 221, 0.3)',
         alignItems: 'center',
+        alignSelf: 'stretch',
     },
 
-    adventureText: {
-        fontSize: 11,
+    adventureNumber: {
+        fontSize: 16,
+        color: '#ffffff',
+        fontWeight: '800',
+        textAlign: 'center',
+        textShadowColor: 'rgba(0, 0, 0, 0.5)',
+        textShadowOffset: { width: 0, height: 1 },
+        textShadowRadius: 2,
+        marginBottom: 2,
+    },
+
+    adventureLabel: {
+        fontSize: 9,
         color: '#d394f5',
         fontWeight: '600',
         textAlign: 'center',
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
     },
 
-    // Empty State Styles
+    // Keep all the existing styles for empty state and modal
     emptyStateContainer: {
         paddingHorizontal: 24,
         alignItems: 'center',
@@ -832,11 +844,16 @@ const styles = StyleSheet.create({
     },
 
     modalUserName: {
-        fontSize: 22,
-        fontWeight: '700',
-        color: '#f4f0f5',
+        fontSize: 24,
+        fontWeight: '800',
+        color: '#ffffff',
         marginBottom: 16,
         textAlign: 'center',
+        textShadowColor: 'rgba(0, 0, 0, 0.5)',
+        textShadowOffset: { width: 0, height: 1 },
+        textShadowRadius: 3,
+        letterSpacing: 0.5,
+        fontFamily: 'Montserrat_700Bold',
     },
 
     modalStats: {
