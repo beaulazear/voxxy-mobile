@@ -10,6 +10,7 @@ import {
     Modal,
     Animated,
     Alert,
+    ActivityIndicator,
 } from 'react-native'
 import { UserContext } from '../context/UserContext'
 import { useNavigation } from '@react-navigation/native'
@@ -96,6 +97,8 @@ export default function ActivityDetailsScreen({ route }) {
     const [showFinalizeModal, setShowFinalizeModal] = useState(false)
     const [pinnedActivities, setPinnedActivities] = useState([])
     const [pinned, setPinned] = useState([])
+    const [loadingPinned, setLoadingPinned] = useState(false)
+    const [loadingTimeSlots, setLoadingTimeSlots] = useState(false)
 
     // Token - match ProfileScreen pattern exactly
     const token = user?.token
@@ -157,6 +160,7 @@ export default function ActivityDetailsScreen({ route }) {
             // Fetch pinned activities for restaurants
             if (activity.activity_type === 'Restaurant') {
                 console.log(`🍽️ Fetching pinned activities for activity ${activityId}`)
+                setLoadingPinned(true)
                 fetch(`${API_URL}/activities/${activityId}/pinned_activities`, {
                     headers: {
                         'Content-Type': 'application/json',
@@ -174,12 +178,21 @@ export default function ActivityDetailsScreen({ route }) {
                     })
                     .catch((err) => {
                         console.error('❌ Error fetching pinned activities:', err)
+                        Alert.alert(
+                            'Network Error',
+                            'Unable to load restaurant suggestions. Please check your connection and try again.',
+                            [{ text: 'OK' }]
+                        )
+                    })
+                    .finally(() => {
+                        setLoadingPinned(false)
                     })
             }
 
             // Fetch time slots for meetings
             if (activity.activity_type === 'Meeting') {
                 console.log(`🕐 Fetching time slots for activity ${activityId}`)
+                setLoadingTimeSlots(true)
                 fetch(`${API_URL}/activities/${activityId}/time_slots`, {
                     method: 'GET',
                     headers: {
@@ -198,6 +211,14 @@ export default function ActivityDetailsScreen({ route }) {
                     })
                     .catch((err) => {
                         console.error('❌ Error fetching time slots:', err)
+                        Alert.alert(
+                            'Network Error',
+                            'Unable to load meeting time slots. Please check your connection and try again.',
+                            [{ text: 'OK' }]
+                        )
+                    })
+                    .finally(() => {
+                        setLoadingTimeSlots(false)
                     })
             }
         }
@@ -305,7 +326,6 @@ export default function ActivityDetailsScreen({ route }) {
 
     const performDelete = async (id) => {
         try {
-            const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001'
             const response = await fetch(`${API_URL}/activities/${id}`, {
                 method: 'DELETE',
                 credentials: 'include',
@@ -350,7 +370,6 @@ export default function ActivityDetailsScreen({ route }) {
 
     const performLeave = async () => {
         try {
-            const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001'
             const response = await fetch(`${API_URL}/activity_participants/leave`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },

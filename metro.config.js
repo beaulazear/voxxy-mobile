@@ -13,6 +13,9 @@ module.exports = (() => {
         assetExts: resolver.assetExts.filter(ext => ext !== 'svg'),
         sourceExts: [...resolver.sourceExts, 'svg'],
     };
+    
+    // Reset cache to avoid stale bundle issues
+    config.resetCache = true;
 
     return config;
 })();

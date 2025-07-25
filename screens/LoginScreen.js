@@ -35,6 +35,19 @@ export default function LoginScreen() {
 
   const handleLogin = async () => {
     if (isLoading) return;
+    
+    // Input validation
+    const emailTrimmed = email.toLowerCase().trim();
+    if (!emailTrimmed || !password) {
+      Alert.alert('Error', 'Please fill in all fields');
+      return;
+    }
+    
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrimmed)) {
+      Alert.alert('Error', 'Please enter a valid email address');
+      return;
+    }
+    
     setIsLoading(true);
     Keyboard.dismiss();
     try {
@@ -45,7 +58,7 @@ export default function LoginScreen() {
           'X-Mobile-App': 'true',
         },
         body: JSON.stringify({
-          email: email.toLowerCase().trim(),
+          email: emailTrimmed,
           password,
         }),
       });
@@ -55,7 +68,7 @@ export default function LoginScreen() {
       setUser(data);
       navigation.replace('/');
     } catch (err) {
-      Alert.alert('Error', err.message);
+      Alert.alert('Login Failed', 'Invalid email or password. Please try again.');
       setIsLoading(false);
     }
   };

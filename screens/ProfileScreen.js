@@ -74,8 +74,6 @@ export default function ProfileScreen() {
 
     const token = user?.token;
 
-    console.log('💬 User in ProfileScreen:', user);
-    console.log('💬 Token in ProfileScreen:', token);
 
     // Comprehensive avatar handling function
     const getDisplayImage = (userObj) => {

@@ -27,7 +27,6 @@ export const UserProvider = ({ children }) => {
 
         if (res.ok) {
           const userData = await res.json();
-          console.log(userData, token);
           const userWithToken = { ...userData, token };
           setUser(userWithToken);
 

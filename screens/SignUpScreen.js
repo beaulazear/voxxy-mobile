@@ -44,13 +44,19 @@ export default function SignUpScreen() {
     ];
 
     const emailRegex = useMemo(() => /^[^\s@]+@[^\s@]+\.[^\s@]+$/, []);
+    
+    const validatePassword = (pwd) => {
+        // At least 8 characters, 1 uppercase, 1 lowercase, 1 number
+        const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
+        return passwordRegex.test(pwd);
+    };
 
     const validateStep = () => {
         switch (step) {
             case 0: return name.trim().length > 0;
             case 1: return emailRegex.test(email);
-            case 2: return password.length > 5;
-            case 3: return confirmation === password && password.length > 0;
+            case 2: return validatePassword(password);
+            case 3: return confirmation === password && validatePassword(password);
             default: return false;
         }
     };

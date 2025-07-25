@@ -2,12 +2,10 @@
   "expo": {
     "name": "voxxy-mobile",
     "slug": "voxxy-mobile",
-    "displayName": "Voxxy Beta",
-    "version": "1.1.0",
+    "version": "1.1.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -16,9 +14,10 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.beaulazear.voxxymobile",
-      "buildNumber": "1.1.0",
+      "buildNumber": "1.1.1",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSContactsUsageDescription": "This app needs access to contacts to help you find friends who are already using Voxxy."
       }
     },
     "android": {

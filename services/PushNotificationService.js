@@ -2,7 +2,7 @@
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
-import { Platform } from 'react-native';
+import { Platform, Alert } from 'react-native';
 
 // Configure notification behavior
 Notifications.setNotificationHandler({
@@ -43,7 +43,7 @@ class PushNotificationService {
             }
 
             if (finalStatus !== 'granted') {
-                alert('Failed to get push token for push notification!');
+                console.warn('Push notification permissions denied');
                 return null;
             }
 
@@ -51,7 +51,6 @@ class PushNotificationService {
                 token = await Notifications.getExpoPushTokenAsync({
                     projectId: Constants.expoConfig?.extra?.eas?.projectId,
                 });
-                console.log('Expo Push Token:', token.data);
                 this.expoPushToken = token.data;
                 return token.data;
             } catch (error) {
@@ -59,7 +58,7 @@ class PushNotificationService {
                 return null;
             }
         } else {
-            alert('Must use physical device for Push Notifications');
+            console.warn('Push notifications require a physical device');
             return null;
         }
     }
