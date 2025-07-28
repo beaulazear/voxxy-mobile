@@ -17,9 +17,10 @@ import {
 import { UserContext } from '../context/UserContext'
 import AccountCreatedScreen from './AccountCreatedScreen'
 import VoxxyFooter from '../components/VoxxyFooter'
-import { Users, Calendar, Clock, HelpCircle, X, Plus, Zap, CheckCircle, BookOpen, Mail, Coffee, MapPin, Star, User } from 'react-native-feather'
+import { Users, Calendar, Clock, HelpCircle, X, Plus, Zap, CheckCircle, BookOpen, Mail, Coffee, MapPin, Star, User, Activity } from 'react-native-feather'
 import CustomHeader from '../components/CustomHeader'
 import YourCommunity from '../components/YourCommunity'
+import ProfileSnippet from '../components/ProfileSnippet'
 import { useNavigation } from '@react-navigation/native';
 import PushNotificationService from '../services/PushNotificationService';
 import { API_URL } from '../config';
@@ -280,59 +281,11 @@ function ModernTab({ filter, isActive, onPress, count }) {
   )
 }
 
-// Add this component near your other components in HomeScreen.js
-function TestNotificationButton() {
-  const { user } = useContext(UserContext);
-
-  const sendTestNotification = async () => {
-    try {
-      // Send a local test notification
-      await PushNotificationService.sendTestNotification();
-
-      // Also test sending through your backend
-      if (user?.token) {
-        const response = await fetch(`${API_URL}/test_notification`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${user.token}`,
-          },
-          body: JSON.stringify({
-            title: 'Test from Backend! 🚀',
-            body: 'Your push notifications are working!'
-          }),
-        });
-
-        if (response.ok) {
-          console.log('Backend test notification sent!');
-        }
-      }
-    } catch (error) {
-      console.error('Error sending test notification:', error);
-    }
-  };
-
-  return (
-    <TouchableOpacity
-      style={{
-        backgroundColor: '#4ECDC4',
-        padding: 12,
-        borderRadius: 8,
-        margin: 16,
-        alignItems: 'center',
-      }}
-      onPress={sendTestNotification}
-    >
-      <Text style={{ color: '#fff', fontWeight: '600' }}>
-        🔔 Test Push Notification
-      </Text>
-    </TouchableOpacity>
-  );
-}
 
 export default function HomeScreen() {
   const { user } = useContext(UserContext)
   const navigation = useNavigation()
+  const [mainTab, setMainTab] = useState('Activities')
   const [filter, setFilter] = useState('In Progress')
   const [showAllPast, setShowAllPast] = useState(false)
 
@@ -428,68 +381,6 @@ export default function HomeScreen() {
     return new Date(Y, M - 1, D, h, m, s).getTime()
   }
 
-  function TestNotificationButton() {
-    const { user } = useContext(UserContext);
-
-    const sendTestNotification = async () => {
-      try {
-        // Send a local test notification (this works in production builds)
-        await PushNotificationService.sendTestNotification();
-
-        // Show alert for local testing
-        Alert.alert(
-          'Test Notification Sent! 📱',
-          'In Expo Go: Notifications don\'t work\nIn Production: You should see a notification!',
-          [{ text: 'Got it!' }]
-        );
-
-        // Only try backend call if we have a user token and we're not in development
-        if (user?.token && API_URL && !__DEV__) {
-          try {
-            const response = await fetch(`${API_URL}/test_notification`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${user.token}`,
-              },
-              body: JSON.stringify({
-                title: 'Test from Backend! 🚀',
-                body: 'Your push notifications are working!'
-              }),
-            });
-
-            if (response.ok) {
-              console.log('Backend test notification sent!');
-            }
-          } catch (backendError) {
-            console.log('Backend test skipped (normal in development):', backendError.message);
-          }
-        } else {
-          console.log('Backend test skipped - running in development mode');
-        }
-      } catch (error) {
-        console.error('Error sending test notification:', error);
-        Alert.alert('Error', 'Failed to send test notification');
-      }
-    };
-
-    return (
-      <TouchableOpacity
-        style={{
-          backgroundColor: '#7b298d',
-          padding: 12,
-          borderRadius: 8,
-          margin: 'auto',
-          alignItems: 'center',
-        }}
-        onPress={sendTestNotification}
-      >
-        <Text style={{ color: '#fff', fontWeight: '600' }}>
-          🔔 Test Push Notification
-        </Text>
-      </TouchableOpacity>
-    );
-  }
 
 
   function renderCard({ item, index }) {
@@ -593,15 +484,61 @@ export default function HomeScreen() {
 
   const ListHeader = () => (
     <>
+      <ProfileSnippet />
+      
       <View style={styles.hero}>
-        <View style={styles.heroContent}>
-          <Text style={styles.heroTitle}>Welcome back, {user.name}! 👋</Text>
-          <Text style={styles.heroSub}>What are you planning today?</Text>
+        <TouchableOpacity 
+          style={styles.startActivityButton}
+          onPress={() => navigation.navigate('TripDashboardScreen')}
+          activeOpacity={0.8}
+        >
+          <View style={styles.buttonGlow} />
+          <Plus stroke="#CF38DD" width={20} height={20} strokeWidth={2.5} style={styles.buttonIcon} />
+          <Text style={styles.buttonTitle}>Start New Activity</Text>
+          <Text style={styles.buttonSubtitle}>Make group decisions easy</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Main Tab Bar */}
+      <View style={styles.mainTabContainer}>
+        <View style={styles.mainTabBar}>
+          <TouchableOpacity
+            style={[styles.mainTab, mainTab === 'Activities' && styles.mainTabActive]}
+            onPress={() => {
+              if (Haptics?.impactAsync) {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+              }
+              setMainTab('Activities')
+            }}
+            activeOpacity={0.7}
+          >
+            <Activity stroke={mainTab === 'Activities' ? '#fff' : '#B8A5C4'} width={18} height={18} strokeWidth={2.5} />
+            <Text style={[styles.mainTabLabel, mainTab === 'Activities' && styles.mainTabLabelActive]}>
+              Activities
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.mainTab, mainTab === 'Your Community' && styles.mainTabActive]}
+            onPress={() => {
+              if (Haptics?.impactAsync) {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+              }
+              setMainTab('Your Community')
+            }}
+            activeOpacity={0.7}
+          >
+            <Users stroke={mainTab === 'Your Community' ? '#fff' : '#B8A5C4'} width={18} height={18} strokeWidth={2.5} />
+            <Text style={[styles.mainTabLabel, mainTab === 'Your Community' && styles.mainTabLabelActive]}>
+              Your Community
+            </Text>
+          </TouchableOpacity>
         </View>
       </View>
 
-      {/* Modern Tab Bar */}
-      <View style={styles.tabContainer}>
+      {/* Activity Filters - Only show when Activities tab is active */}
+      {mainTab === 'Activities' && (
+        <View style={styles.tabContainer}>
         <View style={styles.tabBar}>
           {FILTERS.map((filterItem) => {
             const count = filterItem.key === 'Invites' ? invites.length : 0
@@ -621,14 +558,15 @@ export default function HomeScreen() {
           })}
         </View>
       </View>
+      )}
 
-      {/* Only show empty state for non-invites tabs */}
-      {filteredActivities.length === 0 && filter !== 'Invites' && (
+      {/* Only show empty state for activities tab */}
+      {mainTab === 'Activities' && filteredActivities.length === 0 && filter !== 'Invites' && (
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyIcon}>📱</Text>
           <Text style={styles.empty}>No activities to show.</Text>
           <Text style={styles.emptySub}>
-            Start by creating your first activity below!
+            Start by creating your first activity!
           </Text>
         </View>
       )}
@@ -637,7 +575,7 @@ export default function HomeScreen() {
 
   const ListFooter = () => (
     <View style={styles.footerContainer}>
-      {filter === 'Past' && filteredActivities.length > PREVIEW_PAST && (
+      {mainTab === 'Activities' && filter === 'Past' && filteredActivities.length > PREVIEW_PAST && (
         <TouchableOpacity
           style={styles.showMore}
           onPress={() => {
@@ -653,18 +591,12 @@ export default function HomeScreen() {
           </Text>
         </TouchableOpacity>
       )}
-      <YourCommunity />
     </View>
   )
 
-  // Check if we should show invites empty state in create card
-  const isInvitesEmpty = filter === 'Invites' && filteredActivities.length === 0
-
   return (
-    <>
-      <CustomHeader />
-      <SafeAreaView style={styles.safe}>
-        <StatusBar barStyle="light-content" />
+    <SafeAreaView style={styles.safe}>
+      <StatusBar barStyle="light-content" />
         <FlatList
           data={[]} // Empty array for header/footer only
           keyExtractor={() => 'dummy'}
@@ -672,24 +604,27 @@ export default function HomeScreen() {
           ListHeaderComponent={ListHeader}
           ListFooterComponent={() => (
             <>
-              {/* Always show activities section with create card at the end */}
-              <FlatList
-                data={[...displayedActivities, { isCreateCard: true }]}
-                keyExtractor={(item, index) => item.isCreateCard ? 'create-card' : String(item.id)}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                renderItem={({ item, index }) => {
-                  if (item.isCreateCard) {
-                    return <CreateCard navigation={navigation} isLast={true} isInvitesEmpty={isInvitesEmpty} />
-                  }
-                  return renderCard({ item, index })
-                }}
-                contentContainerStyle={styles.horizontalGrid}
-                snapToAlignment="start"
-                decelerationRate="fast"
-                snapToInterval={296} // card width + margin (280 + 16)
-              />
-              <TestNotificationButton />
+              {mainTab === 'Activities' ? (
+                <>
+                  {/* Show activities section */}
+                  <FlatList
+                    data={displayedActivities}
+                    keyExtractor={(item) => String(item.id)}
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    renderItem={renderCard}
+                    contentContainerStyle={styles.horizontalGrid}
+                    snapToAlignment="start"
+                    decelerationRate="fast"
+                    snapToInterval={296} // card width + margin (280 + 16)
+                  />
+                </>
+              ) : (
+                /* Show community section */
+                <View style={styles.communityContainer}>
+                  <YourCommunity />
+                </View>
+              )}
               <ListFooter />
             </>
           )}
@@ -698,7 +633,6 @@ export default function HomeScreen() {
         />
         <VoxxyFooter />
       </SafeAreaView>
-    </>
   )
 }
 
@@ -714,38 +648,114 @@ const styles = StyleSheet.create({
 
   horizontalGrid: {
     paddingHorizontal: CARD_MARGIN,
-    paddingVertical: CARD_MARGIN,
+    paddingTop: CARD_MARGIN,
+    paddingBottom: 32,
   },
 
   hero: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 24,
-    paddingTop: 20,
-    paddingBottom: 20,
+    paddingTop: 16,
+    paddingBottom: 16,
   },
 
-  heroContent: {
-    flex: 1,
+  startActivityButton: {
+    backgroundColor: 'rgba(42, 30, 46, 0.8)',
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    borderRadius: 25,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: 'rgba(0, 0, 0, 0.3)',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 1,
+    shadowRadius: 8,
+    elevation: 8,
+    borderWidth: 2,
+    borderColor: 'rgba(207, 56, 221, 0.4)',
+    position: 'relative',
+    overflow: 'hidden',
   },
 
-  heroTitle: {
+  buttonGlow: {
+    position: 'absolute',
+    top: -20,
+    left: -20,
+    right: -20,
+    bottom: -20,
+    backgroundColor: 'rgba(207, 56, 221, 0.3)',
+    borderRadius: 50,
+    opacity: 0.5,
+  },
+
+  buttonIcon: {
+    marginBottom: 6,
+  },
+
+  buttonTitle: {
     color: '#fff',
-    fontSize: 26,
+    fontSize: 16,
     fontWeight: '700',
     fontFamily: 'Montserrat_700Bold',
-    lineHeight: 32,
+    marginBottom: 2,
+    letterSpacing: 0.3,
   },
 
-  heroSub: {
+  buttonSubtitle: {
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontSize: 13,
+    fontWeight: '500',
+  },
+
+  // Main Tab Styles
+  mainTabContainer: {
+    paddingHorizontal: 16,
+    marginBottom: 16,
+  },
+
+  mainTabBar: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(42, 30, 46, 0.8)',
+    borderRadius: 20,
+    padding: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(185, 84, 236, 0.3)',
+    shadowColor: 'rgba(185, 84, 236, 0.2)',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 1,
+    shadowRadius: 12,
+  },
+
+  mainTab: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+
+  mainTabActive: {
+    backgroundColor: '#CF38DD',
+    shadowColor: 'rgba(207, 56, 221, 0.4)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 8,
+  },
+
+  mainTabLabel: {
     color: '#B8A5C4',
-    marginTop: 6,
-    fontSize: 16,
-    fontWeight: '400',
+    fontSize: 14,
+    fontWeight: '600',
   },
 
-  // Modern Tab Styles
+  mainTabLabelActive: {
+    color: '#fff',
+  },
+
+  // Modern Tab Styles (Activity Filters)
   tabContainer: {
     paddingHorizontal: 16,
     marginBottom: 24,
@@ -1328,6 +1338,13 @@ const styles = StyleSheet.create({
 
   footerContainer: {
     paddingHorizontal: CARD_MARGIN,
+    paddingBottom: 24,
+  },
+
+  communityContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 40,
   },
 
   showMore: {
