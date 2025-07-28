@@ -7,55 +7,73 @@ import {
     ScrollView,
     SafeAreaView,
 } from 'react-native'
-import { ArrowLeft } from 'react-native-feather'
+import { 
+    ArrowLeft, 
+    Coffee, 
+    Sunset,
+    Clock,
+    Monitor,
+    MapPin,
+    Film,
+    Users,
+    Home
+} from 'react-native-feather'
 
 export default function StartNewAdventure({ onTripSelect, onBack }) {
     const adventures = [
         {
             name: 'Lets Eat',
-            emoji: '🍜',
+            icon: Coffee,
+            iconColor: '#FF6B6B',
             active: true,
             description: 'Schedule your next group meal together.'
         },
         {
             name: 'Night Out',
-            emoji: '🍸',
+            icon: Sunset,
+            iconColor: '#4ECDC4',
             active: true,
             description: 'Plan your perfect night out with friends.'
         },
         {
             name: 'Lets Meet',
-            emoji: '⏰',
+            icon: Clock,
+            iconColor: '#FFE66D',
             active: true,
             description: 'Find a time that works for everyone.'
         },
         {
             name: 'Game Night',
-            emoji: '🎮',
+            icon: Monitor,
+            iconColor: '#A8E6CF',
             active: true,
             description: 'Set up a memorable game night.'
         },
         {
             name: 'Find a Destination',
-            emoji: '🗺️',
+            icon: MapPin,
+            iconColor: '#B8A5C4',
             active: false,
             description: 'Discover new travel destinations.'
         },
         {
             name: 'Movie Night',
-            emoji: '🎥',
+            icon: Film,
+            iconColor: '#FFB6C1',
             active: false,
             description: 'Plan your perfect movie night.'
         },
         {
             name: 'Kids Play Date',
-            emoji: '👩‍👧‍👦',
+            icon: Users,
+            iconColor: '#DDA0DD',
             active: false,
             description: 'Coordinate a fun playdate for little ones.'
         },
         {
             name: 'Family Reunion',
-            emoji: '👨‍👩‍👧‍👦',
+            icon: Home,
+            iconColor: '#87CEEB',
             active: false,
             description: 'Plan a family gathering.'
         },
@@ -67,7 +85,7 @@ export default function StartNewAdventure({ onTripSelect, onBack }) {
     }
 
     const renderActivityCard = (adventure, index) => {
-        const { name, emoji, active, description } = adventure
+        const { name, icon: IconComponent, iconColor, active, description } = adventure
 
         return (
             <TouchableOpacity
@@ -81,7 +99,14 @@ export default function StartNewAdventure({ onTripSelect, onBack }) {
                 activeOpacity={active ? 0.7 : 1}
                 disabled={!active}
             >
-                <Text style={styles.emoji}>{emoji}</Text>
+                <View style={[styles.iconContainer, { backgroundColor: `${iconColor}15` }]}>
+                    <IconComponent 
+                        stroke={active ? iconColor : '#888'} 
+                        width={32} 
+                        height={32} 
+                        strokeWidth={2}
+                    />
+                </View>
                 <Text style={[styles.activityName, !active && styles.inactiveName]}>
                     {name}
                 </Text>
@@ -229,6 +254,17 @@ const styles = StyleSheet.create({
 
     rightCard: {
         // For any specific right card styling if needed
+    },
+
+    iconContainer: {
+        width: 60,
+        height: 60,
+        borderRadius: 30,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 12,
+        borderWidth: 2,
+        borderColor: 'rgba(255, 255, 255, 0.1)',
     },
 
     emoji: {

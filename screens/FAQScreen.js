@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking } from 'react-native';
-import CustomHeader from '../components/CustomHeader';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, SafeAreaView, StatusBar } from 'react-native';
+import { ArrowLeft, HelpCircle, BookOpen, ChevronDown, ChevronUp } from 'react-native-feather';
+import { useNavigation } from '@react-navigation/native';
 
 const colors = {
     background: '#201925',
@@ -61,6 +62,7 @@ const steps = [
 ];
 
 export default function FAQScreen() {
+    const navigation = useNavigation();
     const [selectedTab, setSelectedTab] = useState('faq');
     const [expanded, setExpanded] = useState({});
 
@@ -69,10 +71,25 @@ export default function FAQScreen() {
     };
 
     return (
-        <>
-            <CustomHeader />
+        <SafeAreaView style={styles.safe}>
+            <StatusBar barStyle="light-content" />
+            
+            {/* Header with back button */}
+            <View style={styles.header}>
+                <TouchableOpacity 
+                    style={styles.backButton}
+                    onPress={() => navigation.goBack()}
+                    activeOpacity={0.7}
+                >
+                    <ArrowLeft stroke="#fff" width={24} height={24} strokeWidth={2} />
+                </TouchableOpacity>
+                <View style={styles.headerContent}>
+                    <Text style={styles.headerTitle}>Help & FAQ</Text>
+                    <Text style={styles.headerSubtitle}>Get answers to common questions</Text>
+                </View>
+            </View>
+
             <View style={styles.container}>
-                <Text style={styles.header}>Help & FAQ</Text>
                 <View style={styles.tabContainer}>
                     <TouchableOpacity
                         style={[
@@ -81,7 +98,17 @@ export default function FAQScreen() {
                         ]}
                         onPress={() => setSelectedTab('faq')}
                     >
-                        <Text style={[styles.tabText, selectedTab === 'faq' && styles.activeTabText]}>FAQs</Text>
+                        <View style={styles.tabContent}>
+                            <HelpCircle 
+                                stroke={selectedTab === 'faq' ? colors.foreground : colors.muted} 
+                                width={16} 
+                                height={16} 
+                                strokeWidth={2}
+                            />
+                            <Text style={[styles.tabText, selectedTab === 'faq' && styles.activeTabText]}>
+                                FAQs
+                            </Text>
+                        </View>
                     </TouchableOpacity>
                     <TouchableOpacity
                         style={[
@@ -90,7 +117,17 @@ export default function FAQScreen() {
                         ]}
                         onPress={() => setSelectedTab('steps')}
                     >
-                        <Text style={[styles.tabText, selectedTab === 'steps' && styles.activeTabText]}>Guide</Text>
+                        <View style={styles.tabContent}>
+                            <BookOpen 
+                                stroke={selectedTab === 'steps' ? colors.foreground : colors.muted} 
+                                width={16} 
+                                height={16} 
+                                strokeWidth={2}
+                            />
+                            <Text style={[styles.tabText, selectedTab === 'steps' && styles.activeTabText]}>
+                                Guide
+                            </Text>
+                        </View>
                     </TouchableOpacity>
                 </View>
                 <ScrollView contentContainerStyle={styles.scrollContainer}>
@@ -99,7 +136,13 @@ export default function FAQScreen() {
                             <TouchableOpacity onPress={() => toggleExpand(idx)}>
                                 <View style={styles.cardHeader}>
                                     <Text style={styles.question}>{item.question}</Text>
-                                    <Text style={styles.indicator}>{expanded[idx] ? '-' : '+'}</Text>
+                                    <View style={styles.indicatorContainer}>
+                                        {expanded[idx] ? (
+                                            <ChevronUp stroke={colors.primary} width={20} height={20} strokeWidth={2} />
+                                        ) : (
+                                            <ChevronDown stroke={colors.primary} width={20} height={20} strokeWidth={2} />
+                                        )}
+                                    </View>
                                 </View>
                             </TouchableOpacity>
                             {expanded[idx] && (
@@ -127,21 +170,56 @@ export default function FAQScreen() {
                     </TouchableOpacity>
                 </ScrollView>
             </View>
-        </>
+        </SafeAreaView>
     );
 }
 
 const styles = StyleSheet.create({
-    container: {
+    safe: {
         flex: 1,
         backgroundColor: colors.background,
     },
+    
     header: {
-        fontSize: 28,
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+        paddingVertical: 16,
+        paddingTop: 20,
+        backgroundColor: colors.background,
+    },
+    
+    backButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 16,
+    },
+    
+    headerContent: {
+        flex: 1,
+    },
+    
+    headerTitle: {
+        fontSize: 24,
         fontWeight: '700',
         color: '#fff',
-        marginTop: 40,
-        marginHorizontal: 20,
+        marginBottom: 4,
+        fontFamily: 'Montserrat_700Bold',
+    },
+    
+    headerSubtitle: {
+        fontSize: 14,
+        color: '#B8A5C4',
+        fontWeight: '500',
+    },
+
+    container: {
+        flex: 1,
+        backgroundColor: colors.background,
     },
     tabContainer: {
         flexDirection: 'row',
@@ -154,6 +232,12 @@ const styles = StyleSheet.create({
         flex: 1,
         paddingVertical: 10,
         alignItems: 'center',
+    },
+    
+    tabContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
     },
     activeTab: {
         borderBottomWidth: 3,
@@ -187,9 +271,11 @@ const styles = StyleSheet.create({
         color: colors.foreground,
         flex: 1,
     },
-    indicator: {
-        fontSize: 18,
-        color: colors.primary,
+    indicatorContainer: {
+        width: 24,
+        height: 24,
+        justifyContent: 'center',
+        alignItems: 'center',
         marginLeft: 10,
     },
     answer: {

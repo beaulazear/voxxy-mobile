@@ -1,4 +1,4 @@
-import React, { useContext, useMemo, useState, useEffect } from 'react'
+import React, { useContext, useMemo, useState, useEffect, useRef } from 'react'
 import {
   SafeAreaView,
   View,
@@ -28,10 +28,11 @@ import { Alert } from 'react-native';
 
 const { width: screenWidth } = Dimensions.get('window')
 
+const FULL_HEIGHT = 333
+
 const FILTERS = [
   { key: 'In Progress', icon: Zap, label: 'In Progress' },
   { key: 'Finalized', icon: CheckCircle, label: 'Finalized' },
-  { key: 'Past', icon: BookOpen, label: 'Past' },
   { key: 'Invites', icon: Mail, label: 'Invites' }
 ]
 
@@ -141,32 +142,36 @@ function CountdownText({ targetTs, activityType }) {
   )
 }
 
-function ProgressDisplay({ activity }) {
-  const pins = activity.pinned_activities || []
-  const ideas = pins.length
-  const hasSelectedPin = pins.some(p => p.selected)
-  const hasDateTime = activity.date_day && activity.date_time
-
-  let stage = 'collecting'
-  let stageDisplay = 'Collecting Ideas'
-  let progress = 33
-
-  if (hasSelectedPin && hasDateTime) {
-    stage = 'finalized'
-    const displayInfo = getActivityDisplayInfo(activity.activity_type)
-    stageDisplay = 'Ready to Go'
-    progress = 100
-  } else if (ideas > 0) {
-    stage = 'voting'
-    stageDisplay = 'Finalizing Plans'
-    progress = 67
-  }
-
+function ProgressDisplay({ activity, currentUserId }) {
+  // Check if current user is the host
+  const isHost = activity.user_id === currentUserId
+  
+  // Check if current user has submitted a response (for non-hosts)
+  const userResponse = activity.responses?.find(r => r.user_id === currentUserId)
+  const hasUserResponded = !!userResponse
+  
   return (
     <View style={styles.progressOverlay}>
-      <Text style={styles.progressStage}>{stageDisplay}</Text>
-      <View style={styles.progressBarContainer}>
-        <View style={[styles.progressBar, { width: `${progress}%` }]} />
+      <Text style={styles.progressStage}>Gathering Preferences</Text>
+      
+      {/* Response status indicator */}
+      <View style={styles.responseStatusContainer}>
+        {isHost ? (
+          <View style={styles.hostBadge}>
+            <Users stroke="#B954EC" width={14} height={14} strokeWidth={2.5} />
+            <Text style={styles.hostText}>Waiting for responses</Text>
+          </View>
+        ) : hasUserResponded ? (
+          <View style={styles.respondedBadge}>
+            <CheckCircle stroke="#4ECDC4" width={14} height={14} strokeWidth={2.5} />
+            <Text style={styles.respondedText}>Thanks for submitting!</Text>
+          </View>
+        ) : (
+          <View style={styles.actionNeededBadge}>
+            <Zap stroke="#FFE66D" width={14} height={14} strokeWidth={2.5} />
+            <Text style={styles.actionNeededText}>Action needed</Text>
+          </View>
+        )}
       </View>
     </View>
   )
@@ -288,6 +293,12 @@ export default function HomeScreen() {
   const [mainTab, setMainTab] = useState('Activities')
   const [filter, setFilter] = useState('In Progress')
   const [showAllPast, setShowAllPast] = useState(false)
+  const scrollY = useRef(new Animated.Value(0)).current
+  const scrollRef = useRef(null)
+
+  const scrollToTop = () => {
+    scrollRef.current?.scrollToOffset({ offset: 0, animated: true })
+  }
 
   if (user && !user.confirmed_at) {
     return <AccountCreatedScreen />
@@ -316,7 +327,7 @@ export default function HomeScreen() {
     } else if (finalized.length > 0) {
       setFilter('Finalized')
     } else {
-      setFilter('Past')
+      setFilter('In Progress')
     }
   }, [invites.length, inProgress.length, finalized.length])
 
@@ -324,7 +335,6 @@ export default function HomeScreen() {
     const dataMap = {
       'In Progress': inProgress,
       'Finalized': finalized,
-      'Past': past,
       'Invites': invites,
     }
 
@@ -333,17 +343,11 @@ export default function HomeScreen() {
     return data.sort((a, b) => {
       const dateA = new Date(a.date_day || '9999-12-31')
       const dateB = new Date(b.date_day || '9999-12-31')
-
-      if (filter === 'Past') {
-        return dateB - dateA // Most recent first for past activities
-      }
       return dateA - dateB // Soonest first for upcoming activities
     })
   })()
 
-  const displayedActivities = filter === 'Past' && !showAllPast
-    ? filteredActivities.slice(0, PREVIEW_PAST)
-    : filteredActivities
+  const displayedActivities = filteredActivities
 
   function formatDate(dateString) {
     if (!dateString) return 'TBD'
@@ -440,7 +444,7 @@ export default function HomeScreen() {
           ) : countdownTs ? (
             <CountdownText targetTs={countdownTs} activityType={item.activity_type} />
           ) : isInProgress ? (
-            <ProgressDisplay activity={item} />
+            <ProgressDisplay activity={item} currentUserId={user?.id} />
           ) : isCompleted ? (
             <View style={styles.completedContainer}>
               <Text style={styles.completedLabel}>ACTIVITY COMPLETED</Text>
@@ -484,20 +488,8 @@ export default function HomeScreen() {
 
   const ListHeader = () => (
     <>
-      <ProfileSnippet />
-      
-      <View style={styles.hero}>
-        <TouchableOpacity 
-          style={styles.startActivityButton}
-          onPress={() => navigation.navigate('TripDashboardScreen')}
-          activeOpacity={0.8}
-        >
-          <View style={styles.buttonGlow} />
-          <Plus stroke="#CF38DD" width={20} height={20} strokeWidth={2.5} style={styles.buttonIcon} />
-          <Text style={styles.buttonTitle}>Start New Activity</Text>
-          <Text style={styles.buttonSubtitle}>Make group decisions easy</Text>
-        </TouchableOpacity>
-      </View>
+      <View style={{ height: 300 }} />
+
 
       {/* Main Tab Bar */}
       <View style={styles.mainTabContainer}>
@@ -539,35 +531,47 @@ export default function HomeScreen() {
       {/* Activity Filters - Only show when Activities tab is active */}
       {mainTab === 'Activities' && (
         <View style={styles.tabContainer}>
-        <View style={styles.tabBar}>
-          {FILTERS.map((filterItem) => {
-            const count = filterItem.key === 'Invites' ? invites.length : 0
-            const isActive = filter === filterItem.key
-            return (
-              <ModernTab
-                key={filterItem.key}
-                filter={filterItem}
-                isActive={isActive}
-                onPress={() => {
-                  setFilter(filterItem.key)
-                  setShowAllPast(false)
-                }}
-                count={count}
-              />
-            )
-          })}
+          <View style={styles.tabBar}>
+            {FILTERS.map((filterItem) => {
+              const count = filterItem.key === 'Invites' ? invites.length : 0
+              const isActive = filter === filterItem.key
+              return (
+                <ModernTab
+                  key={filterItem.key}
+                  filter={filterItem}
+                  isActive={isActive}
+                  onPress={() => {
+                    setFilter(filterItem.key)
+                    setShowAllPast(false)
+                  }}
+                  count={count}
+                />
+              )
+            })}
+          </View>
         </View>
-      </View>
       )}
 
-      {/* Only show empty state for activities tab */}
-      {mainTab === 'Activities' && filteredActivities.length === 0 && filter !== 'Invites' && (
+      {/* Show empty state for activities tab */}
+      {mainTab === 'Activities' && filteredActivities.length === 0 && (
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyIcon}>📱</Text>
-          <Text style={styles.empty}>No activities to show.</Text>
-          <Text style={styles.emptySub}>
-            Start by creating your first activity!
-          </Text>
+          {filter === 'Invites' ? (
+            <>
+              <Text style={styles.emptyIcon}>💌</Text>
+              <Text style={styles.empty}>No invites to show.</Text>
+              <Text style={styles.emptySub}>
+                When friends invite you to activities, they'll appear here!
+              </Text>
+            </>
+          ) : (
+            <>
+              <Text style={styles.emptyIcon}>📱</Text>
+              <Text style={styles.empty}>No activities to show.</Text>
+              <Text style={styles.emptySub}>
+                Start by creating your first activity!
+              </Text>
+            </>
+          )}
         </View>
       )}
     </>
@@ -575,64 +579,99 @@ export default function HomeScreen() {
 
   const ListFooter = () => (
     <View style={styles.footerContainer}>
-      {mainTab === 'Activities' && filter === 'Past' && filteredActivities.length > PREVIEW_PAST && (
-        <TouchableOpacity
-          style={styles.showMore}
-          onPress={() => {
-            if (Haptics?.impactAsync) {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-            }
-            setShowAllPast(v => !v)
-          }}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.showMoreText}>
-            {showAllPast ? 'Show Less' : `Show ${filteredActivities.length - PREVIEW_PAST} More`}
-          </Text>
-        </TouchableOpacity>
-      )}
     </View>
   )
 
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="light-content" />
-        <FlatList
-          data={[]} // Empty array for header/footer only
-          keyExtractor={() => 'dummy'}
-          renderItem={() => null}
-          ListHeaderComponent={ListHeader}
-          ListFooterComponent={() => (
-            <>
-              {mainTab === 'Activities' ? (
-                <>
-                  {/* Show activities section */}
-                  <FlatList
-                    data={displayedActivities}
-                    keyExtractor={(item) => String(item.id)}
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    renderItem={renderCard}
-                    contentContainerStyle={styles.horizontalGrid}
-                    snapToAlignment="start"
-                    decelerationRate="fast"
-                    snapToInterval={296} // card width + margin (280 + 16)
-                  />
-                </>
-              ) : (
-                /* Show community section */
-                <View style={styles.communityContainer}>
-                  <YourCommunity />
+      <ProfileSnippet scrollY={scrollY} onScrollToTop={scrollToTop} />
+      <Animated.FlatList
+        ref={scrollRef}
+        data={[]} // Empty array for header/footer only
+        keyExtractor={() => 'dummy'}
+        renderItem={() => null}
+        ListHeaderComponent={ListHeader}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: false }
+        )}
+        scrollEventThrottle={16}
+        ListFooterComponent={() => (
+          <>
+            {mainTab === 'Activities' ? (
+              <>
+                {/* Show activities section */}
+                <FlatList
+                  data={displayedActivities}
+                  keyExtractor={(item) => String(item.id)}
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  renderItem={renderCard}
+                  contentContainerStyle={styles.horizontalGrid}
+                  snapToAlignment="start"
+                  decelerationRate="fast"
+                  snapToInterval={296} // card width + margin (280 + 16)
+                />
+                
+                {/* Start New Activity Button - Wide Version */}
+                <View style={styles.wideButtonContainer}>
+                  <TouchableOpacity
+                    style={styles.wideStartActivityButton}
+                    onPress={() => {
+                      if (Haptics?.impactAsync) {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+                      }
+                      navigation.navigate('TripDashboardScreen')
+                    }}
+                    activeOpacity={0.9}
+                  >
+                    <View style={styles.wideButtonGlow} />
+                    
+                    <View style={styles.wideButtonContent}>
+                      <View style={styles.wideButtonIconContainer}>
+                        <Plus stroke="#4ECDC4" width={28} height={28} strokeWidth={2.5} />
+                      </View>
+
+                      <Text style={styles.wideButtonTitle}>Start New Activity</Text>
+                      <Text style={styles.wideButtonSubtitle}>Start planning something amazing!</Text>
+
+                      <View style={styles.wideButtonSuggestions}>
+                        <View style={styles.wideSuggestionIcon}>
+                          <Coffee stroke="#FF6B6B" width={18} height={18} strokeWidth={2} />
+                        </View>
+                        <View style={styles.wideSuggestionIcon}>
+                          <Star stroke="#4ECDC4" width={18} height={18} strokeWidth={2} />
+                        </View>
+                        <View style={styles.wideSuggestionIcon}>
+                          <MapPin stroke="#FFE66D" width={18} height={18} strokeWidth={2} />
+                        </View>
+                        <View style={styles.wideSuggestionIcon}>
+                          <User stroke="#A8E6CF" width={18} height={18} strokeWidth={2} />
+                        </View>
+                      </View>
+
+                      <View style={styles.wideButtonArrow}>
+                        <Text style={styles.wideButtonArrowText}>Tap to start →</Text>
+                      </View>
+                    </View>
+                  </TouchableOpacity>
                 </View>
-              )}
-              <ListFooter />
-            </>
-          )}
-          contentContainerStyle={styles.grid}
-          showsVerticalScrollIndicator={false}
-        />
-        <VoxxyFooter />
-      </SafeAreaView>
+              </>
+            ) : (
+              /* Show community section */
+              <View style={styles.communityContainer}>
+                <YourCommunity />
+              </View>
+            )}
+            <ListFooter />
+          </>
+        )}
+        contentContainerStyle={styles.grid}
+        showsVerticalScrollIndicator={false}
+      />
+      <VoxxyFooter />
+    </SafeAreaView>
   )
 }
 
@@ -648,14 +687,12 @@ const styles = StyleSheet.create({
 
   horizontalGrid: {
     paddingHorizontal: CARD_MARGIN,
-    paddingTop: CARD_MARGIN,
-    paddingBottom: 32,
+    paddingTop: 8,
   },
 
   hero: {
     alignItems: 'center',
     paddingHorizontal: 24,
-    paddingTop: 16,
     paddingBottom: 16,
   },
 
@@ -710,7 +747,8 @@ const styles = StyleSheet.create({
   // Main Tab Styles
   mainTabContainer: {
     paddingHorizontal: 16,
-    marginBottom: 16,
+    marginBottom: 8,
+    marginTop: -8,
   },
 
   mainTabBar: {
@@ -758,7 +796,7 @@ const styles = StyleSheet.create({
   // Modern Tab Styles (Activity Filters)
   tabContainer: {
     paddingHorizontal: 16,
-    marginBottom: 24,
+    marginBottom: 12,
   },
 
   tabBar: {
@@ -1136,36 +1174,74 @@ const styles = StyleSheet.create({
 
   progressStage: {
     color: '#d394f5',
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '600',
     textTransform: 'uppercase',
     letterSpacing: 1,
-    marginBottom: 16,
+    marginBottom: 12,
     textAlign: 'center',
   },
 
-  progressBarContainer: {
-    width: '90%',
-    height: 12,
-    backgroundColor: 'rgba(64, 51, 71, 0.8)',
-    borderRadius: 6,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(207, 56, 221, 0.4)',
-    shadowColor: 'rgba(207, 56, 221, 0.3)',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 4,
+  responseStatusContainer: {
+    marginTop: 16,
+    alignItems: 'center',
   },
 
-  progressBar: {
-    height: '100%',
-    backgroundColor: '#cf38dd',
-    borderRadius: 5,
-    shadowColor: 'rgba(207, 56, 221, 0.6)',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 1,
-    shadowRadius: 8,
+  respondedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(78, 205, 196, 0.15)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(78, 205, 196, 0.3)',
+    gap: 6,
+  },
+
+  respondedText: {
+    color: '#4ECDC4',
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+  },
+
+  actionNeededBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 230, 109, 0.15)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 230, 109, 0.3)',
+    gap: 6,
+  },
+
+  actionNeededText: {
+    color: '#FFE66D',
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+  },
+
+  hostBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(185, 84, 236, 0.15)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(185, 84, 236, 0.3)',
+    gap: 6,
+  },
+
+  hostText: {
+    color: '#B954EC',
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 0.5,
   },
 
   completedContainer: {
@@ -1367,5 +1443,121 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 14,
     letterSpacing: 0.3,
+  },
+
+  // Wide Start Activity Button Styles
+  wideButtonContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 24,
+    paddingBottom: 36,
+  },
+
+  wideStartActivityButton: {
+    backgroundColor: 'rgba(42, 30, 46, 0.6)',
+    borderRadius: 24,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: 'rgba(78, 205, 196, 0.4)',
+    borderStyle: 'dashed',
+    shadowColor: 'rgba(78, 205, 196, 0.3)',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 1,
+    shadowRadius: 20,
+    elevation: 15,
+    position: 'relative',
+    minHeight: 180,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  wideButtonGlow: {
+    position: 'absolute',
+    top: -50,
+    left: -50,
+    right: -50,
+    bottom: -50,
+    backgroundColor: 'rgba(78, 205, 196, 0.05)',
+    borderRadius: 100,
+  },
+
+  wideButtonContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 32,
+    paddingVertical: 32,
+    gap: 16,
+    zIndex: 1,
+  },
+
+  wideButtonIconContainer: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(78, 205, 196, 0.15)',
+    borderWidth: 2,
+    borderColor: 'rgba(78, 205, 196, 0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+    shadowColor: 'rgba(78, 205, 196, 0.4)',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 1,
+    shadowRadius: 12,
+  },
+
+  wideButtonTitle: {
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: '700',
+    textAlign: 'center',
+    lineHeight: 26,
+    fontFamily: 'Montserrat_700Bold',
+  },
+
+  wideButtonSubtitle: {
+    color: '#B8A5C4',
+    fontSize: 16,
+    fontWeight: '500',
+    textAlign: 'center',
+    lineHeight: 22,
+    opacity: 0.8,
+  },
+
+  wideButtonSuggestions: {
+    flexDirection: 'row',
+    gap: 16,
+    marginTop: 8,
+  },
+
+  wideSuggestionIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: 'rgba(0, 0, 0, 0.2)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 4,
+  },
+
+  wideButtonArrow: {
+    marginTop: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: 'rgba(78, 205, 196, 0.1)',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(78, 205, 196, 0.3)',
+  },
+
+  wideButtonArrowText: {
+    color: '#4ECDC4',
+    fontSize: 14,
+    fontWeight: '600',
+    letterSpacing: 0.5,
   },
 })

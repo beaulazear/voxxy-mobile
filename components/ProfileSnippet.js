@@ -1,10 +1,12 @@
-import React, { useContext, useMemo } from 'react';
+import React, { useContext, useMemo, useState, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   Image,
+  Animated,
+  Dimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { UserContext } from '../context/UserContext';
@@ -12,11 +14,27 @@ import { Settings, Users, Activity } from 'react-native-feather';
 import { useNavigation } from '@react-navigation/native';
 import { API_URL } from '../config';
 
-export default function ProfileSnippet() {
+const { width: screenWidth } = Dimensions.get('window');
+const NAVBAR_HEIGHT = 90;
+const FULL_HEIGHT = 333;
+const SCROLL_THRESHOLD = 250;
+
+export default function ProfileSnippet({ scrollY = new Animated.Value(0), onScrollToTop }) {
   const { user } = useContext(UserContext);
   const navigation = useNavigation();
+  const [isNavbarMode, setIsNavbarMode] = useState(false);
 
-  // Calculate how long user has been on Voxxy
+  // Listen to scroll changes to update navbar mode
+  useEffect(() => {
+    const listener = scrollY.addListener(({ value }) => {
+      setIsNavbarMode(value > SCROLL_THRESHOLD * 0.5);
+    });
+
+    return () => {
+      scrollY.removeListener(listener);
+    };
+  }, [scrollY]);
+
   const membershipDuration = useMemo(() => {
     if (!user?.created_at) return 'New member';
     
@@ -110,6 +128,13 @@ export default function ProfileSnippet() {
         'Avatar9.jpg': require('../assets/Avatar9.jpg'),
         'Avatar10.jpg': require('../assets/Avatar10.jpg'),
         'Avatar11.jpg': require('../assets/Avatar11.jpg'),
+        
+        // Weird series
+        'Weird1.jpg': require('../assets/Weird1.jpg'),
+        'Weird2.jpg': require('../assets/Weird2.jpg'),
+        'Weird3.jpg': require('../assets/Weird3.jpg'),
+        'Weird4.jpg': require('../assets/Weird4.jpg'),
+        'Weird5.jpg': require('../assets/Weird5.jpg'),
       };
       
       // Extract filename if it's a path
@@ -133,31 +158,187 @@ export default function ProfileSnippet() {
 
   if (!user) return null;
 
+  // Animation interpolations
+  const containerHeight = scrollY.interpolate({
+    inputRange: [0, SCROLL_THRESHOLD],
+    outputRange: [FULL_HEIGHT, NAVBAR_HEIGHT],
+    extrapolate: 'clamp',
+  });
+
+  const profilePicSize = scrollY.interpolate({
+    inputRange: [0, SCROLL_THRESHOLD],
+    outputRange: [64, 36],
+    extrapolate: 'clamp',
+  });
+
+  const profilePicBorderRadius = scrollY.interpolate({
+    inputRange: [0, SCROLL_THRESHOLD],
+    outputRange: [32, 18],
+    extrapolate: 'clamp',
+  });
+
+  const profilePicTranslateX = scrollY.interpolate({
+    inputRange: [0, SCROLL_THRESHOLD],
+    outputRange: [0, -screenWidth/2 + 60],
+    extrapolate: 'clamp',
+  });
+
+  const profilePicTranslateY = scrollY.interpolate({
+    inputRange: [0, SCROLL_THRESHOLD],
+    outputRange: [0, -20],
+    extrapolate: 'clamp',
+  });
+
+  const settingsTranslateY = scrollY.interpolate({
+    inputRange: [0, SCROLL_THRESHOLD],
+    outputRange: [0, -15],
+    extrapolate: 'clamp',
+  });
+
+  const statsOpacity = scrollY.interpolate({
+    inputRange: [0, SCROLL_THRESHOLD * 0.6],
+    outputRange: [1, 0],
+    extrapolate: 'clamp',
+  });
+
+  const membershipOpacity = scrollY.interpolate({
+    inputRange: [0, SCROLL_THRESHOLD * 0.4],
+    outputRange: [1, 0],
+    extrapolate: 'clamp',
+  });
+
+  const nameTranslateY = scrollY.interpolate({
+    inputRange: [0, SCROLL_THRESHOLD],
+    outputRange: [0, -35],
+    extrapolate: 'clamp',
+  });
+
+  const nameFontSize = scrollY.interpolate({
+    inputRange: [0, SCROLL_THRESHOLD],
+    outputRange: [18, 16],
+    extrapolate: 'clamp',
+  });
+
+  const nameOpacity = scrollY.interpolate({
+    inputRange: [0, SCROLL_THRESHOLD * 0.4],
+    outputRange: [1, 0],
+    extrapolate: 'clamp',
+  });
+
+  const voxxyHeaderOpacity = scrollY.interpolate({
+    inputRange: [SCROLL_THRESHOLD * 0.6, SCROLL_THRESHOLD],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
+  });
+
   return (
-    <LinearGradient
-      colors={['#B954EC', '#CF38DD', '#8e44ad']}
+    <Animated.View style={[styles.wrapper, { height: containerHeight }]}>
+      <LinearGradient
+      colors={['#6B73FF', '#9D50BB', '#6B4E7A']}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={styles.container}
     >
-      {/* Settings Button */}
-      <TouchableOpacity 
-        style={styles.settingsButton}
-        onPress={() => navigation.navigate('Profile')}
-        activeOpacity={0.7}
+      {/* Voxxy Header - fades in when scrolling */}
+      <Animated.View 
+        style={[
+          styles.voxxyHeader,
+          { opacity: voxxyHeaderOpacity }
+        ]}
       >
-        <Settings stroke="#fff" width={20} height={20} strokeWidth={2} />
-      </TouchableOpacity>
+        <Text style={styles.voxxyHeaderText}>Voxxy</Text>
+      </Animated.View>
+
+      {/* Settings Button */}
+      <Animated.View
+        style={[
+          styles.settingsButton,
+          {
+            transform: [{ translateY: settingsTranslateY }],
+          }
+        ]}
+      >
+        <TouchableOpacity 
+          onPress={() => navigation.navigate('Profile')}
+          activeOpacity={0.7}
+          style={styles.settingsButtonTouch}
+        >
+          <Settings stroke="#fff" width={20} height={20} strokeWidth={2} />
+        </TouchableOpacity>
+      </Animated.View>
 
       {/* Profile Info */}
       <View style={styles.profileInfo}>
-        <Image source={getDisplayImage()} style={styles.profilePic} />
-        <Text style={styles.userName}>{user.name}</Text>
-        <Text style={styles.membershipDuration}>{membershipDuration}</Text>
+        <Animated.View
+          style={[
+            styles.profilePicContainer,
+            {
+              transform: [
+                { translateX: profilePicTranslateX },
+                { translateY: profilePicTranslateY }
+              ],
+            }
+          ]}
+        >
+          <TouchableOpacity
+            onPress={onScrollToTop}
+            activeOpacity={0.8}
+          >
+            <Animated.View
+              style={{
+                width: profilePicSize,
+                height: profilePicSize,
+                borderRadius: profilePicBorderRadius,
+                borderWidth: 3,
+                borderColor: 'rgba(255, 255, 255, 0.8)',
+                overflow: 'hidden',
+                shadowColor: 'rgba(0, 0, 0, 0.3)',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 1,
+                shadowRadius: 8,
+              }}
+            >
+              <Image 
+                source={getDisplayImage()} 
+                style={styles.profilePic}
+              />
+            </Animated.View>
+          </TouchableOpacity>
+        </Animated.View>
+        
+        <Animated.View
+          style={[
+            styles.nameContainer,
+            {
+              transform: [{ translateY: nameTranslateY }],
+            }
+          ]}
+        >
+          <Animated.Text 
+            style={[
+              styles.userName,
+              { 
+                fontSize: nameFontSize,
+                opacity: nameOpacity
+              }
+            ]}
+          >
+            {user.name}
+          </Animated.Text>
+        </Animated.View>
+        
+        <Animated.Text 
+          style={[
+            styles.membershipDuration,
+            { opacity: membershipOpacity }
+          ]}
+        >
+          {membershipDuration}
+        </Animated.Text>
       </View>
 
       {/* Stats Boxes */}
-      <View style={styles.statsContainer}>
+      <Animated.View style={[styles.statsContainer, { opacity: statsOpacity }]}>
         <View style={styles.statBox}>
           <View style={styles.statIconContainer}>
             <Activity stroke="#4ECDC4" width={18} height={18} strokeWidth={2.5} />
@@ -173,22 +354,57 @@ export default function ProfileSnippet() {
           <Text style={styles.statNumber}>{communityCount}</Text>
           <Text style={styles.statLabel}>Community{'\n'}Members</Text>
         </View>
-      </View>
+      </Animated.View>
     </LinearGradient>
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
+  wrapper: {
+    overflow: 'hidden',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 100,
+  },
+
   container: {
-    paddingTop: 45,
-    paddingBottom: 16,
+    flex: 1,
+    paddingTop: 50,
+    paddingBottom: 10,
     paddingHorizontal: 20,
+  },
+
+  voxxyHeader: {
+    position: 'absolute',
+    top: 58,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 5,
+  },
+
+  voxxyHeaderText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '700',
+    fontFamily: 'Montserrat_700Bold',
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
   },
 
   settingsButton: {
     position: 'absolute',
-    top: 45,
+    top: 50,
     right: 20,
+    zIndex: 10,
+    paddingTop: 8,
+  },
+
+  settingsButtonTouch: {
     width: 36,
     height: 36,
     borderRadius: 18,
@@ -197,25 +413,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.3)',
-    zIndex: 10,
   },
 
   profileInfo: {
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 24,
+  },
+
+  profilePicContainer: {
+    marginBottom: 10,
+    paddingTop: 15,
   },
 
   profilePic: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    borderWidth: 3,
-    borderColor: 'rgba(255, 255, 255, 0.8)',
-    marginBottom: 10,
-    shadowColor: 'rgba(0, 0, 0, 0.3)',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 1,
-    shadowRadius: 8,
+    width: '100%',
+    height: '100%',
+  },
+
+  nameContainer: {
+    alignItems: 'center',
   },
 
   userName: {

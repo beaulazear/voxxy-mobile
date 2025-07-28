@@ -11,14 +11,15 @@ import {
     Switch,
     Modal,
     FlatList,
+    SafeAreaView,
+    StatusBar,
 } from 'react-native';
 import { UserContext } from '../context/UserContext';
-import Woman from '../assets/voxxy-triangle.png';
 import { useNavigation } from '@react-navigation/native';
 import { API_URL } from '../config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import CustomHeader from '../components/CustomHeader';
 import NotificationSettings from '../components/NotificationSettings';
+import { ArrowLeft, User, Settings, Edit3, Trash2, LogOut } from 'react-native-feather';
 import PushNotificationService from '../services/PushNotificationService'
 
 // Avatar mapping for relative paths
@@ -93,7 +94,7 @@ export default function ProfileScreen() {
         }
 
         // Check for avatar (relative path)
-        if (userObj?.avatar && userObj.avatar !== Woman) {
+        if (userObj?.avatar) {
             // Extract filename from path if it includes directory
             const avatarFilename = userObj.avatar.includes('/')
                 ? userObj.avatar.split('/').pop()
@@ -115,9 +116,9 @@ export default function ProfileScreen() {
             }
         }
 
-        // Fallback to default icon
-        console.log(`🔄 Using default icon`)
-        return Woman
+        // Fallback to default avatar
+        console.log(`🔄 Using default avatar`)
+        return require('../assets/Avatar1.jpg')
     }
 
     useEffect(() => {
@@ -306,9 +307,9 @@ export default function ProfileScreen() {
     };
 
     const renderProfileTab = () => (
-        <View style={styles.tabContent}>
-            {/* Avatar and Name Section */}
-            <View style={styles.profileSection}>
+        <View>
+            {/* Avatar and Name Card */}
+            <View style={styles.profileCard}>
                 <TouchableOpacity
                     style={styles.avatarContainer}
                     onPress={() => setShowAvatarModal(true)}
@@ -320,7 +321,7 @@ export default function ProfileScreen() {
                         onLoad={() => console.log(`✅ Avatar loaded for ${user?.name}`)}
                     />
                     <View style={styles.avatarEditIndicator}>
-                        <Text style={styles.avatarEditText}>✏️</Text>
+                        <Edit3 stroke="#fff" width={12} height={12} strokeWidth={2} />
                     </View>
                 </TouchableOpacity>
 
@@ -332,7 +333,7 @@ export default function ProfileScreen() {
                                 style={styles.editButton}
                                 onPress={() => setIsEditingName(true)}
                             >
-                                <Text style={styles.editButtonText}>✏️</Text>
+                                <Edit3 stroke="#B8A5C4" width={16} height={16} strokeWidth={2} />
                             </TouchableOpacity>
                         </View>
                     ) : (
@@ -362,9 +363,9 @@ export default function ProfileScreen() {
                 </View>
             </View>
 
-            {/* Preferences Section */}
-            <View style={styles.section}>
-                <Text style={styles.subtitle}>Preferences</Text>
+            {/* Preferences Section - No card */}
+            <View style={styles.preferencesSection}>
+                <Text style={styles.sectionTitle}>Preferences</Text>
                 <Text style={styles.label}>Allergies or Restrictions</Text>
                 <TextInput
                     style={styles.textArea}
@@ -383,7 +384,7 @@ export default function ProfileScreen() {
     );
 
     const renderSettingsTab = () => (
-        <View style={styles.tabContent}>
+        <View>
             <NotificationSettings />
 
             {/* Account Actions */}
@@ -402,37 +403,65 @@ export default function ProfileScreen() {
     );
 
     return (
-        <>
-            <CustomHeader />
-            <ScrollView contentContainerStyle={styles.container}>
-                {/* Header */}
-                <View style={styles.headerContainer}>
+        <SafeAreaView style={styles.safe}>
+            <StatusBar barStyle="light-content" />
+            
+            {/* Header with back button */}
+            <View style={styles.header}>
+                <TouchableOpacity 
+                    style={styles.backButton}
+                    onPress={() => navigation.goBack()}
+                    activeOpacity={0.7}
+                >
+                    <ArrowLeft stroke="#fff" width={24} height={24} strokeWidth={2} />
+                </TouchableOpacity>
+                <View style={styles.headerContent}>
                     <Text style={styles.headerTitle}>Profile Settings</Text>
                     <Text style={styles.headerSubtitle}>Manage your personal information and preferences</Text>
                 </View>
+            </View>
 
-                {/* Card Container */}
-                <View style={styles.card}>
-                    {/* Tab Navigation */}
-                    <View style={styles.tabNavigation}>
+            <ScrollView contentContainerStyle={styles.container}>
+                {/* Tab Navigation - Outside card */}
+                <View style={styles.tabContainer}>
+                    <View style={styles.tabBar}>
                         <TouchableOpacity
                             style={[styles.tab, activeTab === 'profile' && styles.activeTab]}
                             onPress={() => setActiveTab('profile')}
                         >
-                            <Text style={[styles.tabText, activeTab === 'profile' && styles.activeTabText]}>
-                                👤 Profile
-                            </Text>
+                            <View style={styles.tabContent}>
+                                <User 
+                                    stroke={activeTab === 'profile' ? '#fff' : '#B8A5C4'} 
+                                    width={16} 
+                                    height={16} 
+                                    strokeWidth={activeTab === 'profile' ? 2.5 : 2}
+                                />
+                                <Text style={[styles.tabText, activeTab === 'profile' && styles.activeTabText]}>
+                                    Profile
+                                </Text>
+                            </View>
                         </TouchableOpacity>
                         <TouchableOpacity
                             style={[styles.tab, activeTab === 'settings' && styles.activeTab]}
                             onPress={() => setActiveTab('settings')}
                         >
-                            <Text style={[styles.tabText, activeTab === 'settings' && styles.activeTabText]}>
-                                ⚙️ Settings
-                            </Text>
+                            <View style={styles.tabContent}>
+                                <Settings 
+                                    stroke={activeTab === 'settings' ? '#fff' : '#B8A5C4'} 
+                                    width={16} 
+                                    height={16} 
+                                    strokeWidth={activeTab === 'settings' ? 2.5 : 2}
+                                />
+                                <Text style={[styles.tabText, activeTab === 'settings' && styles.activeTabText]}>
+                                    Settings
+                                </Text>
+                            </View>
                         </TouchableOpacity>
                     </View>
+                </View>
 
+                {/* Content Area */}
+                <View style={styles.contentArea}>
                     {activeTab === 'profile' ? renderProfileTab() : renderSettingsTab()}
                 </View>
 
@@ -447,8 +476,11 @@ export default function ProfileScreen() {
                         <View style={styles.avatarModal}>
                             <View style={styles.modalHeader}>
                                 <Text style={styles.modalTitle}>Choose Your Avatar</Text>
-                                <TouchableOpacity onPress={() => setShowAvatarModal(false)}>
-                                    <Text style={styles.modalCloseText}>✕</Text>
+                                <TouchableOpacity 
+                                    style={styles.modalCloseButton}
+                                    onPress={() => setShowAvatarModal(false)}
+                                >
+                                    <ArrowLeft stroke="#CF38DD" width={20} height={20} strokeWidth={2} />
                                 </TouchableOpacity>
                             </View>
 
@@ -470,77 +502,133 @@ export default function ProfileScreen() {
                     </View>
                 </Modal>
             </ScrollView>
-        </>
+        </SafeAreaView>
     );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        paddingTop: 30,
-        paddingBottom: 80,
+    safe: {
+        flex: 1,
+        backgroundColor: '#201925',
+    },
+    
+    header: {
+        flexDirection: 'row',
+        alignItems: 'center',
         paddingHorizontal: 20,
+        paddingVertical: 16,
+        paddingTop: 20,
+        backgroundColor: '#201925',
+    },
+    
+    backButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 16,
+    },
+    
+    headerContent: {
+        flex: 1,
+    },
+    
+    headerTitle: {
+        fontSize: 24,
+        fontWeight: '700',
+        color: '#fff',
+        marginBottom: 4,
+        fontFamily: 'Montserrat_700Bold',
+    },
+    
+    headerSubtitle: {
+        fontSize: 14,
+        color: '#B8A5C4',
+        fontWeight: '500',
+    },
+
+    container: {
+        paddingBottom: 80,
         backgroundColor: '#201925',
         flexGrow: 1,
     },
-    headerContainer: {
-        marginBottom: 32,
+    
+    // Tab styles matching HomePage
+    tabContainer: {
+        paddingHorizontal: 16,
+        marginBottom: 24,
+    },
+    
+    tabBar: {
+        flexDirection: 'row',
+        backgroundColor: 'rgba(42, 30, 46, 0.6)',
+        borderRadius: 18,
+        padding: 4,
+        borderWidth: 1,
+        borderColor: 'rgba(185, 84, 236, 0.2)',
+        shadowColor: 'rgba(185, 84, 236, 0.15)',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 1,
+        shadowRadius: 12,
+    },
+    
+    tab: {
+        flex: 1,
+        paddingVertical: 10,
+        paddingHorizontal: 8,
+        borderRadius: 14,
+        position: 'relative',
+        minHeight: 44,
+        justifyContent: 'center',
+    },
+    
+    activeTab: {
+        backgroundColor: 'rgba(185, 84, 236, 0.15)',
+        borderWidth: 1,
+        borderColor: 'rgba(185, 84, 236, 0.3)',
+        shadowColor: 'rgba(185, 84, 236, 0.4)',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 1,
+        shadowRadius: 8,
+    },
+    
+    tabContent: {
+        flexDirection: 'row',
         alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
     },
-    headerTitle: {
-        fontSize: 28,
-        fontWeight: '700',
+    
+    tabText: {
+        color: '#B8A5C4',
+        fontSize: 14,
+        fontWeight: '500',
+    },
+    
+    activeTabText: {
         color: '#fff',
-        marginBottom: 8,
-        textAlign: 'center',
+        fontWeight: '600',
     },
-    headerSubtitle: {
-        fontSize: 16,
-        color: '#FAF9FA',
-        textAlign: 'center',
+    
+    // Content area
+    contentArea: {
+        paddingHorizontal: 20,
     },
-    card: {
+    
+    profileCard: {
         backgroundColor: '#2A1E30',
         borderRadius: 16,
+        padding: 20,
+        marginBottom: 24,
         shadowColor: '#000',
         shadowOpacity: 0.15,
         shadowRadius: 14,
         shadowOffset: { width: 0, height: 6 },
         elevation: 10,
-    },
-    tabNavigation: {
-        flexDirection: 'row',
-        borderBottomWidth: 1,
-        borderBottomColor: '#444',
-    },
-    tab: {
-        flex: 1,
-        paddingVertical: 12,
-        paddingHorizontal: 16,
-        backgroundColor: '#322338',
-        borderRightWidth: 1,
-        borderRightColor: '#444',
-        alignItems: 'center',
-    },
-    activeTab: {
-        backgroundColor: '#3d2c44',
-        borderBottomWidth: 2,
-        borderBottomColor: '#CC31E8',
-    },
-    tabText: {
-        color: '#ddd',
-        fontSize: 16,
-        fontWeight: '500',
-    },
-    activeTabText: {
-        color: '#fff',
-    },
-    tabContent: {
-        padding: 20,
-    },
-    profileSection: {
         flexDirection: 'row',
         alignItems: 'flex-start',
-        marginBottom: 24,
         gap: 20,
     },
     avatarContainer: {
@@ -567,10 +655,6 @@ const styles = StyleSheet.create({
         borderWidth: 2,
         borderColor: '#201925',
     },
-    avatarEditText: {
-        fontSize: 12,
-        color: '#fff',
-    },
     nameContainer: {
         flex: 1,
     },
@@ -588,9 +672,6 @@ const styles = StyleSheet.create({
     editButton: {
         padding: 4,
     },
-    editButtonText: {
-        fontSize: 16,
-    },
     editContainer: {
         marginBottom: 16,
     },
@@ -601,14 +682,20 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 16,
     },
+    preferencesSection: {
+        marginBottom: 24,
+    },
+    
+    sectionTitle: {
+        fontSize: 18,
+        fontWeight: '600',
+        color: '#fff',
+        marginBottom: 16,
+        fontFamily: 'Montserrat_700Bold',
+    },
+    
     section: {
         marginTop: 24,
-    },
-    subtitle: {
-        fontSize: 18,
-        fontWeight: '500',
-        color: '#ddd',
-        marginBottom: 16,
     },
     label: {
         fontSize: 14,
@@ -729,10 +816,15 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         color: '#fff',
     },
-    modalCloseText: {
-        fontSize: 18,
-        color: '#CC31E8',
-        fontWeight: '600',
+    modalCloseButton: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: 'rgba(207, 56, 221, 0.1)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(207, 56, 221, 0.3)',
     },
     avatarGrid: {
         justifyContent: 'center',

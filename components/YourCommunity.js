@@ -48,9 +48,9 @@ const getAvatarFromMap = (filename) => {
 }
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window')
-const CARD_WIDTH = 220
-const CARD_HEIGHT = 260
-const CARD_MARGIN = 16
+const CARD_WIDTH = (screenWidth - 48) / 2 // 2 columns with padding
+const CARD_HEIGHT = 200
+const CARD_MARGIN = 8
 
 export default function YourCommunity({ showInvitePopup, onSelectUser, onCreateBoard }) {
     const { user } = useContext(UserContext)
@@ -76,7 +76,7 @@ export default function YourCommunity({ showInvitePopup, onSelectUser, onCreateB
         }
 
         // Check for avatar (relative path)
-        if (userObj?.avatar && userObj.avatar !== SmallTriangle) {
+        if (userObj?.avatar && typeof userObj.avatar === 'string') {
             const avatarFilename = userObj.avatar.includes('/')
                 ? userObj.avatar.split('/').pop()
                 : userObj.avatar
@@ -95,9 +95,9 @@ export default function YourCommunity({ showInvitePopup, onSelectUser, onCreateB
             }
         }
 
-        // Fallback to default icon
-        console.log(`🔄 Using default icon`)
-        return SmallTriangle
+        // Fallback to default avatar
+        console.log(`🔄 Using default avatar`)
+        return require('../assets/Avatar1.jpg')
     }
 
     const allUsersMap = new Map()
@@ -259,35 +259,29 @@ export default function YourCommunity({ showInvitePopup, onSelectUser, onCreateB
         }
     }
 
-    // Empty state
+    // Empty state for vertical layout
     if (community.length === 0) {
         return (
             <View style={styles.section}>
-                <View style={styles.header}>
-                    <Text style={styles.titleText}>Your Voxxy Crew 🎭</Text>
-                    <Text style={styles.subtitle}>Friends you've gone on adventures with</Text>
-                </View>
-
-                <View style={styles.emptyStateContainer}>
-                    <View style={styles.emptyStateCard}>
-                        <View style={styles.emptyIconContainer}>
-                            <Image source={SmallTriangle} style={styles.emptyIcon} />
-                            <View style={styles.emptyPulse} />
+                <View style={styles.emptyContainer}>
+                    <View style={styles.emptyCard}>
+                        <View style={styles.emptyCardGlow} />
+                        <View style={styles.emptyCardContent}>
+                            <View style={styles.emptyIconContainer}>
+                                <Users stroke="#4ECDC4" width={32} height={32} strokeWidth={2.5} />
+                            </View>
+                            <Text style={styles.emptyTitle}>No Community Yet</Text>
+                            <Text style={styles.emptySubtitle}>Start an activity and invite friends to build your crew!</Text>
+                            {onCreateBoard && (
+                                <TouchableOpacity
+                                    style={styles.emptyButton}
+                                    onPress={onCreateBoard}
+                                    activeOpacity={0.8}
+                                >
+                                    <Text style={styles.emptyButtonText}>Start Your First Activity</Text>
+                                </TouchableOpacity>
+                            )}
                         </View>
-                        <Text style={styles.emptyTitle}>No Voxxy Crew Yet</Text>
-                        <Text style={styles.emptySubtitle}>
-                            Start an activity and invite friends to build your crew!
-                        </Text>
-                        {onCreateBoard && (
-                            <TouchableOpacity
-                                style={styles.emptyButton}
-                                onPress={onCreateBoard}
-                                activeOpacity={0.8}
-                            >
-                                <Text style={styles.emptyButtonText}>Get Started Now</Text>
-                                <ChevronRight stroke="#fff" width={16} height={16} />
-                            </TouchableOpacity>
-                        )}
                     </View>
                 </View>
             </View>
@@ -296,65 +290,52 @@ export default function YourCommunity({ showInvitePopup, onSelectUser, onCreateB
 
     const renderUserCard = ({ item: peerData, index }) => (
         <TouchableOpacity
-            style={[
-                styles.userCard,
-                index === 0 && styles.firstCard,
-                index === community.length - 1 && styles.lastCard
-            ]}
+            style={styles.userCard}
             onPress={() => handleCardPress(peerData)}
-            activeOpacity={0.85}
+            activeOpacity={0.9}
         >
-            {/* Glow effect */}
-            <View style={styles.cardGlow} />
-
-            {/* Avatar section */}
-            <View style={styles.avatarSection}>
-                <View style={styles.avatarContainer}>
-                    <Image
-                        source={getDisplayImage(peerData.user)}
-                        style={[
-                            styles.avatar,
-                            peerData.user.avatar || peerData.user.profile_pic_url ? styles.avatarWithImage : styles.avatarDefault
-                        ]}
-                        onError={() => console.log(`❌ Avatar failed to load for ${peerData.user?.name}`)}
-                        onLoad={() => console.log(`✅ Avatar loaded for ${peerData.user?.name}`)}
-                    />
-                    <View style={styles.avatarRing} />
-                </View>
-                <Text style={styles.userName} numberOfLines={1}>{peerData.user.name}</Text>
-                <View style={styles.joinInfo}>
-                    <Calendar stroke="#d8cce2" width={10} height={10} />
-                    <Text style={styles.joinText}>Since {formatSince(peerData.firstActivity)}</Text>
+            {/* Header with adventure count */}
+            <View style={styles.cardHeader}>
+                <View style={styles.adventureBadge}>
+                    <Text style={styles.adventureNumber}>{peerData.count}</Text>
                 </View>
             </View>
 
-            {/* Activity count at bottom */}
-            <View style={styles.adventureCount}>
-                <Text style={styles.adventureNumber}>{peerData.count}</Text>
-                <Text style={styles.adventureLabel}>Adventure{peerData.count !== 1 ? 's' : ''} Together</Text>
+            {/* Avatar section */}
+            <View style={styles.avatarSection}>
+                <Image
+                    source={getDisplayImage(peerData.user)}
+                    style={styles.avatar}
+                    onError={() => console.log(`❌ Avatar failed to load for ${peerData.user?.name}`)}
+                    onLoad={() => console.log(`✅ Avatar loaded for ${peerData.user?.name}`)}
+                />
+            </View>
+
+            {/* User info */}
+            <View style={styles.userInfo}>
+                <Text style={styles.userName} numberOfLines={1}>{peerData.user.name}</Text>
+                <View style={styles.metaInfo}>
+                    <Calendar stroke="#B8A5C4" width={10} height={10} />
+                    <Text style={styles.metaText}>Since {formatSince(peerData.firstActivity)}</Text>
+                </View>
+                <Text style={styles.adventureLabel}>
+                    {peerData.count} adventure{peerData.count !== 1 ? 's' : ''} together
+                </Text>
             </View>
         </TouchableOpacity>
     )
 
     return (
         <View style={styles.section}>
-            <View style={styles.header}>
-                <Text style={styles.titleText}>Your Voxxy Crew 🎭</Text>
-                <Text style={styles.subtitle}>
-                    {community.length} friend{community.length !== 1 ? 's' : ''} you've adventured with
-                </Text>
-            </View>
-
             <FlatList
                 data={community}
                 renderItem={renderUserCard}
                 keyExtractor={(item) => item.user.id.toString()}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.listContainer}
-                snapToAlignment="start"
-                decelerationRate="fast"
-                snapToInterval={CARD_WIDTH + CARD_MARGIN}
+                numColumns={2}
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.gridContainer}
+                columnWrapperStyle={styles.row}
+                ItemSeparatorComponent={() => <View style={styles.separator} />}
             />
 
             {/* Simple Modal */}
@@ -517,253 +498,212 @@ export default function YourCommunity({ showInvitePopup, onSelectUser, onCreateB
 
 const styles = StyleSheet.create({
     section: {
-        paddingBottom: 60,
-    },
-
-    header: {
-        paddingHorizontal: 24,
-        paddingTop: 32,
+        flex: 1,
         paddingBottom: 20,
     },
 
-    titleText: {
-        fontFamily: 'Montserrat_700Bold',
-        fontSize: Math.min(screenWidth * 0.06, 26),
-        fontWeight: '700',
-        color: '#f4f0f5',
-        marginBottom: 6,
+    // Grid layout styles
+    gridContainer: {
+        paddingHorizontal: 16,
+        paddingTop: 8,
+        paddingBottom: 20,
     },
 
-    subtitle: {
-        fontFamily: 'Inter_400Regular',
-        fontSize: Math.min(screenWidth * 0.035, 16),
-        color: '#d8cce2',
-        opacity: 0.8,
+    row: {
+        justifyContent: 'space-between',
+        paddingHorizontal: 0,
     },
 
-    listContainer: {
-        paddingHorizontal: 24,
-        paddingVertical: 8,
+    separator: {
+        height: 16,
     },
 
-    userCard: {
-        width: CARD_WIDTH,
-        height: CARD_HEIGHT,
-        marginRight: CARD_MARGIN,
-        backgroundColor: 'rgba(42, 30, 46, 0.95)',
-        borderRadius: 24,
-        borderWidth: 1,
-        borderColor: 'rgba(207, 56, 221, 0.2)',
-        padding: 20,
-        position: 'relative',
-        overflow: 'hidden',
-        shadowColor: 'rgba(207, 56, 221, 0.3)',
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 1,
-        shadowRadius: 16,
-        elevation: 12,
-    },
-
-    firstCard: {
-        marginLeft: 0,
-    },
-
-    lastCard: {
-        marginRight: 24,
-    },
-
-    cardGlow: {
-        position: 'absolute',
-        top: -20,
-        left: -20,
-        right: -20,
-        bottom: -20,
-        backgroundColor: 'rgba(207, 56, 221, 0.03)',
-        borderRadius: 40,
-    },
-
-    avatarSection: {
-        alignItems: 'center',
-        marginTop: 8,
-        marginBottom: 20,
-        position: 'relative',
+    // Empty state styles
+    emptyContainer: {
         flex: 1,
-    },
-
-    avatarContainer: {
-        position: 'relative',
-        marginBottom: 12,
-    },
-
-    avatar: {
-        width: 90,
-        height: 90,
-        borderRadius: 45,
-        backgroundColor: '#f4f0f5',
-    },
-
-    avatarWithImage: {
-        borderWidth: 4,
-        borderColor: 'rgba(207, 56, 221, 0.6)',
-    },
-
-    avatarDefault: {
-        borderWidth: 4,
-        borderColor: '#cf38dd',
-    },
-
-    avatarRing: {
-        position: 'absolute',
-        top: -3,
-        left: -3,
-        right: -3,
-        bottom: -3,
-        borderRadius: 48,
-        borderWidth: 2,
-        borderColor: 'rgba(207, 56, 221, 0.3)',
-    },
-
-    userName: {
-        fontSize: 18,
-        fontWeight: '800',
-        color: '#ffffff',
-        textAlign: 'center',
-        textShadowColor: 'rgba(0, 0, 0, 0.5)',
-        textShadowOffset: { width: 0, height: 1 },
-        textShadowRadius: 3,
-        letterSpacing: 0.3,
-        fontFamily: 'Montserrat_700Bold',
-        paddingHorizontal: 8,
-        marginBottom: 8,
-    },
-
-    joinInfo: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 4,
         justifyContent: 'center',
-    },
-
-    joinText: {
-        fontSize: 10,
-        color: '#d8cce2',
-        opacity: 0.8,
-        fontWeight: '500',
-    },
-
-    adventureCount: {
-        backgroundColor: 'rgba(207, 56, 221, 0.15)',
-        borderRadius: 12,
-        paddingHorizontal: 12,
-        paddingVertical: 10,
-        borderWidth: 1,
-        borderColor: 'rgba(207, 56, 221, 0.3)',
         alignItems: 'center',
-        alignSelf: 'stretch',
-    },
-
-    adventureNumber: {
-        fontSize: 16,
-        color: '#ffffff',
-        fontWeight: '800',
-        textAlign: 'center',
-        textShadowColor: 'rgba(0, 0, 0, 0.5)',
-        textShadowOffset: { width: 0, height: 1 },
-        textShadowRadius: 2,
-        marginBottom: 2,
-    },
-
-    adventureLabel: {
-        fontSize: 9,
-        color: '#d394f5',
-        fontWeight: '600',
-        textAlign: 'center',
-        textTransform: 'uppercase',
-        letterSpacing: 0.5,
-    },
-
-    // Keep all the existing styles for empty state and modal
-    emptyStateContainer: {
         paddingHorizontal: 24,
-        alignItems: 'center',
+        paddingVertical: 60,
     },
 
-    emptyStateCard: {
+    emptyCard: {
         backgroundColor: 'rgba(42, 30, 46, 0.6)',
         borderRadius: 24,
         borderWidth: 2,
-        borderColor: 'rgba(207, 56, 221, 0.3)',
+        borderColor: 'rgba(78, 205, 196, 0.4)',
         borderStyle: 'dashed',
         padding: 40,
         alignItems: 'center',
         width: '100%',
         maxWidth: 320,
-        shadowColor: 'rgba(207, 56, 221, 0.2)',
+        shadowColor: 'rgba(78, 205, 196, 0.2)',
         shadowOffset: { width: 0, height: 8 },
         shadowOpacity: 1,
         shadowRadius: 16,
+        position: 'relative',
+        overflow: 'hidden',
+    },
+
+    emptyCardGlow: {
+        position: 'absolute',
+        top: -30,
+        left: -30,
+        right: -30,
+        bottom: -30,
+        backgroundColor: 'rgba(78, 205, 196, 0.05)',
+        borderRadius: 60,
+    },
+
+    emptyCardContent: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 16,
+        zIndex: 1,
     },
 
     emptyIconContainer: {
-        position: 'relative',
-        marginBottom: 24,
-    },
-
-    emptyIcon: {
         width: 64,
         height: 64,
-        opacity: 0.6,
-    },
-
-    emptyPulse: {
-        position: 'absolute',
-        top: -8,
-        left: -8,
-        right: -8,
-        bottom: -8,
-        borderRadius: 40,
+        borderRadius: 32,
+        backgroundColor: 'rgba(78, 205, 196, 0.15)',
         borderWidth: 2,
-        borderColor: 'rgba(207, 56, 221, 0.3)',
+        borderColor: 'rgba(78, 205, 196, 0.4)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 8,
+        shadowColor: 'rgba(78, 205, 196, 0.4)',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 1,
+        shadowRadius: 12,
     },
 
     emptyTitle: {
+        color: '#fff',
         fontSize: 20,
-        color: '#f4f0f5',
         fontWeight: '700',
-        marginBottom: 8,
         textAlign: 'center',
+        lineHeight: 26,
     },
 
     emptySubtitle: {
-        color: '#d8cce2',
-        fontSize: 14,
+        color: '#B8A5C4',
+        fontSize: 15,
+        fontWeight: '500',
         textAlign: 'center',
-        marginBottom: 24,
-        lineHeight: 20,
+        lineHeight: 22,
         opacity: 0.8,
+        marginBottom: 8,
     },
 
     emptyButton: {
-        backgroundColor: '#cf38dd',
-        flexDirection: 'row',
-        alignItems: 'center',
+        backgroundColor: '#4ECDC4',
         paddingHorizontal: 24,
         paddingVertical: 12,
         borderRadius: 20,
         borderWidth: 2,
-        borderColor: 'rgba(207, 56, 221, 0.6)',
-        shadowColor: 'rgba(207, 56, 221, 0.4)',
+        borderColor: 'rgba(78, 205, 196, 0.6)',
+        shadowColor: 'rgba(78, 205, 196, 0.4)',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 1,
         shadowRadius: 8,
-        gap: 8,
     },
 
     emptyButtonText: {
         color: '#fff',
         fontWeight: '700',
         fontSize: 14,
+        textAlign: 'center',
     },
+
+    // User card styles for grid layout
+    userCard: {
+        width: CARD_WIDTH,
+        height: CARD_HEIGHT,
+        backgroundColor: 'rgba(42, 30, 46, 0.95)',
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: 'rgba(64, 51, 71, 0.5)',
+        shadowColor: 'rgba(0, 0, 0, 0.2)',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 1,
+        shadowRadius: 8,
+        elevation: 8,
+        overflow: 'hidden',
+        padding: 16,
+    },
+
+    cardHeader: {
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
+        marginBottom: 8,
+    },
+
+    adventureBadge: {
+        backgroundColor: 'rgba(207, 56, 221, 0.2)',
+        borderRadius: 12,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderWidth: 1,
+        borderColor: 'rgba(207, 56, 221, 0.4)',
+    },
+
+    adventureNumber: {
+        color: '#fff',
+        fontSize: 14,
+        fontWeight: '700',
+        textAlign: 'center',
+    },
+
+    avatarSection: {
+        alignItems: 'center',
+        marginBottom: 12,
+    },
+
+    avatar: {
+        width: 60,
+        height: 60,
+        borderRadius: 30,
+        borderWidth: 2,
+        borderColor: '#CC31E8',
+    },
+
+    userInfo: {
+        flex: 1,
+        alignItems: 'center',
+    },
+
+    userName: {
+        color: '#fff',
+        fontWeight: '600',
+        fontSize: 16,
+        textAlign: 'center',
+        marginBottom: 6,
+        lineHeight: 20,
+    },
+
+    metaInfo: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 6,
+        gap: 4,
+    },
+
+    metaText: {
+        color: '#B8A5C4',
+        fontSize: 10,
+        fontWeight: '500',
+    },
+
+    adventureLabel: {
+        color: '#d394f5',
+        fontSize: 10,
+        fontWeight: '500',
+        textAlign: 'center',
+        opacity: 0.8,
+        lineHeight: 14,
+    },
+
 
     // Modal Styles
     modalOverlay: {
