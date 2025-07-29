@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { UserContext } from '../context/UserContext';
 import { API_URL } from '../config';
+import { logger } from '../utils/logger';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -151,7 +152,7 @@ const CommentsSection = ({ activity }) => {
                 const mostRecentComment = comments[comments.length - 1];
                 const sinceTime = mostRecentComment ? mostRecentComment.created_at : lastUpdateTime;
 
-                console.log('🔄 Polling for comments since:', sinceTime);
+                logger.debug('🔄 Polling for comments since:', sinceTime);
 
                 const response = await fetch(
                     `${API_URL}/activities/${activity.id}/comments?since=${sinceTime}`,
@@ -164,7 +165,7 @@ const CommentsSection = ({ activity }) => {
 
                 if (response.ok) {
                     const newComments = await response.json();
-                    console.log('📥 Received new comments:', newComments.length);
+                    logger.debug('📥 Received new comments:', newComments.length);
 
                     if (newComments.length > 0) {
                         // Filter out any comments we already have (prevent duplicates)
@@ -172,7 +173,7 @@ const CommentsSection = ({ activity }) => {
                         const trulyNewComments = newComments.filter(c => !existingCommentIds.has(c.id));
 
                         if (trulyNewComments.length > 0) {
-                            console.log('✅ Adding truly new comments:', trulyNewComments.length);
+                            logger.debug('✅ Adding truly new comments:', trulyNewComments.length);
                             setComments(prev => [...prev, ...trulyNewComments]);
 
                             // Update lastUpdateTime to the most recent comment's timestamp
@@ -190,10 +191,10 @@ const CommentsSection = ({ activity }) => {
                         }
                     }
                 } else {
-                    console.log('❌ Polling response not ok:', response.status);
+                    logger.debug('❌ Polling response not ok:', response.status);
                 }
             } catch (error) {
-                console.log('⚠️ Polling error (silent):', error.message);
+                logger.debug('⚠️ Polling error (silent):', error.message);
                 // Fail silently - don't spam user with errors
             }
         };
@@ -201,13 +202,13 @@ const CommentsSection = ({ activity }) => {
         // Handle app state changes - pause polling when app is in background
         const handleAppStateChange = (nextAppState) => {
             if (nextAppState === 'active' && user?.token) {
-                console.log('📱 App became active - resuming polling');
+                logger.debug('📱 App became active - resuming polling');
                 // Resume polling when app becomes active
                 if (!pollingRef.current) {
                     pollingRef.current = setInterval(pollForNewComments, 4000);
                 }
             } else {
-                console.log('📱 App went to background - pausing polling');
+                logger.debug('📱 App went to background - pausing polling');
                 // Pause polling when app goes to background
                 if (pollingRef.current) {
                     clearInterval(pollingRef.current);
@@ -218,7 +219,7 @@ const CommentsSection = ({ activity }) => {
 
         // Start polling immediately if app is active
         if (user?.token && AppState.currentState === 'active') {
-            console.log('🚀 Starting comment polling');
+            logger.debug('🚀 Starting comment polling');
             pollingRef.current = setInterval(pollForNewComments, 4000);
         }
 
@@ -226,7 +227,7 @@ const CommentsSection = ({ activity }) => {
         const appStateSubscription = AppState.addEventListener('change', handleAppStateChange);
 
         return () => {
-            console.log('🛑 Stopping comment polling');
+            logger.debug('🛑 Stopping comment polling');
             if (pollingRef.current) {
                 clearInterval(pollingRef.current);
             }
@@ -252,7 +253,7 @@ const CommentsSection = ({ activity }) => {
         setNewComment(''); // Clear input immediately for better UX
 
         try {
-            console.log('📝 Posting new comment');
+            logger.debug('📝 Posting new comment');
             const response = await fetch(`${API_URL}/activities/${activity.id}/comments`, {
                 method: 'POST',
                 headers: {
@@ -264,7 +265,7 @@ const CommentsSection = ({ activity }) => {
 
             if (response.ok) {
                 const comment = await response.json();
-                console.log('✅ Comment posted successfully');
+                logger.debug('✅ Comment posted successfully');
 
                 // Check if comment already exists (in case polling caught it)
                 const commentExists = comments.some(c => c.id === comment.id);
@@ -275,12 +276,12 @@ const CommentsSection = ({ activity }) => {
                 // Update timestamp to prevent polling from fetching this comment again
                 setLastUpdateTime(comment.created_at);
             } else {
-                console.log('❌ Failed to post comment:', response.status);
+                logger.debug('❌ Failed to post comment:', response.status);
                 setNewComment(tempComment); // Restore comment on failure
                 Alert.alert('Error', 'Failed to add comment.');
             }
         } catch (error) {
-            console.error('💥 Error posting comment:', error);
+            logger.error('💥 Error posting comment:', error);
             setNewComment(tempComment); // Restore comment on failure
             Alert.alert('Error', 'Failed to add comment.');
         }
@@ -326,7 +327,7 @@ const CommentsSection = ({ activity }) => {
                             source={{ uri: getAvatarUrl(comment.user) }}
                             style={styles.avatar}
                             onError={() => {
-                                console.log('🖼️ Avatar failed to load for user:', comment.user.name);
+                                logger.debug('🖼️ Avatar failed to load for user:', comment.user.name);
                             }}
                         />
                         <Text style={styles.userName}>
@@ -357,7 +358,7 @@ const CommentsSection = ({ activity }) => {
                             source={{ uri: getAvatarUrl(user) }}
                             style={styles.avatar}
                             onError={() => {
-                                console.log('🖼️ User avatar failed to load');
+                                logger.debug('🖼️ User avatar failed to load');
                             }}
                         />
                         <Text style={styles.userName}>

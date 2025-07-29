@@ -12,6 +12,7 @@ import { UserContext } from '../context/UserContext';
 import { API_URL } from '../config';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { logger } from '../utils/logger';
 
 export default function AccountCreatedScreen() {
     const { user, setUser } = useContext(UserContext);
@@ -76,7 +77,7 @@ export default function AccountCreatedScreen() {
                 },
             });
         } catch (error) {
-            console.log('Server logout failed, proceeding anyway:', error);
+            logger.debug('Server logout failed, proceeding anyway:', error);
         } finally {
             await AsyncStorage.removeItem('jwt');
             setUser(null);

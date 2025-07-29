@@ -27,6 +27,7 @@ import {
     Home
 } from 'react-native-feather'
 import { API_URL } from '../config'
+import { logger } from '../utils/logger';
 
 export default function GameNightChat({ visible, onClose }) {
     const { user, setUser } = useContext(UserContext)
@@ -144,7 +145,7 @@ export default function GameNightChat({ visible, onClose }) {
     }
 
     const handleSubmit = async () => {
-        console.log('🎮 Starting game night activity creation...')
+        logger.debug('🎮 Starting game night activity creation...')
 
         const payload = {
             activity_type: 'Game Night',
@@ -163,7 +164,7 @@ export default function GameNightChat({ visible, onClose }) {
             collecting: true
         }
 
-        console.log('🎮 Payload:', payload)
+        logger.debug('🎮 Payload:', payload)
 
         try {
             const response = await fetch(`${API_URL}/activities`, {
@@ -181,7 +182,7 @@ export default function GameNightChat({ visible, onClose }) {
             }
 
             const data = await response.json()
-            console.log('✅ Game night activity created successfully:', data)
+            logger.debug('✅ Game night activity created successfully:', data)
 
             // Update user context with new activity
             setUser((prev) => ({
@@ -192,12 +193,12 @@ export default function GameNightChat({ visible, onClose }) {
                 ],
             }))
 
-            console.log('🔄 Calling onClose with activity ID:', data.id)
+            logger.debug('🔄 Calling onClose with activity ID:', data.id)
 
             // Navigate to activity details - parent component handles this
             onClose(data.id)
         } catch (error) {
-            console.error('❌ Error creating game night activity:', error)
+            logger.error('❌ Error creating game night activity:', error)
             Alert.alert('Error', error.message || 'Failed to create activity. Please try again.')
         }
     }

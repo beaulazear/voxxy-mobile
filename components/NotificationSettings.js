@@ -2,6 +2,7 @@
 import React, { useContext, useState } from 'react';
 import { View, Text, Switch, StyleSheet, Alert } from 'react-native';
 import { UserContext } from '../context/UserContext';
+import { logger } from '../utils/logger';
 
 const NotificationSettings = () => {
     const { user, updateUser } = useContext(UserContext);
@@ -42,7 +43,7 @@ const NotificationSettings = () => {
                 Alert.alert('Error', 'Failed to update notification settings');
             }
         } catch (error) {
-            console.error('Error updating notification settings:', error);
+            logger.error('Error updating notification settings:', error);
             Alert.alert('Error', 'Failed to update notification settings');
         } finally {
             setUpdating(false);

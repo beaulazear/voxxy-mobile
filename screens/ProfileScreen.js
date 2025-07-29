@@ -9,8 +9,6 @@ import {
     Alert,
     ScrollView,
     Switch,
-    Modal,
-    FlatList,
     SafeAreaView,
     StatusBar,
 } from 'react-native';
@@ -21,6 +19,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import NotificationSettings from '../components/NotificationSettings';
 import { ArrowLeft, User, Settings, Edit3, Trash2, LogOut } from 'react-native-feather';
 import PushNotificationService from '../services/PushNotificationService'
+import { logger } from '../utils/logger';
+import OptimizedAvatarModal from '../components/OptimizedAvatarModal';
 
 // Avatar mapping for relative paths
 const avatarMap = {
@@ -50,7 +50,7 @@ const getAvatarFromMap = (filename) => {
     try {
         return avatarMap[filename] || null
     } catch (error) {
-        console.log(`⚠️ Avatar ${filename} not found in mapping`)
+        logger.debug(`⚠️ Avatar ${filename} not found in mapping`)
         return null
     }
 }
@@ -78,7 +78,7 @@ export default function ProfileScreen() {
 
     // Comprehensive avatar handling function
     const getDisplayImage = (userObj) => {
-        console.log(`🖼️ Getting image for user:`, {
+        logger.debug(`🖼️ Getting image for user:`, {
             name: userObj?.name,
             profile_pic_url: userObj?.profile_pic_url,
             avatar: userObj?.avatar
@@ -89,7 +89,7 @@ export default function ProfileScreen() {
             const profilePicUrl = userObj.profile_pic_url.startsWith('http')
                 ? userObj.profile_pic_url
                 : `${API_URL}${userObj.profile_pic_url}`
-            console.log(`📸 Using profile pic URL: ${profilePicUrl}`)
+            logger.debug(`📸 Using profile pic URL: ${profilePicUrl}`)
             return { uri: profilePicUrl }
         }
 
@@ -100,24 +100,24 @@ export default function ProfileScreen() {
                 ? userObj.avatar.split('/').pop()
                 : userObj.avatar
 
-            console.log(`🎭 Looking for avatar: ${avatarFilename}`)
+            logger.debug(`🎭 Looking for avatar: ${avatarFilename}`)
 
             // Check if we have this avatar in our mapping
             const mappedAvatar = getAvatarFromMap(avatarFilename)
             if (mappedAvatar) {
-                console.log(`✅ Found avatar in mapping: ${avatarFilename}`)
+                logger.debug(`✅ Found avatar in mapping: ${avatarFilename}`)
                 return mappedAvatar
             }
 
             // If it's a full URL, use it
             if (userObj.avatar.startsWith('http')) {
-                console.log(`🌐 Using avatar URL: ${userObj.avatar}`)
+                logger.debug(`🌐 Using avatar URL: ${userObj.avatar}`)
                 return { uri: userObj.avatar }
             }
         }
 
         // Fallback to default avatar
-        console.log(`🔄 Using default avatar`)
+        logger.debug(`🔄 Using default avatar`)
         return require('../assets/Avatar1.jpg')
     }
 
@@ -139,7 +139,7 @@ export default function ProfileScreen() {
                     text: 'Log Out',
                     style: 'destructive',
                     onPress: async () => {
-                        console.log("🚪 handleLogout called");
+                        logger.debug("🚪 handleLogout called");
                         try {
                             await fetch(`${API_URL}/logout`, {
                                 method: 'DELETE',
@@ -149,9 +149,9 @@ export default function ProfileScreen() {
                                 },
                             });
                         } catch (error) {
-                            console.log("Server logout failed, proceeding anyway:", error);
+                            logger.debug("Server logout failed, proceeding anyway:", error);
                         } finally {
-                            console.log("🧹 Removing token and logging out");
+                            logger.debug("🧹 Removing token and logging out");
                             await AsyncStorage.removeItem('jwt');
                             setUser(null);
                             navigation.navigate('/');
@@ -186,7 +186,7 @@ export default function ProfileScreen() {
                 Alert.alert('Success', 'Name updated!');
             })
             .catch((err) => {
-                console.error('Update error:', err);
+                logger.error('Update error:', err);
                 Alert.alert('Error', 'Failed to update name.');
             });
     };
@@ -214,7 +214,7 @@ export default function ProfileScreen() {
                 Alert.alert('Success', 'Preferences saved!');
             })
             .catch((err) => {
-                console.error('Update error:', err);
+                logger.error('Update error:', err);
                 Alert.alert('Error', 'Failed to save preferences.');
             });
     };
@@ -246,7 +246,7 @@ export default function ProfileScreen() {
                 Alert.alert('Success', 'Notification settings updated!');
             })
             .catch((err) => {
-                console.error('Update error:', err);
+                logger.error('Update error:', err);
                 Alert.alert('Error', 'Failed to update notifications.');
             });
     };
@@ -270,7 +270,7 @@ export default function ProfileScreen() {
                 Alert.alert('Success', 'Avatar updated!');
             })
             .catch((err) => {
-                console.error('Update error:', err);
+                logger.error('Update error:', err);
                 Alert.alert('Error', 'Failed to update avatar.');
             });
     };
@@ -297,7 +297,7 @@ export default function ProfileScreen() {
                                 setUser(null);
                             })
                             .catch((err) => {
-                                console.error('Delete error:', err);
+                                logger.error('Delete error:', err);
                                 Alert.alert('Error', 'Deletion failed.');
                             });
                     },
@@ -317,8 +317,8 @@ export default function ProfileScreen() {
                     <Image
                         source={getDisplayImage(user)}
                         style={styles.avatar}
-                        onError={() => console.log(`❌ Avatar failed to load for ${user?.name}`)}
-                        onLoad={() => console.log(`✅ Avatar loaded for ${user?.name}`)}
+                        onError={() => logger.debug(`❌ Avatar failed to load for ${user?.name}`)}
+                        onLoad={() => logger.debug(`✅ Avatar loaded for ${user?.name}`)}
                     />
                     <View style={styles.avatarEditIndicator}>
                         <Edit3 stroke="#fff" width={12} height={12} strokeWidth={2} />
@@ -466,41 +466,12 @@ export default function ProfileScreen() {
                 </View>
 
                 {/* Avatar Selection Modal */}
-                <Modal
+                <OptimizedAvatarModal
                     visible={showAvatarModal}
-                    transparent={true}
-                    animationType="fade"
-                    onRequestClose={() => setShowAvatarModal(false)}
-                >
-                    <View style={styles.modalOverlay}>
-                        <View style={styles.avatarModal}>
-                            <View style={styles.modalHeader}>
-                                <Text style={styles.modalTitle}>Choose Your Avatar</Text>
-                                <TouchableOpacity 
-                                    style={styles.modalCloseButton}
-                                    onPress={() => setShowAvatarModal(false)}
-                                >
-                                    <ArrowLeft stroke="#CF38DD" width={20} height={20} strokeWidth={2} />
-                                </TouchableOpacity>
-                            </View>
-
-                            <FlatList
-                                data={Object.keys(avatarMap)}
-                                numColumns={3}
-                                keyExtractor={(item) => item}
-                                contentContainerStyle={styles.avatarGrid}
-                                renderItem={({ item }) => (
-                                    <TouchableOpacity
-                                        style={styles.avatarOption}
-                                        onPress={() => handleSaveAvatar(item)}
-                                    >
-                                        <Image source={avatarMap[item]} style={styles.avatarOptionImage} />
-                                    </TouchableOpacity>
-                                )}
-                            />
-                        </View>
-                    </View>
-                </Modal>
+                    onClose={() => setShowAvatarModal(false)}
+                    onSelectAvatar={handleSaveAvatar}
+                    avatarMap={avatarMap}
+                />
             </ScrollView>
         </SafeAreaView>
     );

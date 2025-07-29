@@ -14,6 +14,7 @@ import { UserContext } from '../context/UserContext'
 import { Users, Calendar, MapPin, Utensils, Clock, Star, X, ChevronRight } from 'react-native-feather'
 import SmallTriangle from '../assets/voxxy-triangle.png'
 import { API_URL } from '../config'
+import { logger } from '../utils/logger';
 
 // Avatar mapping for relative paths
 const avatarMap = {
@@ -42,7 +43,7 @@ const getAvatarFromMap = (filename) => {
     try {
         return avatarMap[filename] || null
     } catch (error) {
-        console.log(`⚠️ Avatar ${filename} not found in mapping`)
+        logger.debug(`⚠️ Avatar ${filename} not found in mapping`)
         return null
     }
 }
@@ -60,7 +61,7 @@ export default function YourCommunity({ showInvitePopup, onSelectUser, onCreateB
 
     // Comprehensive avatar handling function
     const getDisplayImage = (userObj) => {
-        console.log(`🖼️ Getting image for user:`, {
+        logger.debug(`🖼️ Getting image for user:`, {
             name: userObj?.name,
             profile_pic_url: userObj?.profile_pic_url,
             avatar: userObj?.avatar
@@ -71,7 +72,7 @@ export default function YourCommunity({ showInvitePopup, onSelectUser, onCreateB
             const profilePicUrl = userObj.profile_pic_url.startsWith('http')
                 ? userObj.profile_pic_url
                 : `${API_URL}${userObj.profile_pic_url}`
-            console.log(`📸 Using profile pic URL: ${profilePicUrl}`)
+            logger.debug(`📸 Using profile pic URL: ${profilePicUrl}`)
             return { uri: profilePicUrl }
         }
 
@@ -81,22 +82,22 @@ export default function YourCommunity({ showInvitePopup, onSelectUser, onCreateB
                 ? userObj.avatar.split('/').pop()
                 : userObj.avatar
 
-            console.log(`🎭 Looking for avatar: ${avatarFilename}`)
+            logger.debug(`🎭 Looking for avatar: ${avatarFilename}`)
 
             const mappedAvatar = getAvatarFromMap(avatarFilename)
             if (mappedAvatar) {
-                console.log(`✅ Found avatar in mapping: ${avatarFilename}`)
+                logger.debug(`✅ Found avatar in mapping: ${avatarFilename}`)
                 return mappedAvatar
             }
 
             if (userObj.avatar.startsWith('http')) {
-                console.log(`🌐 Using avatar URL: ${userObj.avatar}`)
+                logger.debug(`🌐 Using avatar URL: ${userObj.avatar}`)
                 return { uri: userObj.avatar }
             }
         }
 
         // Fallback to default avatar
-        console.log(`🔄 Using default avatar`)
+        logger.debug(`🔄 Using default avatar`)
         return require('../assets/Avatar1.jpg')
     }
 
@@ -306,8 +307,8 @@ export default function YourCommunity({ showInvitePopup, onSelectUser, onCreateB
                 <Image
                     source={getDisplayImage(peerData.user)}
                     style={styles.avatar}
-                    onError={() => console.log(`❌ Avatar failed to load for ${peerData.user?.name}`)}
-                    onLoad={() => console.log(`✅ Avatar loaded for ${peerData.user?.name}`)}
+                    onError={() => logger.debug(`❌ Avatar failed to load for ${peerData.user?.name}`)}
+                    onLoad={() => logger.debug(`✅ Avatar loaded for ${peerData.user?.name}`)}
                 />
             </View>
 

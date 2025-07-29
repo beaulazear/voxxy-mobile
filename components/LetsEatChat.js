@@ -29,6 +29,7 @@ import {
 import Slider from '@react-native-community/slider'
 import * as Location from 'expo-location'
 import { API_URL } from '../config'
+import { logger } from '../utils/logger';
 
 export default function LetsEatChat({ visible, onClose }) {
     const { user, setUser } = useContext(UserContext)
@@ -162,7 +163,7 @@ export default function LetsEatChat({ visible, onClose }) {
             setLocation('')
             setIsLocating(false)
         } catch (error) {
-            console.error('Location error:', error)
+            logger.error('Location error:', error)
             Alert.alert('Location Error', 'Failed to get your current location. Please enter it manually.')
             setIsLocating(false)
         }
@@ -241,7 +242,7 @@ export default function LetsEatChat({ visible, onClose }) {
             }, 300)
 
         } catch (error) {
-            console.error('Error creating activity:', error)
+            logger.error('Error creating activity:', error)
             Alert.alert('Error', 'Failed to create activity. Please try again.')
         }
     }

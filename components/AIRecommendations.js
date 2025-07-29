@@ -43,6 +43,7 @@ import CuisineResponseForm from './CuisineResponseForm';
 import NightOutResponseForm from './NightOutResponseForm';
 import GameNightResponseForm from './GameNightResponseForm';
 import LetsMeetScheduler from './LetsMeetScheduler';
+import { logger } from '../utils/logger';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -53,7 +54,7 @@ const safeJsonParse = (data, fallback = []) => {
         try {
             return JSON.parse(data);
         } catch (e) {
-            console.warn('Failed to parse JSON data:', e);
+            logger.warn('Failed to parse JSON data:', e);
             return fallback;
         }
     }
@@ -365,7 +366,7 @@ export default function AIRecommendations({
     };
 
     const handleChatComplete = (response, comment) => {
-        console.log('Chat completed:', { response, comment });
+        logger.debug('Chat completed:', { response, comment });
         setShowChat(false);
         // Trigger a refresh to update the UI
         if (setRefreshTrigger) {
@@ -636,7 +637,7 @@ export default function AIRecommendations({
                 }
             }
         } catch (error) {
-            console.error('Error voting:', error);
+            logger.error('Error voting:', error);
             Alert.alert('Error', 'Failed to vote. Please try again.');
         }
     };

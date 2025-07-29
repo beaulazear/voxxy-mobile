@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import { API_URL } from '../config';
 import PushNotificationService from '../services/PushNotificationService';
+import { logger } from '../utils/logger';
 
 export const UserContext = createContext();
 
@@ -36,7 +37,7 @@ export const UserProvider = ({ children }) => {
           await AsyncStorage.removeItem('jwt'); // invalid token
         }
       } catch (err) {
-        console.error('Failed to auto-login:', err);
+        logger.error('Failed to auto-login:', err);
       } finally {
         setLoading(false);
       }
@@ -64,7 +65,7 @@ export const UserProvider = ({ children }) => {
         }
       }
     } catch (error) {
-      console.error('Error setting up push notifications:', error);
+      logger.error('Error setting up push notifications:', error);
     }
   };
 
@@ -84,12 +85,12 @@ export const UserProvider = ({ children }) => {
       });
 
       if (response.ok) {
-        console.log('Push token sent to backend successfully');
+        logger.debug('Push token sent to backend successfully');
       } else {
-        console.error('Failed to send push token to backend');
+        logger.error('Failed to send push token to backend');
       }
     } catch (error) {
-      console.error('Error sending push token to backend:', error);
+      logger.error('Error sending push token to backend:', error);
     }
   };
 
@@ -119,7 +120,7 @@ export const UserProvider = ({ children }) => {
         throw new Error('Failed to fetch user data');
       }
     } catch (error) {
-      console.error('Error during login:', error);
+      logger.error('Error during login:', error);
       await AsyncStorage.removeItem('jwt');
       throw error;
     }
@@ -134,7 +135,7 @@ export const UserProvider = ({ children }) => {
       setUser(null);
       await AsyncStorage.removeItem('jwt');
     } catch (error) {
-      console.error('Error during logout:', error);
+      logger.error('Error during logout:', error);
     }
   };
 
@@ -167,7 +168,7 @@ export const UserProvider = ({ children }) => {
           } else if (!updatedFields.push_notifications && user.push_notifications) {
             // User disabled push notifications - cleanup
             PushNotificationService.cleanup();
-            console.log('User disabled push notifications');
+            logger.debug('User disabled push notifications');
           }
         }
 
@@ -176,7 +177,7 @@ export const UserProvider = ({ children }) => {
         throw new Error('Failed to update user');
       }
     } catch (error) {
-      console.error('Error updating user:', error);
+      logger.error('Error updating user:', error);
       throw error;
     }
   };

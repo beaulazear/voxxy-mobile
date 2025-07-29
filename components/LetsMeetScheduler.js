@@ -14,6 +14,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient'
 import { UserContext } from '../context/UserContext'
 import { API_URL } from '../config'
+import { logger } from '../utils/logger';
 
 const { width: screenWidth } = Dimensions.get('window')
 
@@ -286,7 +287,7 @@ export default function LetsMeetScheduler({
 
             if (!res.ok) {
                 const errorData = await res.json();
-                console.error('❌ Failed to save availability:', errorData);
+                logger.error('❌ Failed to save availability:', errorData);
                 Alert.alert('Error', 'Failed to submit availability. Please try again.');
                 return;
             }
@@ -336,7 +337,7 @@ export default function LetsMeetScheduler({
             onClose();
 
         } catch (err) {
-            console.error('❌ Error saving availability:', err);
+            logger.error('❌ Error saving availability:', err);
             Alert.alert('Error', 'Failed to submit availability. Please try again.');
         }
     };

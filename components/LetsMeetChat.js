@@ -26,6 +26,7 @@ import {
     X
 } from 'react-native-feather'
 import { API_URL } from '../config'
+import { logger } from '../utils/logger';
 
 export default function LetsMeetChat({ visible, onClose }) {
     const { user, setUser } = useContext(UserContext)
@@ -221,7 +222,7 @@ export default function LetsMeetChat({ visible, onClose }) {
     }
 
     const handleSubmit = async () => {
-        console.log('👥 Starting meeting activity creation...')
+        logger.debug('👥 Starting meeting activity creation...')
 
         const basePayload = {
             activity_type: 'Meeting',
@@ -240,7 +241,7 @@ export default function LetsMeetChat({ visible, onClose }) {
             ...(tab === 'single' && { date_day: singleDate }),
         }
 
-        console.log('👥 Payload:', payload)
+        logger.debug('👥 Payload:', payload)
 
         try {
             const response = await fetch(`${API_URL}/activities`, {
@@ -258,7 +259,7 @@ export default function LetsMeetChat({ visible, onClose }) {
             }
 
             const data = await response.json()
-            console.log('✅ Meeting activity created successfully:', data)
+            logger.debug('✅ Meeting activity created successfully:', data)
 
             // Update user context with new activity
             setUser((prev) => ({
@@ -269,12 +270,12 @@ export default function LetsMeetChat({ visible, onClose }) {
                 ],
             }))
 
-            console.log('🔄 Calling onClose with activity ID:', data.id)
+            logger.debug('🔄 Calling onClose with activity ID:', data.id)
 
             // Navigate to activity details - parent component handles this
             onClose(data.id)
         } catch (error) {
-            console.error('❌ Error creating meeting activity:', error)
+            logger.error('❌ Error creating meeting activity:', error)
             Alert.alert('Error', error.message || 'Failed to create activity. Please try again.')
         }
     }

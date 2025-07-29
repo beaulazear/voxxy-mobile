@@ -4,6 +4,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { UserProvider, UserContext } from './context/UserContext';
 import * as Notifications from 'expo-notifications';
+import { logger } from './utils/logger';
 
 import HomeScreen from './screens/HomeScreen';
 import LoginScreen from './screens/LoginScreen';
@@ -86,6 +87,11 @@ const AppNavigator = () => {
 };
 
 export default function App() {
+  // Disable console logs in production
+  useEffect(() => {
+    logger.disableConsoleInProduction();
+  }, []);
+
   const [fontsLoaded] = useFonts({
     Montserrat_400Regular,
     Montserrat_700Bold,

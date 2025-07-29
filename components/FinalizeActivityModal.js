@@ -28,6 +28,7 @@ import {
 } from '../styles/FormStyles'
 import { UserContext } from '../context/UserContext'
 import { API_URL } from '../config'
+import { logger } from '../utils/logger';
 
 // Activity Type Logic:
 // - Meeting: Uses time slots (pinned) for scheduling
@@ -76,7 +77,7 @@ export default function FinalizeActivityModal({
 
     const canSubmit = hasBasicDetails && timeSlotValid && pinnedActivityValid && welcomeMessageValid
 
-    console.log(activity)
+    logger.debug(activity)
 
     // Auto-select highest voted pinned activity
     useEffect(() => {
@@ -210,7 +211,7 @@ export default function FinalizeActivityModal({
             onClose()
 
         } catch (error) {
-            console.error('Error updating activity:', error)
+            logger.error('Error updating activity:', error)
             const errorMessage = error.message || 'Failed to update activity'
             setErrors([errorMessage])
             Alert.alert('Error', errorMessage)

@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { UserContext } from '../context/UserContext';
 import { API_URL } from '../config';
+import { logger } from '../utils/logger';
 
 // Create notification context
 const InvitationNotificationContext = createContext();
@@ -39,7 +40,7 @@ export const InvitationNotificationProvider = ({ children }) => {
         if (!user?.token || !user?.id) return;
 
         try {
-            console.log('🔍 Checking for new invitations...');
+            logger.debug('🔍 Checking for new invitations...');
 
             const response = await fetch(`${API_URL}/users/${user.id}/pending_invitations`, {
                 headers: {
@@ -50,7 +51,7 @@ export const InvitationNotificationProvider = ({ children }) => {
 
             if (response.ok) {
                 const invitations = await response.json();
-                console.log('📨 Current pending invitations:', invitations.length);
+                logger.debug('📨 Current pending invitations:', invitations.length);
 
                 // Check if we have new invitations compared to what we know about
                 const currentInviteIds = new Set(
@@ -64,7 +65,7 @@ export const InvitationNotificationProvider = ({ children }) => {
                 );
 
                 if (newInvitations.length > 0) {
-                    console.log('🎉 Found new invitations:', newInvitations.length);
+                    logger.debug('🎉 Found new invitations:', newInvitations.length);
 
                     // Update user context with new invitations
                     setUser(prevUser => ({
@@ -81,7 +82,7 @@ export const InvitationNotificationProvider = ({ children }) => {
                 }
             }
         } catch (error) {
-            console.log('⚠️ Error checking invitations (silent):', error.message);
+            logger.debug('⚠️ Error checking invitations (silent):', error.message);
         }
     };
 
@@ -160,7 +161,7 @@ export const InvitationNotificationProvider = ({ children }) => {
                 Alert.alert('Error', 'Failed to accept invitation.');
             }
         } catch (error) {
-            console.error('Error accepting invitation:', error);
+            logger.error('Error accepting invitation:', error);
             Alert.alert('Error', 'Failed to accept invitation.');
         }
     };
@@ -181,14 +182,14 @@ export const InvitationNotificationProvider = ({ children }) => {
     useEffect(() => {
         const handleAppStateChange = (nextAppState) => {
             if (nextAppState === 'active' && user?.token) {
-                console.log('📱 App became active - starting invitation polling');
+                logger.debug('📱 App became active - starting invitation polling');
                 if (!pollingRef.current) {
                     // Check immediately when app becomes active
                     checkForNewInvitations();
                     pollingRef.current = setInterval(checkForNewInvitations, 10000); // Every 10 seconds
                 }
             } else {
-                console.log('📱 App went to background - stopping invitation polling');
+                logger.debug('📱 App went to background - stopping invitation polling');
                 if (pollingRef.current) {
                     clearInterval(pollingRef.current);
                     pollingRef.current = null;
@@ -198,7 +199,7 @@ export const InvitationNotificationProvider = ({ children }) => {
 
         // Start polling if app is active and user is logged in
         if (user?.token && AppState.currentState === 'active') {
-            console.log('🚀 Starting invitation polling');
+            logger.debug('🚀 Starting invitation polling');
             checkForNewInvitations(); // Check immediately
             pollingRef.current = setInterval(checkForNewInvitations, 10000);
         }
@@ -207,7 +208,7 @@ export const InvitationNotificationProvider = ({ children }) => {
         const appStateSubscription = AppState.addEventListener('change', handleAppStateChange);
 
         return () => {
-            console.log('🛑 Stopping invitation polling');
+            logger.debug('🛑 Stopping invitation polling');
             if (pollingRef.current) {
                 clearInterval(pollingRef.current);
             }

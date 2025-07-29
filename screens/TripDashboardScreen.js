@@ -17,6 +17,7 @@ import LetsEatChat from '../components/LetsEatChat'
 import CocktailsChat from '../components/CocktailsChat'
 import GameNightChat from '../components/GameNightChat'
 import LetsMeetChat from '../components/LetsMeetChat'
+import { logger } from '../utils/logger';
 
 function MeetingForm({ visible, onClose }) {
     return (
@@ -60,7 +61,7 @@ export default function TripDashboard() {
     const [selectedTrip, setSelectedTrip] = useState(null)
 
     const handleTripSelect = (tripName) => {
-        console.log(`🎯 Selected trip: ${tripName}`)
+        logger.debug(`🎯 Selected trip: ${tripName}`)
 
         switch (tripName) {
             case 'Lets Eat':

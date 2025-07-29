@@ -1,15 +1,19 @@
-export default {
+// App config runs before babel, so we can't use @env imports
+const IS_DEV = process.env.APP_ENV === 'development' || process.env.NODE_ENV === 'development';
+
+module.exports = {
   expo: {
-    name: "Voxxy",
+    name: IS_DEV ? "Voxxy (Dev)" : "Voxxy",
     slug: "voxxy-mobile",
     description: "Connect with friends through shared activities. Organize dinners, meetings, and events with AI-powered recommendations and real-time coordination.",
-    version: "1.1.0",
+    version: "1.1.3",
     orientation: "portrait",
     icon: "./assets/icon.png",
     userInterfaceStyle: "light",
     privacy: "public",
     primaryColor: "#201925",
     category: "social-networking",
+    scheme: "voxxy",
     splash: {
       image: "./assets/splash-icon.png",
       resizeMode: "contain",
@@ -18,10 +22,14 @@ export default {
     ios: {
       supportsTablet: true,
       bundleIdentifier: "com.beaulazear.voxxymobile",
-      buildNumber: "1.1.2",
+      buildNumber: "1.1.3",
+      config: {
+        usesNonExemptEncryption: false
+      },
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
-        NSContactsUsageDescription: "This app needs access to contacts to help you find friends who are already using Voxxy."
+        NSContactsUsageDescription: "This app needs access to contacts to help you find friends who are already using Voxxy.",
+        UIBackgroundModes: ["remote-notification"]
       }
     },
     android: {

@@ -3,6 +3,7 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import { Platform, Alert } from 'react-native';
+import { logger } from '../utils/logger';
 
 // Configure notification behavior
 Notifications.setNotificationHandler({
@@ -43,7 +44,7 @@ class PushNotificationService {
             }
 
             if (finalStatus !== 'granted') {
-                console.warn('Push notification permissions denied');
+                logger.warn('Push notification permissions denied');
                 return null;
             }
 
@@ -54,11 +55,11 @@ class PushNotificationService {
                 this.expoPushToken = token.data;
                 return token.data;
             } catch (error) {
-                console.error('Error getting push token:', error);
+                logger.error('Error getting push token:', error);
                 return null;
             }
         } else {
-            console.warn('Push notifications require a physical device');
+            logger.warn('Push notifications require a physical device');
             return null;
         }
     }
@@ -67,13 +68,13 @@ class PushNotificationService {
     setupNotificationListeners() {
         // Listener for notifications received while app is foregrounded
         this.notificationListener = Notifications.addNotificationReceivedListener(notification => {
-            console.log('Notification received:', notification);
+            logger.debug('Notification received:', notification);
             // Handle the notification when app is in foreground
         });
 
         // Listener for when a user taps on or interacts with a notification
         this.responseListener = Notifications.addNotificationResponseReceivedListener(response => {
-            console.log('Notification response:', response);
+            logger.debug('Notification response:', response);
             // Handle navigation or actions when user taps notification
             this.handleNotificationResponse(response);
         });
@@ -88,10 +89,10 @@ class PushNotificationService {
         if (data?.type === 'activity_invite') {
             // Navigate to activity details
             // You'll need to pass navigation here or use a global navigator
-            console.log('Navigate to activity:', data.activityId);
+            logger.debug('Navigate to activity:', data.activityId);
         } else if (data?.type === 'activity_update') {
             // Navigate to specific activity
-            console.log('Navigate to activity update:', data.activityId);
+            logger.debug('Navigate to activity update:', data.activityId);
         }
     }
 
@@ -112,12 +113,12 @@ class PushNotificationService {
             });
 
             if (response.ok) {
-                console.log('Push token sent to backend successfully');
+                logger.debug('Push token sent to backend successfully');
             } else {
-                console.error('Failed to send push token to backend');
+                logger.error('Failed to send push token to backend');
             }
         } catch (error) {
-            console.error('Error sending push token to backend:', error);
+            logger.error('Error sending push token to backend:', error);
         }
     }
 

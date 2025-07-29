@@ -20,6 +20,7 @@ import {
 } from '../styles/FormStyles'
 import { UserContext } from '../context/UserContext'
 import { API_URL } from '../config'
+import { logger } from '../utils/logger';
 
 export default function UpdateDetailsModal({ activity, visible, onClose, onUpdate }) {
     const { user } = useContext(UserContext)
@@ -130,7 +131,7 @@ export default function UpdateDetailsModal({ activity, visible, onClose, onUpdat
             onClose()
 
         } catch (error) {
-            console.error('Error updating activity:', error)
+            logger.error('Error updating activity:', error)
             setErrors([error.message || 'Failed to update activity'])
         } finally {
             setIsSubmitting(false)
@@ -166,10 +167,10 @@ export default function UpdateDetailsModal({ activity, visible, onClose, onUpdat
                     keyboardDismissMode="on-drag"
                 >
                     {/* Debug Info */}
-                    {console.log('Rendering modal content, activity type:', activity.activity_type)}
-                    {console.log('Editable fields:', editableFields)}
-                    {console.log('FormStyles available:', !!FormStyles)}
-                    {console.log('GradientButton available:', !!GradientButton)}
+                    {logger.debug('Rendering modal content, activity type:', activity.activity_type)}
+                    {logger.debug('Editable fields:', editableFields)}
+                    {logger.debug('FormStyles available:', !!FormStyles)}
+                    {logger.debug('GradientButton available:', !!GradientButton)}
 
                     {/* Error Display */}
                     {errors.length > 0 && (

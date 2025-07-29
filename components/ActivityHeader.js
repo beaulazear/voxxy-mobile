@@ -29,6 +29,7 @@ import FinalizeActivityModal from './FinalizeActivityModal'
 
 import DefaultIcon from '../assets/icon.png'
 import { API_URL } from '../config'
+import { logger } from '../utils/logger';
 
 const avatarMap = {
     // Avatar series
@@ -89,7 +90,7 @@ const getAvatarFromMap = (filename) => {
     try {
         return avatarMap[filename] || null
     } catch (error) {
-        console.log(`⚠️ Avatar ${filename} not found in mapping`)
+        logger.debug(`⚠️ Avatar ${filename} not found in mapping`)
         return null
     }
 }
@@ -350,7 +351,7 @@ export default function ActivityHeader({
             }
 
         } catch (error) {
-            console.error('Error updating activity date/time:', error)
+            logger.error('Error updating activity date/time:', error)
             Alert.alert('Error', 'Failed to update date/time. Please try again.')
         } finally {
             setIsUpdating(false)
@@ -359,7 +360,7 @@ export default function ActivityHeader({
 
     // Updated getDisplayImage function with comprehensive avatar handling
     const getDisplayImage = (userObj) => {
-        console.log(`🖼️ Getting image for user:`, {
+        logger.debug(`🖼️ Getting image for user:`, {
             name: userObj?.name,
             profile_pic_url: userObj?.profile_pic_url,
             avatar: userObj?.avatar
@@ -370,7 +371,7 @@ export default function ActivityHeader({
             const profilePicUrl = userObj.profile_pic_url.startsWith('http')
                 ? userObj.profile_pic_url
                 : `${API_URL}${userObj.profile_pic_url}`
-            console.log(`📸 Using profile pic URL: ${profilePicUrl}`)
+            logger.debug(`📸 Using profile pic URL: ${profilePicUrl}`)
             return { uri: profilePicUrl }
         }
 
@@ -381,24 +382,24 @@ export default function ActivityHeader({
                 ? userObj.avatar.split('/').pop()
                 : userObj.avatar
 
-            console.log(`🎭 Looking for avatar: ${avatarFilename}`)
+            logger.debug(`🎭 Looking for avatar: ${avatarFilename}`)
 
             // Check if we have this avatar in our mapping
             const mappedAvatar = getAvatarFromMap(avatarFilename)
             if (mappedAvatar) {
-                console.log(`✅ Found avatar in mapping: ${avatarFilename}`)
+                logger.debug(`✅ Found avatar in mapping: ${avatarFilename}`)
                 return mappedAvatar
             }
 
             // If it's a full URL, use it
             if (userObj.avatar.startsWith('http')) {
-                console.log(`🌐 Using avatar URL: ${userObj.avatar}`)
+                logger.debug(`🌐 Using avatar URL: ${userObj.avatar}`)
                 return { uri: userObj.avatar }
             }
         }
 
         // Fallback to default icon
-        console.log(`🔄 Using default icon`)
+        logger.debug(`🔄 Using default icon`)
         return DefaultIcon
     }
 
@@ -430,7 +431,7 @@ export default function ActivityHeader({
             })
 
             if (response.ok) {
-                console.log(`Activity with ID ${activity.id} deleted successfully`)
+                logger.debug(`Activity with ID ${activity.id} deleted successfully`)
 
                 setUser(prevUser => ({
                     ...prevUser,
@@ -442,11 +443,11 @@ export default function ActivityHeader({
                 Alert.alert('Success', 'Activity deleted successfully.')
                 navigation.goBack()
             } else {
-                console.error('Failed to delete activity')
+                logger.error('Failed to delete activity')
                 Alert.alert('Error', 'Failed to delete activity.')
             }
         } catch (error) {
-            console.error('Error deleting activity:', error)
+            logger.error('Error deleting activity:', error)
             Alert.alert('Error', 'Failed to delete activity.')
         }
     }
@@ -496,7 +497,7 @@ export default function ActivityHeader({
             Alert.alert('Success', 'You have successfully left the activity.')
             navigation.goBack()
         } catch (error) {
-            console.error('Error leaving activity:', error)
+            logger.error('Error leaving activity:', error)
             Alert.alert('Error', 'Failed to leave activity.')
         }
     }
@@ -540,7 +541,7 @@ export default function ActivityHeader({
     const activityInfo = getActivityDisplayInfo(activity.activity_type)
     const steps = activityInfo.usesAIRecommendations ? aiRecommendationSteps : timeSlotSteps
 
-    console.log(activityInfo)
+    logger.debug(activityInfo)
 
     const handleHelpClose = () => {
         setHelpStep(0)
@@ -676,8 +677,8 @@ export default function ActivityHeader({
                             source={getDisplayImage(activity.user)}
                             style={styles.hostImage}
                             defaultSource={DefaultIcon}
-                            onError={() => console.log(`❌ Avatar failed to load for ${activity.user?.name}`)}
-                            onLoad={() => console.log(`✅ Avatar loaded for ${activity.user?.name}`)}
+                            onError={() => logger.debug(`❌ Avatar failed to load for ${activity.user?.name}`)}
+                            onLoad={() => logger.debug(`✅ Avatar loaded for ${activity.user?.name}`)}
                         />
                         <View style={styles.hostBadge}>
                             <Star stroke="#fff" width={12} height={12} fill="#fff" />

@@ -22,6 +22,7 @@ import {
 } from '../styles/FormStyles'
 import { UserContext } from '../context/UserContext'
 import { API_URL } from '../config'
+import { logger } from '../utils/logger';
 
 const { width: screenWidth } = Dimensions.get('window')
 
@@ -138,7 +139,7 @@ export default function CuisineResponseForm({
                 }
                 setActivity(foundActivity || data)
             } catch (error) {
-                console.error('Error fetching activity:', error)
+                logger.error('Error fetching activity:', error)
             }
         }
 
@@ -340,7 +341,7 @@ export default function CuisineResponseForm({
 
             if (!res.ok) {
                 const errorData = await res.json()
-                console.error('❌ Failed to save response:', errorData)
+                logger.error('❌ Failed to save response:', errorData)
                 Alert.alert('Error', 'Failed to submit response. Please try again.')
                 return
             }
@@ -409,7 +410,7 @@ export default function CuisineResponseForm({
             onClose()
 
         } catch (error) {
-            console.error('❌ Error submitting response:', error)
+            logger.error('❌ Error submitting response:', error)
             Alert.alert('Error', 'Failed to submit response. Please try again.')
         }
     }

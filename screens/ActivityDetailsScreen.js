@@ -22,6 +22,7 @@ import CommentsSection from '../components/CommentsSection'
 import UpdateDetailsModal from '../components/UpdateDetailsModal'
 import FinalizeActivityModal from '../components/FinalizeActivityModal'
 import { API_URL } from '../config'
+import { logger } from '../utils/logger';
 
 const adventures = [
     {
@@ -103,8 +104,8 @@ export default function ActivityDetailsScreen({ route }) {
     // Token - match ProfileScreen pattern exactly
     const token = user?.token
 
-    console.log('💬 User in ActivityDetailsScreen:', user?.id)
-    console.log('💬 Token in ActivityDetailsScreen:', !!token)
+    logger.debug('💬 User in ActivityDetailsScreen:', user?.id)
+    logger.debug('💬 Token in ActivityDetailsScreen:', !!token)
 
     // Find the activity from user context
     const pendingInvite = user?.participant_activities?.find(
@@ -159,7 +160,7 @@ export default function ActivityDetailsScreen({ route }) {
 
             // Fetch pinned activities for restaurants
             if (activity.activity_type === 'Restaurant') {
-                console.log(`🍽️ Fetching pinned activities for activity ${activityId}`)
+                logger.debug(`🍽️ Fetching pinned activities for activity ${activityId}`)
                 setLoadingPinned(true)
                 fetch(`${API_URL}/activities/${activityId}/pinned_activities`, {
                     headers: {
@@ -168,16 +169,16 @@ export default function ActivityDetailsScreen({ route }) {
                     },
                 })
                     .then((res) => {
-                        console.log(`📊 Pinned activities response status: ${res.status}`)
+                        logger.debug(`📊 Pinned activities response status: ${res.status}`)
                         if (!res.ok) throw new Error('Failed to fetch pinned activities')
                         return res.json()
                     })
                     .then((data) => {
-                        console.log('✅ Pinned activities fetched successfully:', data.length)
+                        logger.debug('✅ Pinned activities fetched successfully:', data.length)
                         setPinnedActivities(data)
                     })
                     .catch((err) => {
-                        console.error('❌ Error fetching pinned activities:', err)
+                        logger.error('❌ Error fetching pinned activities:', err)
                         Alert.alert(
                             'Network Error',
                             'Unable to load restaurant suggestions. Please check your connection and try again.',
@@ -191,7 +192,7 @@ export default function ActivityDetailsScreen({ route }) {
 
             // Fetch time slots for meetings
             if (activity.activity_type === 'Meeting') {
-                console.log(`🕐 Fetching time slots for activity ${activityId}`)
+                logger.debug(`🕐 Fetching time slots for activity ${activityId}`)
                 setLoadingTimeSlots(true)
                 fetch(`${API_URL}/activities/${activityId}/time_slots`, {
                     method: 'GET',
@@ -201,16 +202,16 @@ export default function ActivityDetailsScreen({ route }) {
                     },
                 })
                     .then((res) => {
-                        console.log(`📊 Time slots response status: ${res.status}`)
+                        logger.debug(`📊 Time slots response status: ${res.status}`)
                         if (!res.ok) throw new Error('Failed to fetch time slots')
                         return res.json()
                     })
                     .then((data) => {
-                        console.log('✅ Time slots fetched successfully:', data.length)
+                        logger.debug('✅ Time slots fetched successfully:', data.length)
                         setPinned(data)
                     })
                     .catch((err) => {
-                        console.error('❌ Error fetching time slots:', err)
+                        logger.error('❌ Error fetching time slots:', err)
                         Alert.alert(
                             'Network Error',
                             'Unable to load meeting time slots. Please check your connection and try again.',
@@ -265,7 +266,7 @@ export default function ActivityDetailsScreen({ route }) {
             Alert.alert('Success', 'Welcome to the board!')
             setRefreshTrigger(prev => !prev)
         } catch (error) {
-            console.error('Error accepting invite:', error)
+            logger.error('Error accepting invite:', error)
             Alert.alert('Error', 'Failed to accept invite.')
         }
     }
@@ -300,7 +301,7 @@ export default function ActivityDetailsScreen({ route }) {
                 Alert.alert('Error', 'Failed to decline invite.')
             }
         } catch (error) {
-            console.error('Error declining invite:', error)
+            logger.error('Error declining invite:', error)
             Alert.alert('Error', 'Failed to decline invite.')
         }
     }
@@ -332,7 +333,7 @@ export default function ActivityDetailsScreen({ route }) {
             })
 
             if (response.ok) {
-                console.log(`Activity with ID ${id} deleted successfully`)
+                logger.debug(`Activity with ID ${id} deleted successfully`)
 
                 setUser(prevUser => ({
                     ...prevUser,
@@ -344,11 +345,11 @@ export default function ActivityDetailsScreen({ route }) {
                 Alert.alert('Success', 'Activity deleted successfully.')
                 navigation.goBack()
             } else {
-                console.error('Failed to delete activity')
+                logger.error('Failed to delete activity')
                 Alert.alert('Error', 'Failed to delete activity.')
             }
         } catch (error) {
-            console.error('Error deleting activity:', error)
+            logger.error('Error deleting activity:', error)
             Alert.alert('Error', 'Failed to delete activity.')
         }
     }
@@ -394,7 +395,7 @@ export default function ActivityDetailsScreen({ route }) {
             Alert.alert('Success', 'You have successfully left the activity.')
             navigation.goBack()
         } catch (error) {
-            console.error('Error leaving activity:', error)
+            logger.error('Error leaving activity:', error)
             Alert.alert('Error', 'Failed to leave activity.')
         }
     }
@@ -453,7 +454,7 @@ export default function ActivityDetailsScreen({ route }) {
 
             setRefreshTrigger(prev => !prev)
         } catch (error) {
-            console.error('Error sending invite:', error)
+            logger.error('Error sending invite:', error)
             Alert.alert('Error', error.message || 'Failed to send invitation.')
         }
     }
@@ -501,7 +502,7 @@ export default function ActivityDetailsScreen({ route }) {
 
             setRefreshTrigger(prev => !prev)
         } catch (error) {
-            console.error('Error removing participant:', error)
+            logger.error('Error removing participant:', error)
             Alert.alert('Error', error.message)
         }
     }
