@@ -10,82 +10,92 @@ import {
 import { 
     ArrowLeft, 
     Coffee, 
-    Sunset,
-    Clock,
-    Monitor,
+    Droplet,
+    Dices,
     MapPin,
     Film,
-    Users,
-    Home
-} from 'react-native-feather'
+    Book,
+    Edit,
+    RotateCcw,
+    Hamburger,
+    Martini
+} from 'lucide-react-native'
 
 export default function StartNewAdventure({ onTripSelect, onBack }) {
     const adventures = [
         {
-            name: 'Lets Eat',
-            icon: Coffee,
+            name: 'Surprise Me!',
+            icon: RotateCcw,
+            iconColor: '#8b5cf6',
+            active: true,
+            isRandom: true
+        },
+        {
+            name: 'Food',
+            icon: Hamburger,
             iconColor: '#FF6B6B',
-            active: true,
-            description: 'Schedule your next group meal together.'
+            active: true
         },
         {
-            name: 'Night Out',
-            icon: Sunset,
+            name: 'Drinks',
+            icon: Martini,
             iconColor: '#4ECDC4',
-            active: true,
-            description: 'Plan your perfect night out with friends.'
-        },
-        {
-            name: 'Lets Meet',
-            icon: Clock,
-            iconColor: '#FFE66D',
-            active: true,
-            description: 'Find a time that works for everyone.'
+            active: true
         },
         {
             name: 'Game Night',
-            icon: Monitor,
+            icon: Dices,
             iconColor: '#A8E6CF',
-            active: true,
-            description: 'Set up a memorable game night.'
+            active: true
         },
         {
-            name: 'Find a Destination',
+            name: 'Destination',
             icon: MapPin,
             iconColor: '#B8A5C4',
-            active: false,
-            description: 'Discover new travel destinations.'
+            active: false
         },
         {
             name: 'Movie Night',
             icon: Film,
             iconColor: '#FFB6C1',
-            active: false,
-            description: 'Plan your perfect movie night.'
+            active: false
         },
         {
-            name: 'Kids Play Date',
-            icon: Users,
-            iconColor: '#DDA0DD',
-            active: false,
-            description: 'Coordinate a fun playdate for little ones.'
+            name: 'Book Club',
+            icon: Book,
+            iconColor: '#9B59B6',
+            active: false
         },
         {
-            name: 'Family Reunion',
-            icon: Home,
-            iconColor: '#87CEEB',
-            active: false,
-            description: 'Plan a family gathering.'
+            name: 'Art',
+            icon: Edit,
+            iconColor: '#E74C3C',
+            active: false
         },
     ]
 
     const handleSelection = (name) => {
-        if (!adventures.find(a => a.name === name)?.active) return
-        onTripSelect(name)
+        const adventure = adventures.find(a => a.name === name)
+        if (!adventure?.active) return
+        
+        if (adventure.isRandom) {
+            handleRandomSelection()
+        } else {
+            onTripSelect(name)
+        }
+    }
+
+    const handleRandomSelection = () => {
+        const activeAdventures = adventures.filter(adventure => adventure.active && !adventure.isRandom)
+        if (activeAdventures.length > 0) {
+            const randomIndex = Math.floor(Math.random() * activeAdventures.length)
+            const randomAdventure = activeAdventures[randomIndex]
+            onTripSelect(randomAdventure.name)
+        }
     }
 
     const renderActivityCard = (adventure, index) => {
-        const { name, icon: IconComponent, iconColor, active, description } = adventure
+        const { name, icon: IconComponent, iconColor, active } = adventure
 
         return (
             <TouchableOpacity
@@ -101,17 +111,13 @@ export default function StartNewAdventure({ onTripSelect, onBack }) {
             >
                 <View style={[styles.iconContainer, { backgroundColor: `${iconColor}15` }]}>
                     <IconComponent 
-                        stroke={active ? iconColor : '#888'} 
-                        width={32} 
-                        height={32} 
+                        color={active ? iconColor : '#888'} 
+                        size={32} 
                         strokeWidth={2}
                     />
                 </View>
                 <Text style={[styles.activityName, !active && styles.inactiveName]}>
                     {name}
-                </Text>
-                <Text style={[styles.description, !active && styles.inactiveDescription]}>
-                    {description}
                 </Text>
                 {!active && (
                     <View style={styles.comingSoonBadge}>
@@ -127,13 +133,12 @@ export default function StartNewAdventure({ onTripSelect, onBack }) {
             {/* Header */}
             <View style={styles.header}>
                 <TouchableOpacity style={styles.backButton} onPress={onBack}>
-                    <ArrowLeft stroke="#fff" width={20} height={20} />
+                    <ArrowLeft color="#fff" size={20} />
                 </TouchableOpacity>
                 <View style={styles.headerContent}>
                     <Text style={styles.title}>
-                        New <Text style={styles.gradientText}>Voxxy</Text> Board
+                        Create New Activity
                     </Text>
-                    <Text style={styles.subtitle}>Choose an activity to start planning!</Text>
                 </View>
             </View>
 
@@ -287,17 +292,6 @@ const styles = StyleSheet.create({
         color: '#888',
     },
 
-    description: {
-        fontSize: 12,
-        color: '#ccc',
-        textAlign: 'center',
-        lineHeight: 16,
-        flexShrink: 1,
-    },
-
-    inactiveDescription: {
-        color: '#666',
-    },
 
     comingSoonBadge: {
         position: 'absolute',

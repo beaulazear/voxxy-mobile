@@ -17,7 +17,7 @@ import {
 import { UserContext } from '../context/UserContext'
 import AccountCreatedScreen from './AccountCreatedScreen'
 import VoxxyFooter from '../components/VoxxyFooter'
-import { Users, Calendar, Clock, HelpCircle, X, Plus, Zap, CheckCircle, BookOpen, Mail, Coffee, MapPin, Star, User, Activity } from 'react-native-feather'
+import { Users, HelpCircle, X, Plus, Zap, CheckCircle, BookOpen, Mail, Coffee, MapPin, Star, User, Activity, Hamburger, Martini, Dices } from 'lucide-react-native'
 import CustomHeader from '../components/CustomHeader'
 import YourCommunity from '../components/YourCommunity'
 import ProfileSnippet from '../components/ProfileSnippet'
@@ -31,9 +31,10 @@ const { width: screenWidth } = Dimensions.get('window')
 const FULL_HEIGHT = 333
 
 const FILTERS = [
-  { key: 'In Progress', icon: Zap, label: 'In Progress' },
-  { key: 'Finalized', icon: CheckCircle, label: 'Finalized' },
-  { key: 'Invites', icon: Mail, label: 'Invites' }
+  { key: 'In Progress', icon: Zap },
+  { key: 'Finalized', icon: CheckCircle },
+  { key: 'Invites', icon: Mail },
+  { key: 'Favorites', icon: Star }
 ]
 
 const PREVIEW_PAST = 3
@@ -43,28 +44,28 @@ const CARD_PADDING = 16
 // Activity type configuration
 const ACTIVITY_CONFIG = {
   'Restaurant': {
-    displayText: 'Lets Eat!',
+    displayText: 'Food',
     countdownText: 'Hope you and your crew savored every bite together! 🥂',
     countdownLabel: 'Meal Starts In',
-    emoji: '🍜'
-  },
-  'Meeting': {
-    displayText: 'Lets Meet!',
-    countdownText: 'Convos unlocked and plans locked in—high-five to your crew! 🙌',
-    countdownLabel: 'Meeting Starts In',
-    emoji: '⏰'
+    emoji: '🍜',
+    icon: Hamburger,
+    iconColor: '#FF6B6B'
   },
   'Game Night': {
-    displayText: 'Game Time!',
+    displayText: 'Game Night',
     countdownText: 'Dice rolled, friendships scored—your group leveled up the fun! 🏆',
     countdownLabel: 'Game Night Starts In',
-    emoji: '🎮'
+    emoji: '🎮',
+    icon: Dices,
+    iconColor: '#A8E6CF'
   },
   'Cocktails': {
-    displayText: 'Lets Go Out!',
+    displayText: 'Drinks',
     countdownText: 'Cheers to wild laughs and brighter memories—what a crew! 🥂',
     countdownLabel: 'Your Outing Starts In',
-    emoji: '🍸'
+    emoji: '🍸',
+    icon: Martini,
+    iconColor: '#4ECDC4'
   }
 }
 
@@ -74,7 +75,9 @@ function getActivityDisplayInfo(activityType) {
     displayText: 'Lets Meet!',
     countdownText: 'ACTIVITY STARTED',
     countdownLabel: 'Activity Starts In',
-    emoji: '🎉'
+    emoji: '🎉',
+    icon: Activity,
+    iconColor: '#B8A5C4'
   }
 }
 
@@ -106,8 +109,8 @@ function CountdownText({ targetTs, activityType }) {
   if (countdown.days === 0 && countdown.hrs === 0 && countdown.mins === 0 && countdown.secs === 0) {
     return (
       <View style={styles.countdownContainer}>
-        <Text style={styles.countdownLabel}>
-          {displayInfo.countdownText}
+        <Text style={styles.countdownCompleted}>
+          Started!
         </Text>
       </View>
     )
@@ -115,9 +118,6 @@ function CountdownText({ targetTs, activityType }) {
 
   return (
     <View style={styles.countdownContainer}>
-      <Text style={styles.countdownLabel}>
-        {displayInfo.countdownLabel}
-      </Text>
       <View style={styles.countdownGrid}>
         {countdown.days > 0 && (
           <View style={styles.countdownBlock}>
@@ -132,10 +132,6 @@ function CountdownText({ targetTs, activityType }) {
         <View style={styles.countdownBlock}>
           <Text style={styles.countdownNumber}>{countdown.mins}</Text>
           <Text style={styles.countdownUnit}>min</Text>
-        </View>
-        <View style={styles.countdownBlock}>
-          <Text style={styles.countdownNumber}>{countdown.secs}</Text>
-          <Text style={styles.countdownUnit}>sec</Text>
         </View>
       </View>
     </View>
@@ -152,27 +148,29 @@ function ProgressDisplay({ activity, currentUserId }) {
   
   return (
     <View style={styles.progressOverlay}>
-      <Text style={styles.progressStage}>Gathering Preferences</Text>
-      
-      {/* Response status indicator */}
-      <View style={styles.responseStatusContainer}>
-        {isHost ? (
-          <View style={styles.hostBadge}>
-            <Users stroke="#B954EC" width={14} height={14} strokeWidth={2.5} />
-            <Text style={styles.hostText}>Waiting for responses</Text>
-          </View>
-        ) : hasUserResponded ? (
+      {/* Simple status message */}
+      {isHost ? (
+        <View style={styles.hostBadge}>
+          <Users color="#B954EC" size={16} strokeWidth={2.5} />
+          <Text style={styles.hostText}>Waiting for responses</Text>
+        </View>
+      ) : hasUserResponded ? (
+        <View style={styles.bandContainer}>
+          <View style={styles.bandBackground} />
           <View style={styles.respondedBadge}>
-            <CheckCircle stroke="#4ECDC4" width={14} height={14} strokeWidth={2.5} />
-            <Text style={styles.respondedText}>Thanks for submitting!</Text>
+            <CheckCircle color="#4ECDC4" size={16} strokeWidth={2.5} />
+            <Text style={styles.respondedText}>Preferences submitted!</Text>
           </View>
-        ) : (
+        </View>
+      ) : (
+        <View style={styles.bandContainer}>
+          <View style={styles.bandBackgroundAction} />
           <View style={styles.actionNeededBadge}>
-            <Zap stroke="#FFE66D" width={14} height={14} strokeWidth={2.5} />
-            <Text style={styles.actionNeededText}>Action needed</Text>
+            <Zap color="#FFE66D" size={16} strokeWidth={2.5} />
+            <Text style={styles.actionNeededText}>Action needed!</Text>
           </View>
-        )}
-      </View>
+        </View>
+      )}
     </View>
   )
 }
@@ -203,9 +201,9 @@ function CreateCard({ navigation, isLast, isInvitesEmpty = false }) {
       <View style={styles.createCardContent}>
         <View style={[styles.createIconContainer, isInvitesEmpty && styles.invitesIconContainer]}>
           {isInvitesEmpty ? (
-            <Mail stroke="#d394f5" width={28} height={28} strokeWidth={2.5} />
+            <Mail color="#d394f5" size={28} strokeWidth={2.5} />
           ) : (
-            <Plus stroke="#4ECDC4" width={28} height={28} strokeWidth={2.5} />
+            <Plus color="#4ECDC4" size={28} strokeWidth={2.5} />
           )}
         </View>
 
@@ -215,16 +213,16 @@ function CreateCard({ navigation, isLast, isInvitesEmpty = false }) {
         {!isInvitesEmpty && (
           <View style={styles.createSuggestions}>
             <View style={styles.suggestionIcon}>
-              <Coffee stroke="#FF6B6B" width={18} height={18} strokeWidth={2} />
+              <Hamburger color="#FF6B6B" size={18} strokeWidth={2} />
             </View>
             <View style={styles.suggestionIcon}>
-              <Star stroke="#4ECDC4" width={18} height={18} strokeWidth={2} />
+              <Star color="#4ECDC4" size={18} strokeWidth={2} />
             </View>
             <View style={styles.suggestionIcon}>
-              <MapPin stroke="#FFE66D" width={18} height={18} strokeWidth={2} />
+              <MapPin color="#FFE66D" size={18} strokeWidth={2} />
             </View>
             <View style={styles.suggestionIcon}>
-              <User stroke="#A8E6CF" width={18} height={18} strokeWidth={2} />
+              <User color="#A8E6CF" size={18} strokeWidth={2} />
             </View>
           </View>
         )}
@@ -244,7 +242,7 @@ function CreateCard({ navigation, isLast, isInvitesEmpty = false }) {
 }
 
 // Modern Tab Component
-function ModernTab({ filter, isActive, onPress, count }) {
+function ModernTab({ filter, isActive, onPress }) {
   const handlePress = () => {
     if (Haptics?.impactAsync) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
@@ -263,25 +261,11 @@ function ModernTab({ filter, isActive, onPress, count }) {
       onPress={handlePress}
       activeOpacity={0.7}
     >
-      <View style={styles.tabContent}>
-        <IconComponent
-          stroke={isActive ? '#fff' : '#B8A5C4'}
-          width={16}
-          height={16}
-          strokeWidth={isActive ? 2.5 : 2}
-        />
-        <Text style={[
-          styles.tabLabel,
-          isActive && styles.tabLabelActive
-        ]}>
-          {filter.label}
-        </Text>
-        {filter.key === 'Invites' && count > 0 && (
-          <View style={styles.tabBadge}>
-            <Text style={styles.tabBadgeText}>{count}</Text>
-          </View>
-        )}
-      </View>
+      <IconComponent
+        color={isActive ? '#fff' : '#B8A5C4'}
+        size={18}
+        strokeWidth={isActive ? 2.5 : 2}
+      />
     </TouchableOpacity>
   )
 }
@@ -300,11 +284,8 @@ export default function HomeScreen() {
     scrollRef.current?.scrollToOffset({ offset: 0, animated: true })
   }
 
-  if (user && !user.confirmed_at) {
-    return <AccountCreatedScreen />
-  }
-
   const activities = useMemo(() => {
+    if (!user) return []
     const mine = user?.activities || []
     const theirs = user?.participant_activities
       ?.filter(p => p.accepted)
@@ -331,16 +312,37 @@ export default function HomeScreen() {
     }
   }, [invites.length, inProgress.length, finalized.length])
 
+  if (user && !user.confirmed_at) {
+    return <AccountCreatedScreen />
+  }
+
   const filteredActivities = (() => {
     const dataMap = {
       'In Progress': inProgress,
       'Finalized': finalized,
       'Invites': invites,
+      'Favorites': [], // Placeholder - empty array for now
     }
 
     const data = dataMap[filter] || []
 
     return data.sort((a, b) => {
+      // For in-progress activities, prioritize action needed items
+      if (filter === 'In Progress') {
+        const aUserResponse = a.responses?.find(r => r.user_id === user?.id)
+        const bUserResponse = b.responses?.find(r => r.user_id === user?.id)
+        const aIsHost = a.user_id === user?.id
+        const bIsHost = b.user_id === user?.id
+        
+        const aActionNeeded = !aIsHost && !aUserResponse
+        const bActionNeeded = !bIsHost && !bUserResponse
+        
+        // Action needed items come first
+        if (aActionNeeded && !bActionNeeded) return -1
+        if (!aActionNeeded && bActionNeeded) return 1
+      }
+      
+      // Then sort by date
       const dateA = new Date(a.date_day || '9999-12-31')
       const dateB = new Date(b.date_day || '9999-12-31')
       return dateA - dateB // Soonest first for upcoming activities
@@ -416,71 +418,50 @@ export default function HomeScreen() {
         }}
         activeOpacity={0.9}
       >
-        <View style={styles.hostTag}>
-          <Users stroke="#fff" width={10} height={10} />
-          <Text style={styles.tagText}>{firstName}</Text>
-        </View>
-        <View style={[
-          styles.typeTag,
-          isInvite && styles.inviteTag,
-          isInvite && styles.centeredTag
-        ]}>
-          <Text style={styles.tagText}>
-            {item.emoji} {displayInfo.displayText}
-          </Text>
+        {/* Header with icon and activity type */}
+        <View style={styles.cardHeader}>
+          <View style={styles.cardIconContainer}>
+            {displayInfo.icon && (
+              <displayInfo.icon 
+                color={displayInfo.iconColor} 
+                size={20} 
+                strokeWidth={2}
+              />
+            )}
+          </View>
+          <View style={styles.cardHeaderInfo}>
+            <Text style={styles.cardType}>{displayInfo.displayText}</Text>
+            <Text style={styles.cardHost}>by {firstName}</Text>
+          </View>
         </View>
 
-        <View style={styles.cardContent}>
+        {/* Status/Content Area */}
+        <View style={styles.cardStatusArea}>
           {isInvite ? (
-            <View style={styles.inviteContainer}>
-              <View style={styles.inviteHeader}>
-                <Mail stroke="#d394f5" width={16} height={16} />
-                <Text style={styles.inviteLabel}>{firstName} invited you!</Text>
-              </View>
-              <Text style={styles.funMessage}>
-                Have fun with the {displayInfo.emoji}
-              </Text>
+            <View style={styles.overlayStatusContainer}>
+              <Mail color="#d394f5" size={14} />
+              <Text style={styles.overlayStatusText}>Invitation</Text>
             </View>
           ) : countdownTs ? (
             <CountdownText targetTs={countdownTs} activityType={item.activity_type} />
           ) : isInProgress ? (
             <ProgressDisplay activity={item} currentUserId={user?.id} />
           ) : isCompleted ? (
-            <View style={styles.completedContainer}>
-              <Text style={styles.completedLabel}>ACTIVITY COMPLETED</Text>
+            <View style={styles.overlayStatusContainer}>
+              <Text style={styles.overlayStatusText}>Completed</Text>
             </View>
           ) : (
-            <View style={styles.placeholderContent}>
-              <Text style={styles.activityTypeEmoji}>{item.emoji}</Text>
-              <Text style={styles.activityTypeName}>
-                {displayInfo.displayText}
-              </Text>
+            <View style={styles.overlayStatusContainer}>
+              <Text style={styles.overlayStatusText}>Planning...</Text>
             </View>
           )}
         </View>
 
-        <View style={styles.cardFooter}>
-          <Text style={styles.cardTitle}>{item.activity_name}</Text>
-          <View style={styles.metaRow}>
-            <View style={styles.metaItem}>
-              <Calendar stroke="#fff" width={12} height={12} />
-              <Text style={styles.metaText}>{formatDate(item.date_day)}</Text>
-            </View>
-            <View style={styles.metaItem}>
-              <Clock stroke="#fff" width={12} height={12} />
-              <Text style={styles.metaText}>{formatTime(item.date_time)}</Text>
-            </View>
-          </View>
-          <View style={styles.bottomRow}>
-            <View style={styles.viewLinkContainer}>
-              <Text style={styles.viewLink}>
-                {isInvite ? 'View invite' : isInProgress ? 'Continue planning' : 'View board'} →
-              </Text>
-            </View>
-            <View style={styles.partCount}>
-              <Text style={styles.partText}>{(item.participants?.length || 0) + 1} ppl</Text>
-            </View>
-          </View>
+        {/* Activity Name */}
+        <View style={styles.cardTitleArea}>
+          <Text style={styles.cardTitle} numberOfLines={3} ellipsizeMode="tail">
+            {item.activity_name}
+          </Text>
         </View>
       </TouchableOpacity>
     )
@@ -489,7 +470,19 @@ export default function HomeScreen() {
   const ListHeader = () => (
     <>
       <View style={{ height: 300 }} />
-
+      
+      {/* Dynamic Header */}
+      <View style={styles.dynamicHeaderContainer}>
+        <Text style={styles.dynamicHeaderTitle}>
+          {mainTab === 'Activities' ? 'Activities' : 'Community'}
+        </Text>
+        <Text style={styles.dynamicHeaderSubtitle}>
+          {mainTab === 'Activities' 
+            ? 'Your planned adventures and experiences'
+            : 'Your Voxxy crew and activity partners'
+          }
+        </Text>
+      </View>
 
       {/* Main Tab Bar */}
       <View style={styles.mainTabContainer}>
@@ -504,76 +497,31 @@ export default function HomeScreen() {
             }}
             activeOpacity={0.7}
           >
-            <Activity stroke={mainTab === 'Activities' ? '#fff' : '#B8A5C4'} width={18} height={18} strokeWidth={2.5} />
+            <Activity color={mainTab === 'Activities' ? '#fff' : '#B8A5C4'} size={18} strokeWidth={2.5} />
             <Text style={[styles.mainTabLabel, mainTab === 'Activities' && styles.mainTabLabelActive]}>
               Activities
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.mainTab, mainTab === 'Your Community' && styles.mainTabActive]}
+            style={[styles.mainTab, mainTab === 'Community' && styles.mainTabActive]}
             onPress={() => {
               if (Haptics?.impactAsync) {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
               }
-              setMainTab('Your Community')
+              setMainTab('Community')
             }}
             activeOpacity={0.7}
           >
-            <Users stroke={mainTab === 'Your Community' ? '#fff' : '#B8A5C4'} width={18} height={18} strokeWidth={2.5} />
-            <Text style={[styles.mainTabLabel, mainTab === 'Your Community' && styles.mainTabLabelActive]}>
-              Your Community
+            <Users color={mainTab === 'Community' ? '#fff' : '#B8A5C4'} size={18} strokeWidth={2.5} />
+            <Text style={[styles.mainTabLabel, mainTab === 'Community' && styles.mainTabLabelActive]}>
+              Community
             </Text>
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* Activity Filters - Only show when Activities tab is active */}
-      {mainTab === 'Activities' && (
-        <View style={styles.tabContainer}>
-          <View style={styles.tabBar}>
-            {FILTERS.map((filterItem) => {
-              const count = filterItem.key === 'Invites' ? invites.length : 0
-              const isActive = filter === filterItem.key
-              return (
-                <ModernTab
-                  key={filterItem.key}
-                  filter={filterItem}
-                  isActive={isActive}
-                  onPress={() => {
-                    setFilter(filterItem.key)
-                    setShowAllPast(false)
-                  }}
-                  count={count}
-                />
-              )
-            })}
-          </View>
-        </View>
-      )}
 
-      {/* Show empty state for activities tab */}
-      {mainTab === 'Activities' && filteredActivities.length === 0 && (
-        <View style={styles.emptyContainer}>
-          {filter === 'Invites' ? (
-            <>
-              <Text style={styles.emptyIcon}>💌</Text>
-              <Text style={styles.empty}>No invites to show.</Text>
-              <Text style={styles.emptySub}>
-                When friends invite you to activities, they'll appear here!
-              </Text>
-            </>
-          ) : (
-            <>
-              <Text style={styles.emptyIcon}>📱</Text>
-              <Text style={styles.empty}>No activities to show.</Text>
-              <Text style={styles.emptySub}>
-                Start by creating your first activity!
-              </Text>
-            </>
-          )}
-        </View>
-      )}
     </>
   )
 
@@ -601,18 +549,107 @@ export default function HomeScreen() {
           <>
             {mainTab === 'Activities' ? (
               <>
-                {/* Show activities section */}
-                <FlatList
-                  data={displayedActivities}
-                  keyExtractor={(item) => String(item.id)}
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  renderItem={renderCard}
-                  contentContainerStyle={styles.horizontalGrid}
-                  snapToAlignment="start"
-                  decelerationRate="fast"
-                  snapToInterval={296} // card width + margin (280 + 16)
-                />
+                {/* Activities section with side filters */}
+                <View style={styles.activitiesWithFilters}>
+                  {/* Side Filter Buttons */}
+                  <View style={styles.sideFilters}>
+                    {FILTERS.map((filterItem) => {
+                      const isActive = filter === filterItem.key
+                      const IconComponent = filterItem.icon
+                      const count = filterItem.key === 'Invites' ? invites.length : 0
+                      return (
+                        <TouchableOpacity
+                          key={filterItem.key}
+                          style={[
+                            styles.sideFilterButton,
+                            isActive && styles.sideFilterButtonActive
+                          ]}
+                          onPress={() => {
+                            if (Haptics?.impactAsync) {
+                              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+                            }
+                            setFilter(filterItem.key)
+                            setShowAllPast(false)
+                          }}
+                          activeOpacity={0.7}
+                        >
+                          <IconComponent
+                            stroke={isActive ? '#fff' : '#B8A5C4'}
+                            width={14}
+                            height={14}
+                            strokeWidth={isActive ? 2.5 : 2}
+                          />
+                          {filterItem.key === 'Invites' && count > 0 && (
+                            <View style={styles.sideFilterBadge}>
+                              <Text style={styles.sideFilterBadgeText}>{count}</Text>
+                            </View>
+                          )}
+                        </TouchableOpacity>
+                      )
+                    })}
+                    
+                    {/* Plus button to create new activity */}
+                    <TouchableOpacity
+                      style={styles.sideCreateButton}
+                      onPress={() => {
+                        if (Haptics?.impactAsync) {
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+                        }
+                        navigation.navigate('TripDashboardScreen')
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Plus
+                        color='#4ECDC4'
+                        size={14}
+                        strokeWidth={2.5}
+                      />
+                    </TouchableOpacity>
+                  </View>
+                  
+                  {/* Horizontal Activities List or Empty State */}
+                  {filteredActivities.length === 0 ? (
+                    <View style={styles.sideEmptyContainer}>
+                      {filter === 'Invites' ? (
+                        <>
+                          <Text style={styles.sideEmptyIcon}>💌</Text>
+                          <Text style={styles.sideEmpty}>No invites to show</Text>
+                          <Text style={styles.sideEmptySub}>
+                            Invites will appear here!
+                          </Text>
+                        </>
+                      ) : filter === 'Favorites' ? (
+                        <>
+                          <Text style={styles.sideEmptyIcon}>⭐</Text>
+                          <Text style={styles.sideEmpty}>No favorites yet</Text>
+                          <Text style={styles.sideEmptySub}>
+                            Mark activities as favorites to see them here!
+                          </Text>
+                        </>
+                      ) : (
+                        <>
+                          <Text style={styles.sideEmptyIcon}>📱</Text>
+                          <Text style={styles.sideEmpty}>No activities to show</Text>
+                          <Text style={styles.sideEmptySub}>
+                            Start by creating your first activity!
+                          </Text>
+                        </>
+                      )}
+                    </View>
+                  ) : (
+                    <FlatList
+                      data={displayedActivities}
+                      keyExtractor={(item) => String(item.id)}
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      renderItem={renderCard}
+                      contentContainerStyle={styles.horizontalGrid}
+                      snapToAlignment="start"
+                      decelerationRate="fast"
+                      snapToInterval={176} // card width + margin (160 + 16)
+                    />
+                  )}
+                </View>
                 
                 {/* Start New Activity Button - Wide Version */}
                 <View style={styles.wideButtonContainer}>
@@ -630,7 +667,7 @@ export default function HomeScreen() {
                     
                     <View style={styles.wideButtonContent}>
                       <View style={styles.wideButtonIconContainer}>
-                        <Plus stroke="#4ECDC4" width={28} height={28} strokeWidth={2.5} />
+                        <Plus color="#4ECDC4" size={28} strokeWidth={2.5} />
                       </View>
 
                       <Text style={styles.wideButtonTitle}>Start New Activity</Text>
@@ -638,16 +675,16 @@ export default function HomeScreen() {
 
                       <View style={styles.wideButtonSuggestions}>
                         <View style={styles.wideSuggestionIcon}>
-                          <Coffee stroke="#FF6B6B" width={18} height={18} strokeWidth={2} />
+                          <Hamburger color="#FF6B6B" size={18} strokeWidth={2} />
                         </View>
                         <View style={styles.wideSuggestionIcon}>
-                          <Star stroke="#4ECDC4" width={18} height={18} strokeWidth={2} />
+                          <Star color="#4ECDC4" size={18} strokeWidth={2} />
                         </View>
                         <View style={styles.wideSuggestionIcon}>
-                          <MapPin stroke="#FFE66D" width={18} height={18} strokeWidth={2} />
+                          <MapPin color="#FFE66D" size={18} strokeWidth={2} />
                         </View>
                         <View style={styles.wideSuggestionIcon}>
-                          <User stroke="#A8E6CF" width={18} height={18} strokeWidth={2} />
+                          <User color="#A8E6CF" size={18} strokeWidth={2} />
                         </View>
                       </View>
 
@@ -661,7 +698,7 @@ export default function HomeScreen() {
             ) : (
               /* Show community section */
               <View style={styles.communityContainer}>
-                <YourCommunity />
+                <YourCommunity onCreateBoard={() => navigation.navigate('TripDashboardScreen')} />
               </View>
             )}
             <ListFooter />
@@ -685,9 +722,141 @@ const styles = StyleSheet.create({
     paddingVertical: CARD_MARGIN,
   },
 
+  // Dynamic Header Styles (above tabs)
+  dynamicHeaderContainer: {
+    paddingHorizontal: 24,
+    paddingTop: 2,
+    paddingBottom: 12,
+    alignItems: 'center',
+  },
+
+  dynamicHeaderTitle: {
+    color: '#fff',
+    fontSize: 24,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: 8,
+    fontFamily: 'Montserrat_700Bold',
+    letterSpacing: 0.5,
+  },
+
+  dynamicHeaderSubtitle: {
+    color: '#B8A5C4',
+    fontSize: 15,
+    fontWeight: '500',
+    textAlign: 'center',
+    lineHeight: 20,
+    opacity: 0.9,
+  },
+
+
   horizontalGrid: {
     paddingHorizontal: CARD_MARGIN,
     paddingTop: 8,
+  },
+
+  // Activities with filters layout
+  activitiesWithFilters: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    minHeight: 180, // Match card height
+  },
+
+  // Side filter buttons
+  sideFilters: {
+    paddingLeft: 8,
+    paddingTop: 0,
+    paddingRight: 4,
+    gap: 6,
+    justifyContent: 'center',
+  },
+
+  sideFilterButton: {
+    width: 28,
+    height: 26,
+    borderRadius: 6,
+    backgroundColor: 'rgba(42, 30, 46, 0.6)',
+    borderWidth: 1,
+    borderColor: 'rgba(185, 84, 236, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: 'rgba(185, 84, 236, 0.15)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 4,
+  },
+
+  sideFilterButtonActive: {
+    backgroundColor: 'rgba(185, 84, 236, 0.2)',
+    borderColor: 'rgba(185, 84, 236, 0.4)',
+    shadowColor: 'rgba(185, 84, 236, 0.3)',
+    shadowRadius: 6,
+  },
+
+  sideFilterBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: '#CF38DD',
+    borderRadius: 8,
+    minWidth: 14,
+    height: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#201925',
+  },
+
+  sideFilterBadgeText: {
+    color: '#fff',
+    fontSize: 8,
+    fontWeight: '700',
+  },
+
+  sideCreateButton: {
+    width: 28,
+    height: 26,
+    borderRadius: 6,
+    backgroundColor: 'rgba(78, 205, 196, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(78, 205, 196, 0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: 'rgba(78, 205, 196, 0.2)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 4,
+    marginTop: 4,
+  },
+
+  // Side empty state (positioned to the right of buttons)
+  sideEmptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+    paddingVertical: 20,
+    minHeight: 180, // Match card height
+  },
+
+  sideEmptyIcon: {
+    fontSize: 36,
+    marginBottom: 12,
+  },
+
+  sideEmpty: {
+    color: '#B8A5C4',
+    textAlign: 'center',
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 6,
+  },
+
+  sideEmptySub: {
+    color: '#777',
+    textAlign: 'center',
+    fontSize: 13,
+    lineHeight: 18,
   },
 
   hero: {
@@ -793,92 +962,15 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
 
-  // Modern Tab Styles (Activity Filters)
-  tabContainer: {
-    paddingHorizontal: 16,
-    marginBottom: 12,
-  },
 
-  tabBar: {
-    flexDirection: 'row',
-    backgroundColor: 'rgba(42, 30, 46, 0.6)',
-    borderRadius: 18,
-    padding: 4,
-    borderWidth: 1,
-    borderColor: 'rgba(185, 84, 236, 0.2)',
-    shadowColor: 'rgba(185, 84, 236, 0.15)',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 1,
-    shadowRadius: 12,
-  },
-
-  modernTab: {
-    flex: 1,
-    paddingVertical: 10,
-    paddingHorizontal: 8,
-    borderRadius: 14,
-    position: 'relative',
-    minHeight: 44,
-    justifyContent: 'center',
-  },
-
-  modernTabActive: {
-    backgroundColor: 'rgba(185, 84, 236, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(185, 84, 236, 0.3)',
-    shadowColor: 'rgba(185, 84, 236, 0.4)',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 8,
-  },
-
-  tabContent: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-    gap: 4,
-  },
-
-  tabLabel: {
-    color: '#B8A5C4',
-    fontSize: 10,
-    fontWeight: '500',
-    textAlign: 'center',
-    letterSpacing: 0.2,
-  },
-
-  tabLabelActive: {
-    color: '#fff',
-    fontWeight: '600',
-  },
-
-  tabBadge: {
-    position: 'absolute',
-    top: -4,
-    right: -6,
-    backgroundColor: '#CF38DD',
-    borderRadius: 8,
-    minWidth: 14,
-    height: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#201925',
-  },
-
-  tabBadgeText: {
-    color: '#fff',
-    fontSize: 8,
-    fontWeight: '700',
-  },
 
   // Create Card Styles
   createCard: {
-    width: 280,
-    height: 320,
+    width: 160,
+    height: 180,
     marginRight: 16,
     backgroundColor: 'rgba(42, 30, 46, 0.6)',
-    borderRadius: 24,
+    borderRadius: 20,
     overflow: 'hidden',
     borderWidth: 2,
     borderColor: 'rgba(78, 205, 196, 0.4)',
@@ -1016,11 +1108,11 @@ const styles = StyleSheet.create({
   },
 
   card: {
-    width: 280,
-    height: 320,
+    width: 160,
+    height: 180,
     marginRight: 16,
     backgroundColor: 'rgba(42, 30, 46, 0.95)',
-    borderRadius: 24,
+    borderRadius: 20,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: 'rgba(64, 51, 71, 0.5)',
@@ -1029,6 +1121,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 1,
     shadowRadius: 20,
     elevation: 15,
+    position: 'relative',
   },
 
   firstCard: {
@@ -1049,342 +1142,246 @@ const styles = StyleSheet.create({
     elevation: 18,
   },
 
-  hostTag: {
-    position: 'absolute',
-    top: 20,
-    left: 20,
-    backgroundColor: 'rgba(185, 84, 236, 0.95)',
+  // New compact card header styles
+  cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 22,
-    zIndex: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
-    shadowColor: 'rgba(185, 84, 236, 0.4)',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 1,
-    shadowRadius: 8,
+    padding: 12,
+    paddingBottom: 8,
+    gap: 10,
   },
 
-  typeTag: {
-    position: 'absolute',
-    top: 20,
-    right: 20,
-    backgroundColor: 'rgba(207, 56, 221, 0.95)',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 22,
-    zIndex: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
-    shadowColor: 'rgba(207, 56, 221, 0.4)',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 1,
-    shadowRadius: 8,
+  cardIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
-  inviteTag: {
-    backgroundColor: 'rgba(211, 148, 245, 0.95)',
-    borderColor: 'rgba(255, 255, 255, 0.25)',
-    shadowColor: 'rgba(211, 148, 245, 0.5)',
-    shadowRadius: 10,
-  },
-
-  tagText: {
-    color: '#fff',
-    fontSize: 12,
-    marginLeft: 5,
-    fontWeight: '600',
-    textShadowColor: 'rgba(0, 0, 0, 0.4)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 3,
-    letterSpacing: 0.3,
-  },
-
-  cardContent: {
+  cardHeaderInfo: {
     flex: 1,
-    marginTop: 50,
-    marginBottom: 8,
+  },
+
+  cardType: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '600',
+    marginBottom: 2,
+    letterSpacing: 0.2,
+  },
+
+  cardHost: {
+    color: '#B8A5C4',
+    fontSize: 11,
+    fontWeight: '500',
+    opacity: 0.8,
+  },
+
+  // Status area for different card states
+  cardStatusArea: {
+    flex: 1,
+    paddingHorizontal: 16,
+    justifyContent: 'center',
+    minHeight: 60,
+    overflow: 'visible',
+  },
+
+
+  // Card title area
+  cardTitleArea: {
+    paddingHorizontal: 12,
+    paddingBottom: 12,
+    paddingTop: 4,
+    flex: 0,
+    justifyContent: 'flex-end',
+  },
+
+
+  // Overlay status container (no borders, sits on wrapper background)
+  overlayStatusContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    gap: 6,
+  },
+
+  overlayStatusText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 0.3,
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
 
   countdownContainer: {
-    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(42, 30, 46, 0.95)',
-    marginHorizontal: 20,
-    marginVertical: 16,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(207, 56, 221, 0.3)',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
   },
 
   countdownLabel: {
     color: '#d394f5',
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '600',
     textTransform: 'uppercase',
     letterSpacing: 1,
-    marginBottom: 16,
+    marginBottom: 8,
     textAlign: 'center',
   },
 
   countdownGrid: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
 
   countdownBlock: {
     alignItems: 'center',
-    minWidth: 40,
+    minWidth: 30,
   },
 
   countdownNumber: {
     color: '#fff',
-    fontSize: 22,
+    fontSize: 16,
     fontWeight: '700',
-    lineHeight: 26,
+    lineHeight: 18,
   },
 
   countdownUnit: {
     color: '#d8cce2',
-    fontSize: 10,
+    fontSize: 8,
     fontWeight: '500',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    marginTop: 2,
+    marginTop: 1,
   },
 
-  progressOverlay: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(42, 30, 46, 0.95)',
-    marginHorizontal: 20,
-    marginVertical: 16,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(207, 56, 221, 0.3)',
-    paddingVertical: 20,
-    paddingHorizontal: 24,
-  },
-
-  progressStage: {
-    color: '#d394f5',
-    fontSize: 13,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginBottom: 12,
+  countdownCompleted: {
+    color: '#4ECDC4',
+    fontSize: 16,
+    fontWeight: '700',
     textAlign: 'center',
   },
 
-  responseStatusContainer: {
-    marginTop: 16,
+  progressOverlay: {
+    justifyContent: 'center',
     alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
   },
 
   respondedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(78, 205, 196, 0.15)',
     paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(78, 205, 196, 0.3)',
+    paddingVertical: 8,
     gap: 6,
+    justifyContent: 'center',
   },
 
   respondedText: {
-    color: '#4ECDC4',
+    color: '#fff',
     fontSize: 11,
     fontWeight: '600',
-    letterSpacing: 0.5,
+    letterSpacing: 0.2,
+    textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
 
   actionNeededBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 230, 109, 0.15)',
     paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 230, 109, 0.3)',
+    paddingVertical: 8,
     gap: 6,
+    justifyContent: 'center',
   },
 
   actionNeededText: {
-    color: '#FFE66D',
+    color: '#fff',
     fontSize: 11,
     fontWeight: '600',
-    letterSpacing: 0.5,
+    letterSpacing: 0.2,
+    textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
 
   hostBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(185, 84, 236, 0.15)',
     paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(185, 84, 236, 0.3)',
+    paddingVertical: 8,
     gap: 6,
+    justifyContent: 'center',
   },
 
   hostText: {
-    color: '#B954EC',
-    fontSize: 11,
-    fontWeight: '600',
-    letterSpacing: 0.5,
-  },
-
-  completedContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(42, 30, 46, 0.95)',
-    marginHorizontal: 20,
-    marginVertical: 16,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(100, 100, 100, 0.3)',
-    paddingVertical: 24,
-    paddingHorizontal: 24,
-    gap: 12,
-  },
-
-  completedLabel: {
-    color: '#aaa',
-    fontSize: 11,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    textAlign: 'center',
-  },
-
-  inviteContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(42, 30, 46, 0.95)',
-    marginHorizontal: 20,
-    marginVertical: 16,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(211, 148, 245, 0.4)',
-    paddingVertical: 24,
-    paddingHorizontal: 24,
-    gap: 16,
-  },
-
-  inviteHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-
-  inviteLabel: {
-    color: '#d394f5',
-    fontSize: 12,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    textAlign: 'center',
-  },
-
-  funMessage: {
-    color: 'rgba(255, 255, 255, 0.85)',
-    fontSize: 15,
-    fontWeight: '500',
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-
-  placeholderContent: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-  },
-
-  activityTypeEmoji: {
-    fontSize: 32,
-    marginBottom: 8,
-  },
-
-  activityTypeName: {
     color: '#fff',
-    fontSize: 14,
+    fontSize: 11,
     fontWeight: '600',
+    letterSpacing: 0.2,
     textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
 
-  cardFooter: {
-    padding: 24,
-    backgroundColor: 'rgba(15, 15, 20, 0.98)',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(64, 51, 71, 0.3)',
+  // Band decoration styles
+  bandContainer: {
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'visible',
+  },
+
+  // Band background for "preferences submitted" (green/teal theme)
+  bandBackground: {
+    position: 'absolute',
+    left: -16,
+    right: -16,
+    height: 32,
+    backgroundColor: 'rgba(78, 205, 196, 0.25)',
+    borderRadius: 16,
+    shadowColor: 'rgba(78, 205, 196, 0.4)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 8,
+  },
+
+  // Band background for "action needed" (yellow theme)
+  bandBackgroundAction: {
+    position: 'absolute',
+    left: -16,
+    right: -16,
+    height: 32,
+    backgroundColor: 'rgba(255, 230, 109, 0.25)',
+    borderRadius: 16,
+    shadowColor: 'rgba(255, 230, 109, 0.4)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 8,
   },
 
   cardTitle: {
     color: '#fff',
     fontWeight: '600',
-    fontSize: 17,
-    marginBottom: 12,
-    lineHeight: 22,
+    fontSize: 13,
+    lineHeight: 16,
+    textAlign: 'left',
+    letterSpacing: -0.2,
   },
 
-  metaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-    gap: 16,
-  },
-
-  metaItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-
-  metaText: {
-    color: '#B8A5C4',
-    fontSize: 12,
-    marginLeft: 6,
-    fontWeight: '500',
-  },
-
-  bottomRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-
-  viewLinkContainer: {
-    flex: 1,
-  },
-
-  partCount: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-
-  partText: {
-    color: '#B8A5C4',
-    fontSize: 12,
-    fontWeight: '500',
-  },
-
-  viewLink: {
-    color: '#cc31e8',
-    fontSize: 12,
-    fontWeight: '600',
-  },
 
   emptyContainer: {
     padding: 32,

@@ -30,28 +30,7 @@ import FinalizeActivityModal from './FinalizeActivityModal'
 import DefaultIcon from '../assets/icon.png'
 import { API_URL } from '../config'
 import { logger } from '../utils/logger';
-
-const avatarMap = {
-    // Avatar series
-    'Avatar1.jpg': require('../assets/Avatar1.jpg'),
-    'Avatar2.jpg': require('../assets/Avatar2.jpg'),
-    'Avatar3.jpg': require('../assets/Avatar3.jpg'),
-    'Avatar4.jpg': require('../assets/Avatar4.jpg'),
-    'Avatar5.jpg': require('../assets/Avatar5.jpg'),
-    'Avatar6.jpg': require('../assets/Avatar6.jpg'),
-    'Avatar7.jpg': require('../assets/Avatar7.jpg'),
-    'Avatar8.jpg': require('../assets/Avatar8.jpg'),
-    'Avatar9.jpg': require('../assets/Avatar9.jpg'),
-    'Avatar10.jpg': require('../assets/Avatar10.jpg'),
-    'Avatar11.jpg': require('../assets/Avatar11.jpg'),
-
-    // Weird series
-    'Weird1.jpg': require('../assets/Weird1.jpg'),
-    'Weird2.jpg': require('../assets/Weird2.jpg'),
-    'Weird3.jpg': require('../assets/Weird3.jpg'),
-    'Weird4.jpg': require('../assets/Weird4.jpg'),
-    'Weird5.jpg': require('../assets/Weird5.jpg'),
-}
+import { avatarMap, getUserDisplayImage, getAvatarSource } from '../utils/avatarManager';
 
 const ACTIVITY_CONFIG = {
     'Restaurant': {

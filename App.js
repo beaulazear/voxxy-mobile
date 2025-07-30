@@ -14,6 +14,7 @@ import ProfileScreen from './screens/ProfileScreen';
 import LandingScreen from './screens/LandingScreen';
 import ActivityDetailsScreen from './screens/ActivityDetailsScreen';
 import TripDashboardScreen from './screens/TripDashboardScreen';
+import TryVoxxScreen from './screens/TryVoxxScreen';
 
 import { InvitationNotificationProvider } from './services/InvitationNotificationService';
 
@@ -73,6 +74,7 @@ const AppNavigator = () => {
       />
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="SignUp" component={SignUpScreen} />
+      <Stack.Screen name="TryVoxxy" component={TryVoxxScreen} />
       <Stack.Screen
         name="ActivityDetails"
         component={ActivityDetailsScreen}

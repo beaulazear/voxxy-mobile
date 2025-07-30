@@ -4,6 +4,7 @@ import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import { Platform, Alert } from 'react-native';
 import { logger } from '../utils/logger';
+import notificationDebugger from '../utils/notificationDebugger';
 
 // Configure notification behavior
 Notifications.setNotificationHandler({
@@ -35,31 +36,35 @@ class PushNotificationService {
         }
 
         if (Device.isDevice) {
-            const { status: existingStatus } = await Notifications.getPermissionsAsync();
-            let finalStatus = existingStatus;
-
-            if (existingStatus !== 'granted') {
-                const { status } = await Notifications.requestPermissionsAsync();
-                finalStatus = status;
-            }
-
-            if (finalStatus !== 'granted') {
-                logger.warn('Push notification permissions denied');
-                return null;
-            }
-
             try {
-                token = await Notifications.getExpoPushTokenAsync({
-                    projectId: Constants.expoConfig?.extra?.eas?.projectId,
-                });
+                // Debug permission check
+                const finalStatus = await notificationDebugger.debugPermissionRequest();
+
+                if (finalStatus !== 'granted') {
+                    logger.warn('Push notification permissions denied');
+                    notificationDebugger.logStateChange('PERMISSION_DENIED', { finalStatus });
+                    return null;
+                }
+
+                // Debug token registration
+                const projectId = Constants.expoConfig?.extra?.eas?.projectId;
+                token = await notificationDebugger.debugTokenRegistration(projectId);
+                
                 this.expoPushToken = token.data;
                 return token.data;
             } catch (error) {
-                logger.error('Error getting push token:', error);
+                logger.error('Error in push notification setup:', error);
+                notificationDebugger.logStateChange('REGISTRATION_ERROR', { 
+                    error: error.message,
+                    stack: error.stack 
+                });
                 return null;
             }
         } else {
             logger.warn('Push notifications require a physical device');
+            notificationDebugger.logStateChange('DEVICE_CHECK_FAILED', { 
+                isDevice: Device.isDevice 
+            });
             return null;
         }
     }
@@ -69,14 +74,29 @@ class PushNotificationService {
         // Listener for notifications received while app is foregrounded
         this.notificationListener = Notifications.addNotificationReceivedListener(notification => {
             logger.debug('Notification received:', notification);
+            notificationDebugger.logStateChange('NOTIFICATION_RECEIVED', {
+                title: notification.request.content.title,
+                body: notification.request.content.body,
+                data: notification.request.content.data,
+                identifier: notification.request.identifier,
+            });
             // Handle the notification when app is in foreground
         });
 
         // Listener for when a user taps on or interacts with a notification
         this.responseListener = Notifications.addNotificationResponseReceivedListener(response => {
             logger.debug('Notification response:', response);
+            notificationDebugger.logStateChange('NOTIFICATION_TAPPED', {
+                actionIdentifier: response.actionIdentifier,
+                data: response.notification.request.content.data,
+            });
             // Handle navigation or actions when user taps notification
             this.handleNotificationResponse(response);
+        });
+        
+        notificationDebugger.logStateChange('LISTENERS_SETUP', {
+            hasNotificationListener: !!this.notificationListener,
+            hasResponseListener: !!this.responseListener,
         });
     }
 

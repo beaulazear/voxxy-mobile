@@ -276,9 +276,9 @@ export default function AIRecommendations({
     const [showChat, setShowChat] = useState(false);
     const [selectedRec, setSelectedRec] = useState(null);
     const [showDetailModal, setShowDetailModal] = useState(false);
-    const [showMoveToVotingModal, setShowMoveToVotingModal] = useState(false);
+    const [showGenerateModal, setShowGenerateModal] = useState(false);
 
-    const { id, responses, activity_location, date_notes, collecting, voting, finalized, selected_pinned_activity_id } = activity;
+    const { id, responses, activity_location, date_notes, collecting, finalized, selected_pinned_activity_id } = activity;
 
     const activityType = activity.activity_type || 'Restaurant';
 
@@ -290,13 +290,11 @@ export default function AIRecommendations({
     const getActivityText = () => {
         if (isNightOutActivity) {
             return {
-                submitTitle: 'Submit Your Night Out Preferences',
+                submitTitle: 'Collecting Bar Preferences',
                 submitDescription: 'Help us plan the perfect night out by sharing your food, drink, and atmosphere preferences',
-                planningTitle: 'Night Out Planning',
-                votingTitle: 'Vote on Night Out Options',
                 finalizedTitle: 'Night Out Finalized',
-                preferencesQuiz: 'Take Night Out Preferences Quiz',
-                resubmitPreferences: 'Resubmit Night Out Preferences',
+                preferencesQuiz: 'Take Bar Preferences Quiz',
+                resubmitPreferences: 'Resubmit Bar Preferences',
                 reasonTitle: 'Why This Option?',
                 apiEndpoint: '/api/openai/bar_recommendations'
             };
@@ -304,10 +302,8 @@ export default function AIRecommendations({
 
         if (isGameNightActivity) {
             return {
-                submitTitle: 'Submit Your Game Preferences',
+                submitTitle: 'Collecting Game Preferences',
                 submitDescription: 'Help us find the perfect games by sharing your game preferences and group dynamics',
-                planningTitle: 'Game Night Planning',
-                votingTitle: 'Vote on Games',
                 finalizedTitle: 'Game Night Finalized',
                 preferencesQuiz: 'Take Game Preferences Quiz',
                 resubmitPreferences: 'Resubmit Game Preferences',
@@ -318,10 +314,8 @@ export default function AIRecommendations({
 
         if (isMeetingActivity) {
             return {
-                submitTitle: 'Submit Your Meeting Preferences',
+                submitTitle: 'Collecting Meeting Preferences',
                 submitDescription: 'Help us find the perfect meeting spot by sharing your workspace and atmosphere needs',
-                planningTitle: 'Meeting Planning',
-                votingTitle: 'Vote on Meeting Locations',
                 finalizedTitle: 'Meeting Finalized',
                 preferencesQuiz: 'Take Meeting Preferences Quiz',
                 resubmitPreferences: 'Resubmit Meeting Preferences',
@@ -331,10 +325,8 @@ export default function AIRecommendations({
         }
 
         return {
-            submitTitle: 'Submit Your Preferences',
+            submitTitle: 'Collecting Restaurant Preferences',
             submitDescription: 'Help us find the perfect restaurant by sharing your food preferences and dietary needs',
-            planningTitle: 'Restaurant Planning',
-            votingTitle: 'Vote on Restaurants',
             finalizedTitle: 'Activity Finalized',
             preferencesQuiz: 'Take Preferences Quiz',
             resubmitPreferences: 'Resubmit Preferences',
@@ -352,14 +344,6 @@ export default function AIRecommendations({
         r.user_id === user.id || r.email === user.email
     ) : null;
     const responseRate = (responses.length / totalParticipants) * 100;
-
-    const participantsWithVotes = new Set();
-    pinnedActivities.forEach(pin => {
-        (pin.voters || []).forEach(voter => {
-            participantsWithVotes.add(voter.id);
-        });
-    });
-    const votingRate = (participantsWithVotes.size / totalParticipants) * 100;
 
     const handleStartChat = () => {
         setShowChat(true);
@@ -449,7 +433,7 @@ export default function AIRecommendations({
         }
     };
 
-    const moveToVotingPhase = async () => {
+    const generateRecommendations = async () => {
         setLoading(true);
         setError('');
 
@@ -488,8 +472,6 @@ export default function AIRecommendations({
                             hours: rec.hours || '',
                             price_range: rec.price_range || '',
                             address: rec.address || '',
-                            votes: [],
-                            voters: [],
                             reason: rec.reason || '',
                             website: rec.website || '',
                         },
@@ -552,6 +534,7 @@ export default function AIRecommendations({
                 pinnedTimeSlotResults.map(res => res.json())
             );
 
+            // Update activity to show recommendations without voting phase
             await fetch(`${API_URL}/activities/${id}`, {
                 method: 'PATCH',
                 headers: {
@@ -559,8 +542,7 @@ export default function AIRecommendations({
                     'Authorization': `Bearer ${user?.token}`,
                 },
                 body: JSON.stringify({
-                    collecting: false,
-                    voting: true
+                    collecting: false
                 }),
             });
 
@@ -569,7 +551,7 @@ export default function AIRecommendations({
                     ...prevUser,
                     activities: prevUser.activities.map(act =>
                         act.id === id
-                            ? { ...act, collecting: false, voting: true }
+                            ? { ...act, collecting: false }
                             : act
                     )
                 }));
@@ -584,61 +566,49 @@ export default function AIRecommendations({
             Alert.alert('Error', err.message);
         } finally {
             setLoading(false);
-            setShowMoveToVotingModal(false);
+            setShowGenerateModal(false);
         }
     };
 
-    const handleLike = async (pin) => {
-        if (!user) return;
-
-        const hasLiked = (pin.voters || []).some(v => v.id === user.id);
-
+    const handleSaveActivity = async () => {
         try {
-            if (hasLiked) {
-                const vote = (pin.votes || []).find(v => v.user_id === user.id);
-                if (!vote) return;
+            await fetch(`${API_URL}/activities/${id}`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${user?.token}`,
+                },
+                body: JSON.stringify({
+                    saved: true
+                }),
+            });
 
-                const response = await fetch(`${API_URL}/pinned_activities/${pin.id}/votes/${vote.id}`, {
-                    method: 'DELETE',
-                    headers: {
-                        'Authorization': `Bearer ${user?.token}`,
-                    },
-                });
-
-                const data = await response.json();
-                if (data.success) {
-                    setPinnedActivities(prev =>
-                        prev.map(a =>
-                            a.id === pin.id
-                                ? { ...a, votes: data.votes, voters: data.voters }
-                                : a
-                        )
-                    );
-                    setRefreshTrigger(f => !f);
-                }
-            } else {
-                const response = await fetch(`${API_URL}/pinned_activities/${pin.id}/votes`, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${user?.token}`,
-                    },
-                });
-
-                const data = await response.json();
-                if (data.success) {
-                    setPinnedActivities(prev =>
-                        prev.map(a =>
-                            a.id === pin.id
-                                ? { ...a, votes: data.votes, voters: data.voters }
-                                : a
-                        )
-                    );
-                    setRefreshTrigger(f => !f);
-                }
-            }
+            Alert.alert('Success', 'Activity saved successfully!');
+            setRefreshTrigger(f => !f);
         } catch (error) {
-            logger.error('Error voting:', error);
-            Alert.alert('Error', 'Failed to vote. Please try again.');
+            logger.error('Error saving activity:', error);
+            Alert.alert('Error', 'Failed to save activity.');
+        }
+    };
+
+    const handleArchiveActivity = async () => {
+        try {
+            await fetch(`${API_URL}/activities/${id}`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${user?.token}`,
+                },
+                body: JSON.stringify({
+                    archived: true
+                }),
+            });
+
+            Alert.alert('Success', 'Activity archived successfully!');
+            setRefreshTrigger(f => !f);
+        } catch (error) {
+            logger.error('Error archiving activity:', error);
+            Alert.alert('Error', 'Failed to archive activity.');
         }
     };
 
@@ -667,94 +637,89 @@ export default function AIRecommendations({
     }
 
     // COLLECTING PHASE
-    if (collecting && !voting) {
+    if (collecting) {
         return (
             <>
                 <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-                    <View style={styles.header}>
-                        <Text style={styles.heading}>{activityText.submitTitle}</Text>
-                    </View>
-
                     {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-                    <View style={styles.phaseIndicator}>
-                        <View style={styles.phaseContent}>
-                            <Icons.HelpCircle />
-                            <Text style={styles.phaseTitle}>Group Status</Text>
+                    {/* Combined Title, Count and Preferences Card */}
+                    <View style={styles.combinedCard}>
+                        <Text style={styles.cardTitle}>{activityText.submitTitle}</Text>
+                        
+                        <View style={styles.submissionCountContainer}>
+                            <Text style={styles.submissionCount}>{responses.length}</Text>
+                            <Text style={styles.submissionLabel}>
+                                {responses.length === 1 ? 'submission' : 'submissions'}
+                            </Text>
                         </View>
 
-                        <Text style={styles.phaseSubtitle}>
-                            {responses.length}/{totalParticipants} participants have submitted
-                            {activity.allow_participant_time_selection && ' preferences & availability'}
-                        </Text>
+                        <ProgressBar percent={responseRate} />
+
+                        {user && !currentUserResponse ? (
+                            <View style={styles.preferencesSection}>
+                                <Text style={styles.preferencesTitle}>Submit Your Preferences!</Text>
+                                <Text style={styles.preferencesText}>
+                                    {activityText.submitDescription}
+                                    {activity.allow_participant_time_selection && ' and your availability'}.
+                                </Text>
+                                <TouchableOpacity style={styles.preferencesButton} onPress={handleStartChat}>
+                                    <Icons.HelpCircle />
+                                    <Text style={styles.preferencesButtonText}>
+                                        {activity.allow_participant_time_selection ? `${activityText.preferencesQuiz} & Availability` : activityText.preferencesQuiz}
+                                    </Text>
+                                </TouchableOpacity>
+                            </View>
+                        ) : user && currentUserResponse ? (
+                            <View style={styles.submittedSection}>
+                                <Icons.CheckCircle />
+                                <Text style={styles.submittedTitle}>Thank you for submitting your response!</Text>
+                                <Text style={styles.submittedText}>
+                                    You can resubmit your preferences
+                                    {activity.allow_participant_time_selection && ' and availability'} if you'd like to make changes.
+                                </Text>
+                                <TouchableOpacity style={styles.resubmitButton} onPress={handleStartChat}>
+                                    <Icons.HelpCircle />
+                                    <Text style={styles.resubmitButtonText}>
+                                        {activity.allow_participant_time_selection ? `${activityText.resubmitPreferences} & Availability` : activityText.resubmitPreferences}
+                                    </Text>
+                                </TouchableOpacity>
+                            </View>
+                        ) : null}
 
                         {isOwner && (
                             <TouchableOpacity
-                                style={styles.phaseActionButton}
-                                onPress={() => setShowMoveToVotingModal(true)}
+                                style={styles.generateButton}
+                                onPress={() => setShowGenerateModal(true)}
                             >
-                                <Icons.Vote />
-                                <Text style={styles.phaseActionButtonText}>Move to Voting</Text>
+                                <Icons.Zap />
+                                <Text style={styles.generateButtonText}>Generate Recommendations</Text>
                             </TouchableOpacity>
                         )}
                     </View>
 
-                    <ProgressBar percent={responseRate} />
-
                     <AvailabilityDisplay responses={responses} activity={activity} />
 
-                    {user && !currentUserResponse ? (
-                        <View style={styles.preferencesCard}>
-                            <Icons.BookHeart />
-                            <Text style={styles.preferencesTitle}>Submit Your Preferences!</Text>
-                            <Text style={styles.preferencesText}>
-                                {activityText.submitDescription}
-                                {activity.allow_participant_time_selection && ' and your availability'}.
-                            </Text>
-                            <TouchableOpacity style={styles.preferencesButton} onPress={handleStartChat}>
-                                <Icons.HelpCircle />
-                                <Text style={styles.preferencesButtonText}>
-                                    {activity.allow_participant_time_selection ? `${activityText.preferencesQuiz} & Availability` : activityText.preferencesQuiz}
-                                </Text>
-                            </TouchableOpacity>
-                        </View>
-                    ) : user && currentUserResponse ? (
-                        <View style={styles.submittedCard}>
-                            <Icons.CheckCircle />
-                            <Text style={styles.submittedTitle}>Thank you for submitting your response!</Text>
-                            <Text style={styles.submittedText}>
-                                The organizer will gather recommendations shortly. You can resubmit your preferences
-                                {activity.allow_participant_time_selection && ' and availability'} if you'd like to make changes.
-                            </Text>
-                            <TouchableOpacity style={styles.resubmitButton} onPress={handleStartChat}>
-                                <Icons.HelpCircle />
-                                <Text style={styles.resubmitButtonText}>
-                                    {activity.allow_participant_time_selection ? `${activityText.resubmitPreferences} & Availability` : activityText.resubmitPreferences}
-                                </Text>
-                            </TouchableOpacity>
-                        </View>
-                    ) : null}
-
-                    {/* Move to Voting Modal */}
+                    {/* Generate Recommendations Modal */}
                     <Modal
-                        visible={showMoveToVotingModal}
+                        visible={showGenerateModal}
                         transparent
                         animationType="slide"
-                        onRequestClose={() => setShowMoveToVotingModal(false)}
+                        onRequestClose={() => setShowGenerateModal(false)}
                     >
                         <SafeAreaView style={styles.modalOverlay}>
                             <View style={styles.votingModalContainer}>
                                 <TouchableOpacity
                                     style={styles.votingModalCloseButton}
-                                    onPress={() => setShowMoveToVotingModal(false)}
+                                    onPress={() => setShowGenerateModal(false)}
                                 >
                                     <Icons.X />
                                 </TouchableOpacity>
 
                                 <View style={styles.votingModalContent}>
-                                    <Text style={styles.votingModalTitle}>Move to voting phase?</Text>
+                                    <Text style={styles.votingModalTitle}>Generate recommendations?</Text>
                                     <Text style={styles.votingModalDescription}>
-                                        Generate recommendations and start group voting
+                                        Create AI-powered recommendations based on group preferences
                                     </Text>
 
                                     <View style={styles.votingModalProgressSection}>
@@ -777,7 +742,7 @@ export default function AIRecommendations({
                                         </View>
                                     )}
 
-                                    <TouchableOpacity style={styles.votingModalButton} onPress={moveToVotingPhase}>
+                                    <TouchableOpacity style={styles.votingModalButton} onPress={generateRecommendations}>
                                         <Icons.Zap />
                                         <Text style={styles.votingModalButtonText}>Generate Recommendations</Text>
                                     </TouchableOpacity>
@@ -793,89 +758,72 @@ export default function AIRecommendations({
         );
     }
 
-    // VOTING PHASE
-    if (voting && !collecting && !finalized) {
+    // RECOMMENDATIONS PHASE
+    if (!collecting && !finalized && pinnedActivities.length > 0) {
         return (
             <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
                 <View style={styles.header}>
-                    <Text style={styles.heading}>{activityText.votingTitle}</Text>
+                    <Text style={styles.heading}>AI Recommendations</Text>
                 </View>
 
                 <View style={styles.phaseIndicator}>
                     <View style={styles.phaseContent}>
-                        <Icons.Vote />
-                        <Text style={styles.phaseTitle}>Voting Phase</Text>
+                        <Icons.Zap />
+                        <Text style={styles.phaseTitle}>Recommendations Ready</Text>
                     </View>
 
                     <Text style={styles.phaseSubtitle}>
-                        {participantsWithVotes.size}/{totalParticipants} participants have voted. After everyone has voted, your organizer can finalize the activity plans. ✨
+                        Based on your group's preferences, here are the best options. Choose what to do next.
                     </Text>
 
                     {isOwner && (
-                        <TouchableOpacity style={styles.phaseActionButton} onPress={onEdit}>
-                            <Icons.Flag />
-                            <Text style={styles.phaseActionButtonText}>Finalize Activity</Text>
-                        </TouchableOpacity>
+                        <View style={styles.actionButtonsContainer}>
+                            <TouchableOpacity style={styles.saveButton} onPress={handleSaveActivity}>
+                                <Icons.BookHeart />
+                                <Text style={styles.saveButtonText}>Save Activity</Text>
+                            </TouchableOpacity>
+                            
+                            <TouchableOpacity style={styles.finalizeButton} onPress={onEdit}>
+                                <Icons.Flag />
+                                <Text style={styles.finalizeButtonText}>Finalize Plans</Text>
+                            </TouchableOpacity>
+                            
+                            <TouchableOpacity style={styles.archiveButton} onPress={handleArchiveActivity}>
+                                <Icons.CheckCircle />
+                                <Text style={styles.archiveButtonText}>Archive Results</Text>
+                            </TouchableOpacity>
+                        </View>
                     )}
                 </View>
-
-                <ProgressBar percent={votingRate} />
 
                 {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
                 <View style={styles.recommendationsList}>
-                    {[...pinnedActivities]
-                        .sort((a, b) => (b.votes?.length || 0) - (a.votes?.length || 0))
-                        .map((p) => (
-                            <View key={p.id} style={styles.listItem}>
-                                <TouchableOpacity style={styles.listContent} onPress={() => openDetail(p)}>
-                                    <View style={styles.listTop}>
-                                        <Text style={styles.listName}>{p.title}</Text>
-                                        <Text style={styles.listMeta}>{p.price_range || 'N/A'}</Text>
+                    {pinnedActivities.map((p) => (
+                        <View key={p.id} style={styles.listItem}>
+                            <TouchableOpacity style={styles.listContent} onPress={() => openDetail(p)}>
+                                <View style={styles.listTop}>
+                                    <Text style={styles.listName}>{p.title}</Text>
+                                    <Text style={styles.listMeta}>{p.price_range || 'N/A'}</Text>
+                                </View>
+                                <View style={styles.listBottom}>
+                                    <View>
+                                        {isGameNightActivity ? (
+                                            <>
+                                                <Text style={styles.listDetail}>{p.hours || 'N/A'}</Text>
+                                                <Text style={styles.listDetail}>{p.address || 'N/A'}</Text>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Text style={styles.listDetail}>{p.hours || 'N/A'}</Text>
+                                                <Text style={styles.listDetail}>{p.address || 'N/A'}</Text>
+                                            </>
+                                        )}
                                     </View>
-                                    <View style={styles.listBottom}>
-                                        <View>
-                                            {isGameNightActivity ? (
-                                                <>
-                                                    <Text style={styles.listDetail}>{p.hours || 'N/A'}</Text>
-                                                    <Text style={styles.listDetail}>{p.address || 'N/A'}</Text>
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <Text style={styles.listDetail}>{p.hours || 'N/A'}</Text>
-                                                    <Text style={styles.listDetail}>{p.address || 'N/A'}</Text>
-                                                </>
-                                            )}
-                                        </View>
-                                        <View style={styles.voteSection}>
-                                            {user && (
-                                                <TouchableOpacity
-                                                    style={[
-                                                        styles.likeButton,
-                                                        (p.voters || []).some(v => v.id === user.id) && styles.likedButton
-                                                    ]}
-                                                    onPress={() => handleLike(p)}
-                                                >
-                                                    <Icon
-                                                        name="heart"
-                                                        size={14}
-                                                        color={(p.voters || []).some(v => v.id === user.id) ? '#e74c3c' : '#fff'}
-                                                        fill={(p.voters || []).some(v => v.id === user.id) ? '#e74c3c' : 'none'}
-                                                    />
-                                                    <Text style={styles.likeButtonText}>{(p.votes || []).length}</Text>
-                                                </TouchableOpacity>
-                                            )}
-                                            {!user && (
-                                                <View style={styles.voteCount}>
-                                                    <Icon name="heart" size={14} color="rgba(255, 255, 255, 0.7)" />
-                                                    <Text style={styles.voteCountText}>{(p.votes || []).length}</Text>
-                                                </View>
-                                            )}
-                                        </View>
-                                    </View>
-                                </TouchableOpacity>
-                            </View>
-                        ))}
+                                </View>
+                            </TouchableOpacity>
+                        </View>
+                    ))}
                 </View>
 
                 {/* Detail Modal */}
@@ -1010,46 +958,35 @@ export default function AIRecommendations({
                 {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
                 <View style={styles.recommendationsList}>
-                    {[...pinnedActivities]
-                        .sort((a, b) => (b.votes?.length || 0) - (a.votes?.length || 0))
-                        .map((p) => {
-                            const isSelected = p.id === selected_pinned_activity_id;
-                            return (
-                                <View key={p.id} style={[styles.listItem, isSelected && styles.selectedListItem]}>
-                                    {isSelected && (
-                                        <View style={styles.selectedBadge}>
-                                            <Icons.CheckCircle />
-                                            <Text style={styles.selectedBadgeText}>SELECTED</Text>
-                                        </View>
-                                    )}
-                                    <TouchableOpacity style={styles.listContent} onPress={() => openDetail(p)}>
-                                        <View style={styles.listTop}>
-                                            <Text style={styles.listName}>{p.title}</Text>
-                                            <Text style={styles.listMeta}>{p.price_range || 'N/A'}</Text>
-                                        </View>
-                                        <View style={styles.listBottom}>
-                                            <View>
-                                                {isGameNightActivity ? (
-                                                    <>
-                                                        <Text style={styles.listDetail}>{p.hours || 'N/A'}</Text>
-                                                        <Text style={styles.listDetail}>{p.address || 'N/A'}</Text>
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <Text style={styles.listDetail}>{p.hours || 'N/A'}</Text>
-                                                        <Text style={styles.listDetail}>{p.address || 'N/A'}</Text>
-                                                    </>
-                                                )}
-                                            </View>
-                                            <View style={styles.voteCount}>
-                                                <Icon name="heart" size={14} color="rgba(255, 255, 255, 0.7)" />
-                                                <Text style={styles.voteCountText}>{(p.votes || []).length}</Text>
-                                            </View>
-                                        </View>
-                                    </TouchableOpacity>
+                    {pinnedActivities.filter(p => p.selected).map((p) => (
+                        <View key={p.id} style={[styles.listItem, styles.selectedListItem]}>
+                            <View style={styles.selectedBadge}>
+                                <Icons.CheckCircle />
+                                <Text style={styles.selectedBadgeText}>SELECTED</Text>
+                            </View>
+                            <TouchableOpacity style={styles.listContent} onPress={() => openDetail(p)}>
+                                <View style={styles.listTop}>
+                                    <Text style={styles.listName}>{p.title}</Text>
+                                    <Text style={styles.listMeta}>{p.price_range || 'N/A'}</Text>
                                 </View>
-                            );
-                        })}
+                                <View style={styles.listBottom}>
+                                    <View>
+                                        {isGameNightActivity ? (
+                                            <>
+                                                <Text style={styles.listDetail}>{p.hours || 'N/A'}</Text>
+                                                <Text style={styles.listDetail}>{p.address || 'N/A'}</Text>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Text style={styles.listDetail}>{p.hours || 'N/A'}</Text>
+                                                <Text style={styles.listDetail}>{p.address || 'N/A'}</Text>
+                                            </>
+                                        )}
+                                    </View>
+                                </View>
+                            </TouchableOpacity>
+                        </View>
+                    ))}
                 </View>
 
                 {/* Detail Modal - Same as voting phase */}
@@ -1202,6 +1139,7 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 24,
         fontWeight: '700',
+        fontFamily: 'Montserrat_700Bold',
         textAlign: 'center',
     },
     errorText: {
@@ -1222,6 +1160,41 @@ const styles = StyleSheet.create({
         borderRadius: 16,
         padding: 20,
         margin: 16,
+    },
+    combinedCard: {
+        flexDirection: 'column',
+        alignItems: 'center',
+        backgroundColor: 'rgba(255, 255, 255, 0.08)',
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+        borderWidth: 1,
+        borderRadius: 16,
+        padding: 20,
+        margin: 16,
+    },
+    cardTitle: {
+        color: '#fff',
+        fontSize: 24,
+        fontWeight: '700',
+        fontFamily: 'Montserrat_700Bold',
+        textAlign: 'center',
+        marginBottom: 20,
+    },
+    submissionCountContainer: {
+        alignItems: 'center',
+        marginBottom: 8,
+    },
+    submissionCount: {
+        color: '#667eea',
+        fontSize: 48,
+        fontWeight: '700',
+        fontFamily: 'Montserrat_700Bold',
+        lineHeight: 52,
+    },
+    submissionLabel: {
+        color: 'rgba(255, 255, 255, 0.7)',
+        fontSize: 16,
+        fontFamily: 'Montserrat_400Regular',
+        marginTop: 4,
     },
     phaseContent: {
         flexDirection: 'row',
@@ -1395,6 +1368,92 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         borderColor: 'rgba(255, 255, 255, 0.1)',
         borderWidth: 1,
+    },
+    preferencesSection: {
+        alignItems: 'center',
+        marginTop: 16,
+        paddingTop: 16,
+        borderTopColor: 'rgba(255, 255, 255, 0.1)',
+        borderTopWidth: 1,
+        width: '100%',
+    },
+    submittedSection: {
+        alignItems: 'center',
+        marginTop: 16,
+        paddingTop: 16,
+        borderTopColor: 'rgba(255, 255, 255, 0.1)',
+        borderTopWidth: 1,
+        width: '100%',
+    },
+    generateButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#667eea',
+        paddingHorizontal: 24,
+        paddingVertical: 12,
+        borderRadius: 12,
+        width: '100%',
+        marginTop: 16,
+    },
+    generateButtonText: {
+        color: '#fff',
+        fontWeight: '600',
+        marginLeft: 8,
+    },
+    actionButtonsContainer: {
+        flexDirection: 'row',
+        gap: 8,
+        width: '100%',
+        marginTop: 16,
+    },
+    saveButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#28a745',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderRadius: 12,
+        flex: 1,
+    },
+    saveButtonText: {
+        color: '#fff',
+        fontWeight: '600',
+        marginLeft: 6,
+        fontSize: 14,
+    },
+    finalizeButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#667eea',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderRadius: 12,
+        flex: 1,
+    },
+    finalizeButtonText: {
+        color: '#fff',
+        fontWeight: '600',
+        marginLeft: 6,
+        fontSize: 14,
+    },
+    archiveButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#6c757d',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderRadius: 12,
+        flex: 1,
+    },
+    archiveButtonText: {
+        color: '#fff',
+        fontWeight: '600',
+        marginLeft: 6,
+        fontSize: 14,
     },
     preferencesTitle: {
         color: '#fff',

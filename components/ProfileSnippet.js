@@ -13,6 +13,7 @@ import { UserContext } from '../context/UserContext';
 import { Settings, Users, Activity } from 'react-native-feather';
 import { useNavigation } from '@react-navigation/native';
 import { API_URL } from '../config';
+import { avatarMap, getUserDisplayImage, getAvatarSource } from '../utils/avatarManager';
 
 const { width: screenWidth } = Dimensions.get('window');
 const NAVBAR_HEIGHT = 90;
@@ -116,27 +117,6 @@ export default function ProfileSnippet({ scrollY = new Animated.Value(0), onScro
     // Check for avatar (selected preset avatar)
     if (user?.avatar) {
       // Avatar mapping for preset avatars
-      const avatarMap = {
-        'Avatar1.jpg': require('../assets/Avatar1.jpg'),
-        'Avatar2.jpg': require('../assets/Avatar2.jpg'),
-        'Avatar3.jpg': require('../assets/Avatar3.jpg'),
-        'Avatar4.jpg': require('../assets/Avatar4.jpg'),
-        'Avatar5.jpg': require('../assets/Avatar5.jpg'),
-        'Avatar6.jpg': require('../assets/Avatar6.jpg'),
-        'Avatar7.jpg': require('../assets/Avatar7.jpg'),
-        'Avatar8.jpg': require('../assets/Avatar8.jpg'),
-        'Avatar9.jpg': require('../assets/Avatar9.jpg'),
-        'Avatar10.jpg': require('../assets/Avatar10.jpg'),
-        'Avatar11.jpg': require('../assets/Avatar11.jpg'),
-        
-        // Weird series
-        'Weird1.jpg': require('../assets/Weird1.jpg'),
-        'Weird2.jpg': require('../assets/Weird2.jpg'),
-        'Weird3.jpg': require('../assets/Weird3.jpg'),
-        'Weird4.jpg': require('../assets/Weird4.jpg'),
-        'Weird5.jpg': require('../assets/Weird5.jpg'),
-      };
-      
       // Extract filename if it's a path
       const avatarFilename = user.avatar.includes('/') 
         ? user.avatar.split('/').pop() 

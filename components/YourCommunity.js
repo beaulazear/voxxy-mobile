@@ -11,33 +11,13 @@ import {
     FlatList,
 } from 'react-native'
 import { UserContext } from '../context/UserContext'
-import { Users, Calendar, MapPin, Utensils, Clock, Star, X, ChevronRight } from 'react-native-feather'
+import { Users, Calendar, MapPin, Utensils, Clock, Star, X, ChevronRight, Plus } from 'react-native-feather'
 import SmallTriangle from '../assets/voxxy-triangle.png'
 import { API_URL } from '../config'
 import { logger } from '../utils/logger';
+import { avatarMap, getUserDisplayImage, getAvatarSource } from '../utils/avatarManager';
 
 // Avatar mapping for relative paths
-const avatarMap = {
-    // Avatar series
-    'Avatar1.jpg': require('../assets/Avatar1.jpg'),
-    'Avatar2.jpg': require('../assets/Avatar2.jpg'),
-    'Avatar3.jpg': require('../assets/Avatar3.jpg'),
-    'Avatar4.jpg': require('../assets/Avatar4.jpg'),
-    'Avatar5.jpg': require('../assets/Avatar5.jpg'),
-    'Avatar6.jpg': require('../assets/Avatar6.jpg'),
-    'Avatar7.jpg': require('../assets/Avatar7.jpg'),
-    'Avatar8.jpg': require('../assets/Avatar8.jpg'),
-    'Avatar9.jpg': require('../assets/Avatar9.jpg'),
-    'Avatar10.jpg': require('../assets/Avatar10.jpg'),
-    'Avatar11.jpg': require('../assets/Avatar11.jpg'),
-    // Weird series
-    'Weird1.jpg': require('../assets/Weird1.jpg'),
-    'Weird2.jpg': require('../assets/Weird2.jpg'),
-    'Weird3.jpg': require('../assets/Weird3.jpg'),
-    'Weird4.jpg': require('../assets/Weird4.jpg'),
-    'Weird5.jpg': require('../assets/Weird5.jpg'),
-}
-
 // Helper function to safely get avatar
 const getAvatarFromMap = (filename) => {
     try {
@@ -279,6 +259,7 @@ export default function YourCommunity({ showInvitePopup, onSelectUser, onCreateB
                                     onPress={onCreateBoard}
                                     activeOpacity={0.8}
                                 >
+                                    <Plus stroke="#fff" width={16} height={16} strokeWidth={2.5} />
                                     <Text style={styles.emptyButtonText}>Start Your First Activity</Text>
                                 </TouchableOpacity>
                             )}
@@ -608,6 +589,9 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 1,
         shadowRadius: 8,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
     },
 
     emptyButtonText: {

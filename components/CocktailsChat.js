@@ -26,7 +26,6 @@ import {
     MessageSquare,
     Edit3
 } from 'react-native-feather'
-import Slider from '@react-native-community/slider'
 import * as Location from 'expo-location'
 import { API_URL } from '../config'
 import { logger } from '../utils/logger';
@@ -44,7 +43,7 @@ export default function CocktailsChat({ visible, onClose }) {
     const [coords, setCoords] = useState(null)
     const [isLocating, setIsLocating] = useState(false)
     const [currentLocationUsed, setCurrentLocationUsed] = useState(false)
-    const [radius, setRadius] = useState(10)
+    const [radius] = useState(10)
 
     // Step 2: Group Size
     const [groupSize, setGroupSize] = useState('')
@@ -59,7 +58,7 @@ export default function CocktailsChat({ visible, onClose }) {
     const headers = [
         {
             title: 'Where to meet for drinks?',
-            subtitle: 'City/neighborhood or use current, then choose radius.',
+            subtitle: 'City/neighborhood or use current location.'
         },
         {
             title: 'How large is your group?',
@@ -228,6 +227,12 @@ export default function CocktailsChat({ visible, onClose }) {
 
             if (!response.ok) {
                 const errorData = await response.json()
+                
+                // Handle rate limiting with user-friendly message
+                if (response.status === 429) {
+                    throw new Error('Too many requests, try again later')
+                }
+                
                 throw new Error(errorData.errors ? errorData.errors.join(', ') : 'Failed to create activity')
             }
 
@@ -298,23 +303,6 @@ export default function CocktailsChat({ visible, onClose }) {
                             </Text>
                         </TouchableOpacity>
 
-                        <Text style={FormStyles.rangeLabel}>
-                            Search Radius: {radius} miles
-                        </Text>
-                        <View style={FormStyles.sliderContainer}>
-                            <Slider
-                                style={FormStyles.slider}
-                                minimumValue={1}
-                                maximumValue={50}
-                                value={radius}
-                                onValueChange={setRadius}
-                                step={1}
-                                minimumTrackTintColor="#cc31e8"
-                                maximumTrackTintColor="rgba(255, 255, 255, 0.1)"
-                                thumbStyle={{ backgroundColor: '#cc31e8' }}
-                            />
-                        </View>
-                        <Text style={FormStyles.rangeValue}>{radius} miles</Text>
                     </View>
                 )
 

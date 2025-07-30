@@ -21,42 +21,10 @@ import { ArrowLeft, User, Settings, Edit3, Trash2, LogOut } from 'react-native-f
 import PushNotificationService from '../services/PushNotificationService'
 import { logger } from '../utils/logger';
 import OptimizedAvatarModal from '../components/OptimizedAvatarModal';
-
-// Avatar mapping for relative paths
-const avatarMap = {
-    // Avatar series
-    'Avatar1.jpg': require('../assets/Avatar1.jpg'),
-    'Avatar2.jpg': require('../assets/Avatar2.jpg'),
-    'Avatar3.jpg': require('../assets/Avatar3.jpg'),
-    'Avatar4.jpg': require('../assets/Avatar4.jpg'),
-    'Avatar5.jpg': require('../assets/Avatar5.jpg'),
-    'Avatar6.jpg': require('../assets/Avatar6.jpg'),
-    'Avatar7.jpg': require('../assets/Avatar7.jpg'),
-    'Avatar8.jpg': require('../assets/Avatar8.jpg'),
-    'Avatar9.jpg': require('../assets/Avatar9.jpg'),
-    'Avatar10.jpg': require('../assets/Avatar10.jpg'),
-    'Avatar11.jpg': require('../assets/Avatar11.jpg'),
-
-    // Weird series
-    'Weird1.jpg': require('../assets/Weird1.jpg'),
-    'Weird2.jpg': require('../assets/Weird2.jpg'),
-    'Weird3.jpg': require('../assets/Weird3.jpg'),
-    'Weird4.jpg': require('../assets/Weird4.jpg'),
-    'Weird5.jpg': require('../assets/Weird5.jpg'),
-}
-
-// Helper function to safely get avatar
-const getAvatarFromMap = (filename) => {
-    try {
-        return avatarMap[filename] || null
-    } catch (error) {
-        logger.debug(`⚠️ Avatar ${filename} not found in mapping`)
-        return null
-    }
-}
+import { avatarMap, getUserDisplayImage } from '../utils/avatarManager';
 
 export default function ProfileScreen() {
-    const { user, setUser } = useContext(UserContext);
+    const { user, setUser, updateUser } = useContext(UserContext);
     const navigation = useNavigation();
 
     // Profile tab states
@@ -78,48 +46,9 @@ export default function ProfileScreen() {
 
     // Comprehensive avatar handling function
     const getDisplayImage = (userObj) => {
-        logger.debug(`🖼️ Getting image for user:`, {
-            name: userObj?.name,
-            profile_pic_url: userObj?.profile_pic_url,
-            avatar: userObj?.avatar
-        })
+        return getUserDisplayImage(userObj, API_URL);
+    };
 
-        // Check for profile_pic_url first (full URL)
-        if (userObj?.profile_pic_url) {
-            const profilePicUrl = userObj.profile_pic_url.startsWith('http')
-                ? userObj.profile_pic_url
-                : `${API_URL}${userObj.profile_pic_url}`
-            logger.debug(`📸 Using profile pic URL: ${profilePicUrl}`)
-            return { uri: profilePicUrl }
-        }
-
-        // Check for avatar (relative path)
-        if (userObj?.avatar) {
-            // Extract filename from path if it includes directory
-            const avatarFilename = userObj.avatar.includes('/')
-                ? userObj.avatar.split('/').pop()
-                : userObj.avatar
-
-            logger.debug(`🎭 Looking for avatar: ${avatarFilename}`)
-
-            // Check if we have this avatar in our mapping
-            const mappedAvatar = getAvatarFromMap(avatarFilename)
-            if (mappedAvatar) {
-                logger.debug(`✅ Found avatar in mapping: ${avatarFilename}`)
-                return mappedAvatar
-            }
-
-            // If it's a full URL, use it
-            if (userObj.avatar.startsWith('http')) {
-                logger.debug(`🌐 Using avatar URL: ${userObj.avatar}`)
-                return { uri: userObj.avatar }
-            }
-        }
-
-        // Fallback to default avatar
-        logger.debug(`🔄 Using default avatar`)
-        return require('../assets/Avatar1.jpg')
-    }
 
     useEffect(() => {
         setNewName(user?.name || '');
@@ -219,36 +148,29 @@ export default function ProfileScreen() {
             });
     };
 
-    const handleSaveNotifications = () => {
-        fetch(`${API_URL}/users/${user.id}`, {
-            method: 'PATCH',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`,
-            },
-            body: JSON.stringify({
+    const handleSaveNotifications = async () => {
+        try {
+            // Use updateUser from context to properly handle push token registration
+            const updatedUser = await updateUser({
                 text_notifications: textNotifications,
                 email_notifications: emailNotifications,
                 push_notifications: pushNotifications,
-            }),
-        })
-            .then((res) => {
-                if (!res.ok) throw new Error('Failed to update notifications');
-                return res.json();
-            })
-            .then((updatedUser) => {
-                setUser({
-                    ...user,
-                    text_notifications: updatedUser.text_notifications,
-                    email_notifications: updatedUser.email_notifications,
-                    push_notifications: updatedUser.push_notifications,
-                });
-                Alert.alert('Success', 'Notification settings updated!');
-            })
-            .catch((err) => {
-                logger.error('Update error:', err);
-                Alert.alert('Error', 'Failed to update notifications.');
             });
+            
+            if (updatedUser) {
+                Alert.alert('Success', 'Notification settings updated!');
+                
+                // Update local state with the response
+                setTextNotifications(updatedUser.text_notifications ?? textNotifications);
+                setEmailNotifications(updatedUser.email_notifications ?? emailNotifications);
+                setPushNotifications(updatedUser.push_notifications ?? pushNotifications);
+            } else {
+                Alert.alert('Error', 'Failed to update notifications.');
+            }
+        } catch (err) {
+            logger.error('Update error:', err);
+            Alert.alert('Error', 'Failed to update notifications.');
+        }
     };
 
     const handleSaveAvatar = (selectedAvatar) => {
@@ -389,7 +311,7 @@ export default function ProfileScreen() {
 
             {/* Account Actions */}
             <View style={styles.section}>
-                <Text style={styles.subtitle}>Account Actions</Text>
+                <Text style={styles.headerSubtitle}>Account Actions</Text>
                 <View style={styles.buttonGroup}>
                     <TouchableOpacity style={styles.deleteButton} onPress={handleDelete}>
                         <Text style={styles.buttonText}>Delete Account</Text>

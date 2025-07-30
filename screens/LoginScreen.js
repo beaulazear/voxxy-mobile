@@ -121,25 +121,40 @@ export default function LoginScreen() {
               </Text>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              onPress={() => navigation.navigate('SignUp')}
-              style={styles.linkRow}
-            >
-              <Text style={styles.linkText}>
-                New here? <Text style={styles.linkAction}>Sign up</Text>
-              </Text>
-            </TouchableOpacity>
+            <View style={styles.linksContainer}>
+              <TouchableOpacity
+                onPress={() => navigation.navigate('SignUp')}
+                style={styles.linkButton}
+              >
+                <Text style={styles.linkText}>
+                  New here? <Text style={styles.linkAction}>Sign up</Text>
+                </Text>
+              </TouchableOpacity>
 
-            <TouchableOpacity
-              onPress={() =>
-                Linking.openURL('https://www.voxxyai.com/#/forgot-password')
-              }
-              style={styles.linkRow}
-            >
-              <Text style={styles.linkText}>
-                <Text style={styles.linkAction}>Forgot Password?</Text>
-              </Text>
-            </TouchableOpacity>
+              <View style={styles.bottomLinks}>
+                <TouchableOpacity
+                  onPress={() =>
+                    Linking.openURL('https://www.voxxyai.com/#/forgot-password')
+                  }
+                  style={styles.linkButton}
+                >
+                  <Text style={styles.linkTextSmall}>
+                    <Text style={styles.linkAction}>Forgot Password?</Text>
+                  </Text>
+                </TouchableOpacity>
+
+                <Text style={styles.linkSeparator}>•</Text>
+
+                <TouchableOpacity
+                  onPress={() => navigation.navigate('/')}
+                  style={styles.linkButton}
+                >
+                  <Text style={styles.linkTextSmall}>
+                    <Text style={styles.linkAction}>Back to Landing</Text>
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
           </View>
         </View>
       </TouchableWithoutFeedback>
@@ -198,17 +213,35 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  linkRow: {
-    marginTop: 16,
+  linksContainer: {
+    marginTop: 20,
+  },
+  linkButton: {
     alignItems: 'center',
+    paddingVertical: 8,
   },
   linkText: {
     color: '#888',
     fontSize: 14,
   },
+  linkTextSmall: {
+    color: '#888',
+    fontSize: 13,
+  },
   linkAction: {
     color: '#cc31e8',
     textDecorationLine: 'underline',
     fontWeight: '500',
+  },
+  bottomLinks: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 12,
+  },
+  linkSeparator: {
+    color: '#666',
+    marginHorizontal: 12,
+    fontSize: 12,
   },
 });

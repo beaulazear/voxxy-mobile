@@ -34,6 +34,12 @@ export default function LandingScreen() {
                 >
                     <Text style={styles.bigButtonText}>Create New Account</Text>
                 </TouchableOpacity>
+                <TouchableOpacity
+                    style={[styles.bigButton, styles.tryVoxxyButton]}
+                    onPress={() => navigation.navigate('TryVoxxy')}
+                >
+                    <Text style={styles.bigButtonText}>Try Voxxy Now</Text>
+                </TouchableOpacity>
             </View>
         </SafeAreaView>
     );
@@ -73,6 +79,9 @@ const styles = StyleSheet.create({
     },
     signUpButton: {
         backgroundColor: '#592566',
+    },
+    tryVoxxyButton: {
+        backgroundColor: '#4a90e2',
     },
     bigButtonText: {
         color: '#fff',

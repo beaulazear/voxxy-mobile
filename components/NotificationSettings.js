@@ -3,6 +3,7 @@ import React, { useContext, useState } from 'react';
 import { View, Text, Switch, StyleSheet, Alert } from 'react-native';
 import { UserContext } from '../context/UserContext';
 import { logger } from '../utils/logger';
+import { API_URL } from '../config';
 
 const NotificationSettings = () => {
     const { user, updateUser } = useContext(UserContext);
@@ -15,7 +16,7 @@ const NotificationSettings = () => {
 
         try {
             // Update on backend first
-            const response = await fetch(`YOUR_API_ENDPOINT/users/${user.id}`, {
+            const response = await fetch(`${API_URL}/users/${user.id}`, {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',

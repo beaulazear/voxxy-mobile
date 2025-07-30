@@ -11,41 +11,13 @@ import {
 } from 'react-native'
 import { UserContext } from '../context/UserContext'
 import { useNavigation } from '@react-navigation/native'
-import { X } from 'react-native-feather'
+import { X } from 'lucide-react-native'
 import StartNewAdventure from '../components/StartNewAdventure'
 import LetsEatChat from '../components/LetsEatChat'
 import CocktailsChat from '../components/CocktailsChat'
 import GameNightChat from '../components/GameNightChat'
-import LetsMeetChat from '../components/LetsMeetChat'
 import { logger } from '../utils/logger';
 
-function MeetingForm({ visible, onClose }) {
-    return (
-        <Modal
-            visible={visible}
-            animationType="slide"
-            presentationStyle="fullScreen"
-            onRequestClose={onClose}
-        >
-            <SafeAreaView style={styles.modalContainer}>
-                <View style={styles.modalHeader}>
-                    <Text style={styles.modalTitle}>Create Meeting Activity</Text>
-                    <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                        <X stroke="#fff" width={24} height={24} />
-                    </TouchableOpacity>
-                </View>
-                <View style={styles.modalContent}>
-                    <Text style={styles.placeholderText}>
-                        LetsMeetForm Component Placeholder
-                    </Text>
-                    <Text style={styles.placeholderSubtext}>
-                        This will be replaced with your actual LetsMeetForm component
-                    </Text>
-                </View>
-            </SafeAreaView>
-        </Modal>
-    )
-}
 
 function LoadingScreen() {
     return (
@@ -64,19 +36,16 @@ export default function TripDashboard() {
         logger.debug(`🎯 Selected trip: ${tripName}`)
 
         switch (tripName) {
-            case 'Lets Eat':
+            case 'Food':
                 setSelectedTrip('Restaurant')
                 break
-            case 'Lets Meet':
-                setSelectedTrip('Meeting')
-                break
-            case 'Night Out':
+            case 'Drinks':
                 setSelectedTrip('Night Out')
                 break
             case 'Game Night':
                 setSelectedTrip('Game Night')
                 break
-            case 'Find a Destination':
+            case 'Destination':
                 Alert.alert(
                     'Coming Soon!',
                     'This feature is currently in development and will be available soon.',
@@ -124,11 +93,6 @@ export default function TripDashboard() {
                 onClose={handleFormClose}
             />
 
-            <LetsMeetChat
-                visible={selectedTrip === 'Meeting'}
-                onClose={handleFormClose}
-            />
-
             <CocktailsChat
                 visible={selectedTrip === 'Night Out'}
                 onClose={handleFormClose}
@@ -163,57 +127,4 @@ const styles = StyleSheet.create({
         fontFamily: 'Montserrat_700Bold',
     },
 
-    // Modal Styles
-    modalContainer: {
-        flex: 1,
-        backgroundColor: '#201925',
-    },
-
-    modalHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: 20,
-        borderBottomWidth: 1,
-        borderBottomColor: 'rgba(64, 51, 71, 0.3)',
-    },
-
-    modalTitle: {
-        fontSize: 20,
-        fontWeight: '700',
-        color: '#fff',
-        fontFamily: 'Montserrat_700Bold',
-    },
-
-    closeButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 12,
-        backgroundColor: 'rgba(255, 255, 255, 0.1)',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-
-    modalContent: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: 40,
-    },
-
-    placeholderText: {
-        fontSize: 18,
-        fontWeight: '600',
-        color: '#fff',
-        textAlign: 'center',
-        marginBottom: 16,
-    },
-
-    placeholderSubtext: {
-        fontSize: 14,
-        color: '#ccc',
-        textAlign: 'center',
-        lineHeight: 20,
-        fontStyle: 'italic',
-    },
 })

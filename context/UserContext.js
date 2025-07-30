@@ -5,6 +5,7 @@ import { Platform } from 'react-native';
 import { API_URL } from '../config';
 import PushNotificationService from '../services/PushNotificationService';
 import { logger } from '../utils/logger';
+import notificationDebugger from '../utils/notificationDebugger';
 
 export const UserContext = createContext();
 
@@ -72,22 +73,21 @@ export const UserProvider = ({ children }) => {
   // Send push token to your backend
   const sendPushTokenToBackend = async (pushToken, userId, authToken) => {
     try {
-      const response = await fetch(`${API_URL}/users/${userId}/update_push_token`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken}`,
-        },
-        body: JSON.stringify({
-          push_token: pushToken,
-          platform: Platform.OS,
-        }),
-      });
+      const url = `${API_URL}/users/${userId}/update_push_token`;
+      const response = await notificationDebugger.debugBackendSync(
+        url, 
+        userId, 
+        pushToken, 
+        authToken
+      );
 
       if (response.ok) {
         logger.debug('Push token sent to backend successfully');
       } else {
-        logger.error('Failed to send push token to backend');
+        logger.error('Failed to send push token to backend:', {
+          status: response.status,
+          statusText: response.statusText
+        });
       }
     } catch (error) {
       logger.error('Error sending push token to backend:', error);

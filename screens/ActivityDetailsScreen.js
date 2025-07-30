@@ -158,8 +158,8 @@ export default function ActivityDetailsScreen({ route }) {
         if (activity) {
             setCurrentActivity(activity)
 
-            // Fetch pinned activities for restaurants
-            if (activity.activity_type === 'Restaurant') {
+            // Fetch pinned activities for activity types that use them (Restaurant, Cocktails, Game Night)
+            if (['Restaurant', 'Cocktails', 'Game Night'].includes(activity.activity_type)) {
                 logger.debug(`🍽️ Fetching pinned activities for activity ${activityId}`)
                 setLoadingPinned(true)
                 fetch(`${API_URL}/activities/${activityId}/pinned_activities`, {
@@ -179,11 +179,14 @@ export default function ActivityDetailsScreen({ route }) {
                     })
                     .catch((err) => {
                         logger.error('❌ Error fetching pinned activities:', err)
-                        Alert.alert(
-                            'Network Error',
-                            'Unable to load restaurant suggestions. Please check your connection and try again.',
-                            [{ text: 'OK' }]
-                        )
+                        // Only show error for non-finalized activities since finalized might not have pinned activities to fetch
+                        if (!activity.finalized) {
+                            Alert.alert(
+                                'Network Error',
+                                'Unable to load restaurant suggestions. Please check your connection and try again.',
+                                [{ text: 'OK' }]
+                            )
+                        }
                     })
                     .finally(() => {
                         setLoadingPinned(false)

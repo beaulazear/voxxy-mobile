@@ -182,15 +182,26 @@ export default function SignUpScreen() {
                     </TouchableOpacity>
 
                     {step === 0 && (
-                        <TouchableOpacity
-                            style={styles.loginLink}
-                            onPress={() => navigation.navigate('Login', { from: 'SignUp' })}
-                        >
-                            <Text style={styles.loginText}>
-                                Remember your account?{' '}
-                                <Text style={styles.textLinkAction}>Log in</Text>
-                            </Text>
-                        </TouchableOpacity>
+                        <View style={styles.linksContainer}>
+                            <TouchableOpacity
+                                style={styles.linkButton}
+                                onPress={() => navigation.navigate('Login', { from: 'SignUp' })}
+                            >
+                                <Text style={styles.loginText}>
+                                    Remember your account?{' '}
+                                    <Text style={styles.textLinkAction}>Log in</Text>
+                                </Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={styles.backLinkButton}
+                                onPress={() => navigation.navigate('/')}
+                            >
+                                <Text style={styles.backLinkText}>
+                                    <Text style={styles.textLinkAction}>← Back to Landing</Text>
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
                     )}
 
                     {isLast && (
@@ -256,8 +267,18 @@ const styles = StyleSheet.create({
         opacity: 0.5,
     },
     nextText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-    loginLink: { marginBottom: 16 },
+    linksContainer: { marginTop: 8 },
+    linkButton: { 
+        alignItems: 'center', 
+        paddingVertical: 8,
+        marginBottom: 8,
+    },
+    backLinkButton: { 
+        alignItems: 'center', 
+        paddingVertical: 6,
+    },
     loginText: { fontSize: 14, color: '#ccc', textAlign: 'center' },
+    backLinkText: { fontSize: 13, color: '#aaa', textAlign: 'center' },
     textLinkAction: { color: '#cc31e8', fontWeight: '500' },
     legalText: {
         fontSize: 14,

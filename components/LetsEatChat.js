@@ -25,8 +25,7 @@ import {
     Clock,
     MessageSquare,
     Edit3
-} from 'react-native-feather'
-import Slider from '@react-native-community/slider'
+} from 'lucide-react-native'
 import * as Location from 'expo-location'
 import { API_URL } from '../config'
 import { logger } from '../utils/logger';
@@ -44,7 +43,7 @@ export default function LetsEatChat({ visible, onClose }) {
     const [coords, setCoords] = useState(null)
     const [isLocating, setIsLocating] = useState(false)
     const [currentLocationUsed, setCurrentLocationUsed] = useState(false)
-    const [radius, setRadius] = useState(10)
+    const [radius] = useState(10)
 
     // Step 2: Group Size
     const [groupSize, setGroupSize] = useState('')
@@ -59,7 +58,7 @@ export default function LetsEatChat({ visible, onClose }) {
     const headers = [
         {
             title: 'Where to meet?',
-            subtitle: 'City/neighborhood or use current, then choose radius.',
+            subtitle: 'City/neighborhood or use current location.'
         },
         {
             title: 'How large is your group?',
@@ -282,7 +281,7 @@ export default function LetsEatChat({ visible, onClose }) {
                             onPress={useCurrentLocation}
                             disabled={isLocating || currentLocationUsed}
                         >
-                            <MapPin stroke="#cc31e8" width={16} height={16} />
+                            <MapPin color="#cc31e8" size={16} />
                             <Text style={FormStyles.useLocationButtonText}>
                                 {currentLocationUsed
                                     ? 'Using current location'
@@ -292,23 +291,6 @@ export default function LetsEatChat({ visible, onClose }) {
                             </Text>
                         </TouchableOpacity>
 
-                        <Text style={FormStyles.rangeLabel}>
-                            Search Radius: {radius} miles
-                        </Text>
-                        <View style={FormStyles.sliderContainer}>
-                            <Slider
-                                style={FormStyles.slider}
-                                minimumValue={1}
-                                maximumValue={50}
-                                value={radius}
-                                onValueChange={setRadius}
-                                step={1}
-                                minimumTrackTintColor="#cc31e8"
-                                maximumTrackTintColor="rgba(255, 255, 255, 0.1)"
-                                thumbStyle={{ backgroundColor: '#cc31e8' }}
-                            />
-                        </View>
-                        <Text style={FormStyles.rangeValue}>{radius} miles</Text>
                     </View>
                 )
 
