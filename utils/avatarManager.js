@@ -1,42 +1,17 @@
 import { Image } from 'react-native';
 import { logger } from './logger';
 
-// Centralized avatar map - loaded once, shared everywhere
+// Only keeping Weird5.jpg as the default avatar
 const avatarMap = {
-    // Avatar series
-    'Avatar1.jpg': require('../assets/Avatar1.jpg'),
-    'Avatar2.jpg': require('../assets/Avatar2.jpg'),
-    'Avatar3.jpg': require('../assets/Avatar3.jpg'),
-    'Avatar4.jpg': require('../assets/Avatar4.jpg'),
-    'Avatar5.jpg': require('../assets/Avatar5.jpg'),
-    'Avatar6.jpg': require('../assets/Avatar6.jpg'),
-    'Avatar7.jpg': require('../assets/Avatar7.jpg'),
-    'Avatar8.jpg': require('../assets/Avatar8.jpg'),
-    'Avatar9.jpg': require('../assets/Avatar9.jpg'),
-    'Avatar10.jpg': require('../assets/Avatar10.jpg'),
-    'Avatar11.jpg': require('../assets/Avatar11.jpg'),
-    
-    // Weird series
-    'Weird1.jpg': require('../assets/Weird1.jpg'),
-    'Weird2.jpg': require('../assets/Weird2.jpg'),
-    'Weird3.jpg': require('../assets/Weird3.jpg'),
-    'Weird4.jpg': require('../assets/Weird4.jpg'),
     'Weird5.jpg': require('../assets/Weird5.jpg'),
 };
 
 // Cache for prefetched images
 const imageCache = new Map();
 
-// Get avatar source
+// Get avatar source - now only returns the default Weird5.jpg
 export const getAvatarSource = (filename) => {
-    if (!filename) return avatarMap['Avatar1.jpg'];
-    
-    // Extract filename if it includes path
-    const avatarFilename = filename.includes('/') 
-        ? filename.split('/').pop() 
-        : filename;
-    
-    return avatarMap[avatarFilename] || avatarMap['Avatar1.jpg'];
+    return avatarMap['Weird5.jpg'];
 };
 
 // Prefetch images to prevent loading delays
@@ -78,5 +53,5 @@ export const getUserDisplayImage = (userObj, API_URL) => {
     }
     
     // Default avatar
-    return avatarMap['Avatar1.jpg'];
+    return avatarMap['Weird5.jpg'];
 };

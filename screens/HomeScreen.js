@@ -133,6 +133,10 @@ function CountdownText({ targetTs, activityType }) {
           <Text style={styles.countdownNumber}>{countdown.mins}</Text>
           <Text style={styles.countdownUnit}>min</Text>
         </View>
+        <View style={styles.countdownBlock}>
+          <Text style={styles.countdownNumber}>{countdown.secs}</Text>
+          <Text style={styles.countdownUnit}>sec</Text>
+        </View>
       </View>
     </View>
   )
@@ -471,19 +475,6 @@ export default function HomeScreen() {
     <>
       <View style={{ height: 300 }} />
       
-      {/* Dynamic Header */}
-      <View style={styles.dynamicHeaderContainer}>
-        <Text style={styles.dynamicHeaderTitle}>
-          {mainTab === 'Activities' ? 'Activities' : 'Community'}
-        </Text>
-        <Text style={styles.dynamicHeaderSubtitle}>
-          {mainTab === 'Activities' 
-            ? 'Your planned adventures and experiences'
-            : 'Your Voxxy crew and activity partners'
-          }
-        </Text>
-      </View>
-
       {/* Main Tab Bar */}
       <View style={styles.mainTabContainer}>
         <View style={styles.mainTabBar}>
@@ -575,8 +566,8 @@ export default function HomeScreen() {
                         >
                           <IconComponent
                             stroke={isActive ? '#fff' : '#B8A5C4'}
-                            width={14}
-                            height={14}
+                            width={16}
+                            height={16}
                             strokeWidth={isActive ? 2.5 : 2}
                           />
                           {filterItem.key === 'Invites' && count > 0 && (
@@ -722,34 +713,6 @@ const styles = StyleSheet.create({
     paddingVertical: CARD_MARGIN,
   },
 
-  // Dynamic Header Styles (above tabs)
-  dynamicHeaderContainer: {
-    paddingHorizontal: 24,
-    paddingTop: 2,
-    paddingBottom: 12,
-    alignItems: 'center',
-  },
-
-  dynamicHeaderTitle: {
-    color: '#fff',
-    fontSize: 24,
-    fontWeight: '700',
-    textAlign: 'center',
-    marginBottom: 8,
-    fontFamily: 'Montserrat_700Bold',
-    letterSpacing: 0.5,
-  },
-
-  dynamicHeaderSubtitle: {
-    color: '#B8A5C4',
-    fontSize: 15,
-    fontWeight: '500',
-    textAlign: 'center',
-    lineHeight: 20,
-    opacity: 0.9,
-  },
-
-
   horizontalGrid: {
     paddingHorizontal: CARD_MARGIN,
     paddingTop: 8,
@@ -759,7 +722,7 @@ const styles = StyleSheet.create({
   activitiesWithFilters: {
     flexDirection: 'row',
     alignItems: 'stretch',
-    minHeight: 180, // Match card height
+    minHeight: 200, // Match card height
   },
 
   // Side filter buttons
@@ -772,9 +735,9 @@ const styles = StyleSheet.create({
   },
 
   sideFilterButton: {
-    width: 28,
-    height: 26,
-    borderRadius: 6,
+    width: 36,
+    height: 36,
+    borderRadius: 8,
     backgroundColor: 'rgba(42, 30, 46, 0.6)',
     borderWidth: 1,
     borderColor: 'rgba(185, 84, 236, 0.2)',
@@ -814,9 +777,9 @@ const styles = StyleSheet.create({
   },
 
   sideCreateButton: {
-    width: 28,
-    height: 26,
-    borderRadius: 6,
+    width: 36,
+    height: 36,
+    borderRadius: 8,
     backgroundColor: 'rgba(78, 205, 196, 0.1)',
     borderWidth: 1,
     borderColor: 'rgba(78, 205, 196, 0.3)',
@@ -836,7 +799,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 32,
     paddingVertical: 20,
-    minHeight: 180, // Match card height
+    minHeight: 200, // Match card height
   },
 
   sideEmptyIcon: {
@@ -966,8 +929,8 @@ const styles = StyleSheet.create({
 
   // Create Card Styles
   createCard: {
-    width: 160,
-    height: 180,
+    width: 180,
+    height: 200,
     marginRight: 16,
     backgroundColor: 'rgba(42, 30, 46, 0.6)',
     borderRadius: 20,
@@ -1108,8 +1071,8 @@ const styles = StyleSheet.create({
   },
 
   card: {
-    width: 160,
-    height: 180,
+    width: 180,
+    height: 200,
     marginRight: 16,
     backgroundColor: 'rgba(42, 30, 46, 0.95)',
     borderRadius: 20,

@@ -75,10 +75,13 @@ const CommentsSection = ({ activity }) => {
     const [lastUpdateTime, setLastUpdateTime] = useState(() => {
         const existingComments = activity.comments || [];
         if (existingComments.length > 0) {
-            // Use the most recent comment's timestamp
-            return existingComments[existingComments.length - 1].created_at;
+            // Use the most recent comment's timestamp, but check if it exists and has created_at
+            const lastComment = existingComments[existingComments.length - 1];
+            if (lastComment && lastComment.created_at) {
+                return lastComment.created_at;
+            }
         }
-        // If no comments, use a time 1 hour ago to catch any new ones
+        // If no comments or no valid timestamp, use a time 1 hour ago to catch any new ones
         return new Date(Date.now() - 60 * 60 * 1000).toISOString();
     });
 
@@ -245,6 +248,7 @@ const CommentsSection = ({ activity }) => {
         return () => clearTimeout(timer);
     }, []);
 
+
     // Post a new comment
     const handleCommentSubmit = async () => {
         if (!newComment.trim()) return;
@@ -402,6 +406,7 @@ const CommentsSection = ({ activity }) => {
                             scrollViewRef.current.scrollToEnd({ animated: true });
                         }
                     }}
+                    keyboardShouldPersistTaps="handled"
                 >
                     {comments.length === 0 && (
                         <View style={styles.emptyState}>
@@ -424,7 +429,7 @@ const CommentsSection = ({ activity }) => {
                     <TextInput
                         style={styles.input}
                         placeholder="Type a message…"
-                        placeholderTextColor="#aaa"
+                        placeholderTextColor="#cbd5e1"
                         value={newComment}
                         onChangeText={setNewComment}
                         onSubmitEditing={handleCommentSubmit}
@@ -432,6 +437,14 @@ const CommentsSection = ({ activity }) => {
                         maxLength={500}
                         returnKeyType="send"
                         blurOnSubmit={false}
+                        onFocus={() => {
+                            // Scroll to bottom when input is focused
+                            setTimeout(() => {
+                                if (scrollViewRef.current) {
+                                    scrollViewRef.current.scrollToEnd({ animated: true });
+                                }
+                            }, 100);
+                        }}
                     />
                     <TouchableOpacity
                         style={[
@@ -481,30 +494,21 @@ const styles = StyleSheet.create({
         paddingVertical: 16,
     },
     chatPanel: {
-        backgroundColor: 'rgba(42, 30, 46, 0.95)',
-        borderRadius: 24,
+        backgroundColor: 'rgba(255, 255, 255, 0.03)',
+        borderRadius: 16,
         borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.1)',
+        borderColor: 'rgba(64, 51, 71, 0.3)',
         overflow: 'hidden',
         maxWidth: 650,
         alignSelf: 'center',
         width: '100%',
-        // Add subtle shadow
-        shadowColor: '#000',
-        shadowOffset: {
-            width: 0,
-            height: 4,
-        },
-        shadowOpacity: 0.3,
-        shadowRadius: 12,
-        elevation: 8,
     },
     header: {
-        paddingHorizontal: 24,
-        paddingTop: 20,
-        paddingBottom: 16,
+        paddingHorizontal: 20,
+        paddingTop: 16,
+        paddingBottom: 12,
         borderBottomWidth: 1,
-        borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+        borderBottomColor: 'rgba(64, 51, 71, 0.3)',
     },
     headerContent: {
         flexDirection: 'row',
@@ -550,8 +554,8 @@ const styles = StyleSheet.create({
         minHeight: 200,
     },
     messagesContent: {
-        paddingHorizontal: 24,
-        paddingVertical: 20,
+        paddingHorizontal: 20,
+        paddingVertical: 16,
         flexGrow: 1,
     },
     emptyState: {
@@ -561,22 +565,22 @@ const styles = StyleSheet.create({
         paddingVertical: 40,
     },
     emptyStateText: {
-        color: '#999',
+        color: '#e2e8f0',
         fontSize: 14,
         fontStyle: 'italic',
     },
     dateSeparator: {
         alignSelf: 'center',
-        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        backgroundColor: 'rgba(255, 255, 255, 0.03)',
         paddingHorizontal: 16,
         paddingVertical: 6,
         borderRadius: 16,
         borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.1)',
+        borderColor: 'rgba(64, 51, 71, 0.3)',
         marginVertical: 16,
     },
     dateSeparatorText: {
-        color: '#ccc',
+        color: '#ffffff',
         fontSize: 12,
         fontWeight: '500',
     },
@@ -602,7 +606,7 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(255, 255, 255, 0.1)', // Fallback background
     },
     userName: {
-        color: '#ccc',
+        color: '#e2e8f0',
         fontSize: 11,
         fontWeight: '500',
         textAlign: 'center',
@@ -629,9 +633,9 @@ const styles = StyleSheet.create({
         borderBottomRightRadius: 6,
     },
     bubbleOther: {
-        backgroundColor: 'rgba(255, 255, 255, 0.08)',
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
         borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.1)',
+        borderColor: 'rgba(64, 51, 71, 0.3)',
         borderBottomLeftRadius: 6,
     },
     newMessageBubble: {
@@ -672,23 +676,23 @@ const styles = StyleSheet.create({
         textAlign: 'right',
     },
     timestampOther: {
-        color: '#999',
+        color: '#e2e8f0',
         textAlign: 'left',
     },
     composer: {
         flexDirection: 'row',
-        paddingHorizontal: 24,
-        paddingVertical: 20,
+        paddingHorizontal: 20,
+        paddingVertical: 16,
         borderTopWidth: 1,
-        borderTopColor: 'rgba(255, 255, 255, 0.1)',
-        backgroundColor: 'rgba(255, 255, 255, 0.02)',
+        borderTopColor: 'rgba(64, 51, 71, 0.3)',
+        backgroundColor: 'transparent',
         alignItems: 'flex-end',
     },
     input: {
         flex: 1,
-        backgroundColor: 'rgba(255, 255, 255, 0.05)',
-        borderWidth: 2,
-        borderColor: 'rgba(255, 255, 255, 0.1)',
+        backgroundColor: 'rgba(255, 255, 255, 0.03)',
+        borderWidth: 1,
+        borderColor: 'rgba(64, 51, 71, 0.3)',
         borderRadius: 12,
         paddingHorizontal: 16,
         paddingVertical: 12,
@@ -722,9 +726,9 @@ const styles = StyleSheet.create({
         elevation: 4,
     },
     sendButtonDisabled: {
-        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        backgroundColor: 'rgba(255, 255, 255, 0.03)',
         borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.1)',
+        borderColor: 'rgba(64, 51, 71, 0.3)',
     },
     // Toast notification styles
     toastContainer: {
@@ -736,7 +740,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     toast: {
-        backgroundColor: 'rgba(42, 30, 46, 0.98)',
+        backgroundColor: 'rgba(255, 255, 255, 0.03)',
         borderRadius: 16,
         padding: 16,
         flexDirection: 'row',

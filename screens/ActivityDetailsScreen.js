@@ -11,11 +11,15 @@ import {
     Animated,
     Alert,
     ActivityIndicator,
+    KeyboardAvoidingView,
+    Platform,
+    Keyboard,
 } from 'react-native'
+import { LinearGradient } from 'expo-linear-gradient'
 import { UserContext } from '../context/UserContext'
 import { useNavigation } from '@react-navigation/native'
 import { ArrowLeft, X } from 'react-native-feather'
-import ActivityHeader from '../components/ActivityHeader'
+import ActivityHeader, { ActivityStickyHeader } from '../components/ActivityHeader'
 import ParticipantsSection from '../components/ParticipantsSection'
 import AIRecommendations from '../components/AIRecommendations'
 import CommentsSection from '../components/CommentsSection'
@@ -26,13 +30,13 @@ import { logger } from '../utils/logger';
 
 const adventures = [
     {
-        name: 'Lets Eat',
+        name: 'Food',
         emoji: '🍜',
         active: true,
         description: 'Schedule your next group meal together.'
     },
     {
-        name: 'Night Out',
+        name: 'Drinks',
         emoji: '🍸',
         active: true,
         description: 'Plan your perfect night out with friends.'
@@ -86,10 +90,6 @@ export default function ActivityDetailsScreen({ route }) {
     const { user, setUser } = useContext(UserContext)
     const navigation = useNavigation()
 
-    // Animation values for background
-    const backgroundAnim = useRef(new Animated.Value(0)).current
-    const smokeAnim1 = useRef(new Animated.Value(0)).current
-    const smokeAnim2 = useRef(new Animated.Value(0)).current
 
     // State
     const [currentActivity, setCurrentActivity] = useState(null)
@@ -97,6 +97,9 @@ export default function ActivityDetailsScreen({ route }) {
     const [showUpdateModal, setShowUpdateModal] = useState(false)
     const [showFinalizeModal, setShowFinalizeModal] = useState(false)
     const [pinnedActivities, setPinnedActivities] = useState([])
+    
+    // Refs
+    const scrollViewRef = useRef(null)
     const [pinned, setPinned] = useState([])
     const [loadingPinned, setLoadingPinned] = useState(false)
     const [loadingTimeSlots, setLoadingTimeSlots] = useState(false)
@@ -112,42 +115,6 @@ export default function ActivityDetailsScreen({ route }) {
         p => p.activity.id === activityId && !p.accepted
     )
 
-    useEffect(() => {
-        // Start background animations
-        const backgroundAnimation = Animated.loop(
-            Animated.timing(backgroundAnim, {
-                toValue: 1,
-                duration: 25000,
-                useNativeDriver: false,
-            })
-        )
-
-        const smokeAnimation1 = Animated.loop(
-            Animated.timing(smokeAnim1, {
-                toValue: 1,
-                duration: 40000,
-                useNativeDriver: true,
-            })
-        )
-
-        const smokeAnimation2 = Animated.loop(
-            Animated.timing(smokeAnim2, {
-                toValue: 1,
-                duration: 55000,
-                useNativeDriver: true,
-            })
-        )
-
-        backgroundAnimation.start()
-        smokeAnimation1.start()
-        smokeAnimation2.start()
-
-        return () => {
-            backgroundAnimation.stop()
-            smokeAnimation1.stop()
-            smokeAnimation2.stop()
-        }
-    }, [])
 
     useEffect(() => {
         // Find current activity from user context
@@ -157,10 +124,26 @@ export default function ActivityDetailsScreen({ route }) {
 
         if (activity) {
             setCurrentActivity(activity)
+            
+            logger.debug(`🔍 Activity state - Type: ${activity.activity_type}, Voting: ${activity.voting}, Finalized: ${activity.finalized}`)
+            logger.debug(`🔍 Pinned activities in context: ${activity.pinned_activities?.length || 0}`)
+
+            // Set pinned activities from context data if available
+            if (activity.pinned_activities && activity.pinned_activities.length > 0) {
+                logger.debug('📌 Using pinned activities from context data')
+                setPinnedActivities(activity.pinned_activities)
+            }
 
             // Fetch pinned activities for activity types that use them (Restaurant, Cocktails, Game Night)
-            if (['Restaurant', 'Cocktails', 'Game Night'].includes(activity.activity_type)) {
-                logger.debug(`🍽️ Fetching pinned activities for activity ${activityId}`)
+            // Only fetch if activity is in voting phase or has pinned activities (not during preference collection phase)
+            if (['Restaurant', 'Cocktails', 'Game Night'].includes(activity.activity_type) && (activity.voting || activity.finalized) && (!activity.pinned_activities || activity.pinned_activities.length === 0)) {
+                logger.debug(`🍽️ Fetching pinned activities for activity ${activityId} (voting: ${activity.voting}, finalized: ${activity.finalized})`)
+                
+                if (!token) {
+                    logger.error('❌ No token available for fetching pinned activities')
+                    return
+                }
+                
                 setLoadingPinned(true)
                 fetch(`${API_URL}/activities/${activityId}/pinned_activities`, {
                     headers: {
@@ -170,7 +153,9 @@ export default function ActivityDetailsScreen({ route }) {
                 })
                     .then((res) => {
                         logger.debug(`📊 Pinned activities response status: ${res.status}`)
-                        if (!res.ok) throw new Error('Failed to fetch pinned activities')
+                        if (!res.ok) {
+                            throw new Error(`Failed to fetch pinned activities: ${res.status} ${res.statusText}`)
+                        }
                         return res.json()
                     })
                     .then((data) => {
@@ -179,18 +164,25 @@ export default function ActivityDetailsScreen({ route }) {
                     })
                     .catch((err) => {
                         logger.error('❌ Error fetching pinned activities:', err)
+                        logger.debug(`🔍 Activity details - ID: ${activityId}, Type: ${activity.activity_type}, Finalized: ${activity.finalized}`)
+                        
                         // Only show error for non-finalized activities since finalized might not have pinned activities to fetch
                         if (!activity.finalized) {
+                            logger.debug('📱 Showing error alert for non-finalized activity')
                             Alert.alert(
                                 'Network Error',
-                                'Unable to load restaurant suggestions. Please check your connection and try again.',
+                                'Unable to load recommendations. Please check your connection and try again.',
                                 [{ text: 'OK' }]
                             )
+                        } else {
+                            logger.debug('🤐 Suppressing error alert for finalized activity')
                         }
                     })
                     .finally(() => {
                         setLoadingPinned(false)
                     })
+            } else if (['Restaurant', 'Cocktails', 'Game Night'].includes(activity.activity_type)) {
+                logger.debug(`⏸️ Skipping pinned activities fetch for activity ${activityId} - recommendations not yet generated`)
             }
 
             // Fetch time slots for meetings
@@ -227,6 +219,21 @@ export default function ActivityDetailsScreen({ route }) {
             }
         }
     }, [user, activityId, refreshTrigger, token])
+
+    // Auto-scroll to bottom when keyboard opens
+    useEffect(() => {
+        const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => {
+            setTimeout(() => {
+                if (scrollViewRef.current) {
+                    scrollViewRef.current.scrollToEnd({ animated: true });
+                }
+            }, 100);
+        });
+
+        return () => {
+            keyboardDidShowListener?.remove();
+        };
+    }, []);
 
     const handleAcceptInvite = async () => {
         if (!pendingInvite) return
@@ -310,7 +317,7 @@ export default function ActivityDetailsScreen({ route }) {
     }
 
     const handleBack = () => {
-        navigation.goBack()
+        navigation.navigate('/')
     }
 
     const handleDelete = (id) => {
@@ -332,6 +339,10 @@ export default function ActivityDetailsScreen({ route }) {
         try {
             const response = await fetch(`${API_URL}/activities/${id}`, {
                 method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
                 credentials: 'include',
             })
 
@@ -376,7 +387,10 @@ export default function ActivityDetailsScreen({ route }) {
         try {
             const response = await fetch(`${API_URL}/activity_participants/leave`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${user?.token}`
+                },
                 credentials: 'include',
                 body: JSON.stringify({ activity_id: activityId }),
             })
@@ -536,12 +550,8 @@ export default function ActivityDetailsScreen({ route }) {
     if (!currentActivity) {
         return (
             <SafeAreaView style={styles.safe}>
-                <StatusBar barStyle="light-content" />
-                <AnimatedBackground
-                    backgroundAnim={backgroundAnim}
-                    smokeAnim1={smokeAnim1}
-                    smokeAnim2={smokeAnim2}
-                />
+                <StatusBar backgroundColor="#201925" barStyle="light-content" />
+                
                 <View style={styles.loadingContainer}>
                     <Text style={styles.loadingText}>Loading...</Text>
                 </View>
@@ -549,53 +559,85 @@ export default function ActivityDetailsScreen({ route }) {
         )
     }
 
-    const isOwner = user?.id === currentActivity?.user_id || user?.id === currentActivity?.user?.id
+    // Use loose comparison to handle string/number type differences
+    const isOwner = (user?.id == currentActivity?.user_id) || (user?.id == currentActivity?.user?.id)
+    
+    // Debug logging for owner check
+    console.log('🔍 DEBUG: Owner check in ActivityDetailsScreen');
+    console.log('- user.id:', user?.id, '(type:', typeof user?.id, ')');
+    console.log('- currentActivity.user_id:', currentActivity?.user_id, '(type:', typeof currentActivity?.user_id, ')');
+    console.log('- currentActivity.user?.id:', currentActivity?.user?.id, '(type:', typeof currentActivity?.user?.id, ')');
+    console.log('- currentActivity object keys:', currentActivity ? Object.keys(currentActivity) : 'none');
+    console.log('- currentActivity.user object:', currentActivity?.user);
+    console.log('- isOwner result:', isOwner);
+    console.log('- First check (user.id === currentActivity.user_id):', user?.id === currentActivity?.user_id);
+    console.log('- Second check (user.id === currentActivity.user?.id):', user?.id === currentActivity?.user?.id);
 
     return (
         <SafeAreaView style={styles.safe}>
-            <StatusBar barStyle="light-content" />
-
-            <AnimatedBackground
-                backgroundAnim={backgroundAnim}
-                smokeAnim1={smokeAnim1}
-                smokeAnim2={smokeAnim2}
-            />
-
-            <ScrollView
-                style={styles.container}
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.contentContainer}
+            <StatusBar backgroundColor="#201925" barStyle="light-content" />
+            
+            <KeyboardAvoidingView 
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                style={styles.keyboardAvoidingView}
             >
-                <ActivityHeader
-                    activity={currentActivity}
-                    isOwner={isOwner}
-                    onBack={handleBack}
-                    onEdit={() => setShowUpdateModal(true)}
-                    onFinalize={handleFinalize}
-                />
+                <ScrollView
+                    ref={scrollViewRef}
+                    style={styles.scrollView}
+                    showsVerticalScrollIndicator={false}
+                    contentContainerStyle={styles.contentContainer}
+                    stickyHeaderIndices={[0]}
+                    keyboardShouldPersistTaps="handled"
+                >
+                    {/* Sticky header - only the top buttons */}
+                    <View>
+                        <ActivityStickyHeader
+                            activity={currentActivity}
+                            isOwner={isOwner}
+                            onBack={handleBack}
+                            onEdit={() => setShowUpdateModal(true)}
+                            onDelete={() => handleDelete(currentActivity.id)}
+                            onLeave={handleLeaveActivity}
+                        />
+                    </View>
 
-                <View style={[styles.contentSection, pendingInvite && styles.blurred]}>
-                    <ParticipantsSection
+                    {/* Main header content that scrolls */}
+                    <ActivityHeader
                         activity={currentActivity}
-                        votes={currentActivity.activity_type === 'Meeting' ? pinned : pinnedActivities}
                         isOwner={isOwner}
-                        onInvite={handleInvite}
-                        onRemoveParticipant={handleRemoveParticipant}
+                        onBack={handleBack}
+                        onEdit={() => setShowUpdateModal(true)}
+                        onFinalize={handleFinalize}
+                        onActivityUpdate={(updatedActivity) => {
+                            setCurrentActivity(updatedActivity)
+                            setRefreshTrigger(prev => !prev)
+                        }}
                     />
 
-                    <AIRecommendations
-                        activity={currentActivity}
-                        pinnedActivities={pinnedActivities}
-                        setPinnedActivities={setPinnedActivities}
-                        setPinned={setPinned}
-                        setRefreshTrigger={setRefreshTrigger}
-                        isOwner={isOwner}
-                        onEdit={() => handleFinalize()}
-                    />
+                    <View style={[styles.contentSection, pendingInvite && styles.blurred]}>
+                        {console.log('🔍 DEBUG: Passing isOwner to AIRecommendations:', isOwner)}
+                        <AIRecommendations
+                            activity={currentActivity}
+                            pinnedActivities={pinnedActivities}
+                            setPinnedActivities={setPinnedActivities}
+                            setPinned={setPinned}
+                            setRefreshTrigger={setRefreshTrigger}
+                            isOwner={isOwner}
+                            onEdit={() => handleFinalize()}
+                        />
 
-                    <CommentsSection activity={currentActivity} />
-                </View>
-            </ScrollView>
+                        <ParticipantsSection
+                            activity={currentActivity}
+                            votes={currentActivity.activity_type === 'Meeting' ? pinned : pinnedActivities}
+                            isOwner={isOwner}
+                            onInvite={handleInvite}
+                            onRemoveParticipant={handleRemoveParticipant}
+                        />
+
+                        <CommentsSection activity={currentActivity} />
+                    </View>
+                </ScrollView>
+            </KeyboardAvoidingView>
 
             {/* Pending Invite Overlay */}
             {pendingInvite && (
@@ -660,51 +702,6 @@ export default function ActivityDetailsScreen({ route }) {
     )
 }
 
-function AnimatedBackground({ backgroundAnim, smokeAnim1, smokeAnim2 }) {
-    return (
-        <View style={styles.backgroundContainer}>
-            <Animated.View style={styles.background} />
-
-            <Animated.View
-                style={[
-                    styles.smokeLayer1,
-                    {
-                        transform: [{
-                            translateX: smokeAnim1.interpolate({
-                                inputRange: [0, 0.5, 1],
-                                outputRange: [-20, 20, -20],
-                            }),
-                        }, {
-                            translateY: smokeAnim1.interpolate({
-                                inputRange: [0, 0.5, 1],
-                                outputRange: [-20, 20, -20],
-                            }),
-                        }],
-                    }
-                ]}
-            />
-
-            <Animated.View
-                style={[
-                    styles.smokeLayer2,
-                    {
-                        transform: [{
-                            translateX: smokeAnim2.interpolate({
-                                inputRange: [0, 0.5, 1],
-                                outputRange: [20, -20, 20],
-                            }),
-                        }, {
-                            translateY: smokeAnim2.interpolate({
-                                inputRange: [0, 0.5, 1],
-                                outputRange: [-20, 20, -20],
-                            }),
-                        }],
-                    }
-                ]}
-            />
-        </View>
-    )
-}
 
 function InvitePromptOverlay({ activity, onAccept, onDecline, onClose }) {
     const activityDetails = getActivityDetails(activity.activity_type);
@@ -729,7 +726,7 @@ function InvitePromptOverlay({ activity, onAccept, onDecline, onClose }) {
                     </Text>
 
                     <Text style={styles.funMessage}>
-                        Have fun with the {activityDetails.emoji}
+                        Have fun!
                     </Text>
 
                     <View style={styles.inviteButtons}>
@@ -753,48 +750,17 @@ const styles = StyleSheet.create({
         backgroundColor: '#201925',
     },
 
-    container: {
+    keyboardAvoidingView: {
+        flex: 1,
+    },
+
+    scrollView: {
         flex: 1,
     },
 
     contentContainer: {
         paddingBottom: 20,
         flexGrow: 1,
-    },
-
-    // Background Styles
-    backgroundContainer: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        zIndex: -1,
-    },
-
-    background: {
-        flex: 1,
-        backgroundColor: '#201925',
-    },
-
-    smokeLayer1: {
-        position: 'absolute',
-        top: -100,
-        left: -100,
-        right: -100,
-        bottom: -100,
-        backgroundColor: 'rgba(255, 255, 255, 0.02)',
-        borderRadius: 200,
-    },
-
-    smokeLayer2: {
-        position: 'absolute',
-        top: -150,
-        left: -150,
-        right: -150,
-        bottom: -150,
-        backgroundColor: 'rgba(255, 255, 255, 0.01)',
-        borderRadius: 300,
     },
 
     // Loading Styles

@@ -14,7 +14,9 @@ import {
     ActivityIndicator,
     Linking,
     SafeAreaView,
+    PanResponder,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import Icon from 'react-native-vector-icons/Feather';
 import { UserContext } from '../context/UserContext';
 import { API_URL } from '../config';
@@ -37,6 +39,8 @@ const Icons = {
     Zap: (props) => <Icon name="zap" size={16} color="#667eea" {...props} />,
     Calendar: (props) => <Icon name="calendar" size={16} color="#667eea" {...props} />,
     Star: (props) => <Icon name="star" size={16} color="#667eea" {...props} />,
+    RotateCcw: (props) => <Icon name="rotate-ccw" size={16} color="#667eea" {...props} />,
+    FastForward: (props) => <Icon name="fast-forward" size={16} color="#667eea" {...props} />,
 };
 
 import CuisineResponseForm from './CuisineResponseForm';
@@ -261,6 +265,213 @@ const ProgressBar = ({ percent }) => {
     );
 };
 
+// Swipeable Card Component
+const SwipeableCard = ({ recommendation, onSwipeLeft, onSwipeRight, onFlag, onFavorite, onViewDetails, isGameNight }) => {
+    const pan = React.useRef(new Animated.ValueXY()).current;
+    const scale = React.useRef(new Animated.Value(1)).current;
+    const rotate = React.useRef(new Animated.Value(0)).current;
+
+    const panResponder = PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: (evt, gestureState) => {
+            // Only respond to horizontal movement for swiping
+            return Math.abs(gestureState.dx) > Math.abs(gestureState.dy) && Math.abs(gestureState.dx) > 10;
+        },
+        onPanResponderGrant: () => {
+            pan.setOffset({ x: pan.x._value, y: pan.y._value });
+            Animated.spring(scale, { toValue: 1.05, useNativeDriver: false }).start();
+        },
+        onPanResponderMove: (evt, gestureState) => {
+            pan.setValue({ x: gestureState.dx, y: gestureState.dy });
+            // Rotate card based on horizontal movement
+            const rotation = gestureState.dx / screenWidth * 30; // Max 30 degrees
+            rotate.setValue(rotation);
+        },
+        onPanResponderRelease: (evt, gestureState) => {
+            pan.flattenOffset();
+            
+            const threshold = screenWidth * 0.2; // 20% of screen width for easier swiping
+            
+            if (gestureState.dx > threshold) {
+                // Swipe right - like
+                Animated.parallel([
+                    Animated.timing(pan, {
+                        toValue: { x: screenWidth + 100, y: gestureState.dy },
+                        duration: 300,
+                        useNativeDriver: false,
+                    }),
+                    Animated.timing(rotate, {
+                        toValue: 30,
+                        duration: 300,
+                        useNativeDriver: false,
+                    }),
+                ]).start(() => onSwipeRight(recommendation));
+            } else if (gestureState.dx < -threshold) {
+                // Swipe left - dislike
+                Animated.parallel([
+                    Animated.timing(pan, {
+                        toValue: { x: -screenWidth - 100, y: gestureState.dy },
+                        duration: 300,
+                        useNativeDriver: false,
+                    }),
+                    Animated.timing(rotate, {
+                        toValue: -30,
+                        duration: 300,
+                        useNativeDriver: false,  
+                    }),
+                ]).start(() => onSwipeLeft(recommendation));
+            } else {
+                // Snap back to center
+                Animated.parallel([
+                    Animated.spring(pan, {
+                        toValue: { x: 0, y: 0 },
+                        useNativeDriver: false,
+                    }),
+                    Animated.spring(scale, {
+                        toValue: 1,
+                        useNativeDriver: false,
+                    }),
+                    Animated.spring(rotate, {
+                        toValue: 0,
+                        useNativeDriver: false,
+                    }),
+                ]).start();
+            }
+        },
+    });
+
+    const rotateInterpolate = rotate.interpolate({
+        inputRange: [-30, 0, 30],
+        outputRange: ['-30deg', '0deg', '30deg'],
+    });
+
+    return (
+        <Animated.View
+            style={[
+                styles.swipeCard,
+                styles.activeCard,
+                {
+                    transform: [
+                        { translateX: pan.x },
+                        { translateY: pan.y },
+                        { rotate: rotateInterpolate },
+                        { scale: scale },
+                    ],
+                },
+            ]}
+            {...panResponder.panHandlers}
+        >
+            {/* Swipe Indicators */}
+            <Animated.View 
+                style={[
+                    styles.swipeIndicator, 
+                    styles.likeIndicator,
+                    { opacity: pan.x.interpolate({ inputRange: [0, 150], outputRange: [0, 1] }) }
+                ]}
+            >
+                <Icons.CheckCircle color="#28a745" size={24} />
+                <Text style={styles.likeText}>LIKE</Text>
+            </Animated.View>
+            
+            <Animated.View 
+                style={[
+                    styles.swipeIndicator, 
+                    styles.dislikeIndicator,
+                    { opacity: pan.x.interpolate({ inputRange: [-150, 0], outputRange: [1, 0] }) }
+                ]}
+            >
+                <Icons.X color="#e74c3c" size={24} />
+                <Text style={styles.dislikeText}>PASS</Text>
+            </Animated.View>
+
+            {/* Card Content */}
+            <LinearGradient
+                colors={['#3A2D44', '#2C1E33']}
+                style={styles.cardGradient}
+            >
+                <View style={styles.cardHeader}>
+                    <TouchableOpacity onPress={() => onViewDetails(recommendation)} activeOpacity={0.7} style={styles.cardTitleContainer}>
+                        <Text style={styles.cardTitle}>{recommendation.title}</Text>
+                    </TouchableOpacity>
+                    <Text style={styles.cardPriceCorner}>{recommendation.price_range || '$'}</Text>
+                </View>
+
+                <View style={styles.cardDetails}>
+                    {isGameNight ? (
+                        <>
+                            <View style={styles.cardDetailRow}>
+                                <Icons.Users color="#667eea" size={16} />
+                                <Text style={styles.cardDetailText}>Players: {recommendation.address || 'N/A'}</Text>
+                            </View>
+                            <View style={styles.cardDetailRow}>
+                                <Icons.Clock color="#667eea" size={16} />
+                                <Text style={styles.cardDetailText}>Play Time: {recommendation.hours || 'N/A'}</Text>
+                            </View>
+                        </>
+                    ) : (
+                        <>
+                            <View style={styles.cardDetailRow}>
+                                <Icons.Clock color="#667eea" size={16} />
+                                <Text style={styles.cardDetailText}>{recommendation.hours || 'N/A'}</Text>
+                            </View>
+                            <View style={styles.cardDetailRow}>
+                                <Icons.MapPin color="#667eea" size={16} />
+                                <Text style={styles.cardDetailText}>{recommendation.address || 'N/A'}</Text>
+                            </View>
+                        </>
+                    )}
+                </View>
+
+                {recommendation.description && (
+                    <Text style={styles.cardDescription} numberOfLines={3}>
+                        {recommendation.description}
+                    </Text>
+                )}
+
+                {recommendation.reason && (
+                    <View style={styles.cardReason}>
+                        <Text style={styles.cardReasonTitle}>Why this choice?</Text>
+                        <Text style={styles.cardReasonText} numberOfLines={4}>
+                            {recommendation.reason}
+                        </Text>
+                    </View>
+                )}
+
+                {/* View Full Details Button */}
+                <TouchableOpacity 
+                    style={styles.viewDetailsButton} 
+                    onPress={() => onViewDetails(recommendation)}
+                    activeOpacity={0.7}
+                >
+                    <Text style={styles.viewDetailsButtonText}>View details</Text>
+                    <Icons.ExternalLink color="rgba(255, 255, 255, 0.7)" size={14} />
+                </TouchableOpacity>
+
+                {/* Action Buttons */}
+                <View style={styles.cardActions} pointerEvents="box-none">
+                    <TouchableOpacity 
+                        style={[styles.cardActionButton, styles.flagButton]} 
+                        onPress={() => onFlag(recommendation)}
+                        activeOpacity={0.8}
+                    >
+                        <Icons.Flag color="#ffc107" size={16} />
+                        <Text style={styles.flagButtonText}>Flag</Text>
+                    </TouchableOpacity>
+                    
+                    <TouchableOpacity 
+                        style={[styles.cardActionButton, styles.favoriteButton]} 
+                        onPress={() => onFavorite(recommendation)}
+                        activeOpacity={0.8}
+                    >
+                        <Icons.Star color="#D4AF37" size={16} />
+                        <Text style={styles.favoriteButtonText}>Favorite</Text>
+                    </TouchableOpacity>
+                </View>
+            </LinearGradient>
+        </Animated.View>
+    );
+};
+
 export default function AIRecommendations({
     activity,
     pinnedActivities,
@@ -270,15 +481,161 @@ export default function AIRecommendations({
     isOwner,
     onEdit,
 }) {
-    const { user, setUser } = useContext(UserContext);
+    const { user, setUser, refreshUser } = useContext(UserContext);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [showChat, setShowChat] = useState(false);
     const [selectedRec, setSelectedRec] = useState(null);
     const [showDetailModal, setShowDetailModal] = useState(false);
     const [showGenerateModal, setShowGenerateModal] = useState(false);
+    
+    // New swipeable card states
+    const [currentCardIndex, setCurrentCardIndex] = useState(0);
+    const [likedRecommendations, setLikedRecommendations] = useState([]);
+    const [dislikedRecommendations, setDislikedRecommendations] = useState([]);
+    const [flaggedRecommendations, setFlaggedRecommendations] = useState([]);
+    const [showingResults, setShowingResults] = useState(false);
 
-    const { id, responses, activity_location, date_notes, collecting, finalized, selected_pinned_activity_id } = activity;
+    // Loading animations
+    const spinValue1 = React.useRef(new Animated.Value(0)).current;
+    const spinValue2 = React.useRef(new Animated.Value(0)).current;
+    const spinValue3 = React.useRef(new Animated.Value(0)).current;
+    const bounceValue1 = React.useRef(new Animated.Value(0)).current;
+    const bounceValue2 = React.useRef(new Animated.Value(0)).current;
+    const bounceValue3 = React.useRef(new Animated.Value(0)).current;
+
+    // Generate button pulse animation
+    const pulseValue = React.useRef(new Animated.Value(1)).current;
+    const pulseOpacity = React.useRef(new Animated.Value(0.8)).current;
+
+    // Start animations when loading
+    React.useEffect(() => {
+        if (loading) {
+            // Spinning circles
+            const spinAnimation1 = Animated.loop(
+                Animated.timing(spinValue1, {
+                    toValue: 1,
+                    duration: 2000,
+                    useNativeDriver: true,
+                })
+            );
+            const spinAnimation2 = Animated.loop(
+                Animated.timing(spinValue2, {
+                    toValue: 1,
+                    duration: 1500,
+                    useNativeDriver: true,
+                })
+            );
+            const spinAnimation3 = Animated.loop(
+                Animated.timing(spinValue3, {
+                    toValue: 1,
+                    duration: 1000,
+                    useNativeDriver: true,
+                })
+            );
+
+            // Bouncing dots
+            const bounceAnimation1 = Animated.loop(
+                Animated.sequence([
+                    Animated.timing(bounceValue1, {
+                        toValue: -10,
+                        duration: 600,
+                        useNativeDriver: true,
+                    }),
+                    Animated.timing(bounceValue1, {
+                        toValue: 0,
+                        duration: 600,
+                        useNativeDriver: true,
+                    }),
+                ])
+            );
+            const bounceAnimation2 = Animated.loop(
+                Animated.sequence([
+                    Animated.delay(200),
+                    Animated.timing(bounceValue2, {
+                        toValue: -10,
+                        duration: 600,
+                        useNativeDriver: true,
+                    }),
+                    Animated.timing(bounceValue2, {
+                        toValue: 0,
+                        duration: 600,
+                        useNativeDriver: true,
+                    }),
+                ])
+            );
+            const bounceAnimation3 = Animated.loop(
+                Animated.sequence([
+                    Animated.delay(400),
+                    Animated.timing(bounceValue3, {
+                        toValue: -10,
+                        duration: 600,
+                        useNativeDriver: true,
+                    }),
+                    Animated.timing(bounceValue3, {
+                        toValue: 0,
+                        duration: 600,
+                        useNativeDriver: true,
+                    }),
+                ])
+            );
+
+            spinAnimation1.start();
+            spinAnimation2.start();
+            spinAnimation3.start();
+            bounceAnimation1.start();
+            bounceAnimation2.start();
+            bounceAnimation3.start();
+
+            return () => {
+                spinAnimation1.stop();
+                spinAnimation2.stop();
+                spinAnimation3.stop();
+                bounceAnimation1.stop();
+                bounceAnimation2.stop();
+                bounceAnimation3.stop();
+            };
+        }
+    }, [loading]);
+
+    // Start pulse animation for generate button
+    React.useEffect(() => {
+        if (collecting && isOwner) {
+            const pulseAnimation = Animated.loop(
+                Animated.parallel([
+                    Animated.sequence([
+                        Animated.timing(pulseValue, {
+                            toValue: 1.12,
+                            duration: 1500,
+                            useNativeDriver: true,
+                        }),
+                        Animated.timing(pulseValue, {
+                            toValue: 1,
+                            duration: 1500,
+                            useNativeDriver: true,
+                        }),
+                    ]),
+                    Animated.sequence([
+                        Animated.timing(pulseOpacity, {
+                            toValue: 0.3,
+                            duration: 1500,
+                            useNativeDriver: true,
+                        }),
+                        Animated.timing(pulseOpacity, {
+                            toValue: 0.8,
+                            duration: 1500,
+                            useNativeDriver: true,
+                        }),
+                    ]),
+                ])
+            );
+            pulseAnimation.start();
+
+            return () => pulseAnimation.stop();
+        }
+    }, [collecting, isOwner]);
+
+    const { id, responses, activity_location, date_notes, collecting, finalized, voting, completed, active, selected_pinned_activity_id } = activity;
 
     const activityType = activity.activity_type || 'Restaurant';
 
@@ -290,9 +647,9 @@ export default function AIRecommendations({
     const getActivityText = () => {
         if (isNightOutActivity) {
             return {
-                submitTitle: 'Collecting Bar Preferences',
+                submitTitle: 'Collecting Preferences',
                 submitDescription: 'Help us plan the perfect night out by sharing your food, drink, and atmosphere preferences',
-                finalizedTitle: 'Night Out Finalized',
+                finalizedTitle: 'Drinks Finalized',
                 preferencesQuiz: 'Take Bar Preferences Quiz',
                 resubmitPreferences: 'Resubmit Bar Preferences',
                 reasonTitle: 'Why This Option?',
@@ -302,7 +659,7 @@ export default function AIRecommendations({
 
         if (isGameNightActivity) {
             return {
-                submitTitle: 'Collecting Game Preferences',
+                submitTitle: 'Collecting Preferences',
                 submitDescription: 'Help us find the perfect games by sharing your game preferences and group dynamics',
                 finalizedTitle: 'Game Night Finalized',
                 preferencesQuiz: 'Take Game Preferences Quiz',
@@ -314,7 +671,7 @@ export default function AIRecommendations({
 
         if (isMeetingActivity) {
             return {
-                submitTitle: 'Collecting Meeting Preferences',
+                submitTitle: 'Collecting Preferences',
                 submitDescription: 'Help us find the perfect meeting spot by sharing your workspace and atmosphere needs',
                 finalizedTitle: 'Meeting Finalized',
                 preferencesQuiz: 'Take Meeting Preferences Quiz',
@@ -325,7 +682,7 @@ export default function AIRecommendations({
         }
 
         return {
-            submitTitle: 'Collecting Restaurant Preferences',
+            submitTitle: 'Collecting Preferences',
             submitDescription: 'Help us find the perfect restaurant by sharing your food preferences and dietary needs',
             finalizedTitle: 'Activity Finalized',
             preferencesQuiz: 'Take Preferences Quiz',
@@ -434,6 +791,7 @@ export default function AIRecommendations({
     };
 
     const generateRecommendations = async () => {
+        setShowGenerateModal(false);
         setLoading(true);
         setError('');
 
@@ -534,7 +892,7 @@ export default function AIRecommendations({
                 pinnedTimeSlotResults.map(res => res.json())
             );
 
-            // Update activity to show recommendations without voting phase
+            // Update activity to voting phase
             await fetch(`${API_URL}/activities/${id}`, {
                 method: 'PATCH',
                 headers: {
@@ -542,7 +900,8 @@ export default function AIRecommendations({
                     'Authorization': `Bearer ${user?.token}`,
                 },
                 body: JSON.stringify({
-                    collecting: false
+                    collecting: false,
+                    voting: true
                 }),
             });
 
@@ -551,7 +910,7 @@ export default function AIRecommendations({
                     ...prevUser,
                     activities: prevUser.activities.map(act =>
                         act.id === id
-                            ? { ...act, collecting: false }
+                            ? { ...act, collecting: false, voting: true, pinned_activities: newPinnedActivities }
                             : act
                     )
                 }));
@@ -561,12 +920,16 @@ export default function AIRecommendations({
             setPinned(newTimeSlots);
             setRefreshTrigger(f => !f);
 
+            // Also refresh user data to ensure everything is in sync
+            if (refreshUser) {
+                setTimeout(() => refreshUser(), 1000); // Small delay to ensure backend is updated
+            }
+
         } catch (err) {
             setError(err.message);
             Alert.alert('Error', err.message);
         } finally {
             setLoading(false);
-            setShowGenerateModal(false);
         }
     };
 
@@ -627,11 +990,215 @@ export default function AIRecommendations({
         Linking.openURL(shareUrl);
     };
 
-    if (loading) {
+    // Swipeable card handlers
+    const handleSwipeLeft = (recommendation) => {
+        setDislikedRecommendations(prev => [...prev, recommendation]);
+        nextCard();
+    };
+
+    const handleSwipeRight = (recommendation) => {
+        setLikedRecommendations(prev => [...prev, recommendation]);
+        nextCard();
+    };
+
+    const handleFlag = (recommendation) => {
+        setFlaggedRecommendations(prev => [...prev, recommendation]);
+        // Also add to disliked to remove from deck
+        setDislikedRecommendations(prev => [...prev, recommendation]);
+        Alert.alert('Flagged', 'This recommendation has been flagged and removed from your deck.');
+        nextCard();
+    };
+
+    const handleFavorite = (recommendation) => {
+        // Add to both liked and a special favorites list
+        setLikedRecommendations(prev => {
+            const isAlreadyLiked = prev.some(item => item.id === recommendation.id);
+            if (!isAlreadyLiked) {
+                return [...prev, { ...recommendation, isFavorite: true }];
+            }
+            return prev.map(item => 
+                item.id === recommendation.id 
+                    ? { ...item, isFavorite: true }
+                    : item
+            );
+        });
+        Alert.alert('Favorited', 'Added to your favorites!');
+    };
+
+    const nextCard = () => {
+        setCurrentCardIndex(prev => {
+            const nextIndex = prev + 1;
+            if (nextIndex >= pinnedActivities.length) {
+                // All cards reviewed, show results
+                setShowingResults(true);
+            }
+            return nextIndex;
+        });
+    };
+
+    const resetCards = () => {
+        setCurrentCardIndex(0);
+        setLikedRecommendations([]);
+        setDislikedRecommendations([]);
+        setFlaggedRecommendations([]);
+        setShowingResults(false);
+    };
+
+    const handleSaveFavoriteAndComplete = async () => {
+        const favoriteRecommendations = likedRecommendations.filter(rec => rec.isFavorite);
+        
+        if (favoriteRecommendations.length === 0) {
+            Alert.alert(
+                'No Favorites Selected', 
+                'Please mark at least one recommendation as a favorite before saving.',
+                [{ text: 'OK' }]
+            );
+            return;
+        }
+
+        if (favoriteRecommendations.length > 1) {
+            Alert.alert(
+                'Multiple Favorites',
+                'You have multiple favorites. Please choose one to save and share.',
+                [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Choose Later', onPress: () => {} }
+                ]
+            );
+            return;
+        }
+
+        const favorite = favoriteRecommendations[0];
+        
+        Alert.alert(
+            'Save & Complete Activity',
+            `Save "${favorite.title}" as your choice and mark this activity as completed? This will share your selection privately with the group.`,
+            [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Save & Complete', onPress: async () => {
+                    try {
+                        // Mark the activity as completed and save the favorite
+                        await fetch(`${API_URL}/activities/${id}`, {
+                            method: 'PATCH',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${user?.token}`,
+                            },
+                            body: JSON.stringify({
+                                completed: true,
+                                voting: false,
+                                selected_pinned_activity_id: favorite.id
+                            }),
+                        });
+
+                        // Update local user state
+                        if (user && setUser) {
+                            setUser(prevUser => ({
+                                ...prevUser,
+                                activities: prevUser.activities.map(act =>
+                                    act.id === id
+                                        ? { ...act, completed: true, voting: false, selected_pinned_activity_id: favorite.id }
+                                        : act
+                                )
+                            }));
+                        }
+
+                        Alert.alert('Success!', 'Your favorite has been saved and the activity is completed. The group will be notified of your choice.');
+                        setRefreshTrigger(f => !f);
+                    } catch (error) {
+                        Alert.alert('Error', 'Failed to save and complete activity. Please try again.');
+                    }
+                }}
+            ]
+        );
+    };
+
+
+    // COMPLETED PHASE - Activity is done
+    if (completed) {
         return (
-            <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#667eea" />
-                <Text style={styles.loadingText}>Generating recommendations...</Text>
+            <View style={styles.container}>
+                <View style={styles.phaseIndicator}>
+                    <View style={styles.phaseContent}>
+                        <Icons.CheckCircle color="#28a745" />
+                        <Text style={styles.phaseTitle}>Activity Completed!</Text>
+                    </View>
+                    <Text style={styles.phaseSubtitle}>
+                        This activity has been completed. Great job organizing!
+                    </Text>
+                    {isOwner && (
+                        <TouchableOpacity style={styles.archiveButton} onPress={handleArchiveActivity}>
+                            <Icons.CheckCircle />
+                            <Text style={styles.archiveButtonText}>Archive Activity</Text>
+                        </TouchableOpacity>
+                    )}
+                </View>
+            </View>
+        );
+    }
+
+    // DRAFT PHASE - Activity created but not started
+    if (!active) {
+        return (
+            <View style={styles.container}>
+                <View style={styles.phaseIndicator}>
+                    <View style={styles.phaseContent}>
+                        <Icons.HelpCircle color="#667eea" />
+                        <Text style={styles.phaseTitle}>Activity Draft</Text>
+                    </View>
+                    <Text style={styles.phaseSubtitle}>
+                        This activity hasn't been started yet. 
+                        {isOwner ? ' Activate it to begin collecting preferences.' : ' Wait for the organizer to activate it.'}
+                    </Text>
+                    {isOwner && (
+                        <TouchableOpacity style={styles.activateButton} onPress={() => {
+                            // Add activation logic here
+                            Alert.alert('Activate Activity', 'Activate this activity to start collecting preferences?', [
+                                { text: 'Cancel', style: 'cancel' },
+                                { text: 'Activate', onPress: () => {
+                                    // TODO: Add API call to activate activity
+                                    Alert.alert('Coming Soon', 'Activation feature coming soon!');
+                                }}
+                            ]);
+                        }}>
+                            <Icons.Zap />
+                            <Text style={styles.activateButtonText}>Activate Activity</Text>
+                        </TouchableOpacity>
+                    )}
+                </View>
+            </View>
+        );
+    }
+
+    // ACTIVE BUT NOT COLLECTING - Waiting to start preference collection
+    if (active && !collecting && !voting && !finalized) {
+        return (
+            <View style={styles.container}>
+                <View style={styles.phaseIndicator}>
+                    <View style={styles.phaseContent}>
+                        <Icons.Users color="#667eea" />
+                        <Text style={styles.phaseTitle}>Ready to Start</Text>
+                    </View>
+                    <Text style={styles.phaseSubtitle}>
+                        Activity is active and ready. 
+                        {isOwner ? ' Start collecting preferences from participants.' : ' Wait for the organizer to begin.'}
+                    </Text>
+                    {isOwner && (
+                        <TouchableOpacity style={styles.startCollectingButton} onPress={() => {
+                            // Add start collecting logic here
+                            Alert.alert('Start Collecting', 'Begin collecting preferences from participants?', [
+                                { text: 'Cancel', style: 'cancel' },
+                                { text: 'Start', onPress: () => {
+                                    // TODO: Add API call to start collecting
+                                    Alert.alert('Coming Soon', 'Start collecting feature coming soon!');
+                                }}
+                            ]);
+                        }}>
+                            <Icons.Users />
+                            <Text style={styles.startCollectingButtonText}>Start Collecting Preferences</Text>
+                        </TouchableOpacity>
+                    )}
+                </View>
             </View>
         );
     }
@@ -643,10 +1210,11 @@ export default function AIRecommendations({
                 <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
                     {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-                    {/* Combined Title, Count and Preferences Card */}
+                    {/* Title above the card */}
+                    <Text style={styles.collectingPhaseTitle}>{activityText.submitTitle}</Text>
+
+                    {/* Combined Count and Preferences Card */}
                     <View style={styles.combinedCard}>
-                        <Text style={styles.cardTitle}>{activityText.submitTitle}</Text>
-                        
                         <View style={styles.submissionCountContainer}>
                             <Text style={styles.submissionCount}>{responses.length}</Text>
                             <Text style={styles.submissionLabel}>
@@ -673,7 +1241,7 @@ export default function AIRecommendations({
                         ) : user && currentUserResponse ? (
                             <View style={styles.submittedSection}>
                                 <Icons.CheckCircle />
-                                <Text style={styles.submittedTitle}>Thank you for submitting your response!</Text>
+                                <Text style={styles.submittedTitle}>Preferences submitted!</Text>
                                 <Text style={styles.submittedText}>
                                     You can resubmit your preferences
                                     {activity.allow_participant_time_selection && ' and availability'} if you'd like to make changes.
@@ -686,19 +1254,46 @@ export default function AIRecommendations({
                                 </TouchableOpacity>
                             </View>
                         ) : null}
-
-                        {isOwner && (
-                            <TouchableOpacity
-                                style={styles.generateButton}
-                                onPress={() => setShowGenerateModal(true)}
-                            >
-                                <Icons.Zap />
-                                <Text style={styles.generateButtonText}>Generate Recommendations</Text>
-                            </TouchableOpacity>
-                        )}
                     </View>
 
                     <AvailabilityDisplay responses={responses} activity={activity} />
+
+                    {/* Generate Recommendations Button */}
+                    {isOwner && (
+                        <View style={styles.generateButtonContainer}>
+                            {/* Pulse Ring */}
+                            <Animated.View 
+                                style={[
+                                    styles.pulseRing,
+                                    {
+                                        opacity: pulseOpacity,
+                                        transform: [{
+                                            scale: pulseValue
+                                        }]
+                                    }
+                                ]}
+                            />
+                            
+                            {/* Main Button */}
+                            <TouchableOpacity
+                                style={[styles.generateButtonTouchable, responses.length === 0 && styles.generateButtonDisabled]}
+                                onPress={() => responses.length > 0 && setShowGenerateModal(true)}
+                                activeOpacity={responses.length > 0 ? 0.9 : 1}
+                                disabled={responses.length === 0}
+                            >
+                                <LinearGradient
+                                    colors={['#6B73FF', '#9D50BB']}
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 1 }}
+                                    style={styles.generateButtonGradient}
+                                >
+                                    <View style={styles.buttonInnerGlow} />
+                                    <Icons.Zap color="#fff" size={20} style={styles.buttonIcon} />
+                                    <Text style={styles.generateButtonText}>Generate Recommendations</Text>
+                                </LinearGradient>
+                            </TouchableOpacity>
+                        </View>
+                    )}
 
                     {/* Generate Recommendations Modal */}
                     <Modal
@@ -750,6 +1345,89 @@ export default function AIRecommendations({
                             </View>
                         </SafeAreaView>
                     </Modal>
+
+                    {/* Exciting Loading Modal */}
+                    <Modal
+                        visible={loading}
+                        transparent
+                        animationType="fade"
+                    >
+                        <View style={styles.loadingModalOverlay}>
+                            <View style={styles.loadingModalContainer}>
+                                <View style={styles.loadingAnimation}>
+                                    <Animated.View 
+                                        style={[
+                                            styles.loadingCircle, 
+                                            styles.loadingCircle1,
+                                            {
+                                                transform: [{
+                                                    rotate: spinValue1.interpolate({
+                                                        inputRange: [0, 1],
+                                                        outputRange: ['0deg', '360deg']
+                                                    })
+                                                }]
+                                            }
+                                        ]} 
+                                    />
+                                    <Animated.View 
+                                        style={[
+                                            styles.loadingCircle, 
+                                            styles.loadingCircle2,
+                                            {
+                                                transform: [{
+                                                    rotate: spinValue2.interpolate({
+                                                        inputRange: [0, 1],
+                                                        outputRange: ['360deg', '0deg']
+                                                    })
+                                                }]
+                                            }
+                                        ]} 
+                                    />
+                                    <Animated.View 
+                                        style={[
+                                            styles.loadingCircle, 
+                                            styles.loadingCircle3,
+                                            {
+                                                transform: [{
+                                                    rotate: spinValue3.interpolate({
+                                                        inputRange: [0, 1],
+                                                        outputRange: ['0deg', '360deg']
+                                                    })
+                                                }]
+                                            }
+                                        ]} 
+                                    />
+                                </View>
+                                <Text style={styles.loadingModalTitle}>✨ Generating Magic ✨</Text>
+                                <Text style={styles.loadingModalSubtitle}>
+                                    Our AI is crafting perfect recommendations based on your group's preferences...
+                                </Text>
+                                <View style={styles.loadingDots}>
+                                    <Animated.View 
+                                        style={[
+                                            styles.loadingDot, 
+                                            styles.loadingDot1,
+                                            { transform: [{ translateY: bounceValue1 }] }
+                                        ]} 
+                                    />
+                                    <Animated.View 
+                                        style={[
+                                            styles.loadingDot, 
+                                            styles.loadingDot2,
+                                            { transform: [{ translateY: bounceValue2 }] }
+                                        ]} 
+                                    />
+                                    <Animated.View 
+                                        style={[
+                                            styles.loadingDot, 
+                                            styles.loadingDot3,
+                                            { transform: [{ translateY: bounceValue3 }] }
+                                        ]} 
+                                    />
+                                </View>
+                            </View>
+                        </View>
+                    </Modal>
                 </ScrollView>
 
                 {/* Render Chat Component Conditionally */}
@@ -758,183 +1436,393 @@ export default function AIRecommendations({
         );
     }
 
-    // RECOMMENDATIONS PHASE
-    if (!collecting && !finalized && pinnedActivities.length > 0) {
+    // VOTING PHASE - No recommendations case
+    if (!collecting && !finalized && voting && pinnedActivities.length === 0) {
         return (
-            <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+            <View style={styles.container}>
                 <View style={styles.header}>
                     <Text style={styles.heading}>AI Recommendations</Text>
                 </View>
+                <View style={styles.noRecommendationsContainer}>
+                    <Icons.HelpCircle color="#ccc" size={48} />
+                    <Text style={styles.noRecommendationsTitle}>No Recommendations</Text>
+                    <Text style={styles.noRecommendationsText}>
+                        There are no recommendations to review. This might be a technical issue.
+                    </Text>
+                    {isOwner && (
+                        <TouchableOpacity 
+                            style={[styles.generateButton, responses.length === 0 && styles.generateButtonDisabled]} 
+                            onPress={() => responses.length > 0 && setShowGenerateModal(true)}
+                            disabled={responses.length === 0}
+                        >
+                            <Icons.Zap />
+                            <Text style={styles.generateButtonText}>Generate New Recommendations</Text>
+                        </TouchableOpacity>
+                    )}
+                </View>
+            </View>
+        );
+    }
 
-                <View style={styles.phaseIndicator}>
-                    <View style={styles.phaseContent}>
-                        <Icons.Zap />
-                        <Text style={styles.phaseTitle}>Recommendations Ready</Text>
+    // VOTING PHASE (Swipeable Cards) - OWNER ONLY
+    if (!collecting && !finalized && voting && pinnedActivities.length > 0) {
+        console.log('🔍 DEBUG: Voting phase check - isOwner:', isOwner, 'user.id:', user?.id, '(type:', typeof user?.id, ')');
+        console.log('🔍 DEBUG: activity.user_id:', activity?.user_id, '(type:', typeof activity?.user_id, ')');
+        console.log('🔍 DEBUG: activity.user?.id:', activity?.user?.id, '(type:', typeof activity?.user?.id, ')');
+        console.log('🔍 DEBUG: First check (user.id == activity.user_id):', user?.id == activity?.user_id);
+        console.log('🔍 DEBUG: Second check (user.id == activity.user?.id):', user?.id == activity?.user?.id);
+        
+        // Only the activity owner can swipe through recommendations
+        if (!isOwner) {
+            const organizerName = activity?.user?.name || 'The organizer';
+            return (
+                <View style={styles.container}>
+                    <View style={styles.phaseIndicator}>
+                        <View style={styles.phaseContent}>
+                            <Icons.Clock color="#667eea" />
+                            <Text style={styles.phaseTitle}>Owner Reviewing Recommendations</Text>
+                        </View>
+                        <Text style={styles.phaseSubtitle}>
+                            {organizerName} is finalizing your group's activity.
+                        </Text>
+                    </View>
+                </View>
+            );
+        }
+        // Show results if all cards have been swiped through
+        if (showingResults) {
+            return (
+                <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+                    <View style={styles.header}>
+                        <Text style={styles.heading}>Your Choices</Text>
                     </View>
 
-                    <Text style={styles.phaseSubtitle}>
-                        Based on your group's preferences, here are the best options. Choose what to do next.
-                    </Text>
+                    <View style={styles.resultsHeader}>
+                        <View style={styles.resultsStats}>
+                            <View style={styles.statItem}>
+                                <Icons.CheckCircle color="#28a745" size={20} />
+                                <Text style={styles.statNumber}>{likedRecommendations.length}</Text>
+                                <Text style={styles.statLabel}>Liked</Text>
+                            </View>
+                            <View style={styles.statItem}>
+                                <Icons.X color="#e74c3c" size={20} />
+                                <Text style={styles.statNumber}>{dislikedRecommendations.length}</Text>
+                                <Text style={styles.statLabel}>Passed</Text>
+                            </View>
+                            <View style={styles.statItem}>
+                                <Icons.Flag color="#ffc107" size={20} />
+                                <Text style={styles.statNumber}>{flaggedRecommendations.length}</Text>
+                                <Text style={styles.statLabel}>Flagged</Text>
+                            </View>
+                        </View>
+                    </View>
 
-                    {isOwner && (
-                        <View style={styles.actionButtonsContainer}>
-                            <TouchableOpacity style={styles.saveButton} onPress={handleSaveActivity}>
-                                <Icons.BookHeart />
-                                <Text style={styles.saveButtonText}>Save Activity</Text>
+                    {likedRecommendations.length > 0 ? (
+                        <>
+                            <View style={styles.phaseIndicator}>
+                                <View style={styles.phaseContent}>
+                                    <Icons.Star />
+                                    <Text style={styles.phaseTitle}>Great choices!</Text>
+                                </View>
+                                <Text style={styles.phaseSubtitle}>
+                                    Here are your liked recommendations. Choose what to do next.
+                                </Text>
+                            </View>
+
+                            {isOwner && (
+                                <View style={styles.ownerActionsContainer}>
+                                    <Text style={styles.ownerActionsTitle}>Choose what to do next:</Text>
+                                    
+                                    <TouchableOpacity 
+                                        style={styles.saveFavoriteButton} 
+                                        onPress={handleSaveFavoriteAndComplete}
+                                    >
+                                        <Icons.Star />
+                                        <View style={styles.buttonContent}>
+                                            <Text style={styles.saveFavoriteButtonText}>Save My Favorite & Share</Text>
+                                            <Text style={styles.buttonSubtext}>Save your top choice and share privately with the group</Text>
+                                        </View>
+                                    </TouchableOpacity>
+                                    
+                                    <TouchableOpacity 
+                                        style={styles.finalizeActivityButton} 
+                                        onPress={onEdit}
+                                    >
+                                        <Icons.Calendar />
+                                        <View style={styles.buttonContent}>
+                                            <Text style={styles.finalizeActivityButtonText}>Finalize Activity Plans</Text>
+                                            <Text style={styles.buttonSubtext}>Set date/time and officially finalize the activity</Text>
+                                        </View>
+                                    </TouchableOpacity>
+                                </View>
+                            )}
+
+                            <View style={styles.recommendationsList}>
+                                {likedRecommendations.map((p) => (
+                                    <View key={p.id} style={[styles.listItem, p.isFavorite && styles.favoriteListItem]}>
+                                        {p.isFavorite && (
+                                            <View style={styles.favoriteIndicator}>
+                                                <Icons.Star color="#D4AF37" size={16} />
+                                                <Text style={styles.favoriteIndicatorText}>FAVORITE</Text>
+                                            </View>
+                                        )}
+                                        <TouchableOpacity style={styles.listContent} onPress={() => openDetail(p)}>
+                                            <View style={styles.listTop}>
+                                                <Text style={styles.listName}>{p.title}</Text>
+                                                <Text style={styles.listMeta}>{p.price_range || 'N/A'}</Text>
+                                            </View>
+                                            <View style={styles.listBottom}>
+                                                <View>
+                                                    {isGameNightActivity ? (
+                                                        <>
+                                                            <Text style={styles.listDetail}>{p.hours || 'N/A'}</Text>
+                                                            <Text style={styles.listDetail}>{p.address || 'N/A'}</Text>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <Text style={styles.listDetail}>{p.hours || 'N/A'}</Text>
+                                                            <Text style={styles.listDetail}>{p.address || 'N/A'}</Text>
+                                                        </>
+                                                    )}
+                                                </View>
+                                            </View>
+                                        </TouchableOpacity>
+                                    </View>
+                                ))}
+                            </View>
+
+                            <TouchableOpacity style={styles.resetButton} onPress={resetCards}>
+                                <Icons.RotateCcw color="#667eea" size={16} />
+                                <Text style={styles.resetButtonText}>Review Again</Text>
                             </TouchableOpacity>
-                            
-                            <TouchableOpacity style={styles.finalizeButton} onPress={onEdit}>
-                                <Icons.Flag />
-                                <Text style={styles.finalizeButtonText}>Finalize Plans</Text>
-                            </TouchableOpacity>
-                            
-                            <TouchableOpacity style={styles.archiveButton} onPress={handleArchiveActivity}>
-                                <Icons.CheckCircle />
-                                <Text style={styles.archiveButtonText}>Archive Results</Text>
+                        </>
+                    ) : (
+                        <View style={styles.noLikesContainer}>
+                            <Icons.HelpCircle color="#ccc" size={48} />
+                            <Text style={styles.noLikesTitle}>No matches found</Text>
+                            <Text style={styles.noLikesText}>
+                                You didn't like any of the recommendations. Try reviewing them again or generate new ones.
+                            </Text>
+                            <TouchableOpacity style={styles.tryAgainButton} onPress={resetCards}>
+                                <Icons.RotateCcw />
+                                <Text style={styles.tryAgainButtonText}>Try Again</Text>
                             </TouchableOpacity>
                         </View>
                     )}
-                </View>
+                </ScrollView>
+            );
+        }
 
-                {error ? <Text style={styles.errorText}>{error}</Text> : null}
+        // Show swipeable cards in full-screen modal
+        const currentCard = pinnedActivities[currentCardIndex];
+        const remainingCards = pinnedActivities.length - currentCardIndex;
 
-                <View style={styles.recommendationsList}>
-                    {pinnedActivities.map((p) => (
-                        <View key={p.id} style={styles.listItem}>
-                            <TouchableOpacity style={styles.listContent} onPress={() => openDetail(p)}>
-                                <View style={styles.listTop}>
-                                    <Text style={styles.listName}>{p.title}</Text>
-                                    <Text style={styles.listMeta}>{p.price_range || 'N/A'}</Text>
-                                </View>
-                                <View style={styles.listBottom}>
-                                    <View>
-                                        {isGameNightActivity ? (
-                                            <>
-                                                <Text style={styles.listDetail}>{p.hours || 'N/A'}</Text>
-                                                <Text style={styles.listDetail}>{p.address || 'N/A'}</Text>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <Text style={styles.listDetail}>{p.hours || 'N/A'}</Text>
-                                                <Text style={styles.listDetail}>{p.address || 'N/A'}</Text>
-                                            </>
-                                        )}
-                                    </View>
-                                </View>
-                            </TouchableOpacity>
+        return (
+            <Modal
+                visible={true}
+                animationType="slide"
+                onRequestClose={() => setShowingResults(true)}
+            >
+                <SafeAreaView style={styles.swipeContainer}>
+                    <View style={styles.swipeHeader}>
+                        {/* Removed X button - using Skip to Results instead */}
+                        <View style={{ width: 40 }} />
+                        <View style={styles.swipeHeaderCenter}>
+                            <Text style={styles.swipeHeaderTitle}>AI Recommendations</Text>
                         </View>
-                    ))}
-                </View>
+                        <View style={styles.swipeHeaderRight} />
+                    </View>
 
-                {/* Detail Modal */}
-                <Modal
-                    visible={showDetailModal}
-                    animationType="slide"
-                    onRequestClose={closeDetail}
-                >
-                    <SafeAreaView style={styles.detailModal}>
-                        <View style={styles.detailModalHeader}>
-                            <Text style={styles.detailModalTitle}>{selectedRec?.title || selectedRec?.name}</Text>
-                            <TouchableOpacity style={styles.detailCloseButton} onPress={closeDetail}>
-                                <Icons.X />
-                            </TouchableOpacity>
+                    <View style={styles.swipeInstructions}>
+                        <View style={styles.instructionItem}>
+                            <View style={styles.swipeLeftDemo}>
+                                <Icons.X color="#e74c3c" size={16} />
+                            </View>
+                            <Text style={styles.instructionText}>Swipe left to pass</Text>
                         </View>
+                        <View style={styles.instructionItem}>
+                            <View style={styles.swipeRightDemo}>
+                                <Icons.CheckCircle color="#28a745" size={16} />
+                            </View>
+                            <Text style={styles.instructionText}>Swipe right to like</Text>
+                        </View>
+                    </View>
 
-                        <ScrollView style={styles.detailModalBody}>
-                            <View style={styles.detailGrid}>
-                                {isGameNightActivity ? (
-                                    <>
-                                        <View style={styles.detailItem}>
-                                            <Icons.Users />
-                                            <Text style={styles.detailLabel}>Players:</Text>
-                                            <Text style={styles.detailValue}>{selectedRec?.address || 'N/A'}</Text>
-                                        </View>
-                                        <View style={styles.detailItem}>
-                                            <Icons.Clock />
-                                            <Text style={styles.detailLabel}>Play Time:</Text>
-                                            <Text style={styles.detailValue}>{selectedRec?.hours || 'N/A'}</Text>
-                                        </View>
-                                        <View style={styles.detailItem}>
-                                            <Icons.DollarSign />
-                                            <Text style={styles.detailLabel}>Price:</Text>
-                                            <Text style={styles.detailValue}>{selectedRec?.price_range || 'N/A'}</Text>
-                                        </View>
-                                    </>
-                                ) : (
-                                    <>
-                                        <View style={styles.detailItem}>
-                                            <Icons.DollarSign />
-                                            <Text style={styles.detailLabel}>Price:</Text>
-                                            <Text style={styles.detailValue}>{selectedRec?.price_range || 'N/A'}</Text>
-                                        </View>
-                                        <View style={styles.detailItem}>
-                                            <Icons.Clock />
-                                            <Text style={styles.detailLabel}>Hours:</Text>
-                                            <Text style={styles.detailValue}>{selectedRec?.hours || 'N/A'}</Text>
-                                        </View>
-                                    </>
-                                )}
+                    <View style={styles.cardStack}>
+                        {currentCard && (
+                            <SwipeableCard
+                                key={currentCard.id}
+                                recommendation={currentCard}
+                                onSwipeLeft={handleSwipeLeft}
+                                onSwipeRight={handleSwipeRight}
+                                onFlag={handleFlag}
+                                onFavorite={handleFavorite}
+                                onViewDetails={openDetail}
+                                isGameNight={isGameNightActivity}
+                            />
+                        )}
+                        
+                        {/* Show next card in stack */}
+                        {pinnedActivities[currentCardIndex + 1] && (
+                            <View style={[styles.swipeCard, styles.nextCard]}>
+                                <LinearGradient
+                                    colors={['#2C1E33', '#241730']}
+                                    style={styles.cardGradient}
+                                >
+                                    <Text style={styles.nextCardTitle}>
+                                        {pinnedActivities[currentCardIndex + 1].title}
+                                    </Text>
+                                </LinearGradient>
+                            </View>
+                        )}
+                    </View>
+
+                    {/* Test buttons for debugging */}
+                    <View style={styles.testButtons}>
+                        <TouchableOpacity 
+                            style={styles.testButton} 
+                            onPress={() => currentCard && handleSwipeLeft(currentCard)}
+                        >
+                            <Icons.X color="#e74c3c" size={24} />
+                            <Text style={styles.testButtonText}>Pass</Text>
+                        </TouchableOpacity>
+                        
+                        <TouchableOpacity 
+                            style={styles.testButton} 
+                            onPress={() => currentCard && handleSwipeRight(currentCard)}
+                        >
+                            <Icons.CheckCircle color="#28a745" size={24} />
+                            <Text style={styles.testButtonText}>Like</Text>
+                        </TouchableOpacity>
+                    </View>
+
+                    {/* Skip button */}
+                    {remainingCards > 1 && (
+                        <TouchableOpacity style={styles.skipButton} onPress={() => setShowingResults(true)}>
+                            <Icons.FastForward />
+                            <Text style={styles.skipButtonText}>Skip to Results</Text>
+                        </TouchableOpacity>
+                    )}
+
+                    {/* Detail Modal - Same as before */}
+                    <Modal
+                        visible={showDetailModal}
+                        animationType="slide"
+                        onRequestClose={closeDetail}
+                    >
+                        <SafeAreaView style={styles.detailModal}>
+                            <View style={styles.detailModalHeader}>
+                                <Text style={styles.detailModalTitle}>{selectedRec?.title || selectedRec?.name}</Text>
+                                <TouchableOpacity style={styles.detailCloseButton} onPress={closeDetail}>
+                                    <Icons.X />
+                                </TouchableOpacity>
                             </View>
 
-                            {selectedRec?.description && (
-                                <View style={styles.section}>
-                                    <View style={styles.sectionHeader}>
-                                        <Icons.HelpCircle />
-                                        <Text style={styles.sectionTitle}>About</Text>
-                                    </View>
-                                    <Text style={styles.description}>{selectedRec.description}</Text>
-                                    {selectedRec.website && (
-                                        <TouchableOpacity
-                                            style={styles.websiteLink}
-                                            onPress={() => Linking.openURL(selectedRec.website)}
-                                        >
-                                            <Icons.Globe />
-                                            <Text style={styles.websiteLinkText}>Visit Website</Text>
-                                            <Icons.ExternalLink />
-                                        </TouchableOpacity>
+                            <ScrollView style={styles.detailModalBody}>
+                                <View style={styles.detailGrid}>
+                                    {isGameNightActivity ? (
+                                        <>
+                                            <View style={styles.detailItem}>
+                                                <Icons.Users />
+                                                <Text style={styles.detailLabel}>Players:</Text>
+                                                <Text style={styles.detailValue}>{selectedRec?.address || 'N/A'}</Text>
+                                            </View>
+                                            <View style={styles.detailItem}>
+                                                <Icons.Clock />
+                                                <Text style={styles.detailLabel}>Play Time:</Text>
+                                                <Text style={styles.detailValue}>{selectedRec?.hours || 'N/A'}</Text>
+                                            </View>
+                                            <View style={styles.detailItem}>
+                                                <Icons.DollarSign />
+                                                <Text style={styles.detailLabel}>Price:</Text>
+                                                <Text style={styles.detailValue}>{selectedRec?.price_range || 'N/A'}</Text>
+                                            </View>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <View style={styles.detailItem}>
+                                                <Icons.DollarSign />
+                                                <Text style={styles.detailLabel}>Price:</Text>
+                                                <Text style={styles.detailValue}>{selectedRec?.price_range || 'N/A'}</Text>
+                                            </View>
+                                            <View style={styles.detailItem}>
+                                                <Icons.Clock />
+                                                <Text style={styles.detailLabel}>Hours:</Text>
+                                                <Text style={styles.detailValue}>{selectedRec?.hours || 'N/A'}</Text>
+                                            </View>
+                                        </>
                                     )}
                                 </View>
-                            )}
 
-                            {selectedRec?.reason && (
-                                <View style={styles.reason}>
-                                    <Text style={styles.reasonTitle}>{activityText.reasonTitle}</Text>
-                                    <Text style={styles.reasonText}>{selectedRec.reason}</Text>
-                                </View>
-                            )}
-
-                            {!isGameNightActivity && selectedRec?.address && (
-                                <View style={styles.section}>
-                                    <View style={styles.sectionHeader}>
-                                        <Icons.MapPin />
-                                        <Text style={styles.sectionTitle}>Location</Text>
-                                    </View>
-                                    <Text style={styles.description}>{selectedRec.address}</Text>
-                                </View>
-                            )}
-
-                            {!isGameNightActivity && selectedRec?.photos && (
-                                <PhotoGallery photos={safeJsonParse(selectedRec.photos, [])} />
-                            )}
-
-                            {!isGameNightActivity && selectedRec?.reviews && (() => {
-                                const reviews = safeJsonParse(selectedRec.reviews, []);
-                                return reviews.length > 0 && (
+                                {selectedRec?.description && (
                                     <View style={styles.section}>
                                         <View style={styles.sectionHeader}>
-                                            <Icons.Star />
-                                            <Text style={styles.sectionTitle}>Reviews</Text>
+                                            <Icons.HelpCircle />
+                                            <Text style={styles.sectionTitle}>About</Text>
                                         </View>
-                                        {reviews.slice(0, 3).map((review, i) => (
-                                            <TruncatedReview key={i} review={review} />
-                                        ))}
+                                        <Text style={styles.description}>{selectedRec.description}</Text>
+                                        {selectedRec.website && (
+                                            <TouchableOpacity
+                                                style={styles.websiteLink}
+                                                onPress={() => Linking.openURL(selectedRec.website)}
+                                            >
+                                                <Icons.Globe />
+                                                <Text style={styles.websiteLinkText}>Visit Website</Text>
+                                                <Icons.ExternalLink />
+                                            </TouchableOpacity>
+                                        )}
                                     </View>
-                                );
-                            })()}
-                        </ScrollView>
-                    </SafeAreaView>
-                </Modal>
-            </ScrollView>
+                                )}
+
+                                {selectedRec?.reason && (
+                                    <View style={styles.reason}>
+                                        <Text style={styles.reasonTitle}>{activityText.reasonTitle}</Text>
+                                        <Text style={styles.reasonText}>{selectedRec.reason}</Text>
+                                    </View>
+                                )}
+
+                                {!isGameNightActivity && selectedRec?.address && (
+                                    <View style={styles.section}>
+                                        <View style={styles.sectionHeader}>
+                                            <Icons.MapPin />
+                                            <Text style={styles.sectionTitle}>Location</Text>
+                                        </View>
+                                        <Text style={styles.description}>{selectedRec.address}</Text>
+                                    </View>
+                                )}
+
+                                {!isGameNightActivity && selectedRec?.photos && (
+                                    <PhotoGallery photos={safeJsonParse(selectedRec.photos, [])} />
+                                )}
+
+                                {!isGameNightActivity && selectedRec?.reviews && (() => {
+                                    const reviews = safeJsonParse(selectedRec.reviews, []);
+                                    return reviews.length > 0 && (
+                                        <View style={styles.section}>
+                                            <View style={styles.sectionHeader}>
+                                                <Icons.Star />
+                                                <Text style={styles.sectionTitle}>Reviews</Text>
+                                            </View>
+                                            {reviews.slice(0, 3).map((review, i) => (
+                                                <TruncatedReview key={i} review={review} />
+                                            ))}
+                                        </View>
+                                    );
+                                })()}
+                            </ScrollView>
+                        </SafeAreaView>
+                    </Modal>
+                </SafeAreaView>
+            </Modal>
+        );
+
+        // If not showing results, return a simple placeholder to prevent showing other content
+        return (
+            <View style={styles.container}>
+                <View style={styles.votingPlaceholder}>
+                    <Text style={styles.votingPlaceholderText}>Loading recommendations...</Text>
+                </View>
+            </View>
         );
     }
 
@@ -1102,23 +1990,32 @@ export default function AIRecommendations({
         );
     }
 
-    // Default fallback
+    // Default fallback - This should rarely be reached
     return (
         <View style={styles.container}>
-            <Text style={styles.heading}>{activityText.planningTitle}</Text>
-            <Text style={styles.fallbackText}>Activity is not in collecting or voting phase.</Text>
+            <View style={styles.phaseIndicator}>
+                <View style={styles.phaseContent}>
+                    <Icons.HelpCircle color="#ccc" />
+                    <Text style={styles.phaseTitle}>Unknown Phase</Text>
+                </View>
+                <Text style={styles.phaseSubtitle}>
+                    This activity is in an unexpected state. Please contact support if this persists.
+                </Text>
+                <View style={styles.debugInfo}>
+                    <Text style={styles.debugText}>
+                        Debug: active={String(active)}, collecting={String(collecting)}, voting={String(voting)}, finalized={String(finalized)}, completed={String(completed)}
+                    </Text>
+                </View>
+            </View>
         </View>
     );
 }
 
-// Updated styles with new icon styles
 const styles = StyleSheet.create({
     container: {
-        flex: 1,
-        backgroundColor: '#201925',
+        marginHorizontal: 16,
     },
     contentContainer: {
-        paddingBottom: 20,
     },
     loadingContainer: {
         flex: 1,
@@ -1154,22 +2051,20 @@ const styles = StyleSheet.create({
     phaseIndicator: {
         flexDirection: 'column',
         alignItems: 'center',
-        backgroundColor: 'rgba(255, 255, 255, 0.08)',
-        borderColor: 'rgba(255, 255, 255, 0.1)',
+        backgroundColor: 'rgba(255, 255, 255, 0.03)',
+        borderColor: 'rgba(64, 51, 71, 0.3)',
         borderWidth: 1,
         borderRadius: 16,
-        padding: 20,
-        margin: 16,
+        padding: 16,
     },
     combinedCard: {
         flexDirection: 'column',
         alignItems: 'center',
-        backgroundColor: 'rgba(255, 255, 255, 0.08)',
-        borderColor: 'rgba(255, 255, 255, 0.1)',
+        backgroundColor: 'rgba(255, 255, 255, 0.03)',
+        borderColor: 'rgba(64, 51, 71, 0.3)',
         borderWidth: 1,
         borderRadius: 16,
-        padding: 20,
-        margin: 16,
+        padding: 16,
     },
     cardTitle: {
         color: '#fff',
@@ -1181,7 +2076,6 @@ const styles = StyleSheet.create({
     },
     submissionCountContainer: {
         alignItems: 'center',
-        marginBottom: 8,
     },
     submissionCount: {
         color: '#667eea',
@@ -1191,7 +2085,7 @@ const styles = StyleSheet.create({
         lineHeight: 52,
     },
     submissionLabel: {
-        color: 'rgba(255, 255, 255, 0.7)',
+        color: 'rgba(255, 255, 255, 0.9)',
         fontSize: 16,
         fontFamily: 'Montserrat_400Regular',
         marginTop: 4,
@@ -1208,7 +2102,7 @@ const styles = StyleSheet.create({
         marginLeft: 8,
     },
     phaseSubtitle: {
-        color: 'rgba(255, 255, 255, 0.7)',
+        color: 'rgba(255, 255, 255, 0.9)',
         fontSize: 14,
         textAlign: 'center',
         marginBottom: 16,
@@ -1243,12 +2137,12 @@ const styles = StyleSheet.create({
         borderRadius: 3,
     },
     availabilitySection: {
-        margin: 16,
-        padding: 16,
-        backgroundColor: 'rgba(255, 255, 255, 0.05)',
-        borderRadius: 12,
-        borderColor: 'rgba(255, 255, 255, 0.1)',
+        backgroundColor: 'rgba(255, 255, 255, 0.03)',
+        borderRadius: 16,
         borderWidth: 1,
+        borderColor: 'rgba(64, 51, 71, 0.3)',
+        marginBottom: 16,
+        padding: 16,
     },
     availabilityHeader: {
         flexDirection: 'row',
@@ -1280,7 +2174,7 @@ const styles = StyleSheet.create({
         gap: 8,
     },
     dateCard: {
-        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        backgroundColor: 'rgba(255, 255, 255, 0.03)',
         borderRadius: 8,
         padding: 12,
         minWidth: 120,
@@ -1361,12 +2255,12 @@ const styles = StyleSheet.create({
         fontWeight: '600',
     },
     preferencesCard: {
-        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        backgroundColor: 'rgba(255, 255, 255, 0.03)',
         borderRadius: 16,
-        padding: 24,
-        margin: 16,
+        padding: 16,
+        marginBottom: 16,
         alignItems: 'center',
-        borderColor: 'rgba(255, 255, 255, 0.1)',
+        borderColor: 'rgba(64, 51, 71, 0.3)',
         borderWidth: 1,
     },
     preferencesSection: {
@@ -1385,21 +2279,60 @@ const styles = StyleSheet.create({
         borderTopWidth: 1,
         width: '100%',
     },
-    generateButton: {
+    generateButtonContainer: {
+        marginHorizontal: 24,
+        marginTop: 20,
+        marginBottom: 20,
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: 12,
+        paddingVertical: 12,
+    },
+    pulseRing: {
+        position: 'absolute',
+        width: '100%',
+        height: '100%',
+        borderRadius: 30,
+        borderWidth: 2,
+        borderColor: '#6B73FF',
+        backgroundColor: 'transparent',
+    },
+    generateButtonTouchable: {
+        borderRadius: 30,
+        overflow: 'hidden',
+        elevation: 8,
+        shadowColor: '#6B73FF',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 12,
+    },
+    generateButtonGradient: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: '#667eea',
-        paddingHorizontal: 24,
-        paddingVertical: 12,
-        borderRadius: 12,
-        width: '100%',
-        marginTop: 16,
+        paddingHorizontal: 32,
+        paddingVertical: 16,
+        borderRadius: 30,
+        position: 'relative',
+    },
+    buttonInnerGlow: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        borderRadius: 30,
+        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    },
+    buttonIcon: {
+        marginRight: 2,
     },
     generateButtonText: {
         color: '#fff',
-        fontWeight: '600',
+        fontWeight: '700',
+        fontSize: 14,
         marginLeft: 8,
+        letterSpacing: 0.3,
     },
     actionButtonsContainer: {
         flexDirection: 'row',
@@ -1464,7 +2397,7 @@ const styles = StyleSheet.create({
         textAlign: 'center',
     },
     preferencesText: {
-        color: 'rgba(255, 255, 255, 0.8)',
+        color: 'rgba(255, 255, 255, 0.95)',
         fontSize: 14,
         textAlign: 'center',
         lineHeight: 20,
@@ -1501,7 +2434,7 @@ const styles = StyleSheet.create({
         textAlign: 'center',
     },
     submittedText: {
-        color: 'rgba(255, 255, 255, 0.8)',
+        color: 'rgba(255, 255, 255, 0.95)',
         fontSize: 14,
         textAlign: 'center',
         lineHeight: 20,
@@ -1523,13 +2456,14 @@ const styles = StyleSheet.create({
         marginLeft: 8,
     },
     recommendationsList: {
-        margin: 16,
+        marginTop: 32,
+        marginBottom: 16,
     },
     listItem: {
-        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        backgroundColor: 'rgba(255, 255, 255, 0.03)',
         borderRadius: 12,
         marginBottom: 12,
-        borderColor: 'rgba(255, 255, 255, 0.1)',
+        borderColor: 'rgba(64, 51, 71, 0.3)',
         borderWidth: 1,
         overflow: 'hidden',
     },
@@ -1578,7 +2512,7 @@ const styles = StyleSheet.create({
         alignItems: 'flex-end',
     },
     listDetail: {
-        color: 'rgba(255, 255, 255, 0.7)',
+        color: 'rgba(255, 255, 255, 0.9)',
         fontSize: 13,
         marginBottom: 2,
     },
@@ -1621,7 +2555,7 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(0, 0, 0, 0.8)',
         justifyContent: 'center',
         alignItems: 'center',
-        padding: 20,
+        padding: 40,
     },
     votingModalContainer: {
         backgroundColor: '#2C1E33',
@@ -1633,15 +2567,25 @@ const styles = StyleSheet.create({
     },
     votingModalCloseButton: {
         position: 'absolute',
-        top: 15,
-        right: 15,
-        padding: 15,
-        backgroundColor: 'rgba(255, 255, 255, 0.2)',
-        borderRadius: 20,
+        top: 25,
+        right: 25,
+        padding: 8,
+        backgroundColor: 'rgba(255, 255, 255, 0.15)',
+        borderRadius: 22,
         zIndex: 10,
+        width: 44,
+        height: 44,
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+        elevation: 3,
     },
     votingModalContent: {
-        padding: 30,
+        padding: 35,
+        paddingTop: 60,
         alignItems: 'center',
     },
     votingModalTitle: {
@@ -1832,7 +2776,7 @@ const styles = StyleSheet.create({
         marginLeft: 8,
     },
     description: {
-        color: 'rgba(255, 255, 255, 0.8)',
+        color: 'rgba(255, 255, 255, 0.95)',
         fontSize: 14,
         lineHeight: 20,
     },
@@ -1861,7 +2805,7 @@ const styles = StyleSheet.create({
         marginBottom: 8,
     },
     reasonText: {
-        color: 'rgba(255, 255, 255, 0.8)',
+        color: 'rgba(255, 255, 255, 0.95)',
         fontSize: 14,
         lineHeight: 20,
     },
@@ -1875,7 +2819,7 @@ const styles = StyleSheet.create({
         marginRight: 12,
     },
     reviewItem: {
-        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        backgroundColor: 'rgba(255, 255, 255, 0.03)',
         borderRadius: 8,
         padding: 12,
         marginBottom: 8,
@@ -1901,7 +2845,7 @@ const styles = StyleSheet.create({
         marginLeft: 4,
     },
     reviewText: {
-        color: 'rgba(255, 255, 255, 0.8)',
+        color: 'rgba(255, 255, 255, 0.95)',
         fontSize: 13,
         lineHeight: 18,
     },
@@ -1915,5 +2859,727 @@ const styles = StyleSheet.create({
         fontSize: 16,
         textAlign: 'center',
         margin: 20,
+    },
+
+    // Exciting Loading Modal Styles
+    loadingModalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.9)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    loadingModalContainer: {
+        backgroundColor: '#2C1E33',
+        borderRadius: 30,
+        padding: 50,
+        alignItems: 'center',
+        maxWidth: 350,
+        margin: 20,
+        shadowColor: '#6B73FF',
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.5,
+        shadowRadius: 20,
+        elevation: 10,
+        borderWidth: 1,
+        borderColor: 'rgba(107, 115, 255, 0.3)',
+    },
+    loadingAnimation: {
+        position: 'relative',
+        width: 80,
+        height: 80,
+        marginBottom: 30,
+    },
+    loadingCircle: {
+        position: 'absolute',
+        borderWidth: 3,
+        borderRadius: 40,
+        borderColor: 'transparent',
+    },
+    loadingCircle1: {
+        width: 80,
+        height: 80,
+        borderTopColor: '#6B73FF',
+        borderRightColor: '#6B73FF',
+    },
+    loadingCircle2: {
+        width: 60,
+        height: 60,
+        top: 10,
+        left: 10,
+        borderTopColor: '#9D50BB',
+        borderRightColor: '#9D50BB',
+    },
+    loadingCircle3: {
+        width: 40,
+        height: 40,
+        top: 20,
+        left: 20,
+        borderTopColor: '#CF38DD',
+        borderRightColor: '#CF38DD',
+    },
+    loadingModalTitle: {
+        color: '#fff',
+        fontSize: 24,
+        fontWeight: '700',
+        textAlign: 'center',
+        marginBottom: 15,
+        letterSpacing: 0.5,
+    },
+    loadingModalSubtitle: {
+        color: 'rgba(255, 255, 255, 0.8)',
+        fontSize: 16,
+        textAlign: 'center',
+        lineHeight: 24,
+        marginBottom: 30,
+        paddingHorizontal: 10,
+    },
+    loadingDots: {
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+        gap: 8,
+    },
+    loadingDot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: '#6B73FF',
+    },
+    loadingDot1: {
+        backgroundColor: '#6B73FF',
+    },
+    loadingDot2: {
+        backgroundColor: '#9D50BB',
+    },
+    loadingDot3: {
+        backgroundColor: '#CF38DD',
+    },
+
+    // Swipeable Card Styles
+    swipeContainer: {
+        flex: 1,
+        backgroundColor: '#201925',
+    },
+    swipeHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: 16,
+        paddingBottom: 8,
+    },
+    swipeBackButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    swipeHeaderCenter: {
+        flex: 1,
+        alignItems: 'center',
+    },
+    swipeHeaderRight: {
+        width: 40, // Balance the back button
+    },
+    swipeHeaderTitle: {
+        color: '#fff',
+        fontSize: 24,
+        fontWeight: '700',
+        fontFamily: 'Montserrat_700Bold',
+        marginBottom: 0,
+    },
+    cardCounter: {
+        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+        paddingHorizontal: 12,
+        paddingVertical: 4,
+        borderRadius: 12,
+    },
+    cardCounterText: {
+        color: 'rgba(255, 255, 255, 0.9)',
+        fontSize: 14,
+        fontWeight: '600',
+    },
+    swipeInstructions: {
+        flexDirection: 'row',
+        justifyContent: 'space-around',
+        paddingHorizontal: 40,
+        paddingVertical: 8,
+        marginBottom: -8,
+    },
+    instructionItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    swipeLeftDemo: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: 'rgba(231, 76, 60, 0.2)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 8,
+    },
+    swipeRightDemo: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: 'rgba(40, 167, 69, 0.2)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 8,
+    },
+    instructionText: {
+        color: 'rgba(255, 255, 255, 0.8)',
+        fontSize: 13,
+        fontWeight: '500',
+    },
+    cardStack: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: 20,
+        paddingVertical: 20,
+    },
+    swipeCard: {
+        width: screenWidth - 40,
+        height: 450,
+        borderRadius: 20,
+        elevation: 5,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+    },
+    activeCard: {
+        position: 'absolute',
+        zIndex: 1,
+    },
+    nextCard: {
+        position: 'absolute',
+        zIndex: -1,
+        transform: [{ scale: 0.95 }],
+        opacity: 0.6,
+    },
+    cardGradient: {
+        flex: 1,
+        borderRadius: 20,
+        padding: 20,
+        justifyContent: 'space-between',
+    },
+    swipeIndicator: {
+        position: 'absolute',
+        top: 30,
+        zIndex: 10,
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+        borderWidth: 3,
+    },
+    likeIndicator: {
+        right: 30,
+        borderColor: '#28a745',
+        backgroundColor: 'rgba(40, 167, 69, 0.1)',
+    },
+    dislikeIndicator: {
+        left: 30,
+        borderColor: '#e74c3c',
+        backgroundColor: 'rgba(231, 76, 60, 0.1)',
+    },
+    likeText: {
+        color: '#28a745',
+        fontSize: 12,
+        fontWeight: '700',
+        marginTop: 4,
+    },
+    dislikeText: {
+        color: '#e74c3c',
+        fontSize: 12,
+        fontWeight: '700',
+        marginTop: 4,
+    },
+    cardHeader: {
+        marginBottom: 16,
+    },
+    cardTitle: {
+        color: '#fff',
+        fontSize: 22,
+        fontWeight: '700',
+        fontFamily: 'Montserrat_700Bold',
+        marginBottom: 4,
+    },
+    cardPrice: {
+        color: '#D4AF37',
+        fontSize: 16,
+        fontWeight: '600',
+    },
+    cardDetails: {
+        marginBottom: 16,
+    },
+    cardDetailRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 8,
+    },
+    cardDetailText: {
+        color: 'rgba(255, 255, 255, 0.9)',
+        fontSize: 14,
+        marginLeft: 8,
+    },
+    cardDescription: {
+        color: 'rgba(255, 255, 255, 0.8)',
+        fontSize: 14,
+        lineHeight: 20,
+        marginBottom: 16,
+    },
+    cardReason: {
+        backgroundColor: 'rgba(102, 126, 234, 0.15)',
+        borderRadius: 12,
+        padding: 12,
+        marginBottom: 16,
+    },
+    cardReasonTitle: {
+        color: '#667eea',
+        fontSize: 14,
+        fontWeight: '600',
+        marginBottom: 4,
+    },
+    cardReasonText: {
+        color: 'rgba(255, 255, 255, 0.9)',
+        fontSize: 13,
+        lineHeight: 18,
+    },
+    cardActions: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginTop: 'auto',
+    },
+    cardActionButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        borderRadius: 20,
+        borderWidth: 1,
+    },
+    flagButton: {
+        borderColor: '#ffc107',
+        backgroundColor: 'rgba(255, 193, 7, 0.1)',
+    },
+    flagButtonText: {
+        color: '#ffc107',
+        fontSize: 13,
+        fontWeight: '600',
+        marginLeft: 6,
+    },
+    favoriteButton: {
+        borderColor: '#D4AF37',
+        backgroundColor: 'rgba(212, 175, 55, 0.1)',
+    },
+    favoriteButtonText: {
+        color: '#D4AF37',
+        fontSize: 13,
+        fontWeight: '600',
+        marginLeft: 6,
+    },
+    nextCardTitle: {
+        color: 'rgba(255, 255, 255, 0.6)',
+        fontSize: 18,
+        fontWeight: '600',
+        textAlign: 'center',
+        marginTop: 20,
+    },
+    skipButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+        paddingHorizontal: 20,
+        paddingVertical: 12,
+        borderRadius: 25,
+        marginHorizontal: 20,
+        marginBottom: 20,
+    },
+    skipButtonText: {
+        color: '#667eea',
+        fontSize: 14,
+        fontWeight: '600',
+        marginLeft: 8,
+    },
+
+    // Results View Styles
+    resultsHeader: {
+        padding: 16,
+        marginBottom: 16,
+    },
+    resultsStats: {
+        flexDirection: 'row',
+        justifyContent: 'space-around',
+        backgroundColor: 'rgba(255, 255, 255, 0.03)',
+        borderRadius: 16,
+        padding: 16,
+        borderWidth: 1,
+        borderColor: 'rgba(64, 51, 71, 0.3)',
+    },
+    statItem: {
+        alignItems: 'center',
+    },
+    statNumber: {
+        color: '#fff',
+        fontSize: 24,
+        fontWeight: '700',
+        fontFamily: 'Montserrat_700Bold',
+        marginTop: 8,
+    },
+    statLabel: {
+        color: 'rgba(255, 255, 255, 0.7)',
+        fontSize: 12,
+        marginTop: 4,
+    },
+    favoriteListItem: {
+        borderColor: '#D4AF37',
+        borderWidth: 2,
+    },
+    favoriteIndicator: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#D4AF37',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        justifyContent: 'center',
+    },
+    favoriteIndicatorText: {
+        color: '#fff',
+        fontWeight: '700',
+        fontSize: 12,
+        marginLeft: 6,
+    },
+    finalActionsContainer: {
+        flexDirection: 'row',
+        gap: 12,
+        marginHorizontal: 16,
+        marginBottom: 16,
+    },
+    shareButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#667eea',
+        paddingHorizontal: 20,
+        paddingVertical: 14,
+        borderRadius: 12,
+        flex: 1,
+    },
+    shareButtonText: {
+        color: '#fff',
+        fontWeight: '600',
+        fontSize: 14,
+        marginLeft: 8,
+    },
+    finalizeFromResultsButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#28a745',
+        paddingHorizontal: 20,
+        paddingVertical: 14,
+        borderRadius: 12,
+        flex: 1,
+    },
+    finalizeFromResultsButtonText: {
+        color: '#fff',
+        fontWeight: '600',
+        fontSize: 14,
+        marginLeft: 8,
+    },
+    resetButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: 'transparent',
+        borderColor: '#667eea',
+        borderWidth: 1,
+        paddingHorizontal: 20,
+        paddingVertical: 12,
+        borderRadius: 12,
+        marginHorizontal: 16,
+        marginBottom: 20,
+    },
+    resetButtonText: {
+        color: '#667eea',
+        fontSize: 14,
+        fontWeight: '600',
+        marginLeft: 8,
+    },
+    noLikesContainer: {
+        alignItems: 'center',
+        padding: 40,
+        marginHorizontal: 16,
+    },
+    noLikesTitle: {
+        color: '#fff',
+        fontSize: 20,
+        fontWeight: '700',
+        fontFamily: 'Montserrat_700Bold',
+        marginTop: 16,
+        marginBottom: 8,
+    },
+    noLikesText: {
+        color: 'rgba(255, 255, 255, 0.7)',
+        fontSize: 14,
+        textAlign: 'center',
+        lineHeight: 20,
+        marginBottom: 24,
+    },
+    tryAgainButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#667eea',
+        paddingHorizontal: 24,
+        paddingVertical: 12,
+        borderRadius: 12,
+    },
+    tryAgainButtonText: {
+        color: '#fff',
+        fontSize: 14,
+        fontWeight: '600',
+        marginLeft: 8,
+    },
+
+    // No recommendations styles
+    noRecommendationsContainer: {
+        alignItems: 'center',
+        padding: 40,
+        marginHorizontal: 16,
+    },
+    noRecommendationsTitle: {
+        color: '#fff',
+        fontSize: 20,
+        fontWeight: '700',
+        fontFamily: 'Montserrat_700Bold',
+        marginTop: 16,
+        marginBottom: 8,
+    },
+    noRecommendationsText: {
+        color: 'rgba(255, 255, 255, 0.7)',
+        fontSize: 14,
+        textAlign: 'center',
+        lineHeight: 20,
+        marginBottom: 24,
+    },
+    generateButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#667eea',
+        paddingHorizontal: 24,
+        paddingVertical: 12,
+        borderRadius: 12,
+    },
+    generateButtonText: {
+        color: '#fff',
+        fontSize: 14,
+        fontWeight: '600',
+        marginLeft: 8,
+    },
+
+    // Voting placeholder styles
+    votingPlaceholder: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 40,
+        marginHorizontal: 16,
+    },
+    votingPlaceholderText: {
+        color: 'rgba(255, 255, 255, 0.7)',
+        fontSize: 16,
+        textAlign: 'center',
+    },
+
+    // Test button styles
+    testButtons: {
+        flexDirection: 'row',
+        justifyContent: 'space-around',
+        paddingHorizontal: 40,
+        paddingVertical: 20,
+    },
+    testButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+        paddingHorizontal: 20,
+        paddingVertical: 12,
+        borderRadius: 25,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.2)',
+    },
+    testButtonText: {
+        color: '#fff',
+        fontSize: 14,
+        fontWeight: '600',
+        marginLeft: 8,
+    },
+
+    // Phase-specific button styles
+    activateButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#667eea',
+        paddingHorizontal: 24,
+        paddingVertical: 14,
+        borderRadius: 12,
+        marginTop: 16,
+    },
+    activateButtonText: {
+        color: '#fff',
+        fontWeight: '600',
+        fontSize: 16,
+        marginLeft: 8,
+    },
+    startCollectingButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#28a745',
+        paddingHorizontal: 24,
+        paddingVertical: 14,
+        borderRadius: 12,
+        marginTop: 16,
+    },
+    startCollectingButtonText: {
+        color: '#fff',
+        fontWeight: '600',
+        fontSize: 16,
+        marginLeft: 8,
+    },
+
+    // Debug styles
+    debugInfo: {
+        marginTop: 20,
+        padding: 12,
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        borderRadius: 8,
+    },
+    debugText: {
+        color: 'rgba(255, 255, 255, 0.6)',
+        fontSize: 12,
+        fontFamily: 'monospace',
+    },
+
+    // Owner actions styles
+    ownerActionsContainer: {
+        marginHorizontal: 16,
+        marginBottom: 16,
+        padding: 20,
+        backgroundColor: 'rgba(255, 255, 255, 0.03)',
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: 'rgba(64, 51, 71, 0.3)',
+    },
+    ownerActionsTitle: {
+        color: '#fff',
+        fontSize: 18,
+        fontWeight: '700',
+        fontFamily: 'Montserrat_700Bold',
+        marginBottom: 20,
+        textAlign: 'center',
+    },
+    saveFavoriteButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#D4AF37',
+        paddingHorizontal: 20,
+        paddingVertical: 16,
+        borderRadius: 12,
+        marginBottom: 12,
+        elevation: 3,
+        shadowColor: '#D4AF37',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+    },
+    finalizeActivityButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#667eea',
+        paddingHorizontal: 20,
+        paddingVertical: 16,
+        borderRadius: 12,
+        elevation: 3,
+        shadowColor: '#667eea',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+    },
+    buttonContent: {
+        flex: 1,
+        marginLeft: 12,
+    },
+    saveFavoriteButtonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '700',
+        marginBottom: 2,
+    },
+    finalizeActivityButtonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '700',
+        marginBottom: 2,
+    },
+    buttonSubtext: {
+        color: 'rgba(255, 255, 255, 0.8)',
+        fontSize: 13,
+        lineHeight: 16,
+    },
+    generateButtonDisabled: {
+        opacity: 0.5,
+    },
+    collectingPhaseTitle: {
+        color: '#fff',
+        fontSize: 24,
+        fontWeight: '700',
+        fontFamily: 'Montserrat_700Bold',
+        marginBottom: 16,
+        textAlign: 'center',
+    },
+    viewDetailsButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: 'rgba(255, 255, 255, 0.08)',
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 20,
+        marginTop: 10,
+        marginBottom: 6,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+    },
+    viewDetailsButtonText: {
+        color: 'rgba(255, 255, 255, 0.9)',
+        fontSize: 13,
+        fontWeight: '500',
+        marginRight: 6,
+    },
+    cardPriceCorner: {
+        position: 'absolute',
+        top: 0,
+        right: 0,
+        color: '#D4AF37',
+        fontSize: 16,
+        fontWeight: '600',
+    },
+    cardTitleContainer: {
+        flex: 1,
+        paddingRight: 60, // Make room for price
+    },
+    cardHeader: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        marginBottom: 12,
+        position: 'relative',
     },
 });

@@ -117,7 +117,7 @@ export default function LoginScreen() {
               disabled={isLoading}
             >
               <Text style={styles.submitText}>
-                {isLoading ? 'Logging you in…' : 'Log in'}
+                {isLoading ? 'Logging in…' : 'Log in'}
               </Text>
             </TouchableOpacity>
 

@@ -299,23 +299,7 @@ export default function ParticipantsSection({
         setContactsLoading(false)
     }
 
-    // Helper functions for tracking responses and votes
-    const hasVoted = (participant) => {
-        if (!participant.confirmed || !participant.apId) return false
-
-        if (activity.activity_type === 'Meeting') {
-            return votes.some(slot => slot.voter_ids && slot.voter_ids.includes(participant.apId))
-        }
-
-        if (activity.activity_type === 'Restaurant') {
-            return votes.some(restaurant =>
-                restaurant.voters && restaurant.voters.some(voter => voter.id === participant.apId)
-            )
-        }
-
-        return false
-    }
-
+    // Helper functions for tracking responses
     const hasResponded = (participant) =>
         participant.confirmed && responses.some(r => r.user_id === participant.apId)
 
@@ -323,7 +307,6 @@ export default function ParticipantsSection({
     const responsesCount = allParticipants.filter(p =>
         responses.some(r => r.user_id === p.apId)
     ).length
-    const votesCount = allParticipants.filter(p => hasVoted(p)).length
 
     // Auto-show invite modal if no participants
     useEffect(() => {
@@ -535,14 +518,6 @@ export default function ParticipantsSection({
                                 {hasResponded(item) ? 'Response submitted' : 'Waiting for response'}
                             </Text>
 
-                            {hasVoted(item) ? (
-                                <CheckCircle stroke="#8b5cf6" width={14} height={14} />
-                            ) : (
-                                <XCircle stroke="#6b7280" width={14} height={14} />
-                            )}
-                            <Text style={styles.statusText}>
-                                {hasVoted(item) ? 'Vote cast' : 'No vote yet'}
-                            </Text>
                         </View>
                     </View>
                 </View>
@@ -858,16 +833,15 @@ export default function ParticipantsSection({
                 <View style={styles.participantsTitle}>
                     <Users stroke="#8b5cf6" width={20} height={20} />
                     <Text style={styles.participantsTitleText}>
-                        {allParticipants.length} {allParticipants.length === 1 ? 'Attendee' : 'Attendees'}
+                        {allParticipants.length} {allParticipants.length === 1 ? 'Voxxer' : 'Voxxers'}
                     </Text>
                 </View>
 
-                {(responsesCount > 0 || votesCount > 0) && (
+                {responsesCount > 0 && (
                     <View style={styles.responseBadge}>
                         <CheckCircle stroke="#10b981" width={12} height={12} />
                         <Text style={styles.responseBadgeText}>
-                            {responsesCount}/{totalToRespond} responses
-                            {votesCount > 0 && ` • ${votesCount}/${totalToRespond} votes`}
+                            {responsesCount}/{totalToRespond} submissions
                         </Text>
                     </View>
                 )}
@@ -1034,7 +1008,7 @@ export default function ParticipantsSection({
 const styles = StyleSheet.create({
     container: {
         backgroundColor: 'rgba(255, 255, 255, 0.03)',
-        padding: 16,
+        padding: 12,
         borderRadius: 16,
         borderWidth: 1,
         borderColor: 'rgba(64, 51, 71, 0.3)',
@@ -1046,7 +1020,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 16,
+        marginBottom: 12,
         flexWrap: 'wrap',
         gap: 8,
     },
@@ -1426,7 +1400,7 @@ const styles = StyleSheet.create({
 
     crewLastActivityText: {
         fontSize: 14,
-        color: '#cbd5e1',
+        color: '#ffffff',
         flex: 1,
     },
 
@@ -1536,7 +1510,7 @@ const styles = StyleSheet.create({
 
     contactEmailCount: {
         fontSize: 12,
-        color: '#cbd5e1',
+        color: '#ffffff',
         fontStyle: 'italic',
     },
 
@@ -1548,7 +1522,7 @@ const styles = StyleSheet.create({
     },
 
     emptyContactsText: {
-        color: '#64748b',
+        color: '#e2e8f0',
         fontSize: 16,
         textAlign: 'center',
         lineHeight: 24,
@@ -1690,7 +1664,7 @@ const styles = StyleSheet.create({
     progressText: {
         fontSize: 14,
         fontWeight: '500',
-        color: '#cbd5e1',
+        color: '#ffffff',
         marginBottom: 8,
     },
 
@@ -1731,7 +1705,7 @@ const styles = StyleSheet.create({
     },
 
     emptyStateText: {
-        color: '#64748b',
+        color: '#e2e8f0',
         fontSize: 16,
         textAlign: 'center',
     },
@@ -1810,7 +1784,7 @@ const styles = StyleSheet.create({
 
     statusText: {
         fontSize: 11,
-        color: '#64748b',
+        color: '#e2e8f0',
         marginRight: 8,
     },
 

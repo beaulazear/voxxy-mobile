@@ -133,7 +133,7 @@ export default function ProfileSnippet({ scrollY = new Animated.Value(0), onScro
     }
     
     // Default avatar
-    return require('../assets/Avatar1.jpg');
+    return require('../assets/Weird5.jpg');
   };
 
   if (!user) return null;

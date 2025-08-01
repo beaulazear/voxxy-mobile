@@ -10,8 +10,10 @@ import {
     Alert,
     StyleSheet,
     Keyboard,
+    Platform,
 } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
+import DateTimePicker from '@react-native-community/datetimepicker'
 import {
     X,
     CheckCircle,
@@ -19,7 +21,8 @@ import {
     MapPin,
     MessageSquare,
     Users,
-    Heart
+    Heart,
+    Calendar
 } from 'react-native-feather'
 import {
     FormStyles,
@@ -48,12 +51,17 @@ export default function FinalizeActivityModal({
 
     const [formData, setFormData] = useState({
         welcome_message: activity.welcome_message || '',
+        date_day: activity.date_day ? new Date(activity.date_day + 'T00:00:00') : new Date(),
+        date_time: activity.date_time ? new Date(activity.date_time) : new Date(),
+        activity_location: activity.activity_location || '',
     })
 
     const [errors, setErrors] = useState([])
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [selectedPinnedId, setSelectedPinnedId] = useState(null)
     const [selectedTimeSlotId, setSelectedTimeSlotId] = useState(null)
+    const [showDatePicker, setShowDatePicker] = useState(false)
+    const [showTimePicker, setShowTimePicker] = useState(false)
 
     const token = user?.token
 
@@ -68,7 +76,7 @@ export default function FinalizeActivityModal({
     const usesPinnedActivities = isRestaurant || isCocktails || isGameNight
 
     // Check if basic activity details are set (required before finalization)
-    const hasBasicDetails = activity.date_day && activity.date_time && activity.activity_location
+    const hasBasicDetails = formData.date_day && formData.date_time && formData.activity_location.trim()
 
     // Validation logic
     const timeSlotValid = !usesTimeSlots || selectedTimeSlotId != null
@@ -105,11 +113,31 @@ export default function FinalizeActivityModal({
         setFormData({ ...formData, [field]: value })
     }
 
-    const formatTo12h = (isoTimestamp) => {
-        if (!isoTimestamp) return 'TBD'
+    const handleDateChange = (event, selectedDate) => {
+        const currentDate = selectedDate || formData.date_day
+        setShowDatePicker(Platform.OS === 'ios')
+        setFormData({ ...formData, date_day: currentDate })
+    }
 
-        const timeHM = isoTimestamp.slice(11, 16)
-        let [hour, minute] = timeHM.split(':').map(Number)
+    const handleTimeChange = (event, selectedTime) => {
+        const currentTime = selectedTime || formData.date_time
+        setShowTimePicker(Platform.OS === 'ios')
+        setFormData({ ...formData, date_time: currentTime })
+    }
+
+    const formatTo12h = (timeInput) => {
+        if (!timeInput) return 'TBD'
+
+        let hour, minute
+        
+        if (timeInput instanceof Date) {
+            hour = timeInput.getHours()
+            minute = timeInput.getMinutes()
+        } else {
+            // Handle ISO timestamp string
+            const timeHM = timeInput.slice(11, 16)
+            ;[hour, minute] = timeHM.split(':').map(Number)
+        }
 
         const isPM = hour >= 12
         const suffix = isPM ? 'pm' : 'am'
@@ -129,12 +157,21 @@ export default function FinalizeActivityModal({
         }
     }
 
-    const formatDate = (ds) => {
-        if (!ds) return 'TBD'
-        const [y, m, d] = ds.split('-').map(Number)
-        const dt = new Date(y, m - 1, d)
+    const formatDate = (dateInput) => {
+        if (!dateInput) return 'TBD'
+        
+        let dt
+        if (dateInput instanceof Date) {
+            dt = dateInput
+        } else {
+            // Handle date string format YYYY-MM-DD
+            const [y, m, d] = dateInput.split('-').map(Number)
+            dt = new Date(y, m - 1, d)
+        }
+        
+        const day = dt.getDate()
         const mn = dt.toLocaleString('en-US', { month: 'long' })
-        return `${mn} ${d}${getOrdinalSuffix(d)}`
+        return `${mn} ${day}${getOrdinalSuffix(day)}`
     }
 
     const getSelectionTypeName = () => {
@@ -159,8 +196,14 @@ export default function FinalizeActivityModal({
         if (!canSubmit) {
             const msgs = []
 
-            if (!hasBasicDetails) {
-                msgs.push('Please set the date, time, and location for this activity before finalizing.')
+            if (!formData.date_day) {
+                msgs.push('Please select an activity date.')
+            }
+            if (!formData.date_time) {
+                msgs.push('Please select an activity time.')
+            }
+            if (!formData.activity_location.trim()) {
+                msgs.push('Please enter an activity location.')
             }
             if (usesTimeSlots && selectedTimeSlotId == null)
                 msgs.push('Please choose a time slot.')
@@ -177,8 +220,26 @@ export default function FinalizeActivityModal({
         setIsSubmitting(true)
         setErrors([])
 
+        // Format date and time for API
+        const formatDateForAPI = (date) => {
+            const year = date.getFullYear()
+            const month = String(date.getMonth() + 1).padStart(2, '0')
+            const day = String(date.getDate()).padStart(2, '0')
+            return `${year}-${month}-${day}`
+        }
+
+        const formatTimeForAPI = (date) => {
+            const hours = String(date.getHours()).padStart(2, '0')
+            const minutes = String(date.getMinutes()).padStart(2, '0')
+            const seconds = String(date.getSeconds()).padStart(2, '0')
+            return `${hours}:${minutes}:${seconds}`
+        }
+
         const payload = {
             welcome_message: formData.welcome_message,
+            date_day: formatDateForAPI(formData.date_day),
+            date_time: formatTimeForAPI(formData.date_time),
+            activity_location: formData.activity_location,
             finalized: true,
         }
 
@@ -345,9 +406,6 @@ export default function FinalizeActivityModal({
                 <View style={FormStyles.modalHeader}>
                     <Text style={FormStyles.title}>Review & Finalize</Text>
                     <Text style={FormStyles.subtitle}>Complete your activity setup</Text>
-                    <Text style={FormStyles.subtitle}>
-                        {formatDate(activity.date_day)} at {formatTo12h(activity.date_time)} • {activity.activity_location}
-                    </Text>
                     <TouchableOpacity
                         style={styles.closeButton}
                         onPress={onClose}
@@ -374,6 +432,70 @@ export default function FinalizeActivityModal({
                             ))}
                         </View>
                     )}
+
+                    {/* Date Selection */}
+                    <View style={styles.section}>
+                        <View style={styles.sectionHeader}>
+                            <Calendar stroke="#cc31e8" width={20} height={20} />
+                            <Text style={styles.sectionTitle}>Activity Date</Text>
+                        </View>
+                        <TouchableOpacity
+                            style={styles.dateTimeButton}
+                            onPress={() => setShowDatePicker(true)}
+                        >
+                            <Text style={styles.dateTimeButtonText}>
+                                {formatDate(formData.date_day)}
+                            </Text>
+                        </TouchableOpacity>
+                        {showDatePicker && (
+                            <DateTimePicker
+                                value={formData.date_day}
+                                mode="date"
+                                display={Platform.OS === 'ios' ? 'compact' : 'default'}
+                                onChange={handleDateChange}
+                                minimumDate={new Date()}
+                            />
+                        )}
+                    </View>
+
+                    {/* Time Selection */}
+                    <View style={styles.section}>
+                        <View style={styles.sectionHeader}>
+                            <Clock stroke="#cc31e8" width={20} height={20} />
+                            <Text style={styles.sectionTitle}>Activity Time</Text>
+                        </View>
+                        <TouchableOpacity
+                            style={styles.dateTimeButton}
+                            onPress={() => setShowTimePicker(true)}
+                        >
+                            <Text style={styles.dateTimeButtonText}>
+                                {formatTo12h(formData.date_time)}
+                            </Text>
+                        </TouchableOpacity>
+                        {showTimePicker && (
+                            <DateTimePicker
+                                value={formData.date_time}
+                                mode="time"
+                                display={Platform.OS === 'ios' ? 'compact' : 'default'}
+                                onChange={handleTimeChange}
+                            />
+                        )}
+                    </View>
+
+                    {/* Location Input */}
+                    <View style={styles.section}>
+                        <View style={styles.sectionHeader}>
+                            <MapPin stroke="#cc31e8" width={20} height={20} />
+                            <Text style={styles.sectionTitle}>Activity Location</Text>
+                        </View>
+                        <TextInput
+                            style={FormStyles.input}
+                            placeholder="Enter activity location..."
+                            placeholderTextColor="#aaa"
+                            value={formData.activity_location}
+                            onChangeText={(value) => handleInputChange('activity_location', value)}
+                        />
+                    </View>
 
                     {renderPinnedActivities()}
                     {renderTimeSlots()}
@@ -570,5 +692,21 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
+    },
+
+    dateTimeButton: {
+        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+        borderRadius: 12,
+        paddingVertical: 14,
+        paddingHorizontal: 16,
+        borderWidth: 1,
+        borderColor: 'rgba(204, 49, 232, 0.3)',
+    },
+
+    dateTimeButtonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '600',
+        textAlign: 'center',
     },
 })

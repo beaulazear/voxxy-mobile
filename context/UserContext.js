@@ -192,6 +192,30 @@ export const UserProvider = ({ children }) => {
     }
   };
 
+  // Refresh user data from server
+  const refreshUser = async () => {
+    if (!user?.token) return;
+
+    try {
+      const res = await fetch(`${API_URL}/me`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${user.token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (res.ok) {
+        const userData = await res.json();
+        const userWithToken = { ...userData, token: user.token };
+        setUser(userWithToken);
+        return userWithToken;
+      }
+    } catch (err) {
+      logger.error('Failed to refresh user:', err);
+    }
+  };
+
   return (
     <UserContext.Provider value={{
       user,
@@ -200,6 +224,7 @@ export const UserProvider = ({ children }) => {
       login,
       logout,
       updateUser,
+      refreshUser,
     }}>
       {children}
     </UserContext.Provider>

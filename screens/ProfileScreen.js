@@ -11,17 +11,19 @@ import {
     Switch,
     SafeAreaView,
     StatusBar,
+    ActivityIndicator,
+    Modal,
 } from 'react-native';
 import { UserContext } from '../context/UserContext';
 import { useNavigation } from '@react-navigation/native';
 import { API_URL } from '../config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NotificationSettings from '../components/NotificationSettings';
-import { ArrowLeft, User, Settings, Edit3, Trash2, LogOut } from 'react-native-feather';
+import { ArrowLeft, User, Settings, Edit3, Trash2, LogOut, Camera } from 'react-native-feather';
 import PushNotificationService from '../services/PushNotificationService'
 import { logger } from '../utils/logger';
-import OptimizedAvatarModal from '../components/OptimizedAvatarModal';
-import { avatarMap, getUserDisplayImage } from '../utils/avatarManager';
+import { getUserDisplayImage } from '../utils/avatarManager';
+import * as ImagePicker from 'expo-image-picker';
 
 export default function ProfileScreen() {
     const { user, setUser, updateUser } = useContext(UserContext);
@@ -39,7 +41,7 @@ export default function ProfileScreen() {
 
     // Tab state
     const [activeTab, setActiveTab] = useState('profile');
-    const [showAvatarModal, setShowAvatarModal] = useState(false);
+    const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
     const token = user?.token;
 
@@ -173,28 +175,79 @@ export default function ProfileScreen() {
         }
     };
 
-    const handleSaveAvatar = (selectedAvatar) => {
-        fetch(`${API_URL}/users/${user.id}`, {
-            method: 'PATCH',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`,
-            },
-            body: JSON.stringify({ avatar: selectedAvatar }),
-        })
-            .then((res) => {
-                if (!res.ok) throw new Error('Failed to update avatar');
-                return res.json();
-            })
-            .then((updatedUser) => {
-                setUser({ ...user, avatar: updatedUser.avatar });
-                setShowAvatarModal(false);
-                Alert.alert('Success', 'Avatar updated!');
-            })
-            .catch((err) => {
-                logger.error('Update error:', err);
-                Alert.alert('Error', 'Failed to update avatar.');
+    const handlePickImage = async () => {
+        const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        
+        if (permissionResult.granted === false) {
+            Alert.alert('Permission Required', 'Please allow access to your photos to upload a profile picture.');
+            return;
+        }
+
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ['images'],
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 0.5,
+            allowsMultipleSelection: false,
+            base64: false,
+            exif: false,
+        });
+
+        if (!result.canceled) {
+            uploadProfilePicture(result.assets[0]);
+        }
+    };
+
+    const uploadProfilePicture = async (image) => {
+        setUploadingPhoto(true);
+        
+        // Get file extension
+        const uriParts = image.uri.split('.');
+        const fileType = uriParts[uriParts.length - 1];
+        
+        const formData = new FormData();
+        formData.append('user[profile_pic]', {
+            uri: image.uri,
+            type: `image/${fileType}`,
+            name: `profile_photo.${fileType}`,
+        });
+
+        try {
+            const response = await fetch(`${API_URL}/users/${user.id}`, {
+                method: 'PATCH',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    // Don't set Content-Type header - let the browser set it with boundary
+                },
+                body: formData,
             });
+
+            const json = await response.json();
+            
+            if (response.ok) {
+                updateUser(json);
+                Alert.alert(
+                    'Success! 🎉', 
+                    'Your profile photo has been updated.',
+                    [{ text: 'OK', style: 'default' }]
+                );
+            } else {
+                Alert.alert(
+                    'Upload Failed', 
+                    'Unable to update your profile photo. Please try again.',
+                    [{ text: 'OK', style: 'default' }]
+                );
+            }
+        } catch (error) {
+            logger.error('Upload error:', error);
+            Alert.alert(
+                'Connection Error', 
+                'Please check your internet connection and try again.',
+                [{ text: 'OK', style: 'default' }]
+            );
+        } finally {
+            setUploadingPhoto(false);
+        }
     };
 
     const handleDelete = () => {
@@ -234,16 +287,21 @@ export default function ProfileScreen() {
             <View style={styles.profileCard}>
                 <TouchableOpacity
                     style={styles.avatarContainer}
-                    onPress={() => setShowAvatarModal(true)}
+                    onPress={handlePickImage}
+                    disabled={uploadingPhoto}
                 >
                     <Image
                         source={getDisplayImage(user)}
                         style={styles.avatar}
-                        onError={() => logger.debug(`❌ Avatar failed to load for ${user?.name}`)}
-                        onLoad={() => logger.debug(`✅ Avatar loaded for ${user?.name}`)}
+                        onError={() => logger.debug(`❌ Photo failed to load for ${user?.name}`)}
+                        onLoad={() => logger.debug(`✅ Photo loaded for ${user?.name}`)}
                     />
                     <View style={styles.avatarEditIndicator}>
-                        <Edit3 stroke="#fff" width={12} height={12} strokeWidth={2} />
+                        {uploadingPhoto ? (
+                            <Text style={styles.uploadingText}>...</Text>
+                        ) : (
+                            <Camera stroke="#fff" width={12} height={12} strokeWidth={2} />
+                        )}
                     </View>
                 </TouchableOpacity>
 
@@ -387,13 +445,20 @@ export default function ProfileScreen() {
                     {activeTab === 'profile' ? renderProfileTab() : renderSettingsTab()}
                 </View>
 
-                {/* Avatar Selection Modal */}
-                <OptimizedAvatarModal
-                    visible={showAvatarModal}
-                    onClose={() => setShowAvatarModal(false)}
-                    onSelectAvatar={handleSaveAvatar}
-                    avatarMap={avatarMap}
-                />
+                {/* Upload Loading Modal */}
+                <Modal
+                    visible={uploadingPhoto}
+                    transparent
+                    animationType="fade"
+                >
+                    <View style={styles.loadingOverlay}>
+                        <View style={styles.loadingBox}>
+                            <ActivityIndicator size="large" color="#CF38DD" />
+                            <Text style={styles.loadingText}>Uploading photo...</Text>
+                            <Text style={styles.loadingSubtext}>This may take a moment</Text>
+                        </View>
+                    </View>
+                </Modal>
             </ScrollView>
         </SafeAreaView>
     );
@@ -547,6 +612,43 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         borderWidth: 2,
         borderColor: '#201925',
+    },
+    
+    uploadingText: {
+        color: '#fff',
+        fontSize: 10,
+        fontWeight: 'bold',
+    },
+    
+    loadingOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    
+    loadingBox: {
+        backgroundColor: '#2C2438',
+        padding: 30,
+        borderRadius: 16,
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#CF38DD',
+    },
+    
+    loadingText: {
+        color: '#FFF',
+        fontSize: 16,
+        fontWeight: '600',
+        marginTop: 16,
+        fontFamily: 'Montserrat-SemiBold',
+    },
+    
+    loadingSubtext: {
+        color: '#999',
+        fontSize: 14,
+        marginTop: 4,
+        fontFamily: 'Montserrat-Regular',
     },
     nameContainer: {
         flex: 1,

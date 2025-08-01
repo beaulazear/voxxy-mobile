@@ -6,7 +6,7 @@ import { getAvatarSource } from '../utils/avatarManager';
 export default function SafeAvatarImage({ 
     source, 
     style, 
-    fallbackAvatar = 'Avatar1.jpg',
+    fallbackAvatar = 'Weird5.jpg',
     showLoading = true,
     ...props 
 }) {

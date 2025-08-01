@@ -189,7 +189,7 @@ export default function GameNightChat({ visible, onClose }) {
                 ...prev,
                 activities: [
                     ...(prev.activities || []),
-                    { ...data, user: prev, responses: [] },
+                    { ...data, user: prev, responses: [], comments: [] },
                 ],
             }))
 

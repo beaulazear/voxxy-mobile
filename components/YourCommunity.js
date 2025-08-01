@@ -78,7 +78,7 @@ export default function YourCommunity({ showInvitePopup, onSelectUser, onCreateB
 
         // Fallback to default avatar
         logger.debug(`🔄 Using default avatar`)
-        return require('../assets/Avatar1.jpg')
+        return require('../assets/Weird5.jpg')
     }
 
     const allUsersMap = new Map()
