@@ -14,6 +14,7 @@ import {
   Animated,
   Dimensions,
 } from 'react-native'
+import { LinearGradient } from 'expo-linear-gradient'
 import { UserContext } from '../context/UserContext'
 import AccountCreatedScreen from './AccountCreatedScreen'
 import VoxxyFooter from '../components/VoxxyFooter'
@@ -179,69 +180,328 @@ function ProgressDisplay({ activity, currentUserId }) {
   )
 }
 
-// Create New Activity Card with conditional content
+// Animated Create New Activity Card with cycling icons and Voxxy gradient
 function CreateCard({ navigation, isLast, isInvitesEmpty = false }) {
   const title = isInvitesEmpty ? 'No Current Invites' : 'Create New Activity'
   const subtitle = isInvitesEmpty ? 'Be the first to invite your friends!' : 'Start planning something amazing!'
-  const actionText = isInvitesEmpty ? 'Start planning now →' : 'Tap to start →'
+  const actionText = isInvitesEmpty ? 'Start planning now →' : 'Ready to vibe? →'
+
+  // Animation values
+  const pulseAnim = useRef(new Animated.Value(1)).current
+  const glowAnim = useRef(new Animated.Value(0)).current
+  const iconRotation = useRef(new Animated.Value(0)).current
+  const floatAnim = useRef(new Animated.Value(0)).current
+  
+  // Cycling icons for activities
+  const activityIcons = [
+    { component: Hamburger, color: '#FF6B6B', name: 'food' },
+    { component: Martini, color: '#4ECDC4', name: 'drinks' },
+    { component: Dices, color: '#FFE66D', name: 'games' },
+    { component: Users, color: '#A8E6CF', name: 'meeting' }
+  ]
+  
+  const [currentIconIndex, setCurrentIconIndex] = useState(0)
+  const CurrentIcon = activityIcons[currentIconIndex].component
+  const currentIconColor = activityIcons[currentIconIndex].color
+
+  // Start animations on mount
+  useEffect(() => {
+    // Pulsing animation
+    const pulseAnimation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.05,
+          duration: 2000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 2000,
+          useNativeDriver: true,
+        }),
+      ])
+    )
+
+    // Glow animation
+    const glowAnimation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(glowAnim, {
+          toValue: 1,
+          duration: 3000,
+          useNativeDriver: false,
+        }),
+        Animated.timing(glowAnim, {
+          toValue: 0,
+          duration: 3000,
+          useNativeDriver: false,
+        }),
+      ])
+    )
+
+    // Float animation
+    const floatAnimation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(floatAnim, {
+          toValue: -5,
+          duration: 2500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(floatAnim, {
+          toValue: 5,
+          duration: 2500,
+          useNativeDriver: true,
+        }),
+      ])
+    )
+
+    pulseAnimation.start()
+    glowAnimation.start()
+    floatAnimation.start()
+
+    // Icon cycling every 2.5 seconds
+    const iconInterval = setInterval(() => {
+      // Add rotation animation when changing icons
+      Animated.timing(iconRotation, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }).start(() => {
+        setCurrentIconIndex((prev) => (prev + 1) % activityIcons.length)
+        iconRotation.setValue(0)
+      })
+    }, 2500)
+
+    return () => {
+      pulseAnimation.stop()
+      glowAnimation.stop()
+      floatAnimation.stop()
+      clearInterval(iconInterval)
+    }
+  }, [])
+
+  const glowOpacity = glowAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.3, 0.8]
+  })
+
+  const iconRotationDegree = iconRotation.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg']
+  })
 
   return (
-    <TouchableOpacity
+    <Animated.View
       style={[
-        styles.createCard,
-        isLast && styles.lastCard,
-        isInvitesEmpty && styles.invitesEmptyCard
+        { transform: [{ scale: pulseAnim }, { translateY: floatAnim }] }
       ]}
-      onPress={() => {
-        if (Haptics?.impactAsync) {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
-        }
-        navigation.navigate('TripDashboardScreen')
-      }}
-      activeOpacity={0.9}
     >
-      <View style={[styles.createCardGlow, isInvitesEmpty && styles.invitesGlow]} />
+      <TouchableOpacity
+        style={[
+          styles.createCard,
+          isLast && styles.lastCard,
+          isInvitesEmpty && styles.invitesEmptyCard
+        ]}
+        onPress={() => {
+          if (Haptics?.impactAsync) {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+          }
+          navigation.navigate('TripDashboardScreen')
+        }}
+        activeOpacity={0.8}
+      >
+        {/* Animated Glow Effect */}
+        <Animated.View 
+          style={[
+            styles.createCardAnimatedGlow, 
+            { opacity: glowOpacity }
+          ]} 
+        />
 
-      <View style={styles.createCardContent}>
-        <View style={[styles.createIconContainer, isInvitesEmpty && styles.invitesIconContainer]}>
-          {isInvitesEmpty ? (
-            <Mail color="#d394f5" size={28} strokeWidth={2.5} />
-          ) : (
-            <Plus color="#4ECDC4" size={28} strokeWidth={2.5} />
-          )}
-        </View>
+        {/* Voxxy Gradient Background */}
+        <LinearGradient
+          colors={['#cc31e8', '#9051e1']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.createCardGradient}
+        >
+          <View style={styles.createCardContent}>
+            {/* Animated Main Icon */}
+            <Animated.View 
+              style={[
+                styles.createMainIconContainer,
+                { transform: [{ rotate: iconRotationDegree }] }
+              ]}
+            >
+              {isInvitesEmpty ? (
+                <Mail color="#ffffff" size={32} strokeWidth={2.5} />
+              ) : (
+                <CurrentIcon color="#ffffff" size={32} strokeWidth={2.5} />
+              )}
+            </Animated.View>
 
-        <Text style={styles.createTitle}>{title}</Text>
-        <Text style={styles.createSubtitle}>{subtitle}</Text>
+            <Text style={styles.createTitle}>{title}</Text>
+            <Text style={styles.createSubtitle}>{subtitle}</Text>
 
-        {!isInvitesEmpty && (
-          <View style={styles.createSuggestions}>
-            <View style={styles.suggestionIcon}>
-              <Hamburger color="#FF6B6B" size={18} strokeWidth={2} />
-            </View>
-            <View style={styles.suggestionIcon}>
-              <Star color="#4ECDC4" size={18} strokeWidth={2} />
-            </View>
-            <View style={styles.suggestionIcon}>
-              <MapPin color="#FFE66D" size={18} strokeWidth={2} />
-            </View>
-            <View style={styles.suggestionIcon}>
-              <User color="#A8E6CF" size={18} strokeWidth={2} />
+            {/* Floating micro icons */}
+            {!isInvitesEmpty && (
+              <View style={styles.createMicroIcons}>
+                {activityIcons.map((icon, index) => {
+                  const IconComponent = icon.component
+                  const isActive = index === currentIconIndex
+                  return (
+                    <Animated.View 
+                      key={index}
+                      style={[
+                        styles.microIcon,
+                        isActive && styles.microIconActive
+                      ]}
+                    >
+                      <IconComponent 
+                        color={isActive ? '#ffffff' : 'rgba(255,255,255,0.4)'} 
+                        size={14} 
+                        strokeWidth={2} 
+                      />
+                    </Animated.View>
+                  )
+                })}
+              </View>
+            )}
+
+            {isInvitesEmpty && (
+              <View style={styles.invitesEmptyIcon}>
+                <Text style={styles.invitesEmptyEmoji}>💌</Text>
+              </View>
+            )}
+
+            <View style={styles.createCallToAction}>
+              <Text style={styles.createActionText}>{actionText}</Text>
+              <Animated.View style={[styles.createSparkle, { transform: [{ rotate: iconRotationDegree }] }]}>
+                <Zap color="#ffffff" size={16} strokeWidth={2.5} />
+              </Animated.View>
             </View>
           </View>
-        )}
+        </LinearGradient>
+      </TouchableOpacity>
+    </Animated.View>
+  )
+}
 
-        {isInvitesEmpty && (
-          <View style={styles.invitesEmptyIcon}>
-            <Text style={styles.invitesEmptyEmoji}>💌</Text>
-          </View>
-        )}
+// Animated Start New Activity Wide Button
+function AnimatedStartNewActivityButton({ navigation }) {
+  // Simple opacity animation for subtle glow effect
+  const glowOpacity = useRef(new Animated.Value(0.3)).current
+  
+  // Cycling icons for activities
+  const activityIcons = [
+    { component: Hamburger, color: '#FF6B6B', name: 'food' },
+    { component: Martini, color: '#4ECDC4', name: 'drinks' },
+    { component: Dices, color: '#FFE66D', name: 'games' },
+    { component: Users, color: '#A8E6CF', name: 'meeting' }
+  ]
+  
+  const [currentIconIndex, setCurrentIconIndex] = useState(0)
+  const CurrentIcon = activityIcons[currentIconIndex].component
 
-        <View style={[styles.createArrow, isInvitesEmpty && styles.invitesArrow]}>
-          <Text style={[styles.createArrowText, isInvitesEmpty && styles.invitesArrowText]}>{actionText}</Text>
-        </View>
-      </View>
-    </TouchableOpacity>
+  // Start simple animation
+  useEffect(() => {
+    // Simple glow animation
+    const glowAnimation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(glowOpacity, {
+          toValue: 0.8,
+          duration: 2000,
+          useNativeDriver: false,
+        }),
+        Animated.timing(glowOpacity, {
+          toValue: 0.3,
+          duration: 2000,
+          useNativeDriver: false,
+        }),
+      ])
+    )
+
+    glowAnimation.start()
+
+    // Icon cycling every 3 seconds
+    const iconInterval = setInterval(() => {
+      setCurrentIconIndex((prev) => (prev + 1) % activityIcons.length)
+    }, 3000)
+
+    return () => {
+      glowAnimation.stop()
+      clearInterval(iconInterval)
+    }
+  }, [])
+
+  return (
+    <View style={styles.wideButtonContainer}>
+      <TouchableOpacity
+        style={styles.wideStartActivityButton}
+        onPress={() => {
+          if (Haptics?.impactAsync) {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+          }
+          navigation.navigate('TripDashboardScreen')
+        }}
+        activeOpacity={0.8}
+      >
+        {/* Simple Neon Border */}
+        <Animated.View
+          style={[
+            styles.neonBorderOutline,
+            { opacity: glowOpacity }
+          ]}
+        />
+
+          {/* Voxxy Gradient Background */}
+          <LinearGradient
+            colors={['#cc31e8', '#9051e1']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.wideButtonGradient}
+          >
+            <View style={styles.wideButtonContent}>
+              {/* Main Icon */}
+              <View style={styles.wideButtonMainIconContainer}>
+                <CurrentIcon color="#ffffff" size={32} strokeWidth={2.5} />
+              </View>
+
+              <Text style={styles.wideButtonTitle}>Start New Activity</Text>
+              <Text style={styles.wideButtonSubtitle}>Ready to create something amazing?</Text>
+
+              {/* Cycling micro icons */}
+              <View style={styles.wideButtonMicroIcons}>
+                {activityIcons.map((icon, index) => {
+                  const IconComponent = icon.component
+                  const isActive = index === currentIconIndex
+                  return (
+                    <Animated.View 
+                      key={index}
+                      style={[
+                        styles.wideMicroIcon,
+                        isActive && styles.wideMicroIconActive
+                      ]}
+                    >
+                      <IconComponent 
+                        color={isActive ? '#ffffff' : 'rgba(255,255,255,0.5)'} 
+                        size={16} 
+                        strokeWidth={2} 
+                      />
+                    </Animated.View>
+                  )
+                })}
+              </View>
+
+              <View style={styles.wideButtonCallToAction}>
+                <Text style={styles.wideButtonActionText}>Ready to vibe? Let's go! →</Text>
+                <View style={styles.wideButtonSparkle}>
+                  <Zap color="#ffffff" size={18} strokeWidth={2.5} />
+                </View>
+              </View>
+            </View>
+          </LinearGradient>
+        </TouchableOpacity>
+    </View>
   )
 }
 
@@ -281,12 +541,66 @@ export default function HomeScreen() {
   const [mainTab, setMainTab] = useState('Activities')
   const [filter, setFilter] = useState('In Progress')
   const [showAllPast, setShowAllPast] = useState(false)
+  const [userFavorites, setUserFavorites] = useState([])
+  const [loadingFavorites, setLoadingFavorites] = useState(false)
   const scrollY = useRef(new Animated.Value(0)).current
   const scrollRef = useRef(null)
 
   const scrollToTop = () => {
     scrollRef.current?.scrollToOffset({ offset: 0, animated: true })
   }
+
+  // Fetch user favorites
+  const fetchUserFavorites = async () => {
+    if (!user?.token) {
+      console.log('No user token available for fetching favorites')
+      return
+    }
+    
+    console.log('Fetching favorites from:', `${API_URL}/user_activities/favorited`)
+    setLoadingFavorites(true)
+    try {
+      const response = await fetch(`${API_URL}/user_activities/favorited`, {
+        headers: {
+          'Authorization': `Bearer ${user.token}`,
+        },
+      })
+
+      console.log('Favorites API response status:', response.status)
+      
+      if (response.ok) {
+        const favorites = await response.json()
+        console.log('Fetched favorites:', favorites)
+        console.log('Favorites count:', favorites.length)
+        setUserFavorites(favorites)
+      } else {
+        const errorText = await response.text()
+        console.error('Favorites API error:', response.status, errorText)
+      }
+    } catch (error) {
+      console.error('Error fetching favorites:', error)
+    } finally {
+      setLoadingFavorites(false)
+    }
+  }
+
+  // Fetch favorites when user changes or when Favorites tab is selected
+  useEffect(() => {
+    console.log('Filter changed to:', filter)
+    console.log('User token exists:', !!user?.token)
+    if (filter === 'Favorites' && user?.token) {
+      console.log('Triggering favorites fetch...')
+      fetchUserFavorites()
+    }
+  }, [filter, user?.token])
+
+  // Also fetch favorites when component mounts if we're on favorites tab
+  useEffect(() => {
+    if (filter === 'Favorites' && user?.token && userFavorites.length === 0) {
+      console.log('Component mounted on Favorites tab, fetching...')
+      fetchUserFavorites()
+    }
+  }, [user?.token])
 
   const activities = useMemo(() => {
     if (!user) return []
@@ -325,10 +639,15 @@ export default function HomeScreen() {
       'In Progress': inProgress,
       'Finalized': finalized,
       'Invites': invites,
-      'Favorites': [], // Placeholder - empty array for now
+      'Favorites': userFavorites,
     }
 
     const data = dataMap[filter] || []
+    
+    if (filter === 'Favorites') {
+      console.log('Filtering favorites, userFavorites:', userFavorites)
+      console.log('Data for favorites:', data)
+    }
 
     return data.sort((a, b) => {
       // For in-progress activities, prioritize action needed items
@@ -392,6 +711,92 @@ export default function HomeScreen() {
   }
 
 
+
+  function renderFavoriteCard({ item, index }) {
+    // Debug logging
+    console.log('Rendering favorite card for item:', item)
+    console.log('Item keys:', Object.keys(item))
+    
+    // For favorites, item is a user_activity with nested pinned_activity and activity
+    const pinnedActivity = item.pinned_activity || item
+    const activity = item.activity || pinnedActivity?.activity
+    
+    console.log('pinnedActivity:', pinnedActivity)
+    console.log('activity:', activity)
+    
+    const activityType = activity?.activity_type || 'Restaurant'
+    const displayInfo = getActivityDisplayInfo(activityType)
+    const firstName = activity?.user?.name?.split(' ')[0] || 'Unknown'
+
+    return (
+      <TouchableOpacity
+        style={[
+          styles.card,
+          styles.favoriteCard,
+          index === 0 && styles.firstCard,
+          index === displayedActivities.length - 1 && styles.lastCard
+        ]}
+        onPress={() => {
+          if (Haptics?.impactAsync) {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+          }
+          // Navigate to activity details if we have activity info
+          if (activity?.id) {
+            navigation.navigate('ActivityDetails', { activityId: activity.id })
+          }
+        }}
+        activeOpacity={0.9}
+      >
+        {/* Header with icon and activity type */}
+        <View style={styles.cardHeader}>
+          <View style={styles.cardIconContainer}>
+            {displayInfo.icon && (
+              <displayInfo.icon 
+                color={displayInfo.iconColor} 
+                size={20} 
+                strokeWidth={2}
+              />
+            )}
+          </View>
+          <View style={styles.cardHeaderInfo}>
+            <Text style={styles.cardType}>{displayInfo.displayText}</Text>
+            <Text style={styles.cardHost}>by {firstName}</Text>
+          </View>
+          {/* Favorite star indicator */}
+          <View style={styles.favoriteIndicator}>
+            <Star color="#D4AF37" size={16} fill="#D4AF37" />
+          </View>
+        </View>
+
+        {/* Card content */}
+        <View style={styles.cardContent}>
+          <Text style={styles.cardTitle} numberOfLines={2}>
+            {item.title || pinnedActivity?.title || 'Favorite Recommendation'}
+          </Text>
+          
+          {item.address && (
+            <View style={styles.cardMeta}>
+              <MapPin color="rgba(255, 255, 255, 0.6)" size={12} />
+              <Text style={styles.cardMetaText} numberOfLines={1}>
+                {item.address}
+              </Text>
+            </View>
+          )}
+          
+          {item.price_range && (
+            <View style={styles.cardMeta}>
+              <Text style={styles.cardPrice}>{item.price_range}</Text>
+            </View>
+          )}
+        </View>
+
+        {/* Favorite badge */}
+        <View style={styles.favoriteBadge}>
+          <Text style={styles.favoriteBadgeText}>★ Favorite</Text>
+        </View>
+      </TouchableOpacity>
+    )
+  }
 
   function renderCard({ item, index }) {
     const firstName = item.user?.name?.split(' ')[0] || ''
@@ -524,7 +929,7 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="light-content" />
-      <ProfileSnippet scrollY={scrollY} onScrollToTop={scrollToTop} />
+      <ProfileSnippet scrollY={scrollY} onScrollToTop={scrollToTop} setFilter={setFilter} setMainTab={setMainTab} />
       <Animated.FlatList
         ref={scrollRef}
         data={[]} // Empty array for header/footer only
@@ -547,7 +952,8 @@ export default function HomeScreen() {
                     {FILTERS.map((filterItem) => {
                       const isActive = filter === filterItem.key
                       const IconComponent = filterItem.icon
-                      const count = filterItem.key === 'Invites' ? invites.length : 0
+                      const count = filterItem.key === 'Invites' ? invites.length : 
+                                   filterItem.key === 'Favorites' ? userFavorites.length : 0
                       return (
                         <TouchableOpacity
                           key={filterItem.key}
@@ -611,11 +1017,23 @@ export default function HomeScreen() {
                         </>
                       ) : filter === 'Favorites' ? (
                         <>
-                          <Text style={styles.sideEmptyIcon}>⭐</Text>
-                          <Text style={styles.sideEmpty}>No favorites yet</Text>
-                          <Text style={styles.sideEmptySub}>
-                            Mark activities as favorites to see them here!
-                          </Text>
+                          {loadingFavorites ? (
+                            <>
+                              <Text style={styles.sideEmptyIcon}>⏳</Text>
+                              <Text style={styles.sideEmpty}>Loading favorites...</Text>
+                              <Text style={styles.sideEmptySub}>
+                                Fetching your saved recommendations
+                              </Text>
+                            </>
+                          ) : (
+                            <>
+                              <Text style={styles.sideEmptyIcon}>⭐</Text>
+                              <Text style={styles.sideEmpty}>No favorites yet</Text>
+                              <Text style={styles.sideEmptySub}>
+                                Mark activities as favorites to see them here!
+                              </Text>
+                            </>
+                          )}
                         </>
                       ) : (
                         <>
@@ -630,10 +1048,16 @@ export default function HomeScreen() {
                   ) : (
                     <FlatList
                       data={displayedActivities}
-                      keyExtractor={(item) => String(item.id)}
+                      keyExtractor={(item) => {
+                        if (filter === 'Favorites') {
+                          // For favorites, use the user_activity id or combination
+                          return String(item.id || `${item.user_id}-${item.pinned_activity_id}`)
+                        }
+                        return String(item.id)
+                      }}
                       horizontal
                       showsHorizontalScrollIndicator={false}
-                      renderItem={renderCard}
+                      renderItem={filter === 'Favorites' ? renderFavoriteCard : renderCard}
                       contentContainerStyle={styles.horizontalGrid}
                       snapToAlignment="start"
                       decelerationRate="fast"
@@ -642,49 +1066,8 @@ export default function HomeScreen() {
                   )}
                 </View>
                 
-                {/* Start New Activity Button - Wide Version */}
-                <View style={styles.wideButtonContainer}>
-                  <TouchableOpacity
-                    style={styles.wideStartActivityButton}
-                    onPress={() => {
-                      if (Haptics?.impactAsync) {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
-                      }
-                      navigation.navigate('TripDashboardScreen')
-                    }}
-                    activeOpacity={0.9}
-                  >
-                    <View style={styles.wideButtonGlow} />
-                    
-                    <View style={styles.wideButtonContent}>
-                      <View style={styles.wideButtonIconContainer}>
-                        <Plus color="#4ECDC4" size={28} strokeWidth={2.5} />
-                      </View>
-
-                      <Text style={styles.wideButtonTitle}>Start New Activity</Text>
-                      <Text style={styles.wideButtonSubtitle}>Start planning something amazing!</Text>
-
-                      <View style={styles.wideButtonSuggestions}>
-                        <View style={styles.wideSuggestionIcon}>
-                          <Hamburger color="#FF6B6B" size={18} strokeWidth={2} />
-                        </View>
-                        <View style={styles.wideSuggestionIcon}>
-                          <Star color="#4ECDC4" size={18} strokeWidth={2} />
-                        </View>
-                        <View style={styles.wideSuggestionIcon}>
-                          <MapPin color="#FFE66D" size={18} strokeWidth={2} />
-                        </View>
-                        <View style={styles.wideSuggestionIcon}>
-                          <User color="#A8E6CF" size={18} strokeWidth={2} />
-                        </View>
-                      </View>
-
-                      <View style={styles.wideButtonArrow}>
-                        <Text style={styles.wideButtonArrowText}>Tap to start →</Text>
-                      </View>
-                    </View>
-                  </TouchableOpacity>
-                </View>
+                {/* Animated Start New Activity Button - Wide Version */}
+                <AnimatedStartNewActivityButton navigation={navigation} />
               </>
             ) : (
               /* Show community section */
@@ -927,113 +1310,134 @@ const styles = StyleSheet.create({
 
 
 
-  // Create Card Styles
+  // Animated Create Card Styles
   createCard: {
     width: 180,
     height: 200,
     marginRight: 16,
-    backgroundColor: 'rgba(42, 30, 46, 0.6)',
-    borderRadius: 20,
+    borderRadius: 24,
     overflow: 'hidden',
-    borderWidth: 2,
-    borderColor: 'rgba(78, 205, 196, 0.4)',
-    borderStyle: 'dashed',
-    shadowColor: 'rgba(78, 205, 196, 0.3)',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 1,
-    shadowRadius: 20,
-    elevation: 15,
-    justifyContent: 'center',
-    alignItems: 'center',
     position: 'relative',
   },
 
   invitesEmptyCard: {
-    borderColor: 'rgba(211, 148, 245, 0.4)',
-    shadowColor: 'rgba(211, 148, 245, 0.3)',
+    // Keep for compatibility but most styling is in gradient
   },
 
-  createCardGlow: {
+  createCardAnimatedGlow: {
     position: 'absolute',
-    top: -50,
-    left: -50,
-    right: -50,
-    bottom: -50,
-    backgroundColor: 'rgba(78, 205, 196, 0.05)',
-    borderRadius: 100,
+    top: -30,
+    left: -30,
+    right: -30,
+    bottom: -30,
+    backgroundColor: 'rgba(204, 49, 232, 0.15)',
+    borderRadius: 50,
+    zIndex: 0,
   },
 
-  invitesGlow: {
-    backgroundColor: 'rgba(211, 148, 245, 0.05)',
+  createCardGradient: {
+    flex: 1,
+    borderRadius: 24,
+    padding: 3,
+    shadowColor: 'rgba(204, 49, 232, 0.5)',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.8,
+    shadowRadius: 16,
+    elevation: 20,
   },
 
   createCardContent: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 32,
-    paddingVertical: 40,
-    gap: 16,
-    zIndex: 1,
+    paddingHorizontal: 20,
+    paddingVertical: 24,
+    gap: 12,
   },
 
-  createIconContainer: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: 'rgba(78, 205, 196, 0.15)',
-    borderWidth: 2,
-    borderColor: 'rgba(78, 205, 196, 0.4)',
+  createMainIconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 8,
-    shadowColor: 'rgba(78, 205, 196, 0.4)',
+    shadowColor: 'rgba(0, 0, 0, 0.2)',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 1,
-    shadowRadius: 12,
-  },
-
-  invitesIconContainer: {
-    backgroundColor: 'rgba(211, 148, 245, 0.15)',
-    borderColor: 'rgba(211, 148, 245, 0.4)',
-    shadowColor: 'rgba(211, 148, 245, 0.4)',
+    shadowRadius: 8,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
 
   createTitle: {
-    color: '#fff',
-    fontSize: 18,
+    color: '#ffffff',
+    fontSize: 17,
     fontWeight: '700',
     textAlign: 'center',
-    lineHeight: 24,
+    lineHeight: 22,
+    fontFamily: 'Montserrat_700Bold',
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
 
   createSubtitle: {
-    color: '#B8A5C4',
-    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontSize: 13,
     fontWeight: '500',
     textAlign: 'center',
-    lineHeight: 20,
-    opacity: 0.8,
+    lineHeight: 18,
+    marginBottom: 4,
   },
 
-  createSuggestions: {
+  createMicroIcons: {
     flexDirection: 'row',
-    gap: 16,
-    marginTop: 8,
+    gap: 8,
+    marginTop: 4,
+    marginBottom: 8,
   },
 
-  suggestionIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
+  microIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: 'rgba(0, 0, 0, 0.2)',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+
+  microIconActive: {
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    borderColor: 'rgba(255, 255, 255, 0.4)',
+    transform: [{ scale: 1.1 }],
+  },
+
+  createCallToAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    gap: 6,
+  },
+
+  createActionText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+  },
+
+  createSparkle: {
+    opacity: 0.9,
   },
 
   invitesEmptyIcon: {
@@ -1042,28 +1446,6 @@ const styles = StyleSheet.create({
 
   invitesEmptyEmoji: {
     fontSize: 32,
-  },
-
-  createArrow: {
-    marginTop: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: 'rgba(78, 205, 196, 0.1)',
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(78, 205, 196, 0.3)',
-  },
-
-  invitesArrow: {
-    backgroundColor: 'rgba(211, 148, 245, 0.1)',
-    borderColor: 'rgba(211, 148, 245, 0.3)',
-  },
-
-  createArrowText: {
-    color: '#4ECDC4',
-    fontSize: 12,
-    fontWeight: '600',
-    letterSpacing: 0.5,
   },
 
   invitesArrowText: {
@@ -1085,6 +1467,46 @@ const styles = StyleSheet.create({
     shadowRadius: 20,
     elevation: 15,
     position: 'relative',
+  },
+  favoriteCard: {
+    borderColor: 'rgba(212, 175, 55, 0.4)',
+    backgroundColor: 'rgba(42, 30, 46, 0.98)',
+    shadowColor: 'rgba(212, 175, 55, 0.2)',
+  },
+  favoriteIndicator: {
+    marginLeft: 'auto',
+  },
+  favoriteBadge: {
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+    backgroundColor: 'rgba(212, 175, 55, 0.2)',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(212, 175, 55, 0.4)',
+  },
+  favoriteBadgeText: {
+    color: '#D4AF37',
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  cardMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  cardMetaText: {
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: 11,
+    marginLeft: 4,
+    flex: 1,
+  },
+  cardPrice: {
+    color: '#28a745',
+    fontSize: 12,
+    fontWeight: '600',
   },
 
   firstCard: {
@@ -1406,118 +1828,139 @@ const styles = StyleSheet.create({
   },
 
   // Wide Start Activity Button Styles
+  // Animated Wide Button Styles
   wideButtonContainer: {
     paddingHorizontal: 16,
     paddingVertical: 24,
     paddingBottom: 36,
   },
 
-  wideStartActivityButton: {
-    backgroundColor: 'rgba(42, 30, 46, 0.6)',
-    borderRadius: 24,
-    overflow: 'hidden',
+  neonBorderOutline: {
+    position: 'absolute',
+    top: -2,
+    left: -2,
+    right: -2,
+    bottom: -2,
+    borderRadius: 30,
     borderWidth: 2,
-    borderColor: 'rgba(78, 205, 196, 0.4)',
-    borderStyle: 'dashed',
-    shadowColor: 'rgba(78, 205, 196, 0.3)',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 1,
-    shadowRadius: 20,
-    elevation: 15,
-    position: 'relative',
-    minHeight: 180,
-    justifyContent: 'center',
-    alignItems: 'center',
+    borderColor: '#cc31e8',
+    shadowColor: '#cc31e8',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    elevation: 10,
   },
 
-  wideButtonGlow: {
-    position: 'absolute',
-    top: -50,
-    left: -50,
-    right: -50,
-    bottom: -50,
-    backgroundColor: 'rgba(78, 205, 196, 0.05)',
-    borderRadius: 100,
+  wideStartActivityButton: {
+    borderRadius: 28,
+    overflow: 'hidden',
+    position: 'relative',
+    minHeight: 180,
+  },
+
+
+  wideButtonGradient: {
+    flex: 1,
+    borderRadius: 28,
+    padding: 4,
+    shadowColor: 'rgba(204, 49, 232, 0.6)',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.9,
+    shadowRadius: 24,
+    elevation: 25,
   },
 
   wideButtonContent: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 32,
     paddingVertical: 32,
     gap: 16,
-    zIndex: 1,
   },
 
-  wideButtonIconContainer: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: 'rgba(78, 205, 196, 0.15)',
-    borderWidth: 2,
-    borderColor: 'rgba(78, 205, 196, 0.4)',
+  wideButtonMainIconContainer: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 8,
-    shadowColor: 'rgba(78, 205, 196, 0.4)',
-    shadowOffset: { width: 0, height: 4 },
+    marginBottom: 12,
+    shadowColor: 'rgba(0, 0, 0, 0.3)',
+    shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 1,
     shadowRadius: 12,
+    borderWidth: 3,
+    borderColor: 'rgba(255, 255, 255, 0.25)',
   },
 
   wideButtonTitle: {
-    color: '#fff',
-    fontSize: 20,
+    color: '#ffffff',
+    fontSize: 22,
     fontWeight: '700',
     textAlign: 'center',
-    lineHeight: 26,
+    lineHeight: 28,
     fontFamily: 'Montserrat_700Bold',
+    textShadowColor: 'rgba(0, 0, 0, 0.4)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
   },
 
   wideButtonSubtitle: {
-    color: '#B8A5C4',
+    color: 'rgba(255, 255, 255, 0.9)',
     fontSize: 16,
     fontWeight: '500',
     textAlign: 'center',
     lineHeight: 22,
-    opacity: 0.8,
+    marginBottom: 8,
   },
 
-  wideButtonSuggestions: {
+  wideButtonMicroIcons: {
     flexDirection: 'row',
-    gap: 16,
+    gap: 12,
     marginTop: 8,
+    marginBottom: 16,
   },
 
-  wideSuggestionIcon: {
+  wideMicroIcon: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: 'rgba(0, 0, 0, 0.2)',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 4,
-  },
-
-  wideButtonArrow: {
-    marginTop: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: 'rgba(78, 205, 196, 0.1)',
-    borderRadius: 20,
     borderWidth: 1,
-    borderColor: 'rgba(78, 205, 196, 0.3)',
+    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
 
-  wideButtonArrowText: {
-    color: '#4ECDC4',
-    fontSize: 14,
+  wideMicroIconActive: {
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    borderColor: 'rgba(255, 255, 255, 0.4)',
+    borderWidth: 2,
+    transform: [{ scale: 1.1 }],
+  },
+
+  wideButtonCallToAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderRadius: 25,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    gap: 8,
+  },
+
+  wideButtonActionText: {
+    color: '#ffffff',
+    fontSize: 15,
     fontWeight: '600',
     letterSpacing: 0.5,
+  },
+
+  wideButtonSparkle: {
+    opacity: 0.9,
   },
 })

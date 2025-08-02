@@ -26,12 +26,26 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [autoSubmitTriggered, setAutoSubmitTriggered] = useState(false);
 
   useEffect(() => {
     AsyncStorage.getItem('jwt').then(token => {
       if (token) navigation.replace('/');
     });
   }, []);
+
+  // Auto-submit when both fields are filled (likely from autofill)
+  useEffect(() => {
+    if (email.trim() && password.trim() && !autoSubmitTriggered && !isLoading) {
+      // Small delay to ensure autofill is complete
+      const timer = setTimeout(() => {
+        setAutoSubmitTriggered(true);
+        handleLogin();
+      }, 300);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [email, password, autoSubmitTriggered, isLoading]);
 
   const handleLogin = async () => {
     if (isLoading) return;

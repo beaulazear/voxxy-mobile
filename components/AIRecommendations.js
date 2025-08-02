@@ -366,7 +366,7 @@ const SwipeableCard = ({ recommendation, onSwipeLeft, onSwipeRight, onFlag, onFa
                 style={[
                     styles.swipeIndicator, 
                     styles.likeIndicator,
-                    { opacity: pan.x.interpolate({ inputRange: [0, 150], outputRange: [0, 1] }) }
+                    { opacity: pan.x.interpolate({ inputRange: [0, 75], outputRange: [0, 1] }) }
                 ]}
             >
                 <Icons.CheckCircle color="#28a745" size={24} />
@@ -377,7 +377,7 @@ const SwipeableCard = ({ recommendation, onSwipeLeft, onSwipeRight, onFlag, onFa
                 style={[
                     styles.swipeIndicator, 
                     styles.dislikeIndicator,
-                    { opacity: pan.x.interpolate({ inputRange: [-150, 0], outputRange: [1, 0] }) }
+                    { opacity: pan.x.interpolate({ inputRange: [-75, 0], outputRange: [1, 0] }) }
                 ]}
             >
                 <Icons.X color="#e74c3c" size={24} />
@@ -1010,7 +1010,7 @@ export default function AIRecommendations({
     };
 
     const handleFavorite = (recommendation) => {
-        // Add to both liked and a special favorites list
+        // Add to liked recommendations and mark as favorite (favoriting automatically likes it)
         setLikedRecommendations(prev => {
             const isAlreadyLiked = prev.some(item => item.id === recommendation.id);
             if (!isAlreadyLiked) {
@@ -1022,7 +1022,9 @@ export default function AIRecommendations({
                     : item
             );
         });
-        Alert.alert('Favorited', 'Added to your favorites!');
+        
+        Alert.alert('Favorited & Liked', 'Added to your favorites and liked recommendations!');
+        nextCard(); // Move to next card after favoriting
     };
 
     const nextCard = () => {
@@ -1044,6 +1046,39 @@ export default function AIRecommendations({
         setShowingResults(false);
     };
 
+    const handleFinalizeActivity = async (selectedPinnedActivity) => {
+        Alert.alert(
+            'Finalize Activity',
+            `Set "${selectedPinnedActivity.title}" as the final choice for this activity?`,
+            [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Finalize', onPress: async () => {
+                    try {
+                        // Mark the activity as finalized with selected pinned activity
+                        await fetch(`${API_URL}/activities/${id}`, {
+                            method: 'PATCH',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${user?.token}`,
+                            },
+                            body: JSON.stringify({
+                                finalized: true,
+                                voting: false,
+                                selected_pinned_activity_id: selectedPinnedActivity.id
+                            }),
+                        });
+
+                        Alert.alert('Success!', `"${selectedPinnedActivity.title}" has been set as the final choice for this activity.`);
+                        setRefreshTrigger(f => !f);
+                    } catch (error) {
+                        logger.error('Error finalizing activity:', error);
+                        Alert.alert('Error', 'Failed to finalize activity. Please try again.');
+                    }
+                }}
+            ]
+        );
+    };
+
     const handleSaveFavoriteAndComplete = async () => {
         const favoriteRecommendations = likedRecommendations.filter(rec => rec.isFavorite);
         
@@ -1056,28 +1091,41 @@ export default function AIRecommendations({
             return;
         }
 
-        if (favoriteRecommendations.length > 1) {
-            Alert.alert(
-                'Multiple Favorites',
-                'You have multiple favorites. Please choose one to save and share.',
-                [
-                    { text: 'Cancel', style: 'cancel' },
-                    { text: 'Choose Later', onPress: () => {} }
-                ]
-            );
-            return;
-        }
-
-        const favorite = favoriteRecommendations[0];
+        const favoritesText = favoriteRecommendations.length === 1 
+            ? `"${favoriteRecommendations[0].title}"`
+            : `${favoriteRecommendations.length} favorites`;
         
         Alert.alert(
-            'Save & Complete Activity',
-            `Save "${favorite.title}" as your choice and mark this activity as completed? This will share your selection privately with the group.`,
+            'Save Favorites & Complete Activity',
+            `Save ${favoritesText} for future reference and mark this activity as completed?`,
             [
                 { text: 'Cancel', style: 'cancel' },
                 { text: 'Save & Complete', onPress: async () => {
                     try {
-                        // Mark the activity as completed and save the favorite
+                        console.log('=== SAVING FAVORITES DEBUG ===');
+                        console.log('Favorite recommendations to save:', favoriteRecommendations.map(f => ({ id: f.id, title: f.title })));
+                        
+                        // Save all favorited items to user_activities
+                        const savePromises = favoriteRecommendations.map(favorite => 
+                            fetch(`${API_URL}/pinned_activities/${favorite.id}/toggle_favorite`, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${user?.token}`,
+                                },
+                            })
+                        );
+
+                        const saveResults = await Promise.all(savePromises);
+                        console.log('Save API responses:', saveResults.map(r => ({ status: r.status, ok: r.ok })));
+                        
+                        // Check for any failed saves
+                        const failedSaves = saveResults.filter(r => !r.ok);
+                        if (failedSaves.length > 0) {
+                            console.error('Some favorites failed to save:', failedSaves);
+                        }
+
+                        // Mark the activity as completed
                         await fetch(`${API_URL}/activities/${id}`, {
                             method: 'PATCH',
                             headers: {
@@ -1086,8 +1134,7 @@ export default function AIRecommendations({
                             },
                             body: JSON.stringify({
                                 completed: true,
-                                voting: false,
-                                selected_pinned_activity_id: favorite.id
+                                voting: false
                             }),
                         });
 
@@ -1097,15 +1144,23 @@ export default function AIRecommendations({
                                 ...prevUser,
                                 activities: prevUser.activities.map(act =>
                                     act.id === id
-                                        ? { ...act, completed: true, voting: false, selected_pinned_activity_id: favorite.id }
+                                        ? { ...act, completed: true, voting: false }
                                         : act
                                 )
                             }));
                         }
 
-                        Alert.alert('Success!', 'Your favorite has been saved and the activity is completed. The group will be notified of your choice.');
+                        const successMessage = favoriteRecommendations.length === 1
+                            ? 'Your favorite has been saved for future reference and the activity is completed.'
+                            : `Your ${favoriteRecommendations.length} favorites have been saved for future reference and the activity is completed.`;
+                        
+                        Alert.alert('Success!', successMessage);
                         setRefreshTrigger(f => !f);
                     } catch (error) {
+                        console.error('=== FAVORITES SAVE ERROR ===');
+                        console.error('Error details:', error);
+                        console.error('Error message:', error.message);
+                        console.error('Error stack:', error.stack);
                         Alert.alert('Error', 'Failed to save and complete activity. Please try again.');
                     }
                 }}
@@ -1493,69 +1548,59 @@ export default function AIRecommendations({
         if (showingResults) {
             return (
                 <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-                    <View style={styles.header}>
-                        <Text style={styles.heading}>Your Choices</Text>
-                    </View>
-
-                    <View style={styles.resultsHeader}>
-                        <View style={styles.resultsStats}>
-                            <View style={styles.statItem}>
-                                <Icons.CheckCircle color="#28a745" size={20} />
-                                <Text style={styles.statNumber}>{likedRecommendations.length}</Text>
-                                <Text style={styles.statLabel}>Liked</Text>
-                            </View>
-                            <View style={styles.statItem}>
-                                <Icons.X color="#e74c3c" size={20} />
-                                <Text style={styles.statNumber}>{dislikedRecommendations.length}</Text>
-                                <Text style={styles.statLabel}>Passed</Text>
-                            </View>
-                            <View style={styles.statItem}>
-                                <Icons.Flag color="#ffc107" size={20} />
-                                <Text style={styles.statNumber}>{flaggedRecommendations.length}</Text>
-                                <Text style={styles.statLabel}>Flagged</Text>
-                            </View>
-                        </View>
-                    </View>
-
                     {likedRecommendations.length > 0 ? (
                         <>
-                            <View style={styles.phaseIndicator}>
-                                <View style={styles.phaseContent}>
-                                    <Icons.Star />
-                                    <Text style={styles.phaseTitle}>Great choices!</Text>
+                            {/* Combined results and actions card */}
+                            <View style={styles.combinedResultsCard}>
+                                <View style={styles.resultsHeader}>
+                                    <Icons.Star color="#D4AF37" size={24} />
+                                    <Text style={styles.resultsTitle}>Great choices!</Text>
                                 </View>
-                                <Text style={styles.phaseSubtitle}>
-                                    Here are your liked recommendations. Choose what to do next.
+                                <Text style={styles.resultsSubtitle}>
+                                    You've selected {likedRecommendations.length} recommendation{likedRecommendations.length > 1 ? 's' : ''}.
                                 </Text>
+
+                                {isOwner && (
+                                    <View style={styles.actionButtons}>
+                                        <TouchableOpacity 
+                                            style={styles.saveFavoriteButton} 
+                                            onPress={handleSaveFavoriteAndComplete}
+                                        >
+                                            <Icons.Star color="#fff" size={18} />
+                                            <Text style={styles.saveFavoriteButtonText}>Save Favorites & Complete</Text>
+                                        </TouchableOpacity>
+                                        
+                                        <TouchableOpacity 
+                                            style={styles.finalizeActivityButton} 
+                                            onPress={onEdit}
+                                        >
+                                            <Icons.Calendar color="#fff" size={18} />
+                                            <Text style={styles.finalizeActivityButtonText}>Finalize Activity Plans</Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                )}
                             </View>
 
-                            {isOwner && (
-                                <View style={styles.ownerActionsContainer}>
-                                    <Text style={styles.ownerActionsTitle}>Choose what to do next:</Text>
-                                    
-                                    <TouchableOpacity 
-                                        style={styles.saveFavoriteButton} 
-                                        onPress={handleSaveFavoriteAndComplete}
-                                    >
-                                        <Icons.Star />
-                                        <View style={styles.buttonContent}>
-                                            <Text style={styles.saveFavoriteButtonText}>Save My Favorite & Share</Text>
-                                            <Text style={styles.buttonSubtext}>Save your top choice and share privately with the group</Text>
-                                        </View>
-                                    </TouchableOpacity>
-                                    
-                                    <TouchableOpacity 
-                                        style={styles.finalizeActivityButton} 
-                                        onPress={onEdit}
-                                    >
-                                        <Icons.Calendar />
-                                        <View style={styles.buttonContent}>
-                                            <Text style={styles.finalizeActivityButtonText}>Finalize Activity Plans</Text>
-                                            <Text style={styles.buttonSubtext}>Set date/time and officially finalize the activity</Text>
-                                        </View>
-                                    </TouchableOpacity>
+                            {/* Stats card - moved below great choices */}
+                            <View style={styles.statsCard}>
+                                <View style={styles.resultsStats}>
+                                    <View style={styles.statItem}>
+                                        <Icons.CheckCircle color="#28a745" size={18} />
+                                        <Text style={styles.statNumber}>{likedRecommendations.length}</Text>
+                                        <Text style={styles.statLabel}>Liked</Text>
+                                    </View>
+                                    <View style={styles.statItem}>
+                                        <Icons.X color="#e74c3c" size={18} />
+                                        <Text style={styles.statNumber}>{dislikedRecommendations.length}</Text>
+                                        <Text style={styles.statLabel}>Passed</Text>
+                                    </View>
+                                    <View style={styles.statItem}>
+                                        <Icons.Flag color="#ffc107" size={18} />
+                                        <Text style={styles.statNumber}>{flaggedRecommendations.length}</Text>
+                                        <Text style={styles.statLabel}>Flagged</Text>
+                                    </View>
                                 </View>
-                            )}
+                            </View>
 
                             <View style={styles.recommendationsList}>
                                 {likedRecommendations.map((p) => (
@@ -2567,21 +2612,12 @@ const styles = StyleSheet.create({
     },
     votingModalCloseButton: {
         position: 'absolute',
-        top: 25,
-        right: 25,
-        padding: 8,
-        backgroundColor: 'rgba(255, 255, 255, 0.15)',
-        borderRadius: 22,
+        top: 20,
+        right: 20,
+        padding: 12,
         zIndex: 10,
-        width: 44,
-        height: 44,
         alignItems: 'center',
         justifyContent: 'center',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.2,
-        shadowRadius: 4,
-        elevation: 3,
     },
     votingModalContent: {
         padding: 35,
@@ -3073,32 +3109,38 @@ const styles = StyleSheet.create({
         zIndex: 10,
         alignItems: 'center',
         justifyContent: 'center',
-        width: 80,
-        height: 80,
-        borderRadius: 40,
-        borderWidth: 3,
+        width: 90,
+        height: 90,
+        borderRadius: 45,
+        borderWidth: 4,
     },
     likeIndicator: {
-        right: 30,
+        right: 25,
         borderColor: '#28a745',
-        backgroundColor: 'rgba(40, 167, 69, 0.1)',
+        backgroundColor: 'rgba(40, 167, 69, 0.25)',
     },
     dislikeIndicator: {
-        left: 30,
+        left: 25,
         borderColor: '#e74c3c',
-        backgroundColor: 'rgba(231, 76, 60, 0.1)',
+        backgroundColor: 'rgba(231, 76, 60, 0.25)',
     },
     likeText: {
         color: '#28a745',
-        fontSize: 12,
-        fontWeight: '700',
+        fontSize: 14,
+        fontWeight: '800',
         marginTop: 4,
+        textShadowColor: 'rgba(0, 0, 0, 0.3)',
+        textShadowOffset: { width: 1, height: 1 },
+        textShadowRadius: 2,
     },
     dislikeText: {
         color: '#e74c3c',
-        fontSize: 12,
-        fontWeight: '700',
+        fontSize: 14,
+        fontWeight: '800',
         marginTop: 4,
+        textShadowColor: 'rgba(0, 0, 0, 0.3)',
+        textShadowOffset: { width: 1, height: 1 },
+        textShadowRadius: 2,
     },
     cardHeader: {
         marginBottom: 16,
@@ -3228,15 +3270,15 @@ const styles = StyleSheet.create({
     },
     statNumber: {
         color: '#fff',
-        fontSize: 24,
+        fontSize: 20,
         fontWeight: '700',
         fontFamily: 'Montserrat_700Bold',
-        marginTop: 8,
+        marginTop: 6,
     },
     statLabel: {
         color: 'rgba(255, 255, 255, 0.7)',
-        fontSize: 12,
-        marginTop: 4,
+        fontSize: 11,
+        marginTop: 2,
     },
     favoriteListItem: {
         borderColor: '#D4AF37',
@@ -3468,32 +3510,54 @@ const styles = StyleSheet.create({
         fontFamily: 'monospace',
     },
 
-    // Owner actions styles
-    ownerActionsContainer: {
+    // Combined results card styles
+    combinedResultsCard: {
         marginHorizontal: 16,
-        marginBottom: 16,
-        padding: 20,
-        backgroundColor: 'rgba(255, 255, 255, 0.03)',
+        marginBottom: 20,
+        padding: 24,
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
         borderRadius: 16,
         borderWidth: 1,
         borderColor: 'rgba(64, 51, 71, 0.3)',
     },
-    ownerActionsTitle: {
+    resultsHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 8,
+    },
+    resultsTitle: {
         color: '#fff',
-        fontSize: 18,
+        fontSize: 20,
         fontWeight: '700',
         fontFamily: 'Montserrat_700Bold',
-        marginBottom: 20,
+        marginLeft: 8,
+    },
+    resultsSubtitle: {
+        color: 'rgba(255, 255, 255, 0.8)',
+        fontSize: 14,
         textAlign: 'center',
+        marginBottom: 20,
+    },
+    actionButtons: {
+        gap: 12,
+    },
+    statsCard: {
+        marginHorizontal: 8,
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        backgroundColor: 'rgba(255, 255, 255, 0.03)',
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: 'rgba(64, 51, 71, 0.2)',
     },
     saveFavoriteButton: {
         flexDirection: 'row',
         alignItems: 'center',
+        justifyContent: 'center',
         backgroundColor: '#D4AF37',
-        paddingHorizontal: 20,
-        paddingVertical: 16,
+        paddingVertical: 14,
         borderRadius: 12,
-        marginBottom: 12,
         elevation: 3,
         shadowColor: '#D4AF37',
         shadowOffset: { width: 0, height: 2 },
@@ -3503,9 +3567,9 @@ const styles = StyleSheet.create({
     finalizeActivityButton: {
         flexDirection: 'row',
         alignItems: 'center',
+        justifyContent: 'center',
         backgroundColor: '#667eea',
-        paddingHorizontal: 20,
-        paddingVertical: 16,
+        paddingVertical: 14,
         borderRadius: 12,
         elevation: 3,
         shadowColor: '#667eea',
@@ -3513,26 +3577,17 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.3,
         shadowRadius: 4,
     },
-    buttonContent: {
-        flex: 1,
-        marginLeft: 12,
-    },
     saveFavoriteButtonText: {
         color: '#fff',
         fontSize: 16,
         fontWeight: '700',
-        marginBottom: 2,
+        marginLeft: 8,
     },
     finalizeActivityButtonText: {
         color: '#fff',
         fontSize: 16,
         fontWeight: '700',
-        marginBottom: 2,
-    },
-    buttonSubtext: {
-        color: 'rgba(255, 255, 255, 0.8)',
-        fontSize: 13,
-        lineHeight: 16,
+        marginLeft: 8,
     },
     generateButtonDisabled: {
         opacity: 0.5,

@@ -20,7 +20,7 @@ const NAVBAR_HEIGHT = 90;
 const FULL_HEIGHT = 333;
 const SCROLL_THRESHOLD = 250;
 
-export default function ProfileSnippet({ scrollY = new Animated.Value(0), onScrollToTop }) {
+export default function ProfileSnippet({ scrollY = new Animated.Value(0), onScrollToTop, setFilter, setMainTab }) {
   const { user } = useContext(UserContext);
   const navigation = useNavigation();
   const [isNavbarMode, setIsNavbarMode] = useState(false);
@@ -319,21 +319,32 @@ export default function ProfileSnippet({ scrollY = new Animated.Value(0), onScro
 
       {/* Stats Boxes */}
       <Animated.View style={[styles.statsContainer, { opacity: statsOpacity }]}>
-        <View style={styles.statBox}>
+        <TouchableOpacity 
+          style={styles.statBox}
+          onPress={() => {
+            setMainTab && setMainTab('Activities');
+            setFilter && setFilter('Finalized');
+          }}
+          activeOpacity={0.7}
+        >
           <View style={styles.statIconContainer}>
             <Activity stroke="#4ECDC4" width={18} height={18} strokeWidth={2.5} />
           </View>
           <Text style={styles.statNumber}>{completedActivities}</Text>
           <Text style={styles.statLabel}>Activities{'\n'}Completed</Text>
-        </View>
+        </TouchableOpacity>
 
-        <View style={styles.statBox}>
+        <TouchableOpacity 
+          style={styles.statBox}
+          onPress={() => setMainTab && setMainTab('Community')}
+          activeOpacity={0.7}
+        >
           <View style={styles.statIconContainer}>
             <Users stroke="#fff" width={18} height={18} strokeWidth={2.5} />
           </View>
           <Text style={styles.statNumber}>{communityCount}</Text>
           <Text style={styles.statLabel}>Community{'\n'}Members</Text>
-        </View>
+        </TouchableOpacity>
       </Animated.View>
     </LinearGradient>
     </Animated.View>

@@ -6,7 +6,7 @@ module.exports = {
     name: IS_DEV ? "Voxxy (Dev)" : "Voxxy",
     slug: "voxxy-mobile",
     description: "Connect with friends through shared activities. Organize dinners, meetings, and events with AI-powered recommendations and real-time coordination.",
-    version: "1.1.6",
+    version: "1.1.7",
     orientation: "portrait",
     icon: "./assets/icon.png",
     userInterfaceStyle: "light",
@@ -22,13 +22,15 @@ module.exports = {
     ios: {
       supportsTablet: true,
       bundleIdentifier: "com.beaulazear.voxxymobile",
-      buildNumber: "1.1.6",
+      buildNumber: "1.1.7",
       config: {
         usesNonExemptEncryption: false
       },
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
         NSContactsUsageDescription: "This app needs access to contacts to help you find friends who are already using Voxxy.",
+        NSPhotoLibraryUsageDescription: "This app needs access to your photo library to let you choose a profile picture.",
+        NSCameraUsageDescription: "This app needs access to your camera to let you take a profile picture.",
         UIBackgroundModes: ["remote-notification"]
       }
     },
@@ -42,7 +44,10 @@ module.exports = {
       permissions: [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
-        "READ_CONTACTS"
+        "READ_CONTACTS",
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
       ]
     },
     web: {
@@ -60,6 +65,13 @@ module.exports = {
         "expo-location",
         {
           "locationAlwaysAndWhenInUseUsageDescription": "Allow $(PRODUCT_NAME) to use your location to find nearby restaurants."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "The app accesses your photos to let you share them with your friends.",
+          "cameraPermission": "The app accesses your camera to let you take photos for your profile."
         }
       ]
     ],

@@ -320,6 +320,14 @@ export default function ParticipantsSection({
         }
     }, [isOwner, participantsArray.length, pendingInvitesArray.length])
 
+    // Cleanup modals on unmount to prevent stuck modals
+    useEffect(() => {
+        return () => {
+            setShowInviteModal(false)
+            setShowAllParticipants(false)
+        }
+    }, [])
+
     const handleInviteClick = () => {
         setManualInput('')
         setManualEmails([])

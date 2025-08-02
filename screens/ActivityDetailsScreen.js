@@ -305,8 +305,16 @@ export default function ActivityDetailsScreen({ route }) {
                         p => p.activity.id !== activityId
                     ),
                 }))
-                Alert.alert('Success', 'Invite declined.')
-                navigation.goBack()
+                Alert.alert(
+                    'Success', 
+                    'Invite declined.',
+                    [
+                        { 
+                            text: 'OK', 
+                            onPress: () => navigation.goBack()
+                        }
+                    ]
+                )
             } else {
                 Alert.alert('Error', 'Failed to decline invite.')
             }
@@ -356,8 +364,16 @@ export default function ActivityDetailsScreen({ route }) {
                     ),
                 }))
 
-                Alert.alert('Success', 'Activity deleted successfully.')
-                navigation.goBack()
+                Alert.alert(
+                    'Success', 
+                    'Activity deleted successfully.',
+                    [
+                        { 
+                            text: 'OK', 
+                            onPress: () => navigation.goBack()
+                        }
+                    ]
+                )
             } else {
                 logger.error('Failed to delete activity')
                 Alert.alert('Error', 'Failed to delete activity.')
@@ -409,8 +425,16 @@ export default function ActivityDetailsScreen({ route }) {
                 ),
             }))
 
-            Alert.alert('Success', 'You have successfully left the activity.')
-            navigation.goBack()
+            Alert.alert(
+                'Success', 
+                'You have successfully left the activity.',
+                [
+                    { 
+                        text: 'OK', 
+                        onPress: () => navigation.goBack()
+                    }
+                ]
+            )
         } catch (error) {
             logger.error('Error leaving activity:', error)
             Alert.alert('Error', 'Failed to leave activity.')
@@ -723,10 +747,6 @@ function InvitePromptOverlay({ activity, onAccept, onDecline, onClose }) {
                     <Text style={styles.hostInvite}>
                         <Text style={styles.hostName}>{activity.user?.name}</Text> invited you to{' '}
                         <Text style={styles.activityNameHighlight}>{activity.activity_name}</Text>
-                    </Text>
-
-                    <Text style={styles.funMessage}>
-                        Have fun!
                     </Text>
 
                     <View style={styles.inviteButtons}>

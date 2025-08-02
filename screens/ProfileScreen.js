@@ -176,9 +176,52 @@ export default function ProfileScreen() {
     };
 
     const handlePickImage = async () => {
-        const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        Alert.alert(
+            'Choose Photo',
+            'Select a photo from your library or take a new one',
+            [
+                {
+                    text: 'Camera',
+                    onPress: handleTakePhoto,
+                },
+                {
+                    text: 'Photo Library',
+                    onPress: handleChooseFromLibrary,
+                },
+                {
+                    text: 'Cancel',
+                    style: 'cancel',
+                },
+            ],
+            { cancelable: true }
+        );
+    };
+
+    const handleTakePhoto = async () => {
+        const cameraPermission = await ImagePicker.requestCameraPermissionsAsync();
         
-        if (permissionResult.granted === false) {
+        if (cameraPermission.granted === false) {
+            Alert.alert('Permission Required', 'Please allow access to your camera to take a profile picture.');
+            return;
+        }
+
+        const result = await ImagePicker.launchCameraAsync({
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 0.5,
+            base64: false,
+            exif: false,
+        });
+
+        if (!result.canceled) {
+            uploadProfilePicture(result.assets[0]);
+        }
+    };
+
+    const handleChooseFromLibrary = async () => {
+        const libraryPermission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        
+        if (libraryPermission.granted === false) {
             Alert.alert('Permission Required', 'Please allow access to your photos to upload a profile picture.');
             return;
         }
