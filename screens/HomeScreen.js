@@ -13,6 +13,7 @@ import {
   Haptics,
   Animated,
   Dimensions,
+  Image,
 } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { UserContext } from '../context/UserContext'
@@ -543,6 +544,8 @@ export default function HomeScreen() {
   const [showAllPast, setShowAllPast] = useState(false)
   const [userFavorites, setUserFavorites] = useState([])
   const [loadingFavorites, setLoadingFavorites] = useState(false)
+  const [selectedFavorite, setSelectedFavorite] = useState(null)
+  const [showFavoriteModal, setShowFavoriteModal] = useState(false)
   const scrollY = useRef(new Animated.Value(0)).current
   const scrollRef = useRef(null)
 
@@ -740,10 +743,9 @@ export default function HomeScreen() {
           if (Haptics?.impactAsync) {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
           }
-          // Navigate to activity details if we have activity info
-          if (activity?.id) {
-            navigation.navigate('ActivityDetails', { activityId: activity.id })
-          }
+          // Show favorite details modal instead of navigating to activity
+          setSelectedFavorite(item)
+          setShowFavoriteModal(true)
         }}
         activeOpacity={0.9}
       >
@@ -769,23 +771,29 @@ export default function HomeScreen() {
         </View>
 
         {/* Card content */}
-        <View style={styles.cardContent}>
-          <Text style={styles.cardTitle} numberOfLines={2}>
+        <View style={styles.favoriteCardContent}>
+          <Text style={styles.favoriteCardTitle} numberOfLines={2}>
             {item.title || pinnedActivity?.title || 'Favorite Recommendation'}
           </Text>
           
+          {item.description && (
+            <Text style={styles.favoriteCardDescription} numberOfLines={2}>
+              {item.description}
+            </Text>
+          )}
+          
           {item.address && (
-            <View style={styles.cardMeta}>
+            <View style={styles.favoriteCardMeta}>
               <MapPin color="rgba(255, 255, 255, 0.6)" size={12} />
-              <Text style={styles.cardMetaText} numberOfLines={1}>
+              <Text style={styles.favoriteCardMetaText} numberOfLines={1}>
                 {item.address}
               </Text>
             </View>
           )}
           
           {item.price_range && (
-            <View style={styles.cardMeta}>
-              <Text style={styles.cardPrice}>{item.price_range}</Text>
+            <View style={styles.favoriteCardMeta}>
+              <Text style={styles.favoriteCardPrice}>{item.price_range}</Text>
             </View>
           )}
         </View>
@@ -1082,6 +1090,118 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
       />
       <VoxxyFooter />
+      
+      {/* Favorite Details Modal */}
+      <Modal
+        visible={showFavoriteModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowFavoriteModal(false)}
+      >
+        <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity
+              style={styles.modalCloseButton}
+              onPress={() => setShowFavoriteModal(false)}
+            >
+              <Text style={styles.modalCloseText}>✕</Text>
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Favorite Details</Text>
+            <View style={styles.modalHeaderSpacer} />
+          </View>
+          
+          {selectedFavorite && (
+            <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
+              <View style={styles.modalCard}>
+                <Text style={styles.modalCardTitle}>
+                  {selectedFavorite.title}
+                </Text>
+                
+                {selectedFavorite.description && (
+                  <View style={styles.modalSection}>
+                    <Text style={styles.modalSectionTitle}>Description</Text>
+                    <Text style={styles.modalSectionText}>
+                      {selectedFavorite.description}
+                    </Text>
+                  </View>
+                )}
+                
+                {selectedFavorite.reason && (
+                  <View style={styles.modalSection}>
+                    <Text style={styles.modalSectionTitle}>Why it's recommended</Text>
+                    <Text style={styles.modalSectionText}>
+                      {selectedFavorite.reason}
+                    </Text>
+                  </View>
+                )}
+                
+                {selectedFavorite.address && (
+                  <View style={styles.modalSection}>
+                    <Text style={styles.modalSectionTitle}>Location</Text>
+                    <Text style={styles.modalSectionText}>
+                      {selectedFavorite.address}
+                    </Text>
+                  </View>
+                )}
+                
+                <View style={styles.modalMetaRow}>
+                  {selectedFavorite.price_range && (
+                    <View style={styles.modalMetaItem}>
+                      <Text style={styles.modalMetaLabel}>Price Range</Text>
+                      <Text style={styles.modalMetaValue}>{selectedFavorite.price_range}</Text>
+                    </View>
+                  )}
+                  
+                  {selectedFavorite.hours && (
+                    <View style={styles.modalMetaItem}>
+                      <Text style={styles.modalMetaLabel}>Hours</Text>
+                      <Text style={styles.modalMetaValue}>{selectedFavorite.hours}</Text>
+                    </View>
+                  )}
+                </View>
+                
+                {selectedFavorite.reviews && Array.isArray(selectedFavorite.reviews) && selectedFavorite.reviews.length > 0 && (
+                  <View style={styles.modalSection}>
+                    <Text style={styles.modalSectionTitle}>Reviews</Text>
+                    {selectedFavorite.reviews.slice(0, 3).map((review, index) => (
+                      <View key={index} style={styles.modalReviewItem}>
+                        <Text style={styles.modalReviewText}>"{review}"</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+                
+                {selectedFavorite.photos && Array.isArray(selectedFavorite.photos) && selectedFavorite.photos.length > 0 && (
+                  <View style={styles.modalSection}>
+                    <Text style={styles.modalSectionTitle}>Photos</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                      <View style={styles.modalPhotosContainer}>
+                        {selectedFavorite.photos.slice(0, 5).map((photo, index) => (
+                          <Image
+                            key={index}
+                            source={{ uri: photo }}
+                            style={styles.modalPhotoItem}
+                            resizeMode="cover"
+                          />
+                        ))}
+                      </View>
+                    </ScrollView>
+                  </View>
+                )}
+
+                {selectedFavorite.website && (
+                  <TouchableOpacity
+                    style={styles.modalWebsiteButton}
+                    onPress={() => Linking.openURL(selectedFavorite.website)}
+                  >
+                    <Text style={styles.modalWebsiteText}>Visit Website</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </ScrollView>
+          )}
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   )
 }
@@ -1962,5 +2082,209 @@ const styles = StyleSheet.create({
 
   wideButtonSparkle: {
     opacity: 0.9,
+  },
+
+  // Enhanced Favorite Card Styles
+  favoriteCardContent: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    flex: 1,
+  },
+
+  favoriteCardTitle: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 15,
+    lineHeight: 18,
+    textAlign: 'left',
+    letterSpacing: -0.2,
+    marginBottom: 8,
+  },
+
+  favoriteCardDescription: {
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: 12,
+    lineHeight: 16,
+    marginBottom: 8,
+    paddingVertical: 4,
+  },
+
+  favoriteCardMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+    paddingVertical: 2,
+  },
+
+  favoriteCardMetaText: {
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: 11,
+    marginLeft: 6,
+    flex: 1,
+  },
+
+  favoriteCardPrice: {
+    color: '#D4AF37',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+
+  // Modal Styles
+  modalContainer: {
+    flex: 1,
+    backgroundColor: '#201925',
+  },
+
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+  },
+
+  modalCloseButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  modalCloseText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+
+  modalTitle: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+
+  modalHeaderSpacer: {
+    width: 32,
+  },
+
+  modalContent: {
+    flex: 1,
+    paddingHorizontal: 20,
+  },
+
+  modalCard: {
+    backgroundColor: 'rgba(42, 30, 46, 0.8)',
+    borderRadius: 16,
+    padding: 20,
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(212, 175, 55, 0.3)',
+  },
+
+  modalCardTitle: {
+    color: '#fff',
+    fontSize: 24,
+    fontWeight: '700',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+
+  modalSection: {
+    marginBottom: 20,
+  },
+
+  modalSectionTitle: {
+    color: '#D4AF37',
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+
+  modalSectionText: {
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontSize: 16,
+    lineHeight: 22,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 8,
+  },
+
+  modalMetaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+
+  modalMetaItem: {
+    flex: 1,
+    marginHorizontal: 6,
+    padding: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+
+  modalMetaLabel: {
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: 12,
+    fontWeight: '500',
+    marginBottom: 4,
+  },
+
+  modalMetaValue: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+
+  modalWebsiteButton: {
+    backgroundColor: '#cc31e8',
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+
+  modalWebsiteText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+
+  // Reviews and Photos Styles
+  modalReviewItem: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: '#D4AF37',
+  },
+
+  modalReviewText: {
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontSize: 14,
+    lineHeight: 20,
+    fontStyle: 'italic',
+  },
+
+  modalPhotosContainer: {
+    flexDirection: 'row',
+    paddingRight: 16,
+  },
+
+  modalPhotoItem: {
+    width: 120,
+    height: 120,
+    borderRadius: 8,
+    marginRight: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
 })

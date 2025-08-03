@@ -1102,27 +1102,84 @@ export default function AIRecommendations({
                 { text: 'Cancel', style: 'cancel' },
                 { text: 'Save & Complete', onPress: async () => {
                     try {
-                        console.log('=== SAVING FAVORITES DEBUG ===');
-                        console.log('Favorite recommendations to save:', favoriteRecommendations.map(f => ({ id: f.id, title: f.title })));
+                        console.log('=== SAVING FAVORITES AS USER ACTIVITIES ===');
+                        console.log('Favorites to save:', favoriteRecommendations.map(f => ({ id: f.id, title: f.title })));
                         
-                        // Save all favorited items to user_activities
-                        const savePromises = favoriteRecommendations.map(favorite => 
-                            fetch(`${API_URL}/pinned_activities/${favorite.id}/toggle_favorite`, {
+                        // Toggle favorite on pinned_activities to create user_activities
+                        const saveFavoritePromises = favoriteRecommendations.map(async (favorite) => {
+                            // Each favorite is a pinned_activity that needs to be marked as favorite
+                            if (!favorite.id) {
+                                console.error('Favorite recommendation missing ID:', favorite);
+                                return null;
+                            }
+
+                            // Toggle favorite on the pinned_activity (this creates a user_activity)
+                            const response = await fetch(`${API_URL}/pinned_activities/${favorite.id}/toggle_favorite`, {
                                 method: 'POST',
                                 headers: {
                                     'Content-Type': 'application/json',
                                     'Authorization': `Bearer ${user?.token}`,
-                                },
-                            })
-                        );
+                                }
+                            });
 
-                        const saveResults = await Promise.all(savePromises);
-                        console.log('Save API responses:', saveResults.map(r => ({ status: r.status, ok: r.ok })));
+                            if (!response.ok) {
+                                const errorText = await response.text();
+                                console.error('Failed to toggle favorite on pinned_activity:', {
+                                    status: response.status,
+                                    error: errorText,
+                                    pinnedActivityId: favorite.id,
+                                    favoriteName: favorite.title
+                                });
+                            }
+                            return response;
+                        });
+
+                        // Step 3: Save flagged recommendations as user_activities
+                        const saveFlaggedPromises = flaggedRecommendations.map(async (flagged) => {
+                            // Each flagged is a pinned_activity that needs to be marked as flagged
+                            if (!flagged.id) {
+                                console.error('Flagged recommendation missing ID:', flagged);
+                                return null;
+                            }
+
+                            // Toggle flag on the pinned_activity (this creates a user_activity)
+                            const response = await fetch(`${API_URL}/pinned_activities/${flagged.id}/toggle_flag`, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${user?.token}`,
+                                }
+                            });
+
+                            if (!response.ok) {
+                                const errorText = await response.text();
+                                console.error('Failed to toggle flag on pinned_activity:', {
+                                    status: response.status,
+                                    error: errorText,
+                                    pinnedActivityId: flagged.id,
+                                    flaggedName: flagged.title
+                                });
+                            }
+                            return response;
+                        });
+                        
+                        // Wait for both favorite and flagged saves to complete
+                        const [favoriteResults, flaggedResults] = await Promise.all([
+                            Promise.all(saveFavoritePromises),
+                            Promise.all(saveFlaggedPromises)
+                        ]);
+                        
+                        const successfulFavorites = favoriteResults.filter(r => r && r.ok);
+                        const successfulFlagged = flaggedResults.filter(r => r && r.ok);
+                        
+                        console.log('Successfully marked as favorites:', successfulFavorites.length);
+                        console.log('Successfully marked as flagged:', successfulFlagged.length);
                         
                         // Check for any failed saves
-                        const failedSaves = saveResults.filter(r => !r.ok);
+                        const allResults = [...favoriteResults, ...flaggedResults];
+                        const failedSaves = allResults.filter(r => r && !r.ok);
                         if (failedSaves.length > 0) {
-                            console.error('Some favorites failed to save:', failedSaves);
+                            console.error('Some saves failed:', failedSaves.length);
                         }
 
                         // Mark the activity as completed
