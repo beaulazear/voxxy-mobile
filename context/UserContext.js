@@ -6,6 +6,7 @@ import { API_URL } from '../config';
 import PushNotificationService from '../services/PushNotificationService';
 import { logger } from '../utils/logger';
 import notificationDebugger from '../utils/notificationDebugger';
+import { safeApiCall, safeAuthApiCall, handleApiError } from '../utils/safeApiCall';
 
 export const UserContext = createContext();
 
@@ -19,26 +20,23 @@ export const UserProvider = ({ children }) => {
         const token = await AsyncStorage.getItem('jwt');
         if (!token) return setLoading(false);
 
-        const res = await fetch(`${API_URL}/me`, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        });
+        const userData = await safeAuthApiCall(
+          `${API_URL}/me`,
+          token,
+          { method: 'GET' }
+        );
 
-        if (res.ok) {
-          const userData = await res.json();
-          const userWithToken = { ...userData, token };
-          setUser(userWithToken);
+        const userWithToken = { ...userData, token };
+        setUser(userWithToken);
 
-          // Set up push notifications after user is loaded
-          setupPushNotificationsForUser(userWithToken);
-        } else {
-          await AsyncStorage.removeItem('jwt'); // invalid token
-        }
+        // Set up push notifications after user is loaded
+        setupPushNotificationsForUser(userWithToken);
       } catch (err) {
         logger.error('Failed to auto-login:', err);
+        // Remove invalid token
+        if (err.status === 401 || err.status === 403) {
+          await AsyncStorage.removeItem('jwt');
+        }
       } finally {
         setLoading(false);
       }
@@ -99,26 +97,19 @@ export const UserProvider = ({ children }) => {
     try {
       await AsyncStorage.setItem('jwt', token);
 
-      const res = await fetch(`${API_URL}/me`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      const userData = await safeAuthApiCall(
+        `${API_URL}/me`,
+        token,
+        { method: 'GET' }
+      );
 
-      if (res.ok) {
-        const userData = await res.json();
-        const userWithToken = { ...userData, token };
-        setUser(userWithToken);
+      const userWithToken = { ...userData, token };
+      setUser(userWithToken);
 
-        // Set up push notifications after login
-        setupPushNotificationsForUser(userWithToken);
+      // Set up push notifications after login
+      setupPushNotificationsForUser(userWithToken);
 
-        return userWithToken;
-      } else {
-        throw new Error('Failed to fetch user data');
-      }
+      return userWithToken;
     } catch (error) {
       logger.error('Error during login:', error);
       await AsyncStorage.removeItem('jwt');
@@ -141,41 +132,36 @@ export const UserProvider = ({ children }) => {
 
   // Update user method (for profile updates, notification settings, etc.)
   const updateUser = async (updatedFields) => {
-    if (!user) return;
+    if (!user || !user.token) return;
 
     try {
-      const response = await fetch(`${API_URL}/users/${user.id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${user.token}`,
-        },
-        body: JSON.stringify({
-          user: updatedFields
-        }),
-      });
-
-      if (response.ok) {
-        const updatedUserData = await response.json();
-        const userWithToken = { ...updatedUserData, token: user.token };
-        setUser(userWithToken);
-
-        // Handle push notification preference changes
-        if (updatedFields.push_notifications !== undefined) {
-          if (updatedFields.push_notifications && !user.push_notifications) {
-            // User enabled push notifications
-            setupPushNotificationsForUser(userWithToken);
-          } else if (!updatedFields.push_notifications && user.push_notifications) {
-            // User disabled push notifications - cleanup
-            PushNotificationService.cleanup();
-            logger.debug('User disabled push notifications');
-          }
+      const updatedUserData = await safeAuthApiCall(
+        `${API_URL}/users/${user.id}`,
+        user.token,
+        {
+          method: 'PATCH',
+          body: JSON.stringify({
+            user: updatedFields
+          }),
         }
+      );
 
-        return userWithToken;
-      } else {
-        throw new Error('Failed to update user');
+      const userWithToken = { ...updatedUserData, token: user.token };
+      setUser(userWithToken);
+
+      // Handle push notification preference changes
+      if (updatedFields.push_notifications !== undefined) {
+        if (updatedFields.push_notifications && !user.push_notifications) {
+          // User enabled push notifications
+          setupPushNotificationsForUser(userWithToken);
+        } else if (!updatedFields.push_notifications && user.push_notifications) {
+          // User disabled push notifications - cleanup
+          PushNotificationService.cleanup();
+          logger.debug('User disabled push notifications');
+        }
       }
+
+      return userWithToken;
     } catch (error) {
       logger.error('Error updating user:', error);
       throw error;
@@ -197,22 +183,22 @@ export const UserProvider = ({ children }) => {
     if (!user?.token) return;
 
     try {
-      const res = await fetch(`${API_URL}/me`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${user.token}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      const userData = await safeAuthApiCall(
+        `${API_URL}/me`,
+        user.token,
+        { method: 'GET' }
+      );
 
-      if (res.ok) {
-        const userData = await res.json();
-        const userWithToken = { ...userData, token: user.token };
-        setUser(userWithToken);
-        return userWithToken;
-      }
+      const userWithToken = { ...userData, token: user.token };
+      setUser(userWithToken);
+      return userWithToken;
     } catch (err) {
       logger.error('Failed to refresh user:', err);
+      // If unauthorized, clean up token
+      if (err.status === 401 || err.status === 403) {
+        await AsyncStorage.removeItem('jwt');
+        setUser(null);
+      }
     }
   };
 

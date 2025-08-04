@@ -19,7 +19,10 @@ import {
     LogOut,
     HelpCircle,
     X,
-    Star
+    Star,
+    Clock,
+    CheckCircle,
+    Flag
 } from 'react-native-feather'
 import {
     Hamburger,
@@ -78,6 +81,55 @@ function getActivityDisplayInfo(activityType) {
     }
 }
 
+// Helper function to get activity status info
+function getActivityStatusInfo(activity) {
+    const { active, collecting, voting, finalized, completed } = activity;
+    
+    if (completed) {
+        return {
+            text: 'Completed',
+            icon: CheckCircle,
+            color: '#28a745',
+            bgColor: 'rgba(40, 167, 69, 0.15)'
+        };
+    }
+    
+    if (finalized) {
+        return {
+            text: 'Finalized',
+            icon: Flag,
+            color: '#f39c12',
+            bgColor: 'rgba(243, 156, 18, 0.15)'
+        };
+    }
+    
+    if (voting) {
+        return {
+            text: 'Voting',
+            icon: CheckCircle,
+            color: '#667eea',
+            bgColor: 'rgba(102, 126, 234, 0.15)'
+        };
+    }
+    
+    if (collecting) {
+        return {
+            text: 'Collecting',
+            icon: Users,
+            color: '#4ECDC4',
+            bgColor: 'rgba(78, 205, 196, 0.15)'
+        };
+    }
+    
+    // Default/draft state
+    return {
+        text: 'Draft',
+        icon: Clock,
+        color: '#6c757d',
+        bgColor: 'rgba(108, 117, 125, 0.15)'
+    };
+}
+
 // Helper function to safely get avatar (copied from ParticipantsSection)
 const getAvatarFromMap = (filename) => {
     try {
@@ -98,6 +150,7 @@ export function ActivityStickyHeader({ activity, isOwner, onBack, onEdit, onDele
     const navigation = useNavigation()
 
     const activityInfo = getActivityDisplayInfo(activity.activity_type)
+    const statusInfo = getActivityStatusInfo(activity)
 
     // Get activity configuration and determine which steps to show
     const steps = activityInfo.usesAIRecommendations ? [
@@ -207,17 +260,24 @@ export function ActivityStickyHeader({ activity, isOwner, onBack, onEdit, onDele
                     </View>
 
                     <View style={styles.centerContent}>
-                        <View style={styles.activityTypeChip}>
-                            {activityInfo.icon && (
-                                <activityInfo.icon
-                                    color="#fff"
-                                    size={16}
-                                    strokeWidth={2}
-                                    style={styles.activityIcon}
-                                />
-                            )}
-                            <Text style={styles.activityTypeText}>
-                                {activityInfo.displayText}
+                        <View style={[
+                            styles.activityStatusChip,
+                            { 
+                                backgroundColor: statusInfo.bgColor,
+                                borderColor: statusInfo.color
+                            }
+                        ]}>
+                            <statusInfo.icon
+                                color={statusInfo.color}
+                                size={16}
+                                strokeWidth={2}
+                                style={styles.statusIcon}
+                            />
+                            <Text style={[
+                                styles.activityStatusText,
+                                { color: statusInfo.color }
+                            ]}>
+                                {statusInfo.text}
                             </Text>
                         </View>
                     </View>
@@ -225,8 +285,19 @@ export function ActivityStickyHeader({ activity, isOwner, onBack, onEdit, onDele
                     <View style={styles.rightActions}>
                         {isOwner ? (
                             <>
-                                <TouchableOpacity style={styles.editButton} onPress={onEdit}>
-                                    <Edit stroke="#8b5cf6" width={20} height={20} />
+                                <TouchableOpacity 
+                                    style={[
+                                        styles.editButton, 
+                                        activity.completed && styles.editButtonDisabled
+                                    ]} 
+                                    onPress={activity.completed ? undefined : onEdit}
+                                    disabled={activity.completed}
+                                >
+                                    <Edit 
+                                        stroke={activity.completed ? "#6c757d" : "#8b5cf6"} 
+                                        width={20} 
+                                        height={20} 
+                                    />
                                 </TouchableOpacity>
                                 <TouchableOpacity style={styles.deleteButton} onPress={onDelete}>
                                     <Trash stroke="#ef4444" width={20} height={20} />
@@ -369,26 +440,26 @@ export default function ActivityHeader({
 
                     {/* Host Section */}
                     <View style={styles.hostSection}>
-                        <View style={styles.hostAvatar}>
-                            <Image
-                                source={getDisplayImage(activity.user)}
-                                style={styles.hostImage}
-                                defaultSource={DefaultIcon}
-                                onError={() => logger.debug(`❌ Avatar failed to load for ${activity.user?.name}`)}
-                                onLoad={() => logger.debug(`✅ Avatar loaded for ${activity.user?.name}`)}
-                            />
-                            <View style={styles.hostBadge}>
-                                <Star stroke="#fff" width={12} height={12} fill="#fff" />
+                        <View style={styles.hostAvatarContainer}>
+                            <View style={styles.hostAvatar}>
+                                <Image
+                                    source={getDisplayImage(activity.user)}
+                                    style={styles.hostImage}
+                                    defaultSource={DefaultIcon}
+                                    onError={() => logger.debug(`❌ Avatar failed to load for ${activity.user?.name}`)}
+                                    onLoad={() => logger.debug(`✅ Avatar loaded for ${activity.user?.name}`)}
+                                />
+                                <View style={styles.hostBadge}>
+                                    <Star stroke="#fff" width={12} height={12} fill="#fff" />
+                                </View>
                             </View>
+                            <Text style={styles.hostNameSubtle}>
+                                {activity.user?.name || 'Host'}
+                            </Text>
                         </View>
 
                         <View style={styles.hostInfo}>
-                            <Text style={styles.hostName}>
-                                {isOwner
-                                    ? 'Your message for the group'
-                                    : `Organized by ${activity.user?.name || 'Unknown'}`
-                                }
-                            </Text>
+                            <Text style={styles.welcomeMessageTitle}>Welcome message</Text>
                             <Text style={styles.welcomeMessage}>
                                 {activity.welcome_message || "Welcome to this activity! Let's make it amazing together 🎉"}
                             </Text>
@@ -402,8 +473,9 @@ export default function ActivityHeader({
 
 const styles = StyleSheet.create({
     container: {
-        padding: 16,
+        paddingHorizontal: 8,
         paddingTop: 8,
+        paddingBottom: 16,
     },
 
     stickyContainer: {
@@ -472,25 +544,22 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
 
-    activityTypeChip: {
-        backgroundColor: 'rgba(139, 92, 246, 0.9)',
+    activityStatusChip: {
         paddingHorizontal: 14,
         paddingVertical: 8,
         borderRadius: 999,
-        borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.1)',
+        borderWidth: 1.5,
         flexDirection: 'row',
         alignItems: 'center',
         gap: 6,
         alignSelf: 'center',
     },
 
-    activityIcon: {
+    statusIcon: {
         marginRight: -2, // Slightly closer to text
     },
 
-    activityTypeText: {
-        color: '#fff',
+    activityStatusText: {
         fontSize: 12, // Slightly smaller to ensure it fits
         fontWeight: '600',
         textTransform: 'uppercase',
@@ -508,6 +577,12 @@ const styles = StyleSheet.create({
         borderColor: '#8b5cf6',
         alignItems: 'center',
         justifyContent: 'center',
+    },
+
+    editButtonDisabled: {
+        backgroundColor: 'rgba(108, 117, 125, 0.1)',
+        borderColor: '#6c757d',
+        opacity: 0.5,
     },
 
     deleteButton: {
@@ -543,9 +618,9 @@ const styles = StyleSheet.create({
 
     // Main Content Styles
     mainContent: {
-        gap: 20,
-        padding: 16,
-        paddingTop: 0,
+        gap: 32,
+        paddingHorizontal: 12,
+        paddingVertical: 8,
     },
 
     titleSection: {
@@ -565,11 +640,12 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'flex-start',
         gap: 16,
-        backgroundColor: 'rgba(255, 255, 255, 0.03)',
-        padding: 16,
-        borderRadius: 16,
-        borderWidth: 1,
-        borderColor: 'rgba(64, 51, 71, 0.3)',
+        paddingHorizontal: 8,
+    },
+
+    hostAvatarContainer: {
+        alignItems: 'center',
+        gap: 8,
     },
 
     hostAvatar: {
@@ -611,6 +687,22 @@ const styles = StyleSheet.create({
         fontFamily: 'Montserrat_600SemiBold', // You might need to adjust this
     },
 
+    hostNameSubtle: {
+        fontSize: 12,
+        fontWeight: '500',
+        color: 'rgba(255, 255, 255, 0.6)',
+        textAlign: 'center',
+        letterSpacing: 0.3,
+    },
+
+    welcomeMessageTitle: {
+        fontSize: 11,
+        color: 'rgba(255, 255, 255, 0.4)',
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+        marginBottom: 6,
+        fontWeight: '500',
+    },
     welcomeMessage: {
         fontSize: 14,
         color: '#e2e8f0',

@@ -27,6 +27,7 @@ import UpdateDetailsModal from '../components/UpdateDetailsModal'
 import FinalizeActivityModal from '../components/FinalizeActivityModal'
 import { API_URL } from '../config'
 import { logger } from '../utils/logger';
+import { safeAuthApiCall, handleApiError } from '../utils/safeApiCall';
 
 const adventures = [
     {
@@ -145,42 +146,35 @@ export default function ActivityDetailsScreen({ route }) {
                 }
                 
                 setLoadingPinned(true)
-                fetch(`${API_URL}/activities/${activityId}/pinned_activities`, {
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`,
-                    },
-                })
-                    .then((res) => {
-                        logger.debug(`📊 Pinned activities response status: ${res.status}`)
-                        if (!res.ok) {
-                            throw new Error(`Failed to fetch pinned activities: ${res.status} ${res.statusText}`)
-                        }
-                        return res.json()
-                    })
-                    .then((data) => {
-                        logger.debug('✅ Pinned activities fetched successfully:', data.length)
-                        setPinnedActivities(data)
-                    })
-                    .catch((err) => {
+                
+                const fetchPinnedActivities = async () => {
+                    try {
+                        const data = await safeAuthApiCall(
+                            `${API_URL}/activities/${activityId}/pinned_activities`,
+                            token,
+                            { method: 'GET' }
+                        )
+                        
+                        logger.debug('✅ Pinned activities fetched successfully:', data?.length || 0)
+                        setPinnedActivities(data || [])
+                    } catch (err) {
                         logger.error('❌ Error fetching pinned activities:', err)
                         logger.debug(`🔍 Activity details - ID: ${activityId}, Type: ${activity.activity_type}, Finalized: ${activity.finalized}`)
                         
                         // Only show error for non-finalized activities since finalized might not have pinned activities to fetch
                         if (!activity.finalized) {
                             logger.debug('📱 Showing error alert for non-finalized activity')
-                            Alert.alert(
-                                'Network Error',
-                                'Unable to load recommendations. Please check your connection and try again.',
-                                [{ text: 'OK' }]
-                            )
+                            const userMessage = handleApiError(err, 'Unable to load recommendations. Please check your connection and try again.');
+                            Alert.alert('Network Error', userMessage, [{ text: 'OK' }])
                         } else {
                             logger.debug('🤐 Suppressing error alert for finalized activity')
                         }
-                    })
-                    .finally(() => {
+                    } finally {
                         setLoadingPinned(false)
-                    })
+                    }
+                }
+                
+                fetchPinnedActivities()
             } else if (['Restaurant', 'Cocktails', 'Game Night'].includes(activity.activity_type)) {
                 logger.debug(`⏸️ Skipping pinned activities fetch for activity ${activityId} - recommendations not yet generated`)
             }
@@ -189,33 +183,27 @@ export default function ActivityDetailsScreen({ route }) {
             if (activity.activity_type === 'Meeting') {
                 logger.debug(`🕐 Fetching time slots for activity ${activityId}`)
                 setLoadingTimeSlots(true)
-                fetch(`${API_URL}/activities/${activityId}/time_slots`, {
-                    method: 'GET',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`,
-                    },
-                })
-                    .then((res) => {
-                        logger.debug(`📊 Time slots response status: ${res.status}`)
-                        if (!res.ok) throw new Error('Failed to fetch time slots')
-                        return res.json()
-                    })
-                    .then((data) => {
-                        logger.debug('✅ Time slots fetched successfully:', data.length)
-                        setPinned(data)
-                    })
-                    .catch((err) => {
-                        logger.error('❌ Error fetching time slots:', err)
-                        Alert.alert(
-                            'Network Error',
-                            'Unable to load meeting time slots. Please check your connection and try again.',
-                            [{ text: 'OK' }]
+                
+                const fetchTimeSlots = async () => {
+                    try {
+                        const data = await safeAuthApiCall(
+                            `${API_URL}/activities/${activityId}/time_slots`,
+                            token,
+                            { method: 'GET' }
                         )
-                    })
-                    .finally(() => {
+                        
+                        logger.debug('✅ Time slots fetched successfully:', data?.length || 0)
+                        setPinned(data || [])
+                    } catch (err) {
+                        logger.error('❌ Error fetching time slots:', err)
+                        const userMessage = handleApiError(err, 'Unable to load meeting time slots. Please check your connection and try again.');
+                        Alert.alert('Network Error', userMessage, [{ text: 'OK' }])
+                    } finally {
                         setLoadingTimeSlots(false)
-                    })
+                    }
+                }
+                
+                fetchTimeSlots()
             }
         }
     }, [user, activityId, refreshTrigger, token])
@@ -236,28 +224,20 @@ export default function ActivityDetailsScreen({ route }) {
     }, []);
 
     const handleAcceptInvite = async () => {
-        if (!pendingInvite) return
+        if (!pendingInvite || !token) return
 
         try {
-            const response = await fetch(`${API_URL}/activity_participants/accept`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
-                },
-                credentials: 'include',
-                body: JSON.stringify({
-                    email: user.email,
-                    activity_id: activityId
-                }),
-            })
-
-            if (!response.ok) {
-                Alert.alert('Error', 'Failed to accept invite.')
-                return
-            }
-
-            const updatedActivity = await response.json()
+            const updatedActivity = await safeAuthApiCall(
+                `${API_URL}/activity_participants/accept`,
+                token,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        email: user.email,
+                        activity_id: activityId
+                    }),
+                }
+            )
 
             setUser(prevUser => ({
                 ...prevUser,
@@ -277,50 +257,47 @@ export default function ActivityDetailsScreen({ route }) {
             setRefreshTrigger(prev => !prev)
         } catch (error) {
             logger.error('Error accepting invite:', error)
-            Alert.alert('Error', 'Failed to accept invite.')
+            const userMessage = handleApiError(error, 'Failed to accept invite.');
+            Alert.alert('Error', userMessage)
         }
     }
 
     const handleDeclineInvite = async () => {
-        if (!pendingInvite) return
+        if (!pendingInvite || !token) return
 
         try {
-            const response = await fetch(`${API_URL}/activity_participants/decline`, {
-                method: 'DELETE',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
-                },
-                credentials: 'include',
-                body: JSON.stringify({
-                    email: user.email,
-                    activity_id: activityId
-                }),
-            })
+            await safeAuthApiCall(
+                `${API_URL}/activity_participants/decline`,
+                token,
+                {
+                    method: 'DELETE',
+                    body: JSON.stringify({
+                        email: user.email,
+                        activity_id: activityId
+                    }),
+                }
+            )
 
-            if (response.ok) {
-                setUser(prevUser => ({
-                    ...prevUser,
-                    participant_activities: prevUser.participant_activities.filter(
-                        p => p.activity.id !== activityId
-                    ),
-                }))
-                Alert.alert(
-                    'Success', 
-                    'Invite declined.',
-                    [
-                        { 
-                            text: 'OK', 
-                            onPress: () => navigation.goBack()
-                        }
-                    ]
-                )
-            } else {
-                Alert.alert('Error', 'Failed to decline invite.')
-            }
+            setUser(prevUser => ({
+                ...prevUser,
+                participant_activities: prevUser.participant_activities.filter(
+                    p => p.activity.id !== activityId
+                ),
+            }))
+            Alert.alert(
+                'Success', 
+                'Invite declined.',
+                [
+                    { 
+                        text: 'OK', 
+                        onPress: () => navigation.goBack()
+                    }
+                ]
+            )
         } catch (error) {
             logger.error('Error declining invite:', error)
-            Alert.alert('Error', 'Failed to decline invite.')
+            const userMessage = handleApiError(error, 'Failed to decline invite.');
+            Alert.alert('Error', userMessage)
         }
     }
 
@@ -344,43 +321,38 @@ export default function ActivityDetailsScreen({ route }) {
     }
 
     const performDelete = async (id) => {
+        if (!token) return
+
         try {
-            const response = await fetch(`${API_URL}/activities/${id}`, {
-                method: 'DELETE',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
-                },
-                credentials: 'include',
-            })
+            await safeAuthApiCall(
+                `${API_URL}/activities/${id}`,
+                token,
+                { method: 'DELETE' }
+            )
 
-            if (response.ok) {
-                logger.debug(`Activity with ID ${id} deleted successfully`)
+            logger.debug(`Activity with ID ${id} deleted successfully`)
 
-                setUser(prevUser => ({
-                    ...prevUser,
-                    activities: prevUser.activities.filter(
-                        activity => activity.id !== id
-                    ),
-                }))
+            setUser(prevUser => ({
+                ...prevUser,
+                activities: prevUser.activities.filter(
+                    activity => activity.id !== id
+                ),
+            }))
 
-                Alert.alert(
-                    'Success', 
-                    'Activity deleted successfully.',
-                    [
-                        { 
-                            text: 'OK', 
-                            onPress: () => navigation.goBack()
-                        }
-                    ]
-                )
-            } else {
-                logger.error('Failed to delete activity')
-                Alert.alert('Error', 'Failed to delete activity.')
-            }
+            Alert.alert(
+                'Success', 
+                'Activity deleted successfully.',
+                [
+                    { 
+                        text: 'OK', 
+                        onPress: () => navigation.goBack()
+                    }
+                ]
+            )
         } catch (error) {
             logger.error('Error deleting activity:', error)
-            Alert.alert('Error', 'Failed to delete activity.')
+            const userMessage = handleApiError(error, 'Failed to delete activity.');
+            Alert.alert('Error', userMessage)
         }
     }
 
@@ -400,23 +372,17 @@ export default function ActivityDetailsScreen({ route }) {
     }
 
     const performLeave = async () => {
+        if (!user?.token) return
+
         try {
-            const response = await fetch(`${API_URL}/activity_participants/leave`, {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${user?.token}`
-                },
-                credentials: 'include',
-                body: JSON.stringify({ activity_id: activityId }),
-            })
-
-            const data = await response.json()
-
-            if (!response.ok) {
-                Alert.alert('Error', data.error || 'Failed to leave activity.')
-                return
-            }
+            await safeAuthApiCall(
+                `${API_URL}/activity_participants/leave`,
+                user.token,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ activity_id: activityId }),
+                }
+            )
 
             setUser(prevUser => ({
                 ...prevUser,
@@ -437,7 +403,8 @@ export default function ActivityDetailsScreen({ route }) {
             )
         } catch (error) {
             logger.error('Error leaving activity:', error)
-            Alert.alert('Error', 'Failed to leave activity.')
+            const userMessage = handleApiError(error, 'Failed to leave activity.');
+            Alert.alert('Error', userMessage)
         }
     }
 
@@ -458,19 +425,14 @@ export default function ActivityDetailsScreen({ route }) {
         }
 
         try {
-            const response = await fetch(`${API_URL}/activity_participants/invite`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
-                },
-                body: JSON.stringify({ email: email, activity_id: currentActivity.id }),
-            })
-
-            if (!response.ok) {
-                const data = await response.json()
-                throw new Error(data.error || 'Failed to send invitation')
-            }
+            await safeAuthApiCall(
+                `${API_URL}/activity_participants/invite`,
+                token,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ email: email, activity_id: currentActivity.id }),
+                }
+            )
 
             const newParticipant = {
                 invited_email: normalizedEmail,
@@ -496,7 +458,8 @@ export default function ActivityDetailsScreen({ route }) {
             setRefreshTrigger(prev => !prev)
         } catch (error) {
             logger.error('Error sending invite:', error)
-            Alert.alert('Error', error.message || 'Failed to send invitation.')
+            const userMessage = handleApiError(error, 'Failed to send invitation.');
+            Alert.alert('Error', userMessage)
         }
     }
 
@@ -506,18 +469,11 @@ export default function ActivityDetailsScreen({ route }) {
             url.searchParams.set('activity_id', currentActivity.id)
             url.searchParams.set('email', participant.email)
 
-            const response = await fetch(url, {
-                method: 'DELETE',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
-                },
-            })
-
-            if (!response.ok) {
-                const data = await response.json()
-                throw new Error(data.error || 'Remove failed')
-            }
+            await safeAuthApiCall(
+                url.toString(),
+                token,
+                { method: 'DELETE' }
+            )
 
             Alert.alert('Success', 'Participant successfully removed!')
 
@@ -544,7 +500,8 @@ export default function ActivityDetailsScreen({ route }) {
             setRefreshTrigger(prev => !prev)
         } catch (error) {
             logger.error('Error removing participant:', error)
-            Alert.alert('Error', error.message)
+            const userMessage = handleApiError(error, 'Remove failed.');
+            Alert.alert('Error', userMessage)
         }
     }
 

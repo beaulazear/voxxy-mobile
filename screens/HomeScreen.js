@@ -19,7 +19,7 @@ import { LinearGradient } from 'expo-linear-gradient'
 import { UserContext } from '../context/UserContext'
 import AccountCreatedScreen from './AccountCreatedScreen'
 import VoxxyFooter from '../components/VoxxyFooter'
-import { Users, HelpCircle, X, Plus, Zap, CheckCircle, BookOpen, Mail, Coffee, MapPin, Star, User, Activity, Hamburger, Martini, Dices } from 'lucide-react-native'
+import { Users, HelpCircle, X, Plus, Zap, CheckCircle, BookOpen, Mail, Coffee, MapPin, Star, User, Activity, Hamburger, Martini, Dices, ChevronRight } from 'lucide-react-native'
 import CustomHeader from '../components/CustomHeader'
 import YourCommunity from '../components/YourCommunity'
 import ProfileSnippet from '../components/ProfileSnippet'
@@ -27,6 +27,7 @@ import { useNavigation } from '@react-navigation/native';
 import PushNotificationService from '../services/PushNotificationService';
 import { API_URL } from '../config';
 import { Alert } from 'react-native';
+import { safeAuthApiCall, handleApiError } from '../utils/safeApiCall';
 
 const { width: screenWidth } = Dimensions.get('window')
 
@@ -34,7 +35,7 @@ const FULL_HEIGHT = 333
 
 const FILTERS = [
   { key: 'In Progress', icon: Zap },
-  { key: 'Finalized', icon: CheckCircle },
+  { key: 'Past Activities', icon: CheckCircle },
   { key: 'Invites', icon: Mail },
   { key: 'Favorites', icon: Star }
 ]
@@ -178,6 +179,28 @@ function ProgressDisplay({ activity, currentUserId }) {
         </View>
       )}
     </View>
+  )
+}
+
+// See All Past Activities Card
+function SeeAllCard({ onPress, totalCount, type = 'activities' }) {
+  return (
+    <TouchableOpacity
+      style={styles.seeAllCard}
+      onPress={onPress}
+      activeOpacity={0.8}
+    >
+      <View style={styles.seeAllContent}>
+        <View style={styles.seeAllIconContainer}>
+          <BookOpen color="#B954EC" size={24} strokeWidth={2} />
+        </View>
+        <Text style={styles.seeAllTitle}>See All</Text>
+        <Text style={styles.seeAllSubtitle}>{totalCount} total {type}</Text>
+        <View style={styles.seeAllArrow}>
+          <Text style={styles.seeAllArrowText}>→</Text>
+        </View>
+      </View>
+    </TouchableOpacity>
   )
 }
 
@@ -446,21 +469,14 @@ function AnimatedStartNewActivityButton({ navigation }) {
         }}
         activeOpacity={0.8}
       >
-        {/* Simple Neon Border */}
-        <Animated.View
-          style={[
-            styles.neonBorderOutline,
-            { opacity: glowOpacity }
-          ]}
-        />
-
-          {/* Voxxy Gradient Background */}
-          <LinearGradient
-            colors={['#cc31e8', '#9051e1']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.wideButtonGradient}
-          >
+        {/* Gradient Border */}
+        <LinearGradient
+          colors={['#cc31e8', '#9051e1']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.wideButtonGradientBorder}
+        >
+          <View style={styles.wideButtonInner}>
             <View style={styles.wideButtonContent}>
               {/* Main Icon */}
               <View style={styles.wideButtonMainIconContainer}>
@@ -500,7 +516,8 @@ function AnimatedStartNewActivityButton({ navigation }) {
                 </View>
               </View>
             </View>
-          </LinearGradient>
+          </View>
+        </LinearGradient>
         </TouchableOpacity>
     </View>
   )
@@ -540,12 +557,14 @@ export default function HomeScreen() {
   const { user } = useContext(UserContext)
   const navigation = useNavigation()
   const [mainTab, setMainTab] = useState('Activities')
-  const [filter, setFilter] = useState('In Progress')
+  const [filter, setFilter] = useState('')
   const [showAllPast, setShowAllPast] = useState(false)
   const [userFavorites, setUserFavorites] = useState([])
   const [loadingFavorites, setLoadingFavorites] = useState(false)
   const [selectedFavorite, setSelectedFavorite] = useState(null)
   const [showFavoriteModal, setShowFavoriteModal] = useState(false)
+  const [showPastActivitiesModal, setShowPastActivitiesModal] = useState(false)
+  const [showAllFavoritesModal, setShowAllFavoritesModal] = useState(false)
   const scrollY = useRef(new Animated.Value(0)).current
   const scrollRef = useRef(null)
 
@@ -563,25 +582,22 @@ export default function HomeScreen() {
     console.log('Fetching favorites from:', `${API_URL}/user_activities/favorited`)
     setLoadingFavorites(true)
     try {
-      const response = await fetch(`${API_URL}/user_activities/favorited`, {
-        headers: {
-          'Authorization': `Bearer ${user.token}`,
-        },
-      })
-
-      console.log('Favorites API response status:', response.status)
+      const favorites = await safeAuthApiCall(
+        `${API_URL}/user_activities/favorited`,
+        user.token,
+        { method: 'GET' }
+      )
       
-      if (response.ok) {
-        const favorites = await response.json()
-        console.log('Fetched favorites:', favorites)
-        console.log('Favorites count:', favorites.length)
-        setUserFavorites(favorites)
-      } else {
-        const errorText = await response.text()
-        console.error('Favorites API error:', response.status, errorText)
-      }
+      console.log('Fetched favorites:', favorites)
+      console.log('Favorites count:', favorites.length)
+      setUserFavorites(favorites || [])
     } catch (error) {
       console.error('Error fetching favorites:', error)
+      const userMessage = handleApiError(error, 'Failed to load favorites. Please try again.');
+      // Only show alert for non-network errors to avoid spam
+      if (!error.message.includes('Network connection failed')) {
+        Alert.alert('Error', userMessage);
+      }
     } finally {
       setLoadingFavorites(false)
     }
@@ -614,24 +630,27 @@ export default function HomeScreen() {
     return [...new Map([...mine, ...theirs].map(a => [a.id, a])).values()]
   }, [user])
 
-  const inProgress = activities.filter(a => !a.finalized && !a.completed)
-  const finalized = activities.filter(a => a.finalized && !a.completed)
+  // Combine in-progress and finalized into one category
+  const inProgress = activities.filter(a => !a.completed)
   const past = activities.filter(a => a.completed)
   const invites = user?.participant_activities
     ?.filter(p => !p.accepted)
     .map(p => p.activity) || []
 
   useEffect(() => {
-    if (invites.length > 0) {
-      setFilter('Invites')
-    } else if (inProgress.length > 0) {
-      setFilter('In Progress')
-    } else if (finalized.length > 0) {
-      setFilter('Finalized')
-    } else {
-      setFilter('In Progress')
+    // Only set filter if it's not already set
+    if (!filter || filter === '') {
+      if (invites.length > 0) {
+        setFilter('Invites')
+      } else if (inProgress.length > 0) {
+        setFilter('In Progress')
+      } else if (past.length > 0) {
+        setFilter('Past Activities')
+      } else {
+        setFilter('In Progress')
+      }
     }
-  }, [invites.length, inProgress.length, finalized.length])
+  }, [invites.length, inProgress.length, past.length, filter])
 
   if (user && !user.confirmed_at) {
     return <AccountCreatedScreen />
@@ -640,7 +659,7 @@ export default function HomeScreen() {
   const filteredActivities = (() => {
     const dataMap = {
       'In Progress': inProgress,
-      'Finalized': finalized,
+      'Past Activities': past,
       'Invites': invites,
       'Favorites': userFavorites,
     }
@@ -652,7 +671,7 @@ export default function HomeScreen() {
       console.log('Data for favorites:', data)
     }
 
-    return data.sort((a, b) => {
+    const sortedData = data.sort((a, b) => {
       // For in-progress activities, prioritize action needed items
       if (filter === 'In Progress') {
         const aUserResponse = a.responses?.find(r => r.user_id === user?.id)
@@ -668,11 +687,30 @@ export default function HomeScreen() {
         if (!aActionNeeded && bActionNeeded) return 1
       }
       
-      // Then sort by date
+      // For Past Activities and Favorites, sort by created_at (most recent first)
+      if (filter === 'Past Activities' || filter === 'Favorites') {
+        const dateA = new Date(a.created_at || '1970-01-01')
+        const dateB = new Date(b.created_at || '1970-01-01')
+        return dateB - dateA
+      }
+      
+      // For other activities, sort by date_day (soonest first)
       const dateA = new Date(a.date_day || '9999-12-31')
       const dateB = new Date(b.date_day || '9999-12-31')
-      return dateA - dateB // Soonest first for upcoming activities
+      return dateA - dateB
     })
+
+    // For Past Activities, only show 3 most recent
+    if (filter === 'Past Activities' && sortedData.length > 3) {
+      return sortedData.slice(0, 3)
+    }
+    
+    // For Favorites, only show 3 most recent
+    if (filter === 'Favorites' && sortedData.length > 3) {
+      return sortedData.slice(0, 3)
+    }
+
+    return sortedData
   })()
 
   const displayedActivities = filteredActivities
@@ -729,7 +767,6 @@ export default function HomeScreen() {
     
     const activityType = activity?.activity_type || 'Restaurant'
     const displayInfo = getActivityDisplayInfo(activityType)
-    const firstName = activity?.user?.name?.split(' ')[0] || 'Unknown'
 
     return (
       <TouchableOpacity
@@ -762,7 +799,6 @@ export default function HomeScreen() {
           </View>
           <View style={styles.cardHeaderInfo}>
             <Text style={styles.cardType}>{displayInfo.displayText}</Text>
-            <Text style={styles.cardHost}>by {firstName}</Text>
           </View>
           {/* Favorite star indicator */}
           <View style={styles.favoriteIndicator}>
@@ -775,12 +811,6 @@ export default function HomeScreen() {
           <Text style={styles.favoriteCardTitle} numberOfLines={2}>
             {item.title || pinnedActivity?.title || 'Favorite Recommendation'}
           </Text>
-          
-          {item.description && (
-            <Text style={styles.favoriteCardDescription} numberOfLines={2}>
-              {item.description}
-            </Text>
-          )}
           
           {item.address && (
             <View style={styles.favoriteCardMeta}>
@@ -898,6 +928,16 @@ export default function HomeScreen() {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
               }
               setMainTab('Activities')
+              // Set appropriate filter when switching to Activities tab
+              if (invites.length > 0) {
+                setFilter('Invites')
+              } else if (inProgress.length > 0) {
+                setFilter('In Progress')
+              } else if (past.length > 0) {
+                setFilter('Past Activities')
+              } else {
+                setFilter('In Progress')
+              }
             }}
             activeOpacity={0.7}
           >
@@ -937,7 +977,15 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="light-content" />
-      <ProfileSnippet scrollY={scrollY} onScrollToTop={scrollToTop} setFilter={setFilter} setMainTab={setMainTab} />
+      <ProfileSnippet 
+        scrollY={scrollY} 
+        onScrollToTop={scrollToTop} 
+        setFilter={setFilter} 
+        setMainTab={setMainTab}
+        invitesCount={invites.length}
+        inProgressCount={inProgress.length}
+        pastCount={past.length}
+      />
       <Animated.FlatList
         ref={scrollRef}
         data={[]} // Empty array for header/footer only
@@ -1055,8 +1103,14 @@ export default function HomeScreen() {
                     </View>
                   ) : (
                     <FlatList
-                      data={displayedActivities}
-                      keyExtractor={(item) => {
+                      data={
+                        (filter === 'Past Activities' && past.length > 3) || 
+                        (filter === 'Favorites' && userFavorites.length > 3)
+                          ? [...displayedActivities, { isSeeAll: true }]
+                          : displayedActivities
+                      }
+                      keyExtractor={(item, index) => {
+                        if (item.isSeeAll) return 'see-all'
                         if (filter === 'Favorites') {
                           // For favorites, use the user_activity id or combination
                           return String(item.id || `${item.user_id}-${item.pinned_activity_id}`)
@@ -1065,7 +1119,27 @@ export default function HomeScreen() {
                       }}
                       horizontal
                       showsHorizontalScrollIndicator={false}
-                      renderItem={filter === 'Favorites' ? renderFavoriteCard : renderCard}
+                      renderItem={({ item, index }) => {
+                        if (item.isSeeAll) {
+                          return (
+                            <SeeAllCard 
+                              onPress={() => {
+                                if (filter === 'Past Activities') {
+                                  setShowPastActivitiesModal(true)
+                                } else if (filter === 'Favorites') {
+                                  setShowAllFavoritesModal(true)
+                                }
+                              }}
+                              totalCount={filter === 'Past Activities' ? past.length : userFavorites.length}
+                              type={filter === 'Favorites' ? 'favorites' : 'activities'}
+                            />
+                          )
+                        }
+                        if (filter === 'Favorites') {
+                          return renderFavoriteCard({ item, index })
+                        }
+                        return renderCard({ item, index })
+                      }}
                       contentContainerStyle={styles.horizontalGrid}
                       snapToAlignment="start"
                       decelerationRate="fast"
@@ -1200,6 +1274,140 @@ export default function HomeScreen() {
               </View>
             </ScrollView>
           )}
+        </SafeAreaView>
+      </Modal>
+      
+      {/* Past Activities Modal */}
+      <Modal
+        visible={showPastActivitiesModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowPastActivitiesModal(false)}
+      >
+        <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity
+              style={styles.modalCloseButton}
+              onPress={() => setShowPastActivitiesModal(false)}
+            >
+              <X stroke="#fff" width={20} height={20} strokeWidth={2.5} />
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>All Past Activities</Text>
+            <View style={styles.modalHeaderSpacer} />
+          </View>
+          
+          <FlatList
+            data={past.sort((a, b) => new Date(b.created_at || '1970-01-01') - new Date(a.created_at || '1970-01-01'))}
+            keyExtractor={(item) => String(item.id)}
+            renderItem={({ item }) => {
+              const displayInfo = getActivityDisplayInfo(item.activity_type)
+              return (
+                <TouchableOpacity
+                  style={styles.pastActivityItem}
+                  onPress={() => {
+                    setShowPastActivitiesModal(false)
+                    navigation.navigate('ActivityDetails', { activityId: item.id })
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.pastActivityIcon}>
+                    {displayInfo.icon && (
+                      <displayInfo.icon 
+                        color={displayInfo.iconColor} 
+                        size={24} 
+                        strokeWidth={2}
+                      />
+                    )}
+                  </View>
+                  <View style={styles.pastActivityContent}>
+                    <Text style={styles.pastActivityTitle}>{item.activity_name}</Text>
+                    <Text style={styles.pastActivityMeta}>
+                      {displayInfo.displayText} • {formatDate(item.date_day)}
+                    </Text>
+                    <View style={styles.pastActivityParticipants}>
+                      <Users stroke="#B8A5C4" width={14} height={14} />
+                      <Text style={styles.pastActivityParticipantText}>
+                        {item.participants?.length || 0} participants
+                      </Text>
+                    </View>
+                  </View>
+                  <ChevronRight stroke="#B8A5C4" width={20} height={20} />
+                </TouchableOpacity>
+              )
+            }}
+            contentContainerStyle={styles.modalListContent}
+            showsVerticalScrollIndicator={false}
+            ItemSeparatorComponent={() => <View style={styles.pastActivitySeparator} />}
+          />
+        </SafeAreaView>
+      </Modal>
+      
+      {/* All Favorites Modal */}
+      <Modal
+        visible={showAllFavoritesModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowAllFavoritesModal(false)}
+      >
+        <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity
+              style={styles.modalCloseButton}
+              onPress={() => setShowAllFavoritesModal(false)}
+            >
+              <X stroke="#fff" width={20} height={20} strokeWidth={2.5} />
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>All Favorites</Text>
+            <View style={styles.modalHeaderSpacer} />
+          </View>
+          
+          <FlatList
+            data={userFavorites.sort((a, b) => new Date(b.created_at || '1970-01-01') - new Date(a.created_at || '1970-01-01'))}
+            keyExtractor={(item) => String(item.id || `${item.user_id}-${item.pinned_activity_id}`)}
+            renderItem={({ item }) => {
+              // For favorites, item is a user_activity with its own title and address
+              const activity = item.activity || item.pinned_activity?.activity
+              const activityType = activity?.activity_type || 'Restaurant'
+              const displayInfo = getActivityDisplayInfo(activityType)
+              
+              return (
+                <TouchableOpacity
+                  style={styles.pastActivityItem}
+                  onPress={() => {
+                    setShowAllFavoritesModal(false)
+                    setSelectedFavorite(item)
+                    setShowFavoriteModal(true)
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.pastActivityIcon}>
+                    {displayInfo.icon && (
+                      <displayInfo.icon 
+                        color={displayInfo.iconColor} 
+                        size={24} 
+                        strokeWidth={2}
+                      />
+                    )}
+                  </View>
+                  <View style={styles.pastActivityContent}>
+                    <Text style={styles.pastActivityTitle}>{item.title || 'Unnamed'}</Text>
+                    <Text style={styles.pastActivityMeta}>
+                      {displayInfo.displayText} • {item.address ? item.address.split(',')[0] : 'Location not specified'}
+                    </Text>
+                    {item.price_range && (
+                      <View style={styles.favoritePriceContainer}>
+                        <Text style={styles.favoritePriceText}>{item.price_range}</Text>
+                      </View>
+                    )}
+                  </View>
+                  <ChevronRight stroke="#B8A5C4" width={20} height={20} />
+                </TouchableOpacity>
+              )
+            }}
+            contentContainerStyle={styles.modalListContent}
+            showsVerticalScrollIndicator={false}
+            ItemSeparatorComponent={() => <View style={styles.pastActivitySeparator} />}
+          />
         </SafeAreaView>
       </Modal>
     </SafeAreaView>
@@ -1955,21 +2163,6 @@ const styles = StyleSheet.create({
     paddingBottom: 36,
   },
 
-  neonBorderOutline: {
-    position: 'absolute',
-    top: -2,
-    left: -2,
-    right: -2,
-    bottom: -2,
-    borderRadius: 30,
-    borderWidth: 2,
-    borderColor: '#cc31e8',
-    shadowColor: '#cc31e8',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    elevation: 10,
-  },
-
   wideStartActivityButton: {
     borderRadius: 28,
     overflow: 'hidden',
@@ -1978,15 +2171,22 @@ const styles = StyleSheet.create({
   },
 
 
-  wideButtonGradient: {
+  wideButtonGradientBorder: {
     flex: 1,
     borderRadius: 28,
-    padding: 4,
-    shadowColor: 'rgba(204, 49, 232, 0.6)',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.9,
-    shadowRadius: 24,
-    elevation: 25,
+    padding: 3, // This creates the border thickness
+    shadowColor: 'rgba(204, 49, 232, 0.4)',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.8,
+    shadowRadius: 16,
+    elevation: 20,
+  },
+  
+  wideButtonInner: {
+    flex: 1,
+    borderRadius: 25, // Slightly smaller to account for padding
+    backgroundColor: '#201925', // Same as background
+    overflow: 'hidden',
   },
 
   wideButtonContent: {
@@ -2286,5 +2486,143 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginRight: 12,
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  
+  // See All Card Styles
+  seeAllCard: {
+    width: 160,
+    height: 200,
+    marginRight: 16,
+    backgroundColor: 'rgba(42, 30, 46, 0.95)',
+    borderRadius: 24,
+    borderWidth: 2,
+    borderColor: 'rgba(185, 84, 236, 0.4)',
+    borderStyle: 'dashed',
+    shadowColor: 'rgba(185, 84, 236, 0.2)',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 1,
+    shadowRadius: 8,
+    elevation: 8,
+    overflow: 'hidden',
+  },
+  
+  seeAllContent: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  
+  seeAllIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(185, 84, 236, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(185, 84, 236, 0.4)',
+  },
+  
+  seeAllTitle: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  
+  seeAllSubtitle: {
+    color: '#B8A5C4',
+    fontSize: 12,
+    fontWeight: '500',
+    marginBottom: 8,
+  },
+  
+  seeAllArrow: {
+    marginTop: 8,
+  },
+  
+  seeAllArrowText: {
+    color: '#B954EC',
+    fontSize: 24,
+    fontWeight: '700',
+  },
+  
+  // Past Activities Modal Styles
+  modalListContent: {
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 20,
+  },
+  
+  pastActivityItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(42, 30, 46, 0.6)',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(64, 51, 71, 0.5)',
+  },
+  
+  pastActivityIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(185, 84, 236, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(185, 84, 236, 0.2)',
+  },
+  
+  
+  pastActivityContent: {
+    flex: 1,
+    marginRight: 12,
+  },
+  
+  pastActivityTitle: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  
+  pastActivityMeta: {
+    color: '#B8A5C4',
+    fontSize: 13,
+    fontWeight: '500',
+    marginBottom: 6,
+  },
+  
+  pastActivityParticipants: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  
+  pastActivityParticipantText: {
+    color: '#B8A5C4',
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  
+  pastActivitySeparator: {
+    height: 12,
+  },
+  
+  favoritePriceContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  
+  favoritePriceText: {
+    color: '#4ECDC4',
+    fontSize: 12,
+    fontWeight: '600',
   },
 })

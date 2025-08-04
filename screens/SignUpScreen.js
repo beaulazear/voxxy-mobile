@@ -1,4 +1,4 @@
-import React, { useState, useContext, useMemo } from 'react';
+import React, { useState, useContext, useMemo, useRef, useEffect } from 'react';
 import {
     View,
     Text,
@@ -12,11 +12,15 @@ import {
     Platform,
     TouchableWithoutFeedback,
     Keyboard,
+    Animated,
+    ActivityIndicator,
 } from 'react-native';
 import { API_URL } from '../config';
 import { useNavigation } from '@react-navigation/native';
 import { UserContext } from '../context/UserContext';
-import { ArrowLeft } from 'lucide-react-native';
+import { safeApiCall, handleApiError } from '../utils/safeApiCall';
+import { validateEmail, validateUserName, validatePassword } from '../utils/validation';
+import { ArrowLeft, Eye, EyeOff, Check, X } from 'lucide-react-native';
 
 export default function SignUpScreen() {
     const { setUser } = useContext(UserContext);
@@ -28,6 +32,14 @@ export default function SignUpScreen() {
     const [password, setPassword] = useState('');
     const [confirmation, setConfirmation] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmation, setShowConfirmation] = useState(false);
+    const [validationErrors, setValidationErrors] = useState({});
+    
+    // Animation refs
+    const fadeAnim = useRef(new Animated.Value(1)).current;
+    const slideAnim = useRef(new Animated.Value(0)).current;
+    const inputRef = useRef(null);
 
     const labels = [
         "What should we call you?",
@@ -43,29 +55,61 @@ export default function SignUpScreen() {
         { value: confirmation, onChange: setConfirmation, placeholder: '••••••••', secure: true, keyboard: 'default' },
     ];
 
-    const emailRegex = useMemo(() => /^[^\s@]+@[^\s@]+\.[^\s@]+$/, []);
-    
-    const validatePassword = (pwd) => {
-        // At least 8 characters, 1 uppercase, 1 lowercase, 1 number
-        const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
-        return passwordRegex.test(pwd);
-    };
-
-    const validateStep = () => {
+    // Real-time validation
+    const currentValidation = useMemo(() => {
         switch (step) {
-            case 0: return name.trim().length > 0;
-            case 1: return emailRegex.test(email);
+            case 0: return validateUserName(name);
+            case 1: return validateEmail(email);
             case 2: return validatePassword(password);
-            case 3: return confirmation === password && validatePassword(password);
-            default: return false;
+            case 3: {
+                const passwordValid = validatePassword(password);
+                const confirmationValid = confirmation === password;
+                return {
+                    isValid: passwordValid.isValid && confirmationValid,
+                    error: !confirmationValid ? 'Passwords do not match' : passwordValid.error,
+                    strength: passwordValid.strength,
+                    strengthText: passwordValid.strengthText
+                };
+            }
+            default: return { isValid: false, error: null };
         }
-    };
+    }, [step, name, email, password, confirmation]);
+
+    // Animation effects
+    useEffect(() => {
+        // Slide in animation when step changes
+        Animated.sequence([
+            Animated.timing(fadeAnim, {
+                toValue: 0,
+                duration: 150,
+                useNativeDriver: true,
+            }),
+            Animated.timing(slideAnim, {
+                toValue: step * -50,
+                duration: 0,
+                useNativeDriver: true,
+            }),
+            Animated.timing(fadeAnim, {
+                toValue: 1,
+                duration: 300,
+                useNativeDriver: true,
+            })
+        ]).start();
+        
+        // Auto-focus input after animation
+        setTimeout(() => {
+            inputRef.current?.focus();
+        }, 350);
+    }, [step, fadeAnim, slideAnim]);
+
+    const validateStep = () => currentValidation.isValid;
 
     const handleNext = () => {
         if (!validateStep()) {
-            Alert.alert('Error', 'Please enter a valid value before continuing');
+            setValidationErrors({[step]: currentValidation.error});
             return;
         }
+        setValidationErrors({});
         setStep(step + 1);
     };
 
@@ -73,26 +117,60 @@ export default function SignUpScreen() {
 
     const handleSignUp = async () => {
         if (!validateStep()) {
-            Alert.alert('Error', 'Please confirm your password correctly');
+            setValidationErrors({[step]: currentValidation.error});
             return;
         }
+
+        // Final validation with detailed error messages
+        const nameValidation = validateUserName(name);
+        const emailValidation = validateEmail(email);
+        const passwordValidation = validatePassword(password);
+
+        if (!nameValidation.isValid) {
+            Alert.alert('Error', nameValidation.error);
+            return;
+        }
+        if (!emailValidation.isValid) {
+            Alert.alert('Error', emailValidation.error);
+            return;
+        }
+        if (!passwordValidation.isValid) {
+            Alert.alert('Error', passwordValidation.error);
+            return;
+        }
+
         setIsLoading(true);
         Keyboard.dismiss();
 
         try {
-            const resp = await fetch(`${API_URL}/users`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-Mobile-App': 'true' },
-                body: JSON.stringify({
-                    user: { name, email, password, password_confirmation: confirmation },
-                }),
+            const data = await safeApiCall(
+                `${API_URL}/users`,
+                {
+                    method: 'POST',
+                    headers: { 'X-Mobile-App': 'true' },
+                    body: JSON.stringify({
+                        user: { 
+                            name: nameValidation.sanitized, 
+                            email: emailValidation.sanitized, 
+                            password, 
+                            password_confirmation: confirmation 
+                        },
+                    }),
+                }
+            );
+
+            // Success animation before navigation
+            Animated.timing(fadeAnim, {
+                toValue: 0,
+                duration: 300,
+                useNativeDriver: true,
+            }).start(() => {
+                setUser(data);
+                navigation.replace('/');
             });
-            const data = await resp.json();
-            if (!resp.ok) throw new Error(data.errors?.join(', ') || 'Sign up failed');
-            setUser(data);
-            navigation.replace('/');
         } catch (e) {
-            Alert.alert('Error', e.message);
+            const errorMessage = handleApiError(e, 'Sign up failed. Please try again.');
+            Alert.alert('Error', errorMessage);
             setIsLoading(false);
         }
     };
@@ -100,6 +178,10 @@ export default function SignUpScreen() {
     const { value, onChange, placeholder, secure, keyboard } = inputs[step];
     const isLast = step === inputs.length - 1;
     const canProceed = validateStep();
+    
+    // Get password strength info for display
+    const passwordStrength = step === 2 ? validatePassword(password) : null;
+    const showPasswordToggle = step === 2 || step === 3;
 
     // pick the right autofill hints per step
     const autoFillProps = (() => {
@@ -148,21 +230,103 @@ export default function SignUpScreen() {
                     style={styles.content}
                     behavior={Platform.OS === 'ios' ? 'padding' : undefined}
                 >
-                    <Text style={styles.heading}>{labels[step]}</Text>
+                    <Animated.View style={{
+                        opacity: fadeAnim,
+                        transform: [{ translateY: slideAnim }]
+                    }}>
+                        <Text style={styles.heading}>{labels[step]}</Text>
 
-                    <TextInput
-                        style={styles.input}
-                        value={value}
-                        onChangeText={onChange}
-                        placeholder={placeholder}
-                        placeholderTextColor="#666"
-                        secureTextEntry={secure}
-                        keyboardType={keyboard}
-                        autoCorrect={false}
-                        autoCapitalize="none"
-                        {...autoFillProps}
-                        autoFocus
-                    />
+                        <View style={styles.inputContainer}>
+                            <TextInput
+                                ref={inputRef}
+                                style={[
+                                    styles.input,
+                                    validationErrors[step] && styles.inputError,
+                                    canProceed && value.length > 0 && styles.inputValid
+                                ]}
+                                value={value}
+                                onChangeText={(text) => {
+                                    onChange(text);
+                                    // Clear validation error when user starts typing
+                                    if (validationErrors[step]) {
+                                        setValidationErrors(prev => ({ ...prev, [step]: null }));
+                                    }
+                                }}
+                                placeholder={placeholder}
+                                placeholderTextColor="#666"
+                                secureTextEntry={secure && (step === 2 ? !showPassword : !showConfirmation)}
+                                keyboardType={keyboard}
+                                autoCorrect={false}
+                                autoCapitalize="none"
+                                {...autoFillProps}
+                                returnKeyType={isLast ? 'done' : 'next'}
+                                onSubmitEditing={isLast ? handleSignUp : handleNext}
+                            />
+                            
+                            {/* Password visibility toggle */}
+                            {showPasswordToggle && (
+                                <TouchableOpacity
+                                    style={styles.eyeButton}
+                                    onPress={() => {
+                                        if (step === 2) {
+                                            setShowPassword(!showPassword);
+                                        } else {
+                                            setShowConfirmation(!showConfirmation);
+                                        }
+                                    }}
+                                >
+                                    {(step === 2 ? showPassword : showConfirmation) ? (
+                                        <EyeOff size={20} color="#666" />
+                                    ) : (
+                                        <Eye size={20} color="#666" />
+                                    )}
+                                </TouchableOpacity>
+                            )}
+                            
+                            {/* Validation status icon */}
+                            {value.length > 0 && (
+                                <View style={styles.validationIcon}>
+                                    {canProceed ? (
+                                        <Check size={18} color="#28a745" />
+                                    ) : (
+                                        <X size={18} color="#dc3545" />
+                                    )}
+                                </View>
+                            )}
+                        </View>
+                        
+                        {/* Validation error message */}
+                        {validationErrors[step] && (
+                            <Animated.View style={styles.errorContainer}>
+                                <Text style={styles.errorText}>{validationErrors[step]}</Text>
+                            </Animated.View>
+                        )}
+                        
+                        {/* Password strength indicator */}
+                        {step === 2 && password.length > 0 && passwordStrength && (
+                            <View style={styles.strengthContainer}>
+                                <View style={styles.strengthBar}>
+                                    <View 
+                                        style={[
+                                            styles.strengthFill,
+                                            { width: `${(passwordStrength.strength / 5) * 100}%` },
+                                            passwordStrength.strength <= 2 && styles.strengthWeak,
+                                            passwordStrength.strength === 3 && styles.strengthFair,
+                                            passwordStrength.strength >= 4 && styles.strengthGood,
+                                        ]}
+                                    />
+                                </View>
+                                <Text style={[
+                                    styles.strengthText,
+                                    passwordStrength.strength <= 2 && styles.strengthTextWeak,
+                                    passwordStrength.strength === 3 && styles.strengthTextFair,
+                                    passwordStrength.strength >= 4 && styles.strengthTextGood,
+                                ]}>
+                                    {passwordStrength.strengthText}
+                                </Text>
+                            </View>
+                        )}
+                    </Animated.View>
 
                     <TouchableOpacity
                         style={[
@@ -172,13 +336,18 @@ export default function SignUpScreen() {
                         onPress={isLast ? handleSignUp : handleNext}
                         disabled={!canProceed || (isLast && isLoading)}
                     >
-                        <Text style={styles.nextText}>
-                            {isLast
-                                ? isLoading
-                                    ? 'Checking your itinerary…'
-                                    : 'Create Account'
-                                : 'Next'}
-                        </Text>
+                        {isLast && isLoading ? (
+                            <View style={styles.loadingContainer}>
+                                <ActivityIndicator size="small" color="#fff" />
+                                <Text style={[styles.nextText, styles.loadingText]}>
+                                    Creating your account…
+                                </Text>
+                            </View>
+                        ) : (
+                            <Text style={styles.nextText}>
+                                {isLast ? 'Create Account' : 'Next'}
+                            </Text>
+                        )}
                     </TouchableOpacity>
 
                     {step === 0 && (
@@ -245,16 +414,96 @@ const styles = StyleSheet.create({
         color: '#fff',
         marginBottom: 24,
     },
+    inputContainer: {
+        position: 'relative',
+        marginBottom: 16,
+    },
     input: {
         backgroundColor: '#211825',
-        borderRadius: 8,
+        borderRadius: 12,
         paddingVertical: 14,
         paddingHorizontal: 16,
+        paddingRight: 50,
         fontSize: 16,
         color: '#fff',
         borderWidth: 1.5,
         borderColor: '#592566',
+        transition: 'all 0.2s ease',
+    },
+    inputError: {
+        borderColor: '#dc3545',
+        backgroundColor: 'rgba(220, 53, 69, 0.05)',
+    },
+    inputValid: {
+        borderColor: '#28a745',
+        backgroundColor: 'rgba(40, 167, 69, 0.05)',
+    },
+    eyeButton: {
+        position: 'absolute',
+        right: 44,
+        top: 0,
+        bottom: 0,
+        justifyContent: 'center',
+        alignItems: 'center',
+        width: 40,
+    },
+    validationIcon: {
+        position: 'absolute',
+        right: 12,
+        top: 0,
+        bottom: 0,
+        justifyContent: 'center',
+        alignItems: 'center',
+        width: 24,
+    },
+    errorContainer: {
+        marginTop: -12,
         marginBottom: 16,
+        paddingHorizontal: 4,
+    },
+    errorText: {
+        color: '#dc3545',
+        fontSize: 14,
+        fontWeight: '500',
+    },
+    strengthContainer: {
+        marginTop: -8,
+        marginBottom: 16,
+        paddingHorizontal: 4,
+    },
+    strengthBar: {
+        height: 4,
+        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+        borderRadius: 2,
+        marginBottom: 8,
+        overflow: 'hidden',
+    },
+    strengthFill: {
+        height: '100%',
+        borderRadius: 2,
+        transition: 'all 0.3s ease',
+    },
+    strengthWeak: {
+        backgroundColor: '#dc3545',
+    },
+    strengthFair: {
+        backgroundColor: '#ffc107',
+    },
+    strengthGood: {
+        backgroundColor: '#28a745',
+    },
+    strengthText: {
+        fontSize: 12,
+        fontWeight: '500',
+    },
+    strengthTextWeak: {
+        color: '#dc3545',
+    },
+    strengthTextFair: {
+        color: '#ffc107',
+    },
+    strengthTextGood: {
+        color: '#28a745',
     },
     nextButton: {
         backgroundColor: '#cc31e8',
@@ -262,11 +511,29 @@ const styles = StyleSheet.create({
         borderRadius: 50,
         alignItems: 'center',
         marginBottom: 12,
+        shadowColor: '#cc31e8',
+        shadowOffset: {
+            width: 0,
+            height: 2,
+        },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 4,
     },
     nextButtonDisabled: {
         opacity: 0.5,
+        shadowOpacity: 0,
+        elevation: 0,
     },
     nextText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+    loadingContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    loadingText: {
+        marginLeft: 8,
+    },
     linksContainer: { marginTop: 8 },
     linkButton: { 
         alignItems: 'center', 
@@ -284,7 +551,7 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: '#666',
         textAlign: 'center',
-        lineHeight: 16,
+        lineHeight: 20,
         paddingHorizontal: 20,
     },
 });

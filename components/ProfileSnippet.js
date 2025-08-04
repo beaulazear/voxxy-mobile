@@ -20,7 +20,7 @@ const NAVBAR_HEIGHT = 90;
 const FULL_HEIGHT = 333;
 const SCROLL_THRESHOLD = 250;
 
-export default function ProfileSnippet({ scrollY = new Animated.Value(0), onScrollToTop, setFilter, setMainTab }) {
+export default function ProfileSnippet({ scrollY = new Animated.Value(0), onScrollToTop, setFilter, setMainTab, invitesCount = 0, inProgressCount = 0, pastCount = 0 }) {
   const { user } = useContext(UserContext);
   const navigation = useNavigation();
   const [isNavbarMode, setIsNavbarMode] = useState(false);
@@ -322,8 +322,19 @@ export default function ProfileSnippet({ scrollY = new Animated.Value(0), onScro
         <TouchableOpacity 
           style={styles.statBox}
           onPress={() => {
-            setMainTab && setMainTab('Activities');
-            setFilter && setFilter('Finalized');
+            if (setMainTab) setMainTab('Activities');
+            // Apply smart filter logic
+            if (setFilter) {
+              if (invitesCount > 0) {
+                setFilter('Invites');
+              } else if (inProgressCount > 0) {
+                setFilter('In Progress');
+              } else if (pastCount > 0) {
+                setFilter('Past Activities');
+              } else {
+                setFilter('In Progress');
+              }
+            }
           }}
           activeOpacity={0.7}
         >

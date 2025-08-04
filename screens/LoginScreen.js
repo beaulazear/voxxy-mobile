@@ -16,6 +16,8 @@ import { useNavigation } from '@react-navigation/native';
 import { UserContext } from '../context/UserContext';
 import { API_URL } from '../config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { safeApiCall, handleApiError } from '../utils/safeApiCall';
+import { validateEmail } from '../utils/validation';
 import HeaderSvg from '../assets/header.svg';
 
 export default function LoginScreen() {
@@ -57,32 +59,36 @@ export default function LoginScreen() {
       return;
     }
     
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrimmed)) {
-      Alert.alert('Error', 'Please enter a valid email address');
+    // Use proper email validation
+    const emailValidation = validateEmail(emailTrimmed);
+    if (!emailValidation.isValid) {
+      Alert.alert('Error', emailValidation.error);
       return;
     }
     
     setIsLoading(true);
     Keyboard.dismiss();
     try {
-      const res = await fetch(`${API_URL}/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Mobile-App': 'true',
-        },
-        body: JSON.stringify({
-          email: emailTrimmed,
-          password,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Login failed');
+      const data = await safeApiCall(
+        `${API_URL}/login`,
+        {
+          method: 'POST',
+          headers: {
+            'X-Mobile-App': 'true',
+          },
+          body: JSON.stringify({
+            email: emailValidation.sanitized,
+            password,
+          }),
+        }
+      );
+
       await AsyncStorage.setItem('jwt', data.token);
       setUser(data);
       navigation.replace('/');
     } catch (err) {
-      Alert.alert('Login Failed', 'Invalid email or password. Please try again.');
+      const errorMessage = handleApiError(err, 'Invalid email or password. Please try again.');
+      Alert.alert('Login Failed', errorMessage);
       setIsLoading(false);
     }
   };

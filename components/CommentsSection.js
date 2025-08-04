@@ -11,57 +11,55 @@ import {
     Alert,
     Animated,
     AppState,
+    Modal,
+    KeyboardAvoidingView,
+    Platform,
+    Keyboard,
 } from 'react-native';
+import * as Feather from 'react-native-feather';
 import { UserContext } from '../context/UserContext';
 import { API_URL } from '../config';
 import { logger } from '../utils/logger';
+import { safeAuthApiCall, handleApiError } from '../utils/safeApiCall';
 
 const { width: screenWidth } = Dimensions.get('window');
 
-// Default avatar - you can replace with your default image
-const defaultAvatar = 'https://via.placeholder.com/32x32/667eea/ffffff?text=👤';
+// Helper function to get proper display image (prioritizing profile_pic_url over avatar)
+const getDisplayImage = (user) => {
+    if (!user) return require('../assets/Weird5.jpg');
 
-// Helper function to get proper avatar URL
-const getAvatarUrl = (user) => {
-    if (!user) return defaultAvatar;
+    // Check profile_pic_url first (full URL)
+    if (user.profile_pic_url) {
+        const profilePicUrl = user.profile_pic_url.startsWith('http')
+            ? user.profile_pic_url
+            : `${API_URL}${user.profile_pic_url}`;
+        return { uri: profilePicUrl };
+    }
 
-    // Check if user has avatar
+    // Check if user has avatar (relative path) - only as fallback
     if (user.avatar) {
-        // If it's already a full URL (AWS S3, etc.)
+        // If it's already a full URL
         if (user.avatar.startsWith('http')) {
-            return user.avatar;
+            return { uri: user.avatar };
         }
         // If it's a local reference, construct full URL
         if (user.avatar.startsWith('/') || user.avatar.includes('uploads')) {
-            return `${API_URL}${user.avatar.startsWith('/') ? '' : '/'}${user.avatar}`;
+            return { uri: `${API_URL}${user.avatar.startsWith('/') ? '' : '/'}${user.avatar}` };
         }
         // If it's just a filename, assume it's in uploads
-        return `${API_URL}/uploads/${user.avatar}`;
+        return { uri: `${API_URL}/uploads/${user.avatar}` };
     }
 
-    // Check profile_pic_url field (alternative field name)
-    if (user.profile_pic_url) {
-        if (user.profile_pic_url.startsWith('http')) {
-            return user.profile_pic_url;
-        }
-        return `${API_URL}${user.profile_pic_url.startsWith('/') ? '' : '/'}${user.profile_pic_url}`;
-    }
-
-    // Generate avatar based on user ID or name
-    if (user.id) {
-        const colors = ['667eea', 'cc31e8', '28a745', 'dc3545', 'ffc107', '17a2b8'];
-        const colorIndex = user.id % colors.length;
-        const initials = user.name ? user.name.split(' ').map(n => n[0]).join('').toUpperCase() : '?';
-        return `https://via.placeholder.com/64x64/${colors[colorIndex]}/ffffff?text=${initials}`;
-    }
-
-    return defaultAvatar;
+    // Fallback to default stock image
+    return require('../assets/Weird5.jpg');
 };
 
-// Icon components using emoji
+// Icon components using stylish icons
 const Icons = {
-    NotepadText: () => <Text style={styles.iconText}>📝</Text>,
-    Send: () => <Text style={styles.iconText}>📤</Text>,
+    MessageCircle: ({ size = 20, color = "#667eea" }) => <Feather.MessageCircle size={size} color={color} />,
+    Send: ({ size = 20, color = "#667eea" }) => <Feather.Send size={size} color={color} />,
+    X: ({ size = 20, color = "#fff" }) => <Feather.X size={size} color={color} />,
+    ChevronUp: ({ size = 16, color = "#667eea" }) => <Feather.ChevronUp size={size} color={color} />,
 };
 
 const CommentsSection = ({ activity }) => {
@@ -70,6 +68,13 @@ const CommentsSection = ({ activity }) => {
     const [showNewMessageToast, setShowNewMessageToast] = useState(false);
     const [newMessageCount, setNewMessageCount] = useState(0);
     const [lastNewCommentId, setLastNewCommentId] = useState(null);
+    const [isMounted, setIsMounted] = useState(true);
+    const [showAllCommentsModal, setShowAllCommentsModal] = useState(false);
+    const [modalNewComment, setModalNewComment] = useState('');
+    
+    // Refs
+    const modalScrollViewRef = useRef(null);
+    const modalInputRef = useRef(null);
 
     // Initialize lastUpdateTime based on existing comments or a past time
     const [lastUpdateTime, setLastUpdateTime] = useState(() => {
@@ -147,9 +152,16 @@ const CommentsSection = ({ activity }) => {
         }).start();
     }, []);
 
-    // Polling for new comments with proper duplicate prevention
+    // Polling for new comments with proper duplicate prevention and race condition handling
     useEffect(() => {
+        let pollingActive = true;
+        
         const pollForNewComments = async () => {
+            // Check if component is still mounted and polling is active
+            if (!isMounted || !pollingActive || !user?.token) {
+                return;
+            }
+
             try {
                 // Get the timestamp of the most recent comment we have
                 const mostRecentComment = comments[comments.length - 1];
@@ -157,48 +169,49 @@ const CommentsSection = ({ activity }) => {
 
                 logger.debug('🔄 Polling for comments since:', sinceTime);
 
-                const response = await fetch(
+                const newComments = await safeAuthApiCall(
                     `${API_URL}/activities/${activity.id}/comments?since=${sinceTime}`,
-                    {
-                        headers: {
-                            'Authorization': `Bearer ${user?.token}`,
-                        },
-                    }
+                    user.token,
+                    { method: 'GET' }
                 );
 
-                if (response.ok) {
-                    const newComments = await response.json();
-                    logger.debug('📥 Received new comments:', newComments.length);
+                // Double-check component is still mounted before updating state
+                if (!isMounted || !pollingActive) {
+                    return;
+                }
 
-                    if (newComments.length > 0) {
-                        // Filter out any comments we already have (prevent duplicates)
-                        const existingCommentIds = new Set(comments.map(c => c.id));
-                        const trulyNewComments = newComments.filter(c => !existingCommentIds.has(c.id));
+                logger.debug('📥 Received new comments:', newComments.length);
 
-                        if (trulyNewComments.length > 0) {
-                            logger.debug('✅ Adding truly new comments:', trulyNewComments.length);
-                            setComments(prev => [...prev, ...trulyNewComments]);
+                if (newComments && newComments.length > 0) {
+                    // Filter out any comments we already have (prevent duplicates)
+                    const existingCommentIds = new Set(comments.map(c => c.id));
+                    const trulyNewComments = newComments.filter(c => !existingCommentIds.has(c.id));
 
-                            // Update lastUpdateTime to the most recent comment's timestamp
-                            const newestComment = trulyNewComments[trulyNewComments.length - 1];
-                            setLastUpdateTime(newestComment.created_at);
-                            setLastNewCommentId(newestComment.id);
+                    if (trulyNewComments.length > 0) {
+                        logger.debug('✅ Adding truly new comments:', trulyNewComments.length);
+                        setComments(prev => [...prev, ...trulyNewComments]);
 
-                            // Show toast notification for new messages (but not from current user)
-                            const otherUsersComments = trulyNewComments.filter(c => c.user.id !== user?.id);
-                            if (otherUsersComments.length > 0) {
-                                const lastComment = otherUsersComments[otherUsersComments.length - 1];
-                                const authorName = lastComment.user.name?.split(' ')[0] || 'Someone';
-                                showToast(otherUsersComments.length, authorName);
-                            }
+                        // Update lastUpdateTime to the most recent comment's timestamp
+                        const newestComment = trulyNewComments[trulyNewComments.length - 1];
+                        setLastUpdateTime(newestComment.created_at);
+                        setLastNewCommentId(newestComment.id);
+
+                        // Show toast notification for new messages (but not from current user)
+                        const otherUsersComments = trulyNewComments.filter(c => c.user.id !== user?.id);
+                        if (otherUsersComments.length > 0) {
+                            const lastComment = otherUsersComments[otherUsersComments.length - 1];
+                            const authorName = lastComment.user.name?.split(' ')[0] || 'Someone';
+                            showToast(otherUsersComments.length, authorName);
                         }
                     }
-                } else {
-                    logger.debug('❌ Polling response not ok:', response.status);
                 }
             } catch (error) {
                 logger.debug('⚠️ Polling error (silent):', error.message);
                 // Fail silently - don't spam user with errors
+                // Only log if it's not a common network error
+                if (!error.message.includes('Network connection failed') && !error.message.includes('timeout')) {
+                    logger.debug('Unexpected polling error:', error);
+                }
             }
         };
 
@@ -231,12 +244,21 @@ const CommentsSection = ({ activity }) => {
 
         return () => {
             logger.debug('🛑 Stopping comment polling');
+            pollingActive = false;
             if (pollingRef.current) {
                 clearInterval(pollingRef.current);
+                pollingRef.current = null;
             }
             appStateSubscription?.remove();
         };
-    }, [activity.id, user?.token, comments]); // Changed dependency to comments array
+    }, [activity.id, user?.token, comments, isMounted]); // Added isMounted to dependencies
+
+    // Component cleanup effect
+    useEffect(() => {
+        return () => {
+            setIsMounted(false);
+        };
+    }, []);
 
     // Scroll to bottom on first render
     useEffect(() => {
@@ -248,46 +270,76 @@ const CommentsSection = ({ activity }) => {
         return () => clearTimeout(timer);
     }, []);
 
+    // Handle keyboard events for modal scrolling
+    useEffect(() => {
+        if (!showAllCommentsModal) return;
+
+        const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => {
+            setTimeout(() => {
+                if (modalScrollViewRef.current) {
+                    modalScrollViewRef.current.scrollToEnd({ animated: true });
+                }
+            }, 100);
+        });
+
+        const keyboardWillShowListener = Keyboard.addListener('keyboardWillShow', () => {
+            setTimeout(() => {
+                if (modalScrollViewRef.current) {
+                    modalScrollViewRef.current.scrollToEnd({ animated: true });
+                }
+            }, 0);
+        });
+
+        return () => {
+            keyboardDidShowListener?.remove();
+            keyboardWillShowListener?.remove();
+        };
+    }, [showAllCommentsModal]);
 
     // Post a new comment
-    const handleCommentSubmit = async () => {
-        if (!newComment.trim()) return;
+    const handleCommentSubmit = async (commentText = null) => {
+        const textToSubmit = commentText || newComment.trim();
+        if (!textToSubmit || !user?.token) return;
 
-        const tempComment = newComment.trim();
-        setNewComment(''); // Clear input immediately for better UX
+        if (!commentText) {
+            setNewComment(''); // Clear input immediately for better UX only if using main input
+        }
 
         try {
             logger.debug('📝 Posting new comment');
-            const response = await fetch(`${API_URL}/activities/${activity.id}/comments`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${user?.token}`,
-                },
-                body: JSON.stringify({ comment: { content: tempComment } }),
-            });
-
-            if (response.ok) {
-                const comment = await response.json();
-                logger.debug('✅ Comment posted successfully');
-
-                // Check if comment already exists (in case polling caught it)
-                const commentExists = comments.some(c => c.id === comment.id);
-                if (!commentExists) {
-                    setComments(prev => [...prev, comment]);
+            const comment = await safeAuthApiCall(
+                `${API_URL}/activities/${activity.id}/comments`,
+                user.token,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ comment: { content: textToSubmit } }),
                 }
+            );
 
-                // Update timestamp to prevent polling from fetching this comment again
-                setLastUpdateTime(comment.created_at);
-            } else {
-                logger.debug('❌ Failed to post comment:', response.status);
-                setNewComment(tempComment); // Restore comment on failure
-                Alert.alert('Error', 'Failed to add comment.');
+            logger.debug('✅ Comment posted successfully');
+
+            // Check if component is still mounted before updating state
+            if (!isMounted) return;
+
+            // Check if comment already exists (in case polling caught it)
+            const commentExists = comments.some(c => c.id === comment.id);
+            if (!commentExists) {
+                setComments(prev => [...prev, comment]);
             }
+
+            // Update timestamp to prevent polling from fetching this comment again
+            setLastUpdateTime(comment.created_at);
         } catch (error) {
-            logger.error('💥 Error posting comment:', error);
-            setNewComment(tempComment); // Restore comment on failure
-            Alert.alert('Error', 'Failed to add comment.');
+            logger.error('💥 Error posting comment:', {
+                message: error.message,
+                status: error.status,
+                name: error.name
+            });
+            if (!commentText) {
+                setNewComment(textToSubmit); // Restore comment on failure only if using main input
+            }
+            const userMessage = handleApiError(error, 'Failed to add comment.');
+            Alert.alert('Error', userMessage);
         }
     };
 
@@ -328,10 +380,10 @@ const CommentsSection = ({ activity }) => {
                 {!isMe && (
                     <View style={styles.avatarContainer}>
                         <Image
-                            source={{ uri: getAvatarUrl(comment.user) }}
+                            source={getDisplayImage(comment.user)}
                             style={styles.avatar}
                             onError={() => {
-                                logger.debug('🖼️ Avatar failed to load for user:', comment.user.name);
+                                logger.debug('🖼️ Profile image failed to load for user:', comment.user.name);
                             }}
                         />
                         <Text style={styles.userName}>
@@ -359,10 +411,10 @@ const CommentsSection = ({ activity }) => {
                 {isMe && (
                     <View style={styles.avatarContainer}>
                         <Image
-                            source={{ uri: getAvatarUrl(user) }}
+                            source={getDisplayImage(user)}
                             style={styles.avatar}
                             onError={() => {
-                                logger.debug('🖼️ User avatar failed to load');
+                                logger.debug('🖼️ User profile image failed to load');
                             }}
                         />
                         <Text style={styles.userName}>
@@ -380,7 +432,7 @@ const CommentsSection = ({ activity }) => {
                 {/* Header */}
                 <View style={styles.header}>
                     <View style={styles.headerContent}>
-                        <Icons.NotepadText />
+                        <Icons.MessageCircle />
                         <Text style={styles.title}>Activity Updates</Text>
                         {/* Show live indicator when polling is active */}
                         {pollingRef.current && (
@@ -408,13 +460,26 @@ const CommentsSection = ({ activity }) => {
                     }}
                     keyboardShouldPersistTaps="handled"
                 >
+                    {comments.length > 3 && (
+                        <TouchableOpacity 
+                            style={styles.viewAllButton}
+                            onPress={() => setShowAllCommentsModal(true)}
+                        >
+                            <Icons.ChevronUp size={16} color="#667eea" />
+                            <Text style={styles.viewAllText}>
+                                View all {comments.length} updates
+                            </Text>
+                        </TouchableOpacity>
+                    )}
+
                     {comments.length === 0 && (
                         <View style={styles.emptyState}>
-                            <Text style={styles.emptyStateText}>No messages yet. Say hi! 👋</Text>
+                            <Icons.MessageCircle size={24} color="rgba(255, 255, 255, 0.4)" />
+                            <Text style={styles.emptyStateText}>No messages yet. Start the conversation!</Text>
                         </View>
                     )}
 
-                    {Object.entries(groupedComments).map(([date, msgs]) => (
+                    {Object.entries(groupedComments).slice(-2).map(([date, msgs]) => (
                         <View key={date}>
                             <View style={styles.dateSeparator}>
                                 <Text style={styles.dateSeparatorText}>{date}</Text>
@@ -426,35 +491,21 @@ const CommentsSection = ({ activity }) => {
 
                 {/* Composer */}
                 <View style={styles.composer}>
-                    <TextInput
-                        style={styles.input}
-                        placeholder="Type a message…"
-                        placeholderTextColor="#cbd5e1"
-                        value={newComment}
-                        onChangeText={setNewComment}
-                        onSubmitEditing={handleCommentSubmit}
-                        multiline
-                        maxLength={500}
-                        returnKeyType="send"
-                        blurOnSubmit={false}
-                        onFocus={() => {
-                            // Scroll to bottom when input is focused
+                    <TouchableOpacity 
+                        style={styles.fakeInputFull}
+                        onPress={() => {
+                            // Open modal when fake input is pressed
+                            setShowAllCommentsModal(true);
+                            // Focus modal input after a delay
                             setTimeout(() => {
-                                if (scrollViewRef.current) {
-                                    scrollViewRef.current.scrollToEnd({ animated: true });
+                                if (modalInputRef.current) {
+                                    modalInputRef.current.focus();
                                 }
-                            }, 100);
+                            }, 400);
                         }}
-                    />
-                    <TouchableOpacity
-                        style={[
-                            styles.sendButton,
-                            newComment.trim() ? styles.sendButtonActive : styles.sendButtonDisabled
-                        ]}
-                        onPress={handleCommentSubmit}
-                        disabled={!newComment.trim()}
+                        activeOpacity={0.7}
                     >
-                        <Icons.Send />
+                        <Text style={styles.fakeInputText}>Type a message…</Text>
                     </TouchableOpacity>
                 </View>
             </View>
@@ -468,7 +519,7 @@ const CommentsSection = ({ activity }) => {
                     ]}
                 >
                     <View style={styles.toast}>
-                        <Text style={styles.toastIcon}>💬</Text>
+                        <Icons.MessageCircle size={16} color="#667eea" />
                         <View style={styles.toastContent}>
                             <Text style={styles.toastTitle}>
                                 {newMessageCount === 1 ? 'New Message' : `${newMessageCount} New Messages`}
@@ -483,6 +534,107 @@ const CommentsSection = ({ activity }) => {
                     </View>
                 </Animated.View>
             )}
+
+            {/* All Comments Modal */}
+            <Modal
+                visible={showAllCommentsModal}
+                animationType="slide"
+                presentationStyle="fullScreen"
+                onRequestClose={() => setShowAllCommentsModal(false)}
+            >
+                <View style={styles.modalContainer}>
+                    <View style={styles.modalHeader}>
+                        <Text style={styles.modalTitle}>{activity.activity_name}</Text>
+                        <TouchableOpacity 
+                            style={styles.modalCloseButton}
+                            onPress={() => setShowAllCommentsModal(false)}
+                        >
+                            <Icons.X size={24} color="#fff" />
+                        </TouchableOpacity>
+                    </View>
+                    
+                    <KeyboardAvoidingView 
+                        style={styles.modalKeyboardContainer}
+                        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+                    >
+                        <ScrollView 
+                            ref={modalScrollViewRef}
+                            style={styles.modalScrollView} 
+                            contentContainerStyle={styles.modalContent}
+                            keyboardShouldPersistTaps="handled"
+                            showsVerticalScrollIndicator={false}
+                            onContentSizeChange={() => {
+                                if (modalScrollViewRef.current && showAllCommentsModal) {
+                                    modalScrollViewRef.current.scrollToEnd({ animated: true });
+                                }
+                            }}
+                        >
+                            {comments.length === 0 ? (
+                                <View style={styles.modalEmptyState}>
+                                    <View style={styles.modalEmptyIcon}>
+                                        <Icons.MessageCircle size={48} color="rgba(255, 255, 255, 0.3)" />
+                                    </View>
+                                    <Text style={styles.modalEmptyTitle}>No updates yet</Text>
+                                    <Text style={styles.modalEmptySubtitle}>
+                                        Be the first to share an update or ask a question about this activity!
+                                    </Text>
+                                    <View style={styles.modalEmptyHint}>
+                                        <Text style={styles.modalEmptyHintText}>💬 Start typing below to get the conversation going</Text>
+                                    </View>
+                                </View>
+                            ) : (
+                                Object.entries(groupedComments).map(([date, msgs]) => (
+                                    <View key={date}>
+                                        <View style={styles.dateSeparator}>
+                                            <Text style={styles.dateSeparatorText}>{date}</Text>
+                                        </View>
+                                        {msgs.map(renderMessage)}
+                                    </View>
+                                ))
+                            )}
+                        </ScrollView>
+
+                        {/* Modal Composer */}
+                        <View style={styles.modalComposer}>
+                            <TextInput
+                                ref={modalInputRef}
+                                style={styles.modalInput}
+                                placeholder="Type a message…"
+                                placeholderTextColor="#cbd5e1"
+                                value={modalNewComment}
+                                onChangeText={setModalNewComment}
+                                onSubmitEditing={() => {
+                                    if (modalNewComment.trim()) {
+                                        handleCommentSubmit(modalNewComment.trim());
+                                        setModalNewComment('');
+                                    }
+                                }}
+                                multiline
+                                maxLength={500}
+                                returnKeyType="send"
+                                blurOnSubmit={false}
+                                autoFocus={false}
+                            />
+                            <TouchableOpacity
+                                style={[
+                                    styles.modalSendButton,
+                                    modalNewComment.trim() ? styles.modalSendButtonActive : styles.modalSendButtonDisabled
+                                ]}
+                                onPress={() => {
+                                    if (modalNewComment.trim()) {
+                                        handleCommentSubmit(modalNewComment.trim());
+                                        setModalNewComment('');
+                                    }
+                                }}
+                                disabled={!modalNewComment.trim()}
+                            >
+                                <Icons.Send size={18} color={modalNewComment.trim() ? "#fff" : "#666"} />
+                            </TouchableOpacity>
+                        </View>
+                    </KeyboardAvoidingView>
+                </View>
+            </Modal>
         </Animated.View>
     );
 };
@@ -513,11 +665,7 @@ const styles = StyleSheet.create({
     headerContent: {
         flexDirection: 'row',
         alignItems: 'center',
-    },
-    iconText: {
-        fontSize: 18,
-        color: '#cc31e8',
-        marginRight: 12,
+        gap: 12,
     },
     title: {
         fontFamily: 'System',
@@ -610,7 +758,7 @@ const styles = StyleSheet.create({
         fontSize: 11,
         fontWeight: '500',
         textAlign: 'center',
-        maxWidth: 48,
+        maxWidth: 72,
     },
     bubble: {
         maxWidth: '75%',
@@ -702,6 +850,33 @@ const styles = StyleSheet.create({
         marginRight: 12,
         textAlignVertical: 'top',
     },
+    fakeInput: {
+        flex: 1,
+        backgroundColor: 'rgba(255, 255, 255, 0.03)',
+        borderWidth: 1,
+        borderColor: 'rgba(64, 51, 71, 0.3)',
+        borderRadius: 12,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        minHeight: 48,
+        marginRight: 12,
+        justifyContent: 'center',
+    },
+    fakeInputText: {
+        fontSize: 14,
+        color: '#cbd5e1',
+    },
+    fakeInputFull: {
+        flex: 1,
+        backgroundColor: 'rgba(255, 255, 255, 0.03)',
+        borderWidth: 1,
+        borderColor: 'rgba(64, 51, 71, 0.3)',
+        borderRadius: 12,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        minHeight: 48,
+        justifyContent: 'center',
+    },
     sendButton: {
         width: 44,
         height: 44,
@@ -788,6 +963,142 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 12,
         fontWeight: '700',
+    },
+    // View all comments button
+    viewAllButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        marginBottom: 16,
+        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+        borderRadius: 8,
+        alignSelf: 'center',
+    },
+    viewAllText: {
+        color: '#667eea',
+        fontSize: 14,
+        fontWeight: '600',
+        marginLeft: 6,
+    },
+    // Modal styles
+    modalContainer: {
+        flex: 1,
+        backgroundColor: '#201925',
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+        paddingTop: 60,
+        paddingBottom: 20,
+        borderBottomWidth: 1,
+        borderBottomColor: 'rgba(64, 51, 71, 0.3)',
+    },
+    modalTitle: {
+        color: '#fff',
+        fontSize: 20,
+        fontWeight: '700',
+        fontFamily: 'Montserrat_700Bold',
+    },
+    modalCloseButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    modalScrollView: {
+        flex: 1,
+    },
+    modalContent: {
+        paddingHorizontal: 20,
+        paddingVertical: 16,
+    },
+    modalEmptyState: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingVertical: 60,
+        paddingHorizontal: 40,
+    },
+    modalEmptyIcon: {
+        marginBottom: 24,
+        opacity: 0.6,
+    },
+    modalEmptyTitle: {
+        color: '#fff',
+        fontSize: 22,
+        fontWeight: '600',
+        textAlign: 'center',
+        marginBottom: 12,
+    },
+    modalEmptySubtitle: {
+        color: 'rgba(255, 255, 255, 0.7)',
+        fontSize: 16,
+        textAlign: 'center',
+        lineHeight: 24,
+        marginBottom: 32,
+    },
+    modalEmptyHint: {
+        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+        borderRadius: 20,
+        paddingHorizontal: 20,
+        paddingVertical: 12,
+        borderWidth: 1,
+        borderColor: 'rgba(102, 126, 234, 0.2)',
+    },
+    modalEmptyHintText: {
+        color: '#667eea',
+        fontSize: 14,
+        textAlign: 'center',
+        fontWeight: '500',
+    },
+    modalKeyboardContainer: {
+        flex: 1,
+    },
+    modalComposer: {
+        flexDirection: 'row',
+        alignItems: 'flex-end',
+        paddingHorizontal: 16,
+        paddingTop: 12,
+        paddingBottom: Platform.OS === 'ios' ? 24 : 20,
+        borderTopWidth: 1,
+        borderTopColor: 'rgba(64, 51, 71, 0.3)',
+        backgroundColor: '#201925',
+        gap: 12,
+    },
+    modalInput: {
+        flex: 1,
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        borderRadius: 20,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        fontSize: 16,
+        color: '#fff',
+        maxHeight: 100,
+        textAlignVertical: 'top',
+        borderWidth: 1,
+        borderColor: 'rgba(64, 51, 71, 0.3)',
+    },
+    modalSendButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 2,
+    },
+    modalSendButtonActive: {
+        backgroundColor: '#cc31e8',
+    },
+    modalSendButtonDisabled: {
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        borderWidth: 1,
+        borderColor: 'rgba(64, 51, 71, 0.3)',
     },
 });
 

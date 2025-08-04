@@ -48,6 +48,7 @@ import NightOutResponseForm from './NightOutResponseForm';
 import GameNightResponseForm from './GameNightResponseForm';
 import LetsMeetScheduler from './LetsMeetScheduler';
 import { logger } from '../utils/logger';
+import { safeAuthApiCall, handleApiError } from '../utils/safeApiCall';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -795,15 +796,18 @@ export default function AIRecommendations({
         setLoading(true);
         setError('');
 
+        if (!user?.token) {
+            setError('Authentication required');
+            setLoading(false);
+            return;
+        }
+
         try {
-            const res = await fetch(
+            const { recommendations: recs } = await safeAuthApiCall(
                 `${API_URL}${activityText.apiEndpoint}`,
+                user.token,
                 {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${user?.token}`,
-                    },
                     body: JSON.stringify({
                         responses: responses.map(r => r.notes).join('\n\n'),
                         activity_location,
@@ -813,28 +817,25 @@ export default function AIRecommendations({
                 }
             );
 
-            if (!res.ok) throw new Error('❌ Error fetching recommendations');
-            const { recommendations: recs } = await res.json();
-
             const pinnedActivityPromises = recs.map(rec =>
-                fetch(`${API_URL}/activities/${id}/pinned_activities`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${user?.token}`,
-                    },
-                    body: JSON.stringify({
-                        pinned_activity: {
-                            title: rec.name,
-                            description: rec.description || '',
-                            hours: rec.hours || '',
-                            price_range: rec.price_range || '',
-                            address: rec.address || '',
-                            reason: rec.reason || '',
-                            website: rec.website || '',
-                        },
-                    }),
-                })
+                safeAuthApiCall(
+                    `${API_URL}/activities/${id}/pinned_activities`,
+                    user.token,
+                    {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            pinned_activity: {
+                                title: rec.name,
+                                description: rec.description || '',
+                                hours: rec.hours || '',
+                                price_range: rec.price_range || '',
+                                address: rec.address || '',
+                                reason: rec.reason || '',
+                                website: rec.website || '',
+                            },
+                        }),
+                    }
+                )
             );
 
             let pinnedTimeSlotPromises = [];
@@ -865,40 +866,28 @@ export default function AIRecommendations({
                     .slice(0, 8);
 
                 pinnedTimeSlotPromises = topSlots.map(slot =>
-                    fetch(`${API_URL}/activities/${id}/time_slots`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${user?.token}`,
-                        },
-                        body: JSON.stringify({
-                            date: slot.date,
-                            time: slot.time
-                        }),
-                    })
+                    safeAuthApiCall(
+                        `${API_URL}/activities/${id}/time_slots`,
+                        user.token,
+                        {
+                            method: 'POST',
+                            body: JSON.stringify({
+                                date: slot.date,
+                                time: slot.time
+                            }),
+                        }
+                    )
                 );
             }
 
-            const [pinnedActivityResults, pinnedTimeSlotResults] = await Promise.all([
+            const [newPinnedActivities, newTimeSlots] = await Promise.all([
                 Promise.all(pinnedActivityPromises),
                 Promise.all(pinnedTimeSlotPromises)
             ]);
 
-            const newPinnedActivities = await Promise.all(
-                pinnedActivityResults.map(res => res.json())
-            );
-
-            const newTimeSlots = await Promise.all(
-                pinnedTimeSlotResults.map(res => res.json())
-            );
-
             // Update activity to voting phase
-            await fetch(`${API_URL}/activities/${id}`, {
+            await safeAuthApiCall(`${API_URL}/activities/${id}`, user.token, {
                 method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${user?.token}`,
-                },
                 body: JSON.stringify({
                     collecting: false,
                     voting: true
@@ -926,8 +915,9 @@ export default function AIRecommendations({
             }
 
         } catch (err) {
-            setError(err.message);
-            Alert.alert('Error', err.message);
+            const errorMessage = handleApiError(err, 'Failed to generate recommendations');
+            setError(errorMessage);
+            Alert.alert('Error', errorMessage);
         } finally {
             setLoading(false);
         }
@@ -950,30 +940,11 @@ export default function AIRecommendations({
             setRefreshTrigger(f => !f);
         } catch (error) {
             logger.error('Error saving activity:', error);
-            Alert.alert('Error', 'Failed to save activity.');
+            const errorMessage = handleApiError(error, 'Failed to save activity.');
+            Alert.alert('Error', errorMessage);
         }
     };
 
-    const handleArchiveActivity = async () => {
-        try {
-            await fetch(`${API_URL}/activities/${id}`, {
-                method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${user?.token}`,
-                },
-                body: JSON.stringify({
-                    archived: true
-                }),
-            });
-
-            Alert.alert('Success', 'Activity archived successfully!');
-            setRefreshTrigger(f => !f);
-        } catch (error) {
-            logger.error('Error archiving activity:', error);
-            Alert.alert('Error', 'Failed to archive activity.');
-        }
-    };
 
     const openDetail = (rec) => {
         setSelectedRec(rec);
@@ -1055,12 +1026,8 @@ export default function AIRecommendations({
                 { text: 'Finalize', onPress: async () => {
                     try {
                         // Mark the activity as finalized with selected pinned activity
-                        await fetch(`${API_URL}/activities/${id}`, {
+                        await safeAuthApiCall(`${API_URL}/activities/${id}`, user.token, {
                             method: 'PATCH',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${user?.token}`,
-                            },
                             body: JSON.stringify({
                                 finalized: true,
                                 voting: false,
@@ -1114,24 +1081,21 @@ export default function AIRecommendations({
                             }
 
                             // Toggle favorite on the pinned_activity (this creates a user_activity)
-                            const response = await fetch(`${API_URL}/pinned_activities/${favorite.id}/toggle_favorite`, {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                    'Authorization': `Bearer ${user?.token}`,
-                                }
-                            });
-
-                            if (!response.ok) {
-                                const errorText = await response.text();
+                            try {
+                                const response = await safeAuthApiCall(
+                                    `${API_URL}/pinned_activities/${favorite.id}/toggle_favorite`,
+                                    user.token,
+                                    { method: 'POST' }
+                                );
+                                return { ok: true, data: response };
+                            } catch (error) {
                                 console.error('Failed to toggle favorite on pinned_activity:', {
-                                    status: response.status,
-                                    error: errorText,
+                                    error: error.message,
                                     pinnedActivityId: favorite.id,
                                     favoriteName: favorite.title
                                 });
+                                return { ok: false, error };
                             }
-                            return response;
                         });
 
                         // Step 3: Save flagged recommendations as user_activities
@@ -1143,24 +1107,21 @@ export default function AIRecommendations({
                             }
 
                             // Toggle flag on the pinned_activity (this creates a user_activity)
-                            const response = await fetch(`${API_URL}/pinned_activities/${flagged.id}/toggle_flag`, {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                    'Authorization': `Bearer ${user?.token}`,
-                                }
-                            });
-
-                            if (!response.ok) {
-                                const errorText = await response.text();
+                            try {
+                                const response = await safeAuthApiCall(
+                                    `${API_URL}/pinned_activities/${flagged.id}/toggle_flag`,
+                                    user.token,
+                                    { method: 'POST' }
+                                );
+                                return { ok: true, data: response };
+                            } catch (error) {
                                 console.error('Failed to toggle flag on pinned_activity:', {
-                                    status: response.status,
-                                    error: errorText,
+                                    error: error.message,
                                     pinnedActivityId: flagged.id,
                                     flaggedName: flagged.title
                                 });
+                                return { ok: false, error };
                             }
-                            return response;
                         });
                         
                         // Wait for both favorite and flagged saves to complete
@@ -1183,12 +1144,8 @@ export default function AIRecommendations({
                         }
 
                         // Mark the activity as completed
-                        await fetch(`${API_URL}/activities/${id}`, {
+                        await safeAuthApiCall(`${API_URL}/activities/${id}`, user.token, {
                             method: 'PATCH',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${user?.token}`,
-                            },
                             body: JSON.stringify({
                                 completed: true,
                                 voting: false
@@ -1226,93 +1183,19 @@ export default function AIRecommendations({
     };
 
 
-    // COMPLETED PHASE - Activity is done
+    // COMPLETED PHASE - Activity is done - don't show any recommendations interface
     if (completed) {
-        return (
-            <View style={styles.container}>
-                <View style={styles.phaseIndicator}>
-                    <View style={styles.phaseContent}>
-                        <Icons.CheckCircle color="#28a745" />
-                        <Text style={styles.phaseTitle}>Activity Completed!</Text>
-                    </View>
-                    <Text style={styles.phaseSubtitle}>
-                        This activity has been completed. Great job organizing!
-                    </Text>
-                    {isOwner && (
-                        <TouchableOpacity style={styles.archiveButton} onPress={handleArchiveActivity}>
-                            <Icons.CheckCircle />
-                            <Text style={styles.archiveButtonText}>Archive Activity</Text>
-                        </TouchableOpacity>
-                    )}
-                </View>
-            </View>
-        );
+        return null;
     }
 
-    // DRAFT PHASE - Activity created but not started
+    // DRAFT PHASE - Activity created but not started - don't show recommendations interface
     if (!active) {
-        return (
-            <View style={styles.container}>
-                <View style={styles.phaseIndicator}>
-                    <View style={styles.phaseContent}>
-                        <Icons.HelpCircle color="#667eea" />
-                        <Text style={styles.phaseTitle}>Activity Draft</Text>
-                    </View>
-                    <Text style={styles.phaseSubtitle}>
-                        This activity hasn't been started yet. 
-                        {isOwner ? ' Activate it to begin collecting preferences.' : ' Wait for the organizer to activate it.'}
-                    </Text>
-                    {isOwner && (
-                        <TouchableOpacity style={styles.activateButton} onPress={() => {
-                            // Add activation logic here
-                            Alert.alert('Activate Activity', 'Activate this activity to start collecting preferences?', [
-                                { text: 'Cancel', style: 'cancel' },
-                                { text: 'Activate', onPress: () => {
-                                    // TODO: Add API call to activate activity
-                                    Alert.alert('Coming Soon', 'Activation feature coming soon!');
-                                }}
-                            ]);
-                        }}>
-                            <Icons.Zap />
-                            <Text style={styles.activateButtonText}>Activate Activity</Text>
-                        </TouchableOpacity>
-                    )}
-                </View>
-            </View>
-        );
+        return null;
     }
 
-    // ACTIVE BUT NOT COLLECTING - Waiting to start preference collection
+    // ACTIVE BUT NOT COLLECTING - Waiting to start preference collection - don't show recommendations interface
     if (active && !collecting && !voting && !finalized) {
-        return (
-            <View style={styles.container}>
-                <View style={styles.phaseIndicator}>
-                    <View style={styles.phaseContent}>
-                        <Icons.Users color="#667eea" />
-                        <Text style={styles.phaseTitle}>Ready to Start</Text>
-                    </View>
-                    <Text style={styles.phaseSubtitle}>
-                        Activity is active and ready. 
-                        {isOwner ? ' Start collecting preferences from participants.' : ' Wait for the organizer to begin.'}
-                    </Text>
-                    {isOwner && (
-                        <TouchableOpacity style={styles.startCollectingButton} onPress={() => {
-                            // Add start collecting logic here
-                            Alert.alert('Start Collecting', 'Begin collecting preferences from participants?', [
-                                { text: 'Cancel', style: 'cancel' },
-                                { text: 'Start', onPress: () => {
-                                    // TODO: Add API call to start collecting
-                                    Alert.alert('Coming Soon', 'Start collecting feature coming soon!');
-                                }}
-                            ]);
-                        }}>
-                            <Icons.Users />
-                            <Text style={styles.startCollectingButtonText}>Start Collecting Preferences</Text>
-                        </TouchableOpacity>
-                    )}
-                </View>
-            </View>
-        );
+        return null;
     }
 
     // COLLECTING PHASE
@@ -1322,11 +1205,9 @@ export default function AIRecommendations({
                 <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
                     {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-                    {/* Title above the card */}
-                    <Text style={styles.collectingPhaseTitle}>{activityText.submitTitle}</Text>
-
                     {/* Combined Count and Preferences Card */}
                     <View style={styles.combinedCard}>
+                        <Text style={styles.collectingTitle}>Collecting preferences</Text>
                         <View style={styles.submissionCountContainer}>
                             <Text style={styles.submissionCount}>{responses.length}</Text>
                             <Text style={styles.submissionLabel}>
@@ -1586,20 +1467,7 @@ export default function AIRecommendations({
         
         // Only the activity owner can swipe through recommendations
         if (!isOwner) {
-            const organizerName = activity?.user?.name || 'The organizer';
-            return (
-                <View style={styles.container}>
-                    <View style={styles.phaseIndicator}>
-                        <View style={styles.phaseContent}>
-                            <Icons.Clock color="#667eea" />
-                            <Text style={styles.phaseTitle}>Owner Reviewing Recommendations</Text>
-                        </View>
-                        <Text style={styles.phaseSubtitle}>
-                            {organizerName} is finalizing your group's activity.
-                        </Text>
-                    </View>
-                </View>
-            );
+            return null;
         }
         // Show results if all cards have been swiped through
         if (showingResults) {
@@ -1932,17 +1800,9 @@ export default function AIRecommendations({
     if (finalized) {
         return (
             <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-                <View style={styles.header}>
-                    <Text style={styles.heading}>{activityText.finalizedTitle}</Text>
-                </View>
-
-                <TouchableOpacity style={styles.phaseIndicator} onPress={sharePlanUrlClick}>
-                    <View style={styles.phaseContent}>
-                        <Icons.Share />
-                        <Text style={styles.phaseTitle}>Share Finalized Activity Link!</Text>
-                    </View>
-
-                    <Text style={styles.phaseSubtitle}>Click here to view & share finalized activity.</Text>
+                <TouchableOpacity style={styles.shareButton} onPress={sharePlanUrlClick}>
+                    <Icons.Share size={18} color="#667eea" />
+                    <Text style={styles.shareButtonText}>Share Final Plan Details</Text>
                 </TouchableOpacity>
 
                 {error ? <Text style={styles.errorText}>{error}</Text> : null}
@@ -2167,6 +2027,15 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderRadius: 16,
         padding: 16,
+        marginTop: 24,
+    },
+    collectingTitle: {
+        color: '#fff',
+        fontSize: 18,
+        fontWeight: '600',
+        textAlign: 'center',
+        marginBottom: 16,
+        opacity: 0.9,
     },
     cardTitle: {
         color: '#fff',
@@ -2200,6 +2069,44 @@ const styles = StyleSheet.create({
     phaseTitle: {
         color: '#fff',
         fontSize: 16,
+        fontWeight: '600',
+        marginLeft: 8,
+    },
+    subtleActionButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(103, 115, 234, 0.15)',
+        borderColor: 'rgba(103, 115, 234, 0.3)',
+        borderWidth: 1,
+        borderRadius: 8,
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        alignSelf: 'flex-start',
+        marginBottom: 12,
+    },
+    subtleActionButtonText: {
+        color: '#667eea',
+        fontSize: 13,
+        fontWeight: '600',
+        marginLeft: 8,
+    },
+    shareButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#201925',
+        borderRadius: 8,
+        borderWidth: 1.5,
+        borderColor: '#667eea',
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        marginHorizontal: 16,
+        marginBottom: 20,
+        alignSelf: 'flex-start',
+        flexShrink: 1,
+    },
+    shareButtonText: {
+        color: '#667eea',
+        fontSize: 14,
         fontWeight: '600',
         marginLeft: 8,
     },
@@ -2469,22 +2376,6 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     finalizeButtonText: {
-        color: '#fff',
-        fontWeight: '600',
-        marginLeft: 6,
-        fontSize: 14,
-    },
-    archiveButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#6c757d',
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        borderRadius: 12,
-        flex: 1,
-    },
-    archiveButtonText: {
         color: '#fff',
         fontWeight: '600',
         marginLeft: 6,
@@ -3364,15 +3255,18 @@ const styles = StyleSheet.create({
     shareButton: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#667eea',
-        paddingHorizontal: 20,
-        paddingVertical: 14,
-        borderRadius: 12,
-        flex: 1,
+        backgroundColor: '#201925',
+        borderWidth: 1.5,
+        borderColor: '#667eea',
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 8,
+        alignSelf: 'center',
+        marginHorizontal: 16,
+        marginBottom: 20,
     },
     shareButtonText: {
-        color: '#fff',
+        color: '#667eea',
         fontWeight: '600',
         fontSize: 14,
         marginLeft: 8,

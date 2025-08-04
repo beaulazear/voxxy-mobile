@@ -5,6 +5,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { UserProvider, UserContext } from './context/UserContext';
 import * as Notifications from 'expo-notifications';
 import { logger } from './utils/logger';
+import ErrorBoundary from './components/ErrorBoundary';
 
 import HomeScreen from './screens/HomeScreen';
 import LoginScreen from './screens/LoginScreen';
@@ -108,12 +109,14 @@ export default function App() {
   }
 
   return (
-    <UserProvider>
-      <InvitationNotificationProvider>
-        <NavigationContainer ref={navigationRef}>
-          <AppNavigator />
-        </NavigationContainer>
-      </InvitationNotificationProvider>
-    </UserProvider>
+    <ErrorBoundary>
+      <UserProvider>
+        <InvitationNotificationProvider>
+          <NavigationContainer ref={navigationRef}>
+            <AppNavigator />
+          </NavigationContainer>
+        </InvitationNotificationProvider>
+      </UserProvider>
+    </ErrorBoundary>
   );
 }
