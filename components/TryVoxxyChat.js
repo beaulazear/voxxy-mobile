@@ -316,7 +316,7 @@ export default function TryVoxxyChat({ visible, onClose, onChatComplete }) {
                 throw new Error('Date notes cannot be empty');
             }
 
-            const fullUrl = `${API_URL}try_voxxy_recommendations`;
+            const fullUrl = `${API_URL}/try_voxxy_recommendations`;
             logger.debug('🌐 Making fetch request to:', fullUrl);
             
             const response = await fetch(fullUrl, {
@@ -474,7 +474,7 @@ export default function TryVoxxyChat({ visible, onClose, onChatComplete }) {
                     </View>
                 );
 
-            case 3:
+            case 4:
                 return (
                     <View style={FormStyles.section}>
                         <View style={[FormStyles.mobileGrid, { gap: 16 }]}>
@@ -499,7 +499,7 @@ export default function TryVoxxyChat({ visible, onClose, onChatComplete }) {
                     </View>
                 );
 
-            case 4:
+            case 5:
                 return (
                     <View style={FormStyles.section}>
                         <View style={[FormStyles.mobileGrid, { gap: 16 }]}>

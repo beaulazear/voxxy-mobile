@@ -21,6 +21,7 @@ import { UserContext } from '../context/UserContext';
 import { safeApiCall, handleApiError } from '../utils/safeApiCall';
 import { validateEmail, validateUserName, validatePassword } from '../utils/validation';
 import { ArrowLeft, Eye, EyeOff, Check, X } from 'lucide-react-native';
+import LocationPicker from '../components/LocationPicker';
 
 export default function SignUpScreen() {
     const { setUser } = useContext(UserContext);
@@ -35,6 +36,14 @@ export default function SignUpScreen() {
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmation, setShowConfirmation] = useState(false);
     const [validationErrors, setValidationErrors] = useState({});
+    const [location, setLocation] = useState({
+        neighborhood: '',
+        city: '',
+        state: '',
+        latitude: null,
+        longitude: null,
+        formatted: ''
+    });
     
     // Animation refs
     const fadeAnim = useRef(new Animated.Value(1)).current;
@@ -46,6 +55,7 @@ export default function SignUpScreen() {
         "What's your email?",
         "Create a password",
         "Confirm your password",
+        "Where are you located?",
     ];
 
     const inputs = [
@@ -53,6 +63,7 @@ export default function SignUpScreen() {
         { value: email, onChange: setEmail, placeholder: 'you@example.com', secure: false, keyboard: 'email-address' },
         { value: password, onChange: setPassword, placeholder: '••••••••', secure: true, keyboard: 'default' },
         { value: confirmation, onChange: setConfirmation, placeholder: '••••••••', secure: true, keyboard: 'default' },
+        { value: location.formatted, onChange: () => {}, placeholder: 'Search for your city...', secure: false, keyboard: 'default', isLocation: true },
     ];
 
     // Real-time validation
@@ -71,6 +82,8 @@ export default function SignUpScreen() {
                     strengthText: passwordValid.strengthText
                 };
             }
+            case 4: 
+                return { isValid: true, error: null }; // Location is optional
             default: return { isValid: false, error: null };
         }
     }, [step, name, email, password, confirmation]);
@@ -85,7 +98,7 @@ export default function SignUpScreen() {
                 useNativeDriver: true,
             }),
             Animated.timing(slideAnim, {
-                toValue: step * -50,
+                toValue: 0, // Reset to 0 instead of accumulating
                 duration: 0,
                 useNativeDriver: true,
             }),
@@ -153,7 +166,12 @@ export default function SignUpScreen() {
                             name: nameValidation.sanitized, 
                             email: emailValidation.sanitized, 
                             password, 
-                            password_confirmation: confirmation 
+                            password_confirmation: confirmation,
+                            neighborhood: location.neighborhood,
+                            city: location.city,
+                            state: location.state,
+                            latitude: location.latitude,
+                            longitude: location.longitude
                         },
                     }),
                 }
@@ -166,7 +184,7 @@ export default function SignUpScreen() {
                 useNativeDriver: true,
             }).start(() => {
                 setUser(data);
-                navigation.replace('/');
+                navigation.replace('VerificationCode');
             });
         } catch (e) {
             const errorMessage = handleApiError(e, 'Sign up failed. Please try again.');
@@ -175,7 +193,7 @@ export default function SignUpScreen() {
         }
     };
 
-    const { value, onChange, placeholder, secure, keyboard } = inputs[step];
+    const { value, onChange, placeholder, secure, keyboard, isLocation } = inputs[step];
     const isLast = step === inputs.length - 1;
     const canProceed = validateStep();
     
@@ -236,64 +254,72 @@ export default function SignUpScreen() {
                     }}>
                         <Text style={styles.heading}>{labels[step]}</Text>
 
-                        <View style={styles.inputContainer}>
-                            <TextInput
-                                ref={inputRef}
-                                style={[
-                                    styles.input,
-                                    validationErrors[step] && styles.inputError,
-                                    canProceed && value.length > 0 && styles.inputValid
-                                ]}
-                                value={value}
-                                onChangeText={(text) => {
-                                    onChange(text);
-                                    // Clear validation error when user starts typing
-                                    if (validationErrors[step]) {
-                                        setValidationErrors(prev => ({ ...prev, [step]: null }));
-                                    }
-                                }}
+                        {isLocation ? (
+                            <LocationPicker
+                                onLocationSelect={setLocation}
+                                currentLocation={location}
                                 placeholder={placeholder}
-                                placeholderTextColor="#666"
-                                secureTextEntry={secure && (step === 2 ? !showPassword : !showConfirmation)}
-                                keyboardType={keyboard}
-                                autoCorrect={false}
-                                autoCapitalize="none"
-                                {...autoFillProps}
-                                returnKeyType={isLast ? 'done' : 'next'}
-                                onSubmitEditing={isLast ? handleSignUp : handleNext}
                             />
-                            
-                            {/* Password visibility toggle */}
-                            {showPasswordToggle && (
-                                <TouchableOpacity
-                                    style={styles.eyeButton}
-                                    onPress={() => {
-                                        if (step === 2) {
-                                            setShowPassword(!showPassword);
-                                        } else {
-                                            setShowConfirmation(!showConfirmation);
+                        ) : (
+                            <View style={styles.inputContainer}>
+                                <TextInput
+                                    ref={inputRef}
+                                    style={[
+                                        styles.input,
+                                        validationErrors[step] && styles.inputError,
+                                        canProceed && value.length > 0 && styles.inputValid
+                                    ]}
+                                    value={value}
+                                    onChangeText={(text) => {
+                                        onChange(text);
+                                        // Clear validation error when user starts typing
+                                        if (validationErrors[step]) {
+                                            setValidationErrors(prev => ({ ...prev, [step]: null }));
                                         }
                                     }}
-                                >
-                                    {(step === 2 ? showPassword : showConfirmation) ? (
-                                        <EyeOff size={20} color="#666" />
-                                    ) : (
-                                        <Eye size={20} color="#666" />
-                                    )}
-                                </TouchableOpacity>
-                            )}
-                            
-                            {/* Validation status icon */}
-                            {value.length > 0 && (
-                                <View style={styles.validationIcon}>
-                                    {canProceed ? (
-                                        <Check size={18} color="#28a745" />
-                                    ) : (
-                                        <X size={18} color="#dc3545" />
-                                    )}
-                                </View>
-                            )}
-                        </View>
+                                    placeholder={placeholder}
+                                    placeholderTextColor="#666"
+                                    secureTextEntry={secure && (step === 2 ? !showPassword : !showConfirmation)}
+                                    keyboardType={keyboard}
+                                    autoCorrect={false}
+                                    autoCapitalize="none"
+                                    {...autoFillProps}
+                                    returnKeyType={isLast ? 'done' : 'next'}
+                                    onSubmitEditing={isLast ? handleSignUp : handleNext}
+                                />
+                                
+                                {/* Password visibility toggle */}
+                                {showPasswordToggle && (
+                                    <TouchableOpacity
+                                        style={styles.eyeButton}
+                                        onPress={() => {
+                                            if (step === 2) {
+                                                setShowPassword(!showPassword);
+                                            } else {
+                                                setShowConfirmation(!showConfirmation);
+                                            }
+                                        }}
+                                    >
+                                        {(step === 2 ? showPassword : showConfirmation) ? (
+                                            <EyeOff size={20} color="#666" />
+                                        ) : (
+                                            <Eye size={20} color="#666" />
+                                        )}
+                                    </TouchableOpacity>
+                                )}
+                                
+                                {/* Validation status icon */}
+                                {value.length > 0 && !isLocation && (
+                                    <View style={styles.validationIcon}>
+                                        {canProceed ? (
+                                            <Check size={18} color="#28a745" />
+                                        ) : (
+                                            <X size={18} color="#dc3545" />
+                                        )}
+                                    </View>
+                                )}
+                            </View>
+                        )}
                         
                         {/* Validation error message */}
                         {validationErrors[step] && (
@@ -349,6 +375,17 @@ export default function SignUpScreen() {
                             </Text>
                         )}
                     </TouchableOpacity>
+
+                    {/* Skip button for location step */}
+                    {step === 4 && (
+                        <TouchableOpacity
+                            style={styles.skipButton}
+                            onPress={handleSignUp}
+                            disabled={isLoading}
+                        >
+                            <Text style={styles.skipText}>Skip for now</Text>
+                        </TouchableOpacity>
+                    )}
 
                     {step === 0 && (
                         <View style={styles.linksContainer}>
@@ -553,5 +590,15 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         lineHeight: 20,
         paddingHorizontal: 20,
+    },
+    skipButton: {
+        alignItems: 'center',
+        paddingVertical: 12,
+        marginTop: 8,
+    },
+    skipText: {
+        color: '#cc31e8',
+        fontSize: 16,
+        fontWeight: '500',
     },
 });

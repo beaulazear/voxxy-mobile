@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, SafeAreaView, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, StatusBar } from 'react-native';
 import { ArrowLeft, HelpCircle, BookOpen, ChevronDown, ChevronUp } from 'react-native-feather';
 import { useNavigation } from '@react-navigation/native';
 
@@ -16,48 +16,81 @@ const colors = {
 
 const faqs = [
     {
-        question: 'What features are available in the mobile beta?',
+        question: 'How do I create a new activity?',
         answer:
-            'Right now the mobile beta offers read-only access to your plans—it’s a bare-minimum MVP letting you check your schedule and view your data. More interactive features and enhancements are coming soon!',
+            'Tap the "+" button on the home screen, choose your activity type (Restaurant, Game Night, Cocktails, or Meeting), fill in the details like name, date, and location, then invite participants by selecting contacts or entering email addresses.',
     },
     {
-        question: 'How do I switch to the web app for full features?',
+        question: 'How does the AI recommendation system work?',
         answer:
-            'Tap the "Open Web App" button at the bottom of this screen to access the full-featured web application and unlock premium tools.',
+            'After creating an activity, participants submit their preferences through our chat interface. The AI analyzes all responses and generates personalized recommendations. You can then swipe through options, save favorites, and finalize your choice.',
     },
     {
-        question: 'Why do I need an account?',
+        question: 'What are the different activity phases?',
         answer:
-            'An account syncs your plans across devices, lets others join your boards, and saves your preferences. Sign up or log in on the web or mobile.',
+            'Activities have 4 phases: 1) Collecting - gathering participant preferences, 2) Voting - host reviews AI recommendations, 3) Finalized - selected option is confirmed, 4) Completed - activity has finished and can be rated.',
     },
     {
-        question: 'Is my data secure?',
+        question: 'How do I invite people to my activity?',
         answer:
-            'Yes. We use industry-standard encryption and security protocols to protect your information both in transit and at rest.',
+            'When creating an activity, tap "Add Participants" to select from your contacts or manually enter email addresses. Invitees will receive notifications to join and submit their preferences.',
+    },
+    {
+        question: 'Can I see my community and past activities?',
+        answer:
+            'Yes! Your profile shows completed activities and community members you\'ve connected with. Tap on community members to see your shared activity history, and tap on past activities to view details or leave reviews.',
+    },
+    {
+        question: 'How do I submit preferences for an activity?',
+        answer:
+            'When invited to an activity, tap "Submit Your Preferences" and chat with our AI assistant. Share your preferences for food, atmosphere, budget, or availability - the more details you provide, the better the recommendations.',
+    },
+    {
+        question: 'What happens after preferences are collected?',
+        answer:
+            'The activity host can generate AI recommendations based on all participant preferences. They can swipe through options, save favorites, and select the final choice. Once finalized, all participants can see the selected plan.',
+    },
+    {
+        question: 'Can I flag or favorite activities?',
+        answer:
+            'Yes! You can favorite activities you enjoyed and flag inappropriate content. Your favorites help improve future recommendations, and flagged content is reviewed by our moderation team.',
+    },
+    {
+        question: 'How do I share activity details?',
+        answer:
+            'Once an activity is finalized, tap "Share Final Plan Details" to send the information to participants or others. You can also share individual activities from your past activities list.',
     },
     {
         question: 'Where can I report bugs or request features?',
         answer:
-            'Please use the Feedback link in Settings to send bug reports or feature suggestions. We appreciate your input!',
+            'Use the Feedback option in your Profile settings to send bug reports or feature suggestions. We appreciate your input in making Voxxy better!',
     },
 ];
 
 const steps = [
     {
-        title: 'Get Set Up',
-        description: 'Download the mobile app and allow necessary permissions to get started.',
+        title: 'Create Your First Activity',
+        description: 'Tap the "+" button on the home screen, choose an activity type, and fill in the basic details like name, date, and location.',
     },
     {
-        title: 'View Your Data',
-        description: 'Access your upcoming plans and schedule in this mobile beta.',
+        title: 'Invite Participants',
+        description: 'Add friends by selecting from your contacts or entering email addresses. They\'ll receive invitations to join your activity.',
     },
     {
-        title: 'Visit the Web App',
-        description: 'Tap the "Open Web App" button for full-featured planning tools and settings.',
+        title: 'Collect Preferences',
+        description: 'Participants chat with the AI to share their preferences. The app collects everyone\'s input during the "Collecting" phase.',
     },
     {
-        title: 'Stay Tuned',
-        description: 'Keep an eye out for exciting new mobile updates and enhancements.',
+        title: 'Review AI Recommendations',
+        description: 'As the host, generate AI recommendations and swipe through personalized options based on participant preferences.',
+    },
+    {
+        title: 'Finalize Your Plan',
+        description: 'Select your favorite recommendation to finalize the activity. Share the final plan details with all participants.',
+    },
+    {
+        title: 'Complete & Review',
+        description: 'After your activity, mark it as completed and leave reviews to help improve future recommendations.',
     },
 ];
 
@@ -165,9 +198,6 @@ export default function FAQScreen() {
                             </View>
                         </View>
                     ))}
-                    <TouchableOpacity style={styles.webButton} onPress={() => Linking.openURL('https://www.voxxyai.com')}>
-                        <Text style={styles.webButtonText}>Open Web App</Text>
-                    </TouchableOpacity>
                 </ScrollView>
             </View>
         </SafeAreaView>
@@ -327,17 +357,5 @@ const styles = StyleSheet.create({
         color: colors.muted,
         fontSize: 14,
         lineHeight: 20,
-    },
-    webButton: {
-        marginTop: 20,
-        backgroundColor: colors.primary,
-        paddingVertical: 12,
-        borderRadius: 8,
-        alignItems: 'center',
-    },
-    webButtonText: {
-        color: '#fff',
-        fontSize: 16,
-        fontWeight: '600',
     },
 });

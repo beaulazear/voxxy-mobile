@@ -95,8 +95,15 @@ export default function AccountCreatedScreen() {
                 <HeaderSvg width={200} height={60} style={styles.logo} />
 
                 <Text style={styles.message}>
-                    {user.name}, We're happy to have you here! Please check {user.email} for a verification link from Team Voxxy. (Check spam too) Not your email? Log out and try again.
+                    {user.name}, We've sent a 6-digit verification code to {user.email}. Please enter the code to verify your account. Not your email? Log out and try again.
                 </Text>
+
+                <TouchableOpacity
+                    onPress={() => navigation.replace('VerificationCode')}
+                    style={styles.verifyButton}
+                >
+                    <Text style={styles.verifyButtonText}>Enter Verification Code</Text>
+                </TouchableOpacity>
 
                 <TouchableOpacity
                     onPress={handleResend}
@@ -104,7 +111,7 @@ export default function AccountCreatedScreen() {
                     style={styles.linkContainer}
                 >
                     <Text style={styles.linkText}>
-                        {timer > 0 ? `Resend in ${timer}s` : 'Resend Verification'}
+                        {timer > 0 ? `Resend in ${timer}s` : 'Resend Code'}
                     </Text>
                 </TouchableOpacity>
 
@@ -142,6 +149,27 @@ const styles = StyleSheet.create({
         fontWeight: '500',
         marginBottom: 24,
     },
+    verifyButton: {
+        backgroundColor: '#cc31e8',
+        paddingVertical: 16,
+        paddingHorizontal: 32,
+        borderRadius: 50,
+        alignItems: 'center',
+        marginBottom: 16,
+        shadowColor: '#cc31e8',
+        shadowOffset: {
+            width: 0,
+            height: 2,
+        },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 4,
+    },
+    verifyButtonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '600',
+    },
     linkContainer: {
         marginBottom: 32,
     },
@@ -151,14 +179,16 @@ const styles = StyleSheet.create({
         textDecorationLine: 'underline',
     },
     logoutButton: {
-        backgroundColor: '#cc31e8',
+        backgroundColor: 'transparent',
+        borderWidth: 1,
+        borderColor: '#cc31e8',
         paddingVertical: 14,
         borderRadius: 50,
         alignItems: 'center',
         width: 150,
     },
     logoutButtonText: {
-        color: '#fff',
+        color: '#cc31e8',
         fontSize: 16,
         fontWeight: '600',
     },

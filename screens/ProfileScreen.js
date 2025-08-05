@@ -19,11 +19,12 @@ import { useNavigation } from '@react-navigation/native';
 import { API_URL } from '../config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NotificationSettings from '../components/NotificationSettings';
-import { ArrowLeft, User, Settings, Edit3, Trash2, LogOut, Camera } from 'react-native-feather';
+import { ArrowLeft, User, Settings, Edit3, Trash2, LogOut, Camera, MapPin } from 'react-native-feather';
 import PushNotificationService from '../services/PushNotificationService'
 import { logger } from '../utils/logger';
 import { getUserDisplayImage } from '../utils/avatarManager';
 import * as ImagePicker from 'expo-image-picker';
+import LocationPicker from '../components/LocationPicker';
 
 export default function ProfileScreen() {
     const { user, setUser, updateUser } = useContext(UserContext);
@@ -33,6 +34,19 @@ export default function ProfileScreen() {
     const [isEditingName, setIsEditingName] = useState(false);
     const [newName, setNewName] = useState(user?.name || '');
     const [preferences, setPreferences] = useState(user?.preferences || '');
+    
+    // Location state
+    const [userLocation, setUserLocation] = useState(
+        user?.city ? {
+            neighborhood: user.neighborhood || '',
+            city: user.city || '',
+            state: user.state || '',
+            formatted: `${user.city}${user.state ? ', ' + user.state : ''}`,
+            latitude: user.latitude || null,
+            longitude: user.longitude || null
+        } : null
+    );
+    const [isEditingLocation, setIsEditingLocation] = useState(false);
 
     // Settings tab states
     const [textNotifications, setTextNotifications] = useState(user?.text_notifications ?? true);
@@ -148,6 +162,58 @@ export default function ProfileScreen() {
                 logger.error('Update error:', err);
                 Alert.alert('Error', 'Failed to save preferences.');
             });
+    };
+
+    // Location handlers
+    const handleLocationSelect = (locationData) => {
+        setUserLocation(locationData);
+    };
+
+    const handleSaveLocation = () => {
+        const locationUpdate = {
+            neighborhood: userLocation?.neighborhood || '',
+            city: userLocation?.city || '',
+            state: userLocation?.state || '',
+            latitude: userLocation?.latitude || null,
+            longitude: userLocation?.longitude || null
+        };
+
+        fetch(`${API_URL}/users/${user.id}`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+            },
+            body: JSON.stringify(locationUpdate),
+        })
+            .then((res) => {
+                if (!res.ok) throw new Error('Failed to update location');
+                return res.json();
+            })
+            .then((updatedUser) => {
+                setUser({ ...user, ...locationUpdate });
+                setIsEditingLocation(false);
+                Alert.alert('Success', 'Location updated successfully!');
+            })
+            .catch((err) => {
+                logger.error('Location error:', err);
+                Alert.alert('Error', 'Failed to update location.');
+            });
+    };
+
+    const handleCancelLocationEdit = () => {
+        // Reset to original user location
+        setUserLocation(
+            user?.city ? {
+                neighborhood: user.neighborhood || '',
+                city: user.city || '',
+                state: user.state || '',
+                formatted: `${user.city}${user.state ? ', ' + user.state : ''}`,
+                latitude: user.latitude || null,
+                longitude: user.longitude || null
+            } : null
+        );
+        setIsEditingLocation(false);
     };
 
     const handleSaveNotifications = async () => {
@@ -313,6 +379,13 @@ export default function ProfileScreen() {
                             .then((res) => {
                                 if (!res.ok) throw new Error('Failed to delete account');
                                 setUser(null);
+                                // Clear stored token
+                                AsyncStorage.removeItem('jwt');
+                                // Navigate back to landing page
+                                navigation.reset({
+                                    index: 0,
+                                    routes: [{ name: 'Home' }],
+                                });
                             })
                             .catch((err) => {
                                 logger.error('Delete error:', err);
@@ -384,6 +457,50 @@ export default function ProfileScreen() {
                         <Text style={styles.emailText}>{user?.email}</Text>
                     </View>
                 </View>
+            </View>
+
+            {/* Location Section */}
+            <View style={styles.locationSection}>
+                <Text style={styles.sectionTitle}>Location</Text>
+                
+                {!isEditingLocation ? (
+                    <View style={styles.locationDisplay}>
+                        <View style={styles.locationInfo}>
+                            <MapPin stroke="#B8A5C4" width={16} height={16} strokeWidth={2} />
+                            <Text style={styles.locationText}>
+                                {userLocation?.formatted || 'No location set'}
+                            </Text>
+                        </View>
+                        <TouchableOpacity
+                            style={styles.editButton}
+                            onPress={() => setIsEditingLocation(true)}
+                        >
+                            <Edit3 stroke="#B8A5C4" width={16} height={16} strokeWidth={2} />
+                        </TouchableOpacity>
+                    </View>
+                ) : (
+                    <View style={styles.locationEditContainer}>
+                        <LocationPicker
+                            onLocationSelect={handleLocationSelect}
+                            currentLocation={userLocation}
+                        />
+                        <View style={styles.buttonGroup}>
+                            <TouchableOpacity 
+                                style={styles.saveButton} 
+                                onPress={handleSaveLocation}
+                                disabled={!userLocation}
+                            >
+                                <Text style={styles.buttonText}>Save Location</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity 
+                                style={styles.cancelButton} 
+                                onPress={handleCancelLocationEdit}
+                            >
+                                <Text style={styles.buttonText}>Cancel</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                )}
             </View>
 
             {/* Preferences Section - No card */}
@@ -719,6 +836,30 @@ const styles = StyleSheet.create({
     emailText: {
         color: '#fff',
         fontSize: 16,
+    },
+    locationSection: {
+        marginBottom: 24,
+    },
+    locationDisplay: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginTop: 12,
+        paddingVertical: 8,
+    },
+    locationInfo: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flex: 1,
+    },
+    locationText: {
+        color: '#fff',
+        fontSize: 16,
+        marginLeft: 8,
+        fontWeight: '500',
+    },
+    locationEditContainer: {
+        marginTop: 12,
     },
     preferencesSection: {
         marginBottom: 24,

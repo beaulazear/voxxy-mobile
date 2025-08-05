@@ -10,6 +10,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import HomeScreen from './screens/HomeScreen';
 import LoginScreen from './screens/LoginScreen';
 import SignUpScreen from './screens/SignUpScreen';
+import VerificationCodeScreen from './screens/VerificationCodeScreen';
 import FAQScreen from './screens/FAQScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import LandingScreen from './screens/LandingScreen';
@@ -75,6 +76,7 @@ const AppNavigator = () => {
       />
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="SignUp" component={SignUpScreen} />
+      <Stack.Screen name="VerificationCode" component={VerificationCodeScreen} />
       <Stack.Screen name="TryVoxxy" component={TryVoxxScreen} />
       <Stack.Screen
         name="ActivityDetails"

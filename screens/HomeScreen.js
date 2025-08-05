@@ -2362,8 +2362,9 @@ const styles = StyleSheet.create({
 
   modalTitle: {
     color: '#fff',
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '700',
+    fontFamily: 'Montserrat_700Bold',
     textAlign: 'center',
   },
 

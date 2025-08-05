@@ -11,6 +11,10 @@ import {
   TouchableWithoutFeedback,
   Platform,
   Linking,
+  KeyboardAvoidingView,
+  ScrollView,
+  Animated,
+  ActivityIndicator,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { UserContext } from '../context/UserContext';
@@ -18,17 +22,22 @@ import { API_URL } from '../config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { safeApiCall, handleApiError } from '../utils/safeApiCall';
 import { validateEmail } from '../utils/validation';
+import { ArrowLeft, Eye, EyeOff } from 'lucide-react-native';
 import HeaderSvg from '../assets/header.svg';
 
 export default function LoginScreen() {
   const { setUser } = useContext(UserContext) || {};
   const navigation = useNavigation();
   const passwordRef = useRef();
+  const fadeAnim = useRef(new Animated.Value(1)).current;
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [autoSubmitTriggered, setAutoSubmitTriggered] = useState(false);
+  const [isManuallyTyping, setIsManuallyTyping] = useState(false);
+  const typingTimeoutRef = useRef(null);
 
   useEffect(() => {
     AsyncStorage.getItem('jwt').then(token => {
@@ -36,18 +45,49 @@ export default function LoginScreen() {
     });
   }, []);
 
-  // Auto-submit when both fields are filled (likely from autofill)
+  // Auto-submit when both fields are filled (only from autofill, not manual typing)
   useEffect(() => {
-    if (email.trim() && password.trim() && !autoSubmitTriggered && !isLoading) {
-      // Small delay to ensure autofill is complete
+    if (email.trim() && password.trim() && !autoSubmitTriggered && !isLoading && !isManuallyTyping) {
+      // Small delay to ensure autofill is complete and distinguish from manual typing
       const timer = setTimeout(() => {
         setAutoSubmitTriggered(true);
         handleLogin();
-      }, 300);
+      }, 500);
       
       return () => clearTimeout(timer);
     }
-  }, [email, password, autoSubmitTriggered, isLoading]);
+  }, [email, password, autoSubmitTriggered, isLoading, isManuallyTyping]);
+
+  // Track manual typing to prevent autosubmit during manual entry
+  const handleEmailChange = (text) => {
+    setEmail(text);
+    setIsManuallyTyping(true);
+    
+    // Clear the typing timeout and set a new one
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+    
+    // After user stops typing for 2 seconds, allow autosubmit again
+    typingTimeoutRef.current = setTimeout(() => {
+      setIsManuallyTyping(false);
+    }, 2000);
+  };
+
+  const handlePasswordChange = (text) => {
+    setPassword(text);
+    setIsManuallyTyping(true);
+    
+    // Clear the typing timeout and set a new one
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+    
+    // After user stops typing for 2 seconds, allow autosubmit again
+    typingTimeoutRef.current = setTimeout(() => {
+      setIsManuallyTyping(false);
+    }, 2000);
+  };
 
   const handleLogin = async () => {
     if (isLoading) return;
@@ -95,89 +135,119 @@ export default function LoginScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-        <View style={styles.inner}>
-          {/* HEADER */}
-          <View style={styles.header}>
-            <HeaderSvg width={260} height={60} />
-            <Text style={styles.loginTitle}>Welcome Back ✨</Text>
-          </View>
-
-          <View style={styles.form}>
-            <TextInput
-              style={styles.input}
-              placeholder="Email"
-              placeholderTextColor="#888"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoFocus
-              returnKeyType="next"
-              textContentType="emailAddress"
-              onSubmitEditing={() => passwordRef.current?.focus()}
-            />
-
-            <TextInput
-              ref={passwordRef}
-              style={styles.input}
-              placeholder="Password"
-              placeholderTextColor="#888"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              returnKeyType="go"
-              textContentType="password"
-              onSubmitEditing={handleLogin}
-            />
-
-            <TouchableOpacity
-              style={[styles.submitButton, isLoading && styles.submitButtonDisabled]}
-              onPress={handleLogin}
-              disabled={isLoading}
-            >
-              <Text style={styles.submitText}>
-                {isLoading ? 'Logging in…' : 'Log in'}
-              </Text>
-            </TouchableOpacity>
-
-            <View style={styles.linksContainer}>
-              <TouchableOpacity
-                onPress={() => navigation.navigate('SignUp')}
-                style={styles.linkButton}
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardView}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <ScrollView
+            contentContainerStyle={styles.scrollContainer}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <Animated.View style={[styles.inner, { opacity: fadeAnim }]}>
+              {/* Back Button */}
+              <TouchableOpacity 
+                style={styles.backButton}
+                onPress={() => navigation.navigate('/')}
+                activeOpacity={0.7}
               >
-                <Text style={styles.linkText}>
-                  New here? <Text style={styles.linkAction}>Sign up</Text>
-                </Text>
+                <ArrowLeft color="#fff" size={24} strokeWidth={2} />
               </TouchableOpacity>
 
-              <View style={styles.bottomLinks}>
+              {/* HEADER */}
+              <View style={styles.header}>
+                <HeaderSvg width={260} height={60} />
+                <Text style={styles.loginSubtitle}>Sign in to continue your journey</Text>
+              </View>
+
+              <View style={styles.form}>
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Email</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter your email"
+                  placeholderTextColor="rgba(255, 255, 255, 0.4)"
+                  value={email}
+                  onChangeText={handleEmailChange}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoFocus
+                  returnKeyType="next"
+                  textContentType="emailAddress"
+                  onSubmitEditing={() => passwordRef.current?.focus()}
+                />
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Password</Text>
+                <View style={styles.passwordContainer}>
+                  <TextInput
+                    ref={passwordRef}
+                    style={[styles.input, styles.passwordInput]}
+                    placeholder="Enter your password"
+                    placeholderTextColor="rgba(255, 255, 255, 0.4)"
+                    value={password}
+                    onChangeText={handlePasswordChange}
+                    secureTextEntry={!showPassword}
+                    returnKeyType="go"
+                    textContentType="password"
+                    onSubmitEditing={handleLogin}
+                  />
+                  <TouchableOpacity
+                    style={styles.eyeButton}
+                    onPress={() => setShowPassword(!showPassword)}
+                    activeOpacity={0.7}
+                  >
+                    {showPassword ? (
+                      <EyeOff color="rgba(255, 255, 255, 0.6)" size={20} strokeWidth={2} />
+                    ) : (
+                      <Eye color="rgba(255, 255, 255, 0.6)" size={20} strokeWidth={2} />
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              <TouchableOpacity
+                style={[styles.submitButton, isLoading && styles.submitButtonDisabled]}
+                onPress={handleLogin}
+                disabled={isLoading}
+                activeOpacity={0.8}
+              >
+                {isLoading ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <Text style={styles.submitText}>Sign In</Text>
+                )}
+              </TouchableOpacity>
+
+              <View style={styles.linksContainer}>
+                <TouchableOpacity
+                  onPress={() => navigation.navigate('SignUp')}
+                  style={styles.linkButton}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.linkText}>
+                    New to Voxxy? <Text style={styles.linkAction}>Create account</Text>
+                  </Text>
+                </TouchableOpacity>
+
                 <TouchableOpacity
                   onPress={() =>
                     Linking.openURL('https://www.voxxyai.com/#/forgot-password')
                   }
                   style={styles.linkButton}
+                  activeOpacity={0.7}
                 >
-                  <Text style={styles.linkTextSmall}>
-                    <Text style={styles.linkAction}>Forgot Password?</Text>
-                  </Text>
-                </TouchableOpacity>
-
-                <Text style={styles.linkSeparator}>•</Text>
-
-                <TouchableOpacity
-                  onPress={() => navigation.navigate('/')}
-                  style={styles.linkButton}
-                >
-                  <Text style={styles.linkTextSmall}>
-                    <Text style={styles.linkAction}>Back to Landing</Text>
-                  </Text>
+                  <Text style={styles.forgotPasswordText}>Forgot password?</Text>
                 </TouchableOpacity>
               </View>
             </View>
-          </View>
-        </View>
-      </TouchableWithoutFeedback>
+            </Animated.View>
+          </ScrollView>
+        </TouchableWithoutFeedback>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -187,81 +257,132 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#201925',
   },
+  keyboardView: {
+    flex: 1,
+  },
+  scrollContainer: {
+    flexGrow: 1,
+    minHeight: '100%',
+  },
   inner: {
     flex: 1,
-    paddingHorizontal: 12,
+    paddingHorizontal: 24,
     justifyContent: 'flex-start',
+    minHeight: '100%',
+  },
+  backButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: Platform.OS === 'ios' ? 10 : 5,
+    marginBottom: 10,
+    alignSelf: 'flex-start',
   },
   header: {
     alignItems: 'center',
-    marginTop: Platform.OS === 'ios' ? 40 : 20,
-    marginBottom: 30,
+    marginBottom: 32,
   },
   loginTitle: {
-    marginTop: 12,
-    color: '#ccc',
-    fontSize: 18,
-    fontWeight: '500',
+    marginTop: 16,
+    color: '#fff',
+    fontSize: 28,
+    fontWeight: '700',
+    fontFamily: 'Montserrat_700Bold',
+  },
+  loginSubtitle: {
+    marginTop: 8,
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontSize: 16,
+    fontWeight: '400',
+    textAlign: 'center',
   },
   form: {
-    width: '100%',
+    flex: 1,
   },
-  input: {
-    width: '100%',
-    backgroundColor: '#211825',
-    borderRadius: 8,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    fontSize: 16,
-    color: '#fff',
+  inputContainer: {
     marginBottom: 16,
-    borderWidth: 1.5,
-    borderColor: '#592566',
   },
-  submitButton: {
-    backgroundColor: '#cc31e8',
-    paddingVertical: 14,
-    borderRadius: 50,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  submitButtonDisabled: {
-    opacity: 0.6,
-  },
-  submitText: {
+  inputLabel: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+    marginBottom: 8,
+    fontFamily: 'Montserrat_600SemiBold',
   },
-  linksContainer: {
-    marginTop: 20,
-  },
-  linkButton: {
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  linkText: {
-    color: '#888',
-    fontSize: 14,
-  },
-  linkTextSmall: {
-    color: '#888',
-    fontSize: 13,
-  },
-  linkAction: {
-    color: '#cc31e8',
-    textDecorationLine: 'underline',
+  input: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    fontSize: 16,
+    color: '#fff',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
     fontWeight: '500',
   },
-  bottomLinks: {
-    flexDirection: 'row',
+  passwordContainer: {
+    position: 'relative',
+  },
+  passwordInput: {
+    paddingRight: 50,
+  },
+  eyeButton: {
+    position: 'absolute',
+    right: 16,
+    top: 16,
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  submitButton: {
+    backgroundColor: '#667eea',
+    paddingVertical: 18,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 12,
+    marginTop: 8,
+    shadowColor: '#667eea',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 8,
   },
-  linkSeparator: {
-    color: '#666',
-    marginHorizontal: 12,
-    fontSize: 12,
+  submitButtonDisabled: {
+    opacity: 0.6,
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  submitText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '700',
+    fontFamily: 'Montserrat_700Bold',
+  },
+  linksContainer: {
+    marginTop: 24,
+    alignItems: 'center',
+  },
+  linkButton: {
+    paddingVertical: 12,
+  },
+  linkText: {
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontSize: 16,
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+  linkAction: {
+    color: '#667eea',
+    fontWeight: '600',
+  },
+  forgotPasswordText: {
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: 15,
+    fontWeight: '500',
+    textDecorationLine: 'underline',
   },
 });

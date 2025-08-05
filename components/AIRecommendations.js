@@ -1798,45 +1798,60 @@ export default function AIRecommendations({
 
     // FINALIZED PHASE
     if (finalized) {
+        const selectedPlace = pinnedActivities.filter(p => p.selected)[0];
+        
         return (
             <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-                <TouchableOpacity style={styles.shareButton} onPress={sharePlanUrlClick}>
-                    <Icons.Share size={18} color="#667eea" />
-                    <Text style={styles.shareButtonText}>Share Final Plan Details</Text>
-                </TouchableOpacity>
-
                 {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-                <View style={styles.recommendationsList}>
-                    {pinnedActivities.filter(p => p.selected).map((p) => (
-                        <View key={p.id} style={[styles.listItem, styles.selectedListItem]}>
-                            <View style={styles.selectedBadge}>
-                                <Icons.CheckCircle />
-                                <Text style={styles.selectedBadgeText}>SELECTED</Text>
-                            </View>
-                            <TouchableOpacity style={styles.listContent} onPress={() => openDetail(p)}>
-                                <View style={styles.listTop}>
-                                    <Text style={styles.listName}>{p.title}</Text>
-                                    <Text style={styles.listMeta}>{p.price_range || 'N/A'}</Text>
-                                </View>
-                                <View style={styles.listBottom}>
-                                    <View>
-                                        {isGameNightActivity ? (
-                                            <>
-                                                <Text style={styles.listDetail}>{p.hours || 'N/A'}</Text>
-                                                <Text style={styles.listDetail}>{p.address || 'N/A'}</Text>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <Text style={styles.listDetail}>{p.hours || 'N/A'}</Text>
-                                                <Text style={styles.listDetail}>{p.address || 'N/A'}</Text>
-                                            </>
-                                        )}
-                                    </View>
-                                </View>
-                            </TouchableOpacity>
+                {/* Combined Finalized Plan Card */}
+                <View style={styles.finalizedPlanCard}>
+                    {/* Header with status */}
+                    <View style={styles.finalizedHeader}>
+                        <View style={styles.finalizedStatusBadge}>
+                            <Icons.CheckCircle color="#fff" size={16} />
+                            <Text style={styles.finalizedStatusText}>{activityText.finalizedTitle}</Text>
                         </View>
-                    ))}
+                    </View>
+
+                    {/* Selected Place Details */}
+                    {selectedPlace && (
+                        <TouchableOpacity 
+                            style={styles.selectedPlaceSection} 
+                            onPress={() => openDetail(selectedPlace)}
+                            activeOpacity={0.7}
+                        >
+                            <View style={styles.selectedPlaceHeader}>
+                                <Text style={styles.selectedPlaceName}>{selectedPlace.title}</Text>
+                                <Icons.ChevronRight color="rgba(255, 255, 255, 0.6)" size={20} />
+                            </View>
+                            
+                            <View style={styles.selectedPlaceDetails}>
+                                <View style={styles.selectedPlaceDetail}>
+                                    <Icons.DollarSign color="#B8A5C4" size={16} />
+                                    <Text style={styles.selectedPlaceDetailText}>{selectedPlace.price_range || 'N/A'}</Text>
+                                </View>
+                                <View style={styles.selectedPlaceDetail}>
+                                    <Icons.Clock color="#B8A5C4" size={16} />
+                                    <Text style={styles.selectedPlaceDetailText}>{selectedPlace.hours || 'N/A'}</Text>
+                                </View>
+                                {selectedPlace.address && (
+                                    <View style={styles.selectedPlaceDetail}>
+                                        <Icons.MapPin color="#B8A5C4" size={16} />
+                                        <Text style={styles.selectedPlaceDetailText}>{selectedPlace.address}</Text>
+                                    </View>
+                                )}
+                            </View>
+                        </TouchableOpacity>
+                    )}
+
+                    {/* Share Action */}
+                    <View style={styles.finalizedActionSection}>
+                        <TouchableOpacity style={styles.finalizedShareButton} onPress={sharePlanUrlClick}>
+                            <Icons.Share size={18} color="#fff" />
+                            <Text style={styles.finalizedShareButtonText}>Share Final Plan Details</Text>
+                        </TouchableOpacity>
+                    </View>
                 </View>
 
                 {/* Detail Modal - Same as voting phase */}
@@ -3587,5 +3602,96 @@ const styles = StyleSheet.create({
         alignItems: 'flex-start',
         marginBottom: 12,
         position: 'relative',
+    },
+
+    // Finalized Plan Card Styles
+    finalizedPlanCard: {
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        borderRadius: 16,
+        marginHorizontal: 16,
+        marginBottom: 20,
+        borderWidth: 1,
+        borderColor: 'rgba(64, 51, 71, 0.3)',
+        overflow: 'hidden',
+    },
+
+    finalizedHeader: {
+        backgroundColor: '#28a745',
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        alignItems: 'center',
+    },
+
+    finalizedStatusBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+
+    finalizedStatusText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '700',
+        fontFamily: 'Montserrat_700Bold',
+    },
+
+    selectedPlaceSection: {
+        padding: 20,
+        borderBottomWidth: 1,
+        borderBottomColor: 'rgba(64, 51, 71, 0.3)',
+    },
+
+    selectedPlaceHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 12,
+    },
+
+    selectedPlaceName: {
+        color: '#fff',
+        fontSize: 20,
+        fontWeight: '700',
+        fontFamily: 'Montserrat_700Bold',
+        flex: 1,
+        marginRight: 12,
+    },
+
+    selectedPlaceDetails: {
+        gap: 8,
+    },
+
+    selectedPlaceDetail: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+
+    selectedPlaceDetailText: {
+        color: '#B8A5C4',
+        fontSize: 14,
+        fontWeight: '500',
+    },
+
+    finalizedActionSection: {
+        padding: 20,
+    },
+
+    finalizedShareButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#667eea',
+        borderRadius: 12,
+        paddingVertical: 14,
+        paddingHorizontal: 20,
+        gap: 8,
+    },
+
+    finalizedShareButtonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '600',
+        fontFamily: 'Montserrat_600SemiBold',
     },
 });
