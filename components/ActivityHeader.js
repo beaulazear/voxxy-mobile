@@ -152,36 +152,60 @@ export function ActivityStickyHeader({ activity, isOwner, onBack, onEdit, onDele
     const activityInfo = getActivityDisplayInfo(activity.activity_type)
     const statusInfo = getActivityStatusInfo(activity)
 
-    // Get activity configuration and determine which steps to show
-    const steps = activityInfo.usesAIRecommendations ? [
-        {
-            title: "1️⃣ Invite & Submit Preferences",
-            desc: "Voxxers & organizer take the quiz and share their feedback to help tailor the group's recommendations."
-        },
-        {
-            title: "2️⃣ Vote on Your Favorites!",
-            desc: "Everyone (host + voxxers) casts their vote on their favorite AI-generated recommendations."
-        },
-        {
-            title: "3️⃣ Organizer Confirms & Finalizes",
-            desc: "Organizer locks in the winning option and finalizes the activity details."
-        },
-        {
-            title: "4️⃣ Add to Calendar",
-            desc: "Host shares a link with a one-click calendar option so no one misses the fun."
+    // Generic steps for all activity types
+    // Status logic based on activity states: collecting, voting, finalized, completed
+    const getStepStatus = (stepIndex) => {
+        if (activity.completed) {
+            return "completed";
         }
-    ] : [
+        
+        if (activity.finalized) {
+            // Steps 1-3 are done, step 4 (share) is active
+            return stepIndex < 3 ? "completed" : stepIndex === 3 ? "active" : "pending";
+        }
+        
+        if (activity.voting) {
+            // Step 1 is done, step 2 is active, rest pending
+            return stepIndex === 0 ? "completed" : stepIndex === 1 ? "active" : "pending";
+        }
+        
+        if (activity.collecting) {
+            // Step 1 is active, rest pending
+            return stepIndex === 0 ? "active" : "pending";
+        }
+        
+        // Default: all pending
+        return "pending";
+    };
+
+    const steps = [
         {
-            title: "1️⃣ Everyone Submits Availability",
-            desc: "Both host and voxxers fill out when they're free so you can compare slots."
+            step: "1",
+            icon: "✨",
+            title: "Share Your Preferences",
+            desc: "Everyone shares their preferences through a quick, fun quiz. Tell us what you like and the AI will use these inputs to create personalized recommendations for your group.",
+            status: getStepStatus(0)
         },
         {
-            title: "2️⃣ Voxxers Vote",
-            desc: "All voxxers review overlapping slots and vote on their favorites."
+            step: "2",
+            icon: "🤖",
+            title: "Generate Recommendations",
+            desc: "Based on everyone's preferences, our AI curates perfect options tailored to your group. The host can swipe through recommendations, save favorites, and regenerate if needed.",
+            status: getStepStatus(1)
         },
         {
-            title: "3️⃣ Host Finalizes",
-            desc: "Only the host can pick the winning time, share the final board, and send a calendar invite."
+            step: "3",
+            icon: "🎯",
+            title: "Finalize Your Choice",
+            desc: "The host selects the winning option from the AI recommendations. Once finalized, everyone can see the chosen plan with all its details.",
+            status: getStepStatus(2)
+        },
+        {
+            step: "4",
+            icon: "📅",
+            title: "Share",
+            desc: "Share the final plan with everyone! Send calendar invites, location details, and get ready for an amazing time together.",
+            status: getStepStatus(3)
         }
     ]
 
@@ -322,31 +346,119 @@ export function ActivityStickyHeader({ activity, isOwner, onBack, onEdit, onDele
             >
                 <View style={styles.helpOverlay}>
                     <View style={styles.helpModal}>
-                        <View style={styles.helpHeader}>
-                            <Text style={styles.helpTitle}>How it works ✨</Text>
-                            <TouchableOpacity onPress={handleHelpClose}>
-                                <X stroke="#fff" width={20} height={20} />
-                            </TouchableOpacity>
-                        </View>
+                        <LinearGradient
+                            colors={['#8b5cf6', '#7c3aed']}
+                            style={styles.helpGradientHeader}
+                        >
+                            <View style={styles.helpHeader}>
+                                <View style={styles.helpTitleContainer}>
+                                    <Text style={styles.helpTitle}>How It Works</Text>
+                                    <Text style={styles.helpSubtitle}>Your journey to the perfect plan</Text>
+                                </View>
+                                <TouchableOpacity style={styles.helpCloseButton} onPress={handleHelpClose}>
+                                    <X stroke="#fff" width={20} height={20} />
+                                </TouchableOpacity>
+                            </View>
+                        </LinearGradient>
 
-                        <ScrollView style={styles.helpContent}>
-                            <Text style={styles.stepTitle}>{steps[helpStep].title}</Text>
-                            <Text style={styles.stepDescription}>{steps[helpStep].desc}</Text>
+                        <ScrollView style={styles.helpContent} showsVerticalScrollIndicator={false}>
+                            {/* Progress Indicator */}
+                            <View style={styles.progressContainer}>
+                                {steps.map((_, index) => (
+                                    <View key={index} style={styles.progressWrapper}>
+                                        <TouchableOpacity
+                                            style={[
+                                                styles.progressDot,
+                                                index === helpStep && styles.progressDotActive,
+                                                index < helpStep && styles.progressDotCompleted
+                                            ]}
+                                            onPress={() => setHelpStep(index)}
+                                        >
+                                            {index < helpStep ? (
+                                                <CheckCircle stroke="#fff" width={12} height={12} />
+                                            ) : (
+                                                <Text style={styles.progressNumber}>{index + 1}</Text>
+                                            )}
+                                        </TouchableOpacity>
+                                        {index < steps.length - 1 && (
+                                            <View style={[
+                                                styles.progressLine,
+                                                index < helpStep && styles.progressLineCompleted
+                                            ]} />
+                                        )}
+                                    </View>
+                                ))}
+                            </View>
+
+                            {/* Current Step Content */}
+                            <View style={styles.stepContainer}>
+                                <View style={[
+                                    styles.stepIconContainer,
+                                    steps[helpStep].status === 'active' && styles.stepIconActive,
+                                    steps[helpStep].status === 'completed' && styles.stepIconCompleted
+                                ]}>
+                                    <Text style={styles.stepIcon}>{steps[helpStep].icon}</Text>
+                                </View>
+                                
+                                <View style={styles.stepHeader}>
+                                    <Text style={styles.stepNumber}>Step {steps[helpStep].step}</Text>
+                                    <View style={[
+                                        styles.stepStatusBadge,
+                                        steps[helpStep].status === 'active' && styles.statusBadgeActive,
+                                        steps[helpStep].status === 'completed' && styles.statusBadgeCompleted
+                                    ]}>
+                                        <Text style={[
+                                            styles.stepStatusText,
+                                            steps[helpStep].status === 'active' && styles.statusTextActive,
+                                            steps[helpStep].status === 'completed' && styles.statusTextCompleted
+                                        ]}>
+                                            {steps[helpStep].status === 'active' ? 'Current' : 
+                                             steps[helpStep].status === 'completed' ? 'Done' : 'Upcoming'}
+                                        </Text>
+                                    </View>
+                                </View>
+                                
+                                <Text style={styles.stepTitle}>{steps[helpStep].title}</Text>
+                                <Text style={styles.stepDescription}>{steps[helpStep].desc}</Text>
+                            </View>
+
+                            {/* All Steps Overview */}
+                            <View style={styles.allStepsContainer}>
+                                <Text style={styles.allStepsTitle}>Quick Overview</Text>
+                                {steps.map((step, index) => (
+                                    <TouchableOpacity
+                                        key={index}
+                                        style={[
+                                            styles.overviewStep,
+                                            index === helpStep && styles.overviewStepActive
+                                        ]}
+                                        onPress={() => setHelpStep(index)}
+                                    >
+                                        <Text style={styles.overviewStepIcon}>{step.icon}</Text>
+                                        <Text style={styles.overviewStepTitle}>{step.title}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
                         </ScrollView>
 
                         <View style={styles.helpNavigation}>
                             <TouchableOpacity
-                                style={[styles.navButton, helpStep === 0 && styles.navButtonDisabled]}
+                                style={[styles.navButton, styles.navButtonSecondary, helpStep === 0 && styles.navButtonDisabled]}
                                 onPress={() => setHelpStep(s => Math.max(0, s - 1))}
                                 disabled={helpStep === 0}
                             >
-                                <Text style={[styles.navButtonText, helpStep === 0 && styles.navButtonTextDisabled]}>
-                                    ← Previous
+                                <ArrowLeft stroke={helpStep === 0 ? '#64748b' : '#8b5cf6'} width={18} height={18} />
+                                <Text style={[styles.navButtonText, styles.navButtonTextSecondary, helpStep === 0 && styles.navButtonTextDisabled]}>
+                                    Back
                                 </Text>
                             </TouchableOpacity>
 
+                            <View style={styles.stepIndicator}>
+                                <Text style={styles.stepIndicatorText}>{helpStep + 1} of {steps.length}</Text>
+                            </View>
+
                             <TouchableOpacity
-                                style={styles.navButton}
+                                style={[styles.navButton, styles.navButtonPrimary]}
                                 onPress={() => {
                                     if (helpStep < steps.length - 1) {
                                         setHelpStep(s => s + 1)
@@ -355,9 +467,17 @@ export function ActivityStickyHeader({ activity, isOwner, onBack, onEdit, onDele
                                     }
                                 }}
                             >
-                                <Text style={styles.navButtonText}>
-                                    {helpStep < steps.length - 1 ? 'Next →' : 'Got it!'}
+                                <Text style={[styles.navButtonText, styles.navButtonTextPrimary]}>
+                                    {helpStep < steps.length - 1 ? 'Next' : 'Got it!'}
                                 </Text>
+                                {helpStep < steps.length - 1 && (
+                                    <ArrowLeft 
+                                        stroke="#fff" 
+                                        width={18} 
+                                        height={18} 
+                                        style={{ transform: [{ rotate: '180deg' }] }}
+                                    />
+                                )}
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -713,85 +833,336 @@ const styles = StyleSheet.create({
     // Help Modal Styles
     helpOverlay: {
         flex: 1,
-        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        backgroundColor: 'rgba(0, 0, 0, 0.9)',
         justifyContent: 'center',
         alignItems: 'center',
         padding: 20,
     },
 
     helpModal: {
-        backgroundColor: '#2C1E33',
-        borderRadius: 16,
+        backgroundColor: '#1a1420',
+        borderRadius: 24,
         width: '100%',
-        maxWidth: 400,
-        maxHeight: '80%',
+        maxWidth: 420,
+        height: '90%',
+        maxHeight: 700,
         borderWidth: 1,
-        borderColor: 'rgba(64, 51, 71, 0.3)',
+        borderColor: 'rgba(139, 92, 246, 0.2)',
+        overflow: 'hidden',
+        shadowColor: '#8b5cf6',
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.3,
+        shadowRadius: 20,
+        elevation: 10,
+    },
+
+    helpGradientHeader: {
+        paddingTop: 24,
+        paddingBottom: 20,
+        paddingHorizontal: 24,
     },
 
     helpHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: 20,
-        borderBottomWidth: 1,
-        borderBottomColor: 'rgba(64, 51, 71, 0.3)',
+        alignItems: 'flex-start',
+    },
+
+    helpTitleContainer: {
+        flex: 1,
     },
 
     helpTitle: {
-        fontSize: 18,
-        fontWeight: '600',
+        fontSize: 22,
+        fontWeight: '700',
         color: '#fff',
-        fontFamily: 'Montserrat_600SemiBold',
+        marginBottom: 4,
+    },
+
+    helpSubtitle: {
+        fontSize: 14,
+        color: 'rgba(255, 255, 255, 0.8)',
+        fontWeight: '400',
+    },
+
+    helpCloseButton: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: 'rgba(255, 255, 255, 0.15)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginLeft: 16,
     },
 
     helpContent: {
-        padding: 20,
-        maxHeight: 300,
+        flex: 1,
+        paddingHorizontal: 24,
+        paddingTop: 24,
+        paddingBottom: 16,
     },
 
-    stepTitle: {
-        fontSize: 16,
+    progressContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 32,
+        paddingHorizontal: 20,
+    },
+
+    progressWrapper: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+
+    progressDot: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: 'rgba(139, 92, 246, 0.2)',
+        borderWidth: 2,
+        borderColor: 'rgba(139, 92, 246, 0.3)',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+
+    progressDotActive: {
+        backgroundColor: '#8b5cf6',
+        borderColor: '#8b5cf6',
+        shadowColor: '#8b5cf6',
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.5,
+        shadowRadius: 8,
+        elevation: 5,
+    },
+
+    progressDotCompleted: {
+        backgroundColor: '#10b981',
+        borderColor: '#10b981',
+    },
+
+    progressNumber: {
+        color: 'rgba(255, 255, 255, 0.6)',
+        fontSize: 12,
         fontWeight: '600',
-        color: '#fff',
+    },
+
+    progressLine: {
+        width: 40,
+        height: 2,
+        backgroundColor: 'rgba(139, 92, 246, 0.2)',
+        marginHorizontal: -4,
+    },
+
+    progressLineCompleted: {
+        backgroundColor: '#10b981',
+    },
+
+    stepContainer: {
+        alignItems: 'center',
+        marginBottom: 32,
+    },
+
+    stepIconContainer: {
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+        backgroundColor: 'rgba(139, 92, 246, 0.1)',
+        borderWidth: 2,
+        borderColor: 'rgba(139, 92, 246, 0.3)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 20,
+    },
+
+    stepIconActive: {
+        backgroundColor: 'rgba(139, 92, 246, 0.2)',
+        borderColor: '#8b5cf6',
+    },
+
+    stepIconCompleted: {
+        backgroundColor: 'rgba(16, 185, 129, 0.2)',
+        borderColor: '#10b981',
+    },
+
+    stepIcon: {
+        fontSize: 36,
+    },
+
+    stepHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
         marginBottom: 12,
     },
 
+    stepNumber: {
+        fontSize: 12,
+        fontWeight: '600',
+        color: 'rgba(255, 255, 255, 0.5)',
+        textTransform: 'uppercase',
+        letterSpacing: 1,
+    },
+
+    stepStatusBadge: {
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 12,
+        backgroundColor: 'rgba(139, 92, 246, 0.1)',
+        borderWidth: 1,
+        borderColor: 'rgba(139, 92, 246, 0.3)',
+    },
+
+    statusBadgeActive: {
+        backgroundColor: 'rgba(139, 92, 246, 0.2)',
+        borderColor: '#8b5cf6',
+    },
+
+    statusBadgeCompleted: {
+        backgroundColor: 'rgba(16, 185, 129, 0.2)',
+        borderColor: '#10b981',
+    },
+
+    stepStatusText: {
+        fontSize: 11,
+        fontWeight: '600',
+        color: 'rgba(255, 255, 255, 0.6)',
+        textTransform: 'uppercase',
+    },
+
+    statusTextActive: {
+        color: '#8b5cf6',
+    },
+
+    statusTextCompleted: {
+        color: '#10b981',
+    },
+
+    stepTitle: {
+        fontSize: 20,
+        fontWeight: '700',
+        color: '#fff',
+        marginBottom: 12,
+        textAlign: 'center',
+    },
+
     stepDescription: {
+        fontSize: 15,
+        color: 'rgba(255, 255, 255, 0.8)',
+        lineHeight: 22,
+        textAlign: 'center',
+        paddingHorizontal: 20,
+    },
+
+    allStepsContainer: {
+        marginTop: 24,
+        paddingTop: 24,
+        borderTopWidth: 1,
+        borderTopColor: 'rgba(139, 92, 246, 0.1)',
+    },
+
+    allStepsTitle: {
+        fontSize: 12,
+        fontWeight: '600',
+        color: 'rgba(255, 255, 255, 0.5)',
+        textTransform: 'uppercase',
+        letterSpacing: 1,
+        marginBottom: 16,
+    },
+
+    overviewStep: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 12,
+        borderRadius: 12,
+        backgroundColor: 'rgba(139, 92, 246, 0.05)',
+        marginBottom: 8,
+        borderWidth: 1,
+        borderColor: 'transparent',
+    },
+
+    overviewStepActive: {
+        backgroundColor: 'rgba(139, 92, 246, 0.15)',
+        borderColor: 'rgba(139, 92, 246, 0.3)',
+    },
+
+    overviewStepIcon: {
+        fontSize: 20,
+        marginRight: 12,
+    },
+
+    overviewStepTitle: {
         fontSize: 14,
-        color: '#cbd5e1',
-        lineHeight: 20,
+        color: 'rgba(255, 255, 255, 0.8)',
+        fontWeight: '500',
     },
 
     helpNavigation: {
         flexDirection: 'row',
         justifyContent: 'space-between',
+        alignItems: 'center',
         padding: 20,
         borderTopWidth: 1,
-        borderTopColor: 'rgba(64, 51, 71, 0.3)',
+        borderTopColor: 'rgba(139, 92, 246, 0.1)',
+        backgroundColor: 'rgba(26, 20, 32, 0.95)',
         gap: 12,
     },
 
     navButton: {
-        backgroundColor: '#8b5cf6',
-        paddingHorizontal: 20,
-        paddingVertical: 10,
-        borderRadius: 10,
-        flex: 1,
+        flexDirection: 'row',
         alignItems: 'center',
+        paddingHorizontal: 20,
+        paddingVertical: 12,
+        borderRadius: 12,
+        gap: 8,
+    },
+
+    navButtonPrimary: {
+        backgroundColor: '#8b5cf6',
+        shadowColor: '#8b5cf6',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+        elevation: 3,
+    },
+
+    navButtonSecondary: {
+        backgroundColor: 'transparent',
+        borderWidth: 1,
+        borderColor: 'rgba(139, 92, 246, 0.3)',
     },
 
     navButtonDisabled: {
-        backgroundColor: '#64748b',
+        opacity: 0.5,
     },
 
     navButtonText: {
-        color: '#fff',
         fontSize: 14,
         fontWeight: '600',
     },
 
+    navButtonTextPrimary: {
+        color: '#fff',
+    },
+
+    navButtonTextSecondary: {
+        color: '#8b5cf6',
+    },
+
     navButtonTextDisabled: {
-        color: '#94a3b8',
+        color: '#64748b',
+    },
+
+    stepIndicator: {
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 12,
+        backgroundColor: 'rgba(139, 92, 246, 0.1)',
+    },
+
+    stepIndicatorText: {
+        fontSize: 12,
+        color: 'rgba(255, 255, 255, 0.6)',
+        fontWeight: '500',
     },
 })

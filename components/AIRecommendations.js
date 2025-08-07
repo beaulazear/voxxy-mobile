@@ -41,6 +41,7 @@ const Icons = {
     Star: (props) => <Icon name="star" size={16} color="#667eea" {...props} />,
     RotateCcw: (props) => <Icon name="rotate-ccw" size={16} color="#667eea" {...props} />,
     FastForward: (props) => <Icon name="fast-forward" size={16} color="#667eea" {...props} />,
+    ChevronRight: (props) => <Icon name="chevron-right" size={16} color="#667eea" {...props} />,
 };
 
 import CuisineResponseForm from './CuisineResponseForm';
@@ -1798,7 +1799,9 @@ export default function AIRecommendations({
 
     // FINALIZED PHASE
     if (finalized) {
-        const selectedPlace = pinnedActivities.filter(p => p.selected)[0];
+        const selectedPlace = pinnedActivities && pinnedActivities.length > 0 
+            ? pinnedActivities.filter(p => p.selected)[0] 
+            : null;
         
         return (
             <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>

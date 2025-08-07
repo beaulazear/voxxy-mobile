@@ -20,8 +20,8 @@ export default function VoxxyFooter() {
                     <Ionicons name="add" size={28} color="#fff" />
                 </TouchableOpacity>
 
-                <TouchableOpacity style={styles.iconButton} onPress={() => navigation.navigate('/')}>
-                    <Ionicons name="home-outline" size={26} color="#fff" />
+                <TouchableOpacity style={styles.iconButton} onPress={() => navigation.navigate('Profile')}>
+                    <Ionicons name="settings-outline" size={26} color="#fff" />
                 </TouchableOpacity>
             </View>
         </View>

@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { UserContext } from '../context/UserContext';
-import { Settings, Users, Activity, X, ChevronRight, ChevronDown, ChevronUp, MapPin } from 'react-native-feather';
+import { Bell, Users, Activity, X, ChevronRight, ChevronDown, ChevronUp, MapPin } from 'react-native-feather';
 import { Hamburger, Martini, Dices } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { API_URL } from '../config';
@@ -424,21 +424,22 @@ export default function ProfileSnippet({ scrollY = new Animated.Value(0), onScro
         <Text style={styles.voxxyHeaderText}>Voxxy</Text>
       </Animated.View>
 
-      {/* Settings Button */}
+      {/* Notifications Button */}
       <Animated.View
         style={[
-          styles.settingsButton,
+          styles.notificationsButton,
           {
             transform: [{ translateY: settingsTranslateY }],
           }
         ]}
       >
         <TouchableOpacity 
-          onPress={() => navigation.navigate('Profile')}
+          onPress={() => navigation.navigate('Notifications')}
           activeOpacity={0.7}
-          style={styles.settingsButtonTouch}
+          style={styles.notificationsButtonTouch}
         >
-          <Settings stroke="#fff" width={20} height={20} strokeWidth={2} />
+          <Bell stroke="#fff" width={20} height={20} strokeWidth={2} />
+          {/* You can add a notification badge here later */}
         </TouchableOpacity>
       </Animated.View>
 
@@ -812,7 +813,7 @@ const styles = StyleSheet.create({
     textShadowRadius: 4,
   },
 
-  settingsButton: {
+  notificationsButton: {
     position: 'absolute',
     top: 50,
     right: 20,
@@ -820,7 +821,7 @@ const styles = StyleSheet.create({
     paddingTop: 8,
   },
 
-  settingsButtonTouch: {
+  notificationsButtonTouch: {
     width: 36,
     height: 36,
     borderRadius: 18,

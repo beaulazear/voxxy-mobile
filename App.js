@@ -17,6 +17,7 @@ import LandingScreen from './screens/LandingScreen';
 import ActivityDetailsScreen from './screens/ActivityDetailsScreen';
 import TripDashboardScreen from './screens/TripDashboardScreen';
 import TryVoxxScreen from './screens/TryVoxxScreen';
+import NotificationsScreen from './screens/NotificationsScreen';
 
 import { InvitationNotificationProvider } from './services/InvitationNotificationService';
 
@@ -86,6 +87,7 @@ const AppNavigator = () => {
       <Stack.Screen name="FAQ" component={FAQScreen} />
       <Stack.Screen name="TripDashboardScreen" component={TripDashboardScreen} />
       <Stack.Screen name="Profile" component={ProfileScreen} />
+      <Stack.Screen name="Notifications" component={NotificationsScreen} />
       <Stack.Screen name="AccountCreated" component={ProfileScreen} />
     </Stack.Navigator>
   );

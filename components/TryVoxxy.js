@@ -542,14 +542,6 @@ export default function TryVoxxy() {
                                 </View>
                             </View>
 
-                            <View style={s.skipButtonContainer}>
-                                <TouchableOpacity 
-                                    style={s.skipButton}
-                                    onPress={() => setShowingResults(true)}
-                                >
-                                    <Text style={s.skipButtonText}>Skip to Results</Text>
-                                </TouchableOpacity>
-                            </View>
 
                             <View style={s.cardStack}>
                                 {recs[currentCardIndex] && (
@@ -871,25 +863,6 @@ const s = StyleSheet.create({
         alignItems: 'center',
     },
     
-    skipButtonContainer: {
-        alignItems: 'center',
-        marginBottom: 16,
-    },
-    
-    skipButton: {
-        paddingHorizontal: 20,
-        paddingVertical: 10,
-        borderRadius: 20,
-        backgroundColor: 'rgba(255, 255, 255, 0.1)',
-        borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.2)',
-    },
-    
-    skipButtonText: {
-        color: '#9d60f8',
-        fontSize: 14,
-        fontWeight: '600',
-    },
     
     swipeInstructions: {
         flexDirection: 'row',
