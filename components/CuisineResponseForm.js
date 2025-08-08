@@ -20,22 +20,34 @@ import {
     GradientCard,
     gradientConfigs
 } from '../styles/FormStyles'
+import {
+    Utensils,
+    Coffee,
+    Wine,
+    ChefHat,
+    Beef,
+    Fish,
+    Pizza,
+    Cherry,
+    Heart,
+    Trees,
+    Users,
+    Home,
+    Building,
+    Waves,
+    Landmark,
+    DollarSign,
+    CreditCard,
+    Crown,
+    Target,
+    X
+} from 'lucide-react-native'
 import { UserContext } from '../context/UserContext'
 import { API_URL } from '../config'
 import { logger } from '../utils/logger';
 
 const { width: screenWidth } = Dimensions.get('window')
 
-// Minimalist icon components
-const Utensils = () => <Text style={styles.miniIcon}>🍴</Text>
-const MapPin = () => <Text style={styles.miniIcon}>📍</Text>
-const DollarSign = () => <Text style={styles.miniIcon}>💰</Text>
-const Heart = () => <Text style={styles.miniIcon}>❤️</Text>
-const Plus = () => <Text style={styles.miniIcon}>+</Text>
-const Calendar = () => <Text style={styles.miniIcon}>📅</Text>
-const Clock = () => <Text style={styles.miniIcon}>🕐</Text>
-const Users = () => <Text style={styles.miniIcon}>👥</Text>
-const X = () => <Text style={styles.miniIcon}>×</Text>
 
 export default function CuisineResponseForm({
     visible,
@@ -60,45 +72,44 @@ export default function CuisineResponseForm({
     const percent = (step / getTotalSteps()) * 100
 
     // Form state
-    const [selectedCuisines, setSelectedCuisines] = useState(['Surprise me!'])
-    const [otherCuisine, setOtherCuisine] = useState('')
-    const [selectedAtmospheres, setSelectedAtmospheres] = useState([])
-    const [otherAtmosphere, setOtherAtmosphere] = useState('')
-    const [selectedBudget, setSelectedBudget] = useState('No preference')
+    const [selectedCuisine, setSelectedCuisine] = useState('')
+    const [selectedAtmosphere, setSelectedAtmosphere] = useState('')
+    const [selectedBudget, setSelectedBudget] = useState('')
     const [dietary, setDietary] = useState(guestMode ? '' : (user?.preferences || ''))
     const [availability, setAvailability] = useState({})
     const [selectedDate, setSelectedDate] = useState('')
     const [selectedTimes, setSelectedTimes] = useState([])
 
-    // Compact options with better organization
+    // Cuisine options with icons
     const cuisineOptions = [
-        { label: 'Italian', emoji: '🍝' },
-        { label: 'Mexican', emoji: '🌮' },
-        { label: 'Chinese', emoji: '🥡' },
-        { label: 'Japanese', emoji: '🍣' },
-        { label: 'Indian', emoji: '🍛' },
-        { label: 'Thai', emoji: '🥘' },
-        { label: 'Mediterranean', emoji: '🫒' },
-        { label: 'American', emoji: '🍔' },
-        { label: 'Surprise me!', emoji: '🎲' }
+        { label: 'Italian', icon: Pizza, desc: 'Pasta, pizza, risotto' },
+        { label: 'Mexican', icon: ChefHat, desc: 'Tacos, burritos, quesadillas' },
+        { label: 'Chinese', icon: Utensils, desc: 'Stir-fry, dim sum, noodles' },
+        { label: 'Japanese', icon: Fish, desc: 'Sushi, ramen, tempura' },
+        { label: 'Indian', icon: ChefHat, desc: 'Curry, naan, biryani' },
+        { label: 'Thai', icon: Cherry, desc: 'Pad thai, curry, spring rolls' },
+        { label: 'Mediterranean', icon: Cherry, desc: 'Hummus, falafel, kebabs' },
+        { label: 'American', icon: Beef, desc: 'Burgers, steaks, BBQ' },
+        { label: 'Surprise me!', icon: Target, desc: 'Any cuisine preference' }
     ]
 
     const atmosphereOptions = [
-        { label: 'Casual', emoji: '👕' },
-        { label: 'Trendy', emoji: '✨' },
-        { label: 'Romantic', emoji: '❤️' },
-        { label: 'Outdoor', emoji: '🌳' },
-        { label: 'Family Friendly', emoji: '👨‍👩‍👧‍👦' },
-        { label: 'Cozy', emoji: '🛋️' },
-        { label: 'Rooftop', emoji: '🌆' },
-        { label: 'Waterfront', emoji: '🌊' },
-        { label: 'Historic', emoji: '🏛️' }
+        { label: 'Casual', icon: Coffee, desc: 'Relaxed & comfortable' },
+        { label: 'Trendy', icon: Wine, desc: 'Modern & stylish' },
+        { label: 'Romantic', icon: Heart, desc: 'Intimate & cozy' },
+        { label: 'Outdoor', icon: Trees, desc: 'Patio & garden seating' },
+        { label: 'Family Friendly', icon: Users, desc: 'Great for all ages' },
+        { label: 'Cozy', icon: Home, desc: 'Warm & inviting' },
+        { label: 'Rooftop', icon: Building, desc: 'City views & fresh air' },
+        { label: 'Waterfront', icon: Waves, desc: 'Ocean or lake views' },
+        { label: 'Historic', icon: Landmark, desc: 'Classic & traditional' }
     ]
 
     const budgetOptions = [
-        { label: 'No preference', emoji: '🤷', desc: 'Any price range' },
-        { label: 'Budget-friendly', emoji: '💰', desc: 'Value dining' },
-        { label: 'Prefer upscale', emoji: '🍾', desc: 'Fine dining' }
+        { label: 'No preference', icon: Target, desc: 'Any price range' },
+        { label: 'Budget-friendly', icon: DollarSign, desc: 'Value dining' },
+        { label: 'Mid-range', icon: CreditCard, desc: 'Nice sit-down meals' },
+        { label: 'Prefer upscale', icon: Crown, desc: 'Fine dining experience' }
     ]
 
     const timeSlots = [
@@ -179,49 +190,13 @@ export default function CuisineResponseForm({
         }
     }
 
-    // Cuisine handlers
-    const toggleCuisine = (cuisine) => {
-        if (cuisine === 'Surprise me!') {
-            setSelectedCuisines(['Surprise me!'])
-            setOtherCuisine('')
-            return
-        }
-        const withoutSurprise = selectedCuisines.filter(c => c !== 'Surprise me!')
-        if (withoutSurprise.includes(cuisine)) {
-            setSelectedCuisines(withoutSurprise.filter(c => c !== cuisine))
-        } else {
-            setSelectedCuisines([...withoutSurprise, cuisine])
-        }
+    // Handlers
+    const handleCuisineSelect = (cuisine) => {
+        setSelectedCuisine(cuisine)
     }
 
-    const addCustomCuisine = () => {
-        const trimmed = otherCuisine.trim()
-        if (!trimmed) return
-        const withoutSurprise = selectedCuisines.filter(c => c !== 'Surprise me!')
-        if (!withoutSurprise.includes(trimmed)) {
-            setSelectedCuisines([...withoutSurprise, trimmed])
-        }
-        setOtherCuisine('')
-        Keyboard.dismiss()
-    }
-
-    // Atmosphere handlers
-    const toggleAtmosphere = (atmosphere) => {
-        setSelectedAtmospheres(prev =>
-            prev.includes(atmosphere)
-                ? prev.filter(a => a !== atmosphere)
-                : [...prev, atmosphere]
-        )
-    }
-
-    const addCustomAtmosphere = () => {
-        const trimmed = otherAtmosphere.trim()
-        if (!trimmed) return
-        if (!selectedAtmospheres.includes(trimmed)) {
-            setSelectedAtmospheres(prev => [...prev, trimmed])
-        }
-        setOtherAtmosphere('')
-        Keyboard.dismiss()
+    const handleAtmosphereSelect = (atmosphere) => {
+        setSelectedAtmosphere(atmosphere)
     }
 
     // Availability handlers
@@ -256,14 +231,10 @@ export default function CuisineResponseForm({
         })
     }
 
-    const removePill = (item, setter) => {
-        setter(prev => prev.filter(i => i !== item))
-    }
-
     // Validation
     const isNextDisabled = () => {
-        if (step === 1) return selectedCuisines.length === 0
-        if (step === 2) return selectedAtmospheres.length === 0
+        if (step === 1) return !selectedCuisine
+        if (step === 2) return !selectedAtmosphere
         if (step === 3) return !selectedBudget
         if (step === 4) return false
         if (step === 5 && activity?.allow_participant_time_selection) {
@@ -292,17 +263,11 @@ export default function CuisineResponseForm({
 
     // Submission
     const handleSubmit = async () => {
-        const cuisinesText = selectedCuisines.join(', ')
-        const atmosText = selectedAtmospheres.join(', ')
-        const budgetText = selectedBudget
-        const dietaryText = dietary || 'None'
-
-        const notes = [
-            `Cuisines: ${cuisinesText}`,
-            `Atmospheres: ${atmosText}`,
-            `Budget: ${budgetText}`,
-            `Dietary Preferences: ${dietaryText}`,
-        ].join('\n\n')
+        const notes = `Dining Preferences:
+🍽️ Cuisine: ${selectedCuisine}
+🏠 Atmosphere: ${selectedAtmosphere}
+💰 Budget: ${selectedBudget}
+🥗 Dietary Needs: ${dietary || 'None'}`.trim()
 
         try {
             let endpoint, requestOptions
@@ -431,163 +396,84 @@ export default function CuisineResponseForm({
         </View>
     )
 
-    const renderCompactPill = (item, onRemove) => (
-        <View key={item} style={styles.compactPill}>
-            <Text style={styles.compactPillText}>{item}</Text>
-            <TouchableOpacity
-                onPress={() => onRemove(item)}
-                style={styles.compactPillRemove}
-            >
-                <X />
-            </TouchableOpacity>
-        </View>
-    )
 
     const renderStepContent = () => {
         switch (step) {
             case 1:
                 return (
                     <Animated.View style={[styles.stepContainer, { opacity: fadeAnim }]}>
-                        <View style={styles.compactGrid}>
+                        <View style={styles.singleSelectGrid}>
                             {cuisineOptions.map(option => (
                                 <TouchableOpacity
                                     key={option.label}
                                     style={[
-                                        styles.compactCard,
-                                        selectedCuisines.includes(option.label) && styles.compactCardSelected
+                                        styles.singleSelectCard,
+                                        selectedCuisine === option.label && styles.singleSelectCardSelected
                                     ]}
-                                    onPress={() => toggleCuisine(option.label)}
+                                    onPress={() => handleCuisineSelect(option.label)}
                                 >
-                                    <Text style={styles.compactEmoji}>{option.emoji}</Text>
+                                    <option.icon color="#fff" size={24} style={{ marginBottom: 8 }} />
                                     <Text style={[
-                                        styles.compactLabel,
-                                        selectedCuisines.includes(option.label) && styles.compactLabelSelected
+                                        styles.singleSelectLabel,
+                                        selectedCuisine === option.label && styles.singleSelectLabelSelected
                                     ]}>
                                         {option.label}
                                     </Text>
+                                    <Text style={styles.singleSelectDesc}>{option.desc}</Text>
                                 </TouchableOpacity>
                             ))}
                         </View>
-
-                        <View style={styles.customSection}>
-                            <View style={styles.customInputRow}>
-                                <TextInput
-                                    style={styles.customInput}
-                                    placeholder="Add custom cuisine..."
-                                    placeholderTextColor="#999"
-                                    value={otherCuisine}
-                                    onChangeText={setOtherCuisine}
-                                    returnKeyType="done"
-                                    onSubmitEditing={addCustomCuisine}
-                                />
-                                <TouchableOpacity
-                                    style={[
-                                        styles.customAddButton,
-                                        !otherCuisine.trim() && styles.customAddButtonDisabled
-                                    ]}
-                                    onPress={addCustomCuisine}
-                                    disabled={!otherCuisine.trim()}
-                                >
-                                    <Plus />
-                                </TouchableOpacity>
-                            </View>
-                        </View>
-
-                        {selectedCuisines.length > 0 && (
-                            <View style={styles.selectedContainer}>
-                                <Text style={styles.selectedTitle}>Selected:</Text>
-                                <View style={styles.compactPillContainer}>
-                                    {selectedCuisines.map(cuisine =>
-                                        renderCompactPill(cuisine, (item) => removePill(item, setSelectedCuisines))
-                                    )}
-                                </View>
-                            </View>
-                        )}
                     </Animated.View>
                 )
 
             case 2:
                 return (
                     <Animated.View style={[styles.stepContainer, { opacity: fadeAnim }]}>
-                        <View style={styles.compactGrid}>
+                        <View style={styles.singleSelectGrid}>
                             {atmosphereOptions.map(option => (
                                 <TouchableOpacity
                                     key={option.label}
                                     style={[
-                                        styles.compactCard,
-                                        selectedAtmospheres.includes(option.label) && styles.compactCardSelected
+                                        styles.singleSelectCard,
+                                        selectedAtmosphere === option.label && styles.singleSelectCardSelected
                                     ]}
-                                    onPress={() => toggleAtmosphere(option.label)}
+                                    onPress={() => handleAtmosphereSelect(option.label)}
                                 >
-                                    <Text style={styles.compactEmoji}>{option.emoji}</Text>
+                                    <option.icon color="#fff" size={24} style={{ marginBottom: 8 }} />
                                     <Text style={[
-                                        styles.compactLabel,
-                                        selectedAtmospheres.includes(option.label) && styles.compactLabelSelected
+                                        styles.singleSelectLabel,
+                                        selectedAtmosphere === option.label && styles.singleSelectLabelSelected
                                     ]}>
                                         {option.label}
                                     </Text>
+                                    <Text style={styles.singleSelectDesc}>{option.desc}</Text>
                                 </TouchableOpacity>
                             ))}
                         </View>
-
-                        <View style={styles.customSection}>
-                            <View style={styles.customInputRow}>
-                                <TextInput
-                                    style={styles.customInput}
-                                    placeholder="Add custom atmosphere..."
-                                    placeholderTextColor="#999"
-                                    value={otherAtmosphere}
-                                    onChangeText={setOtherAtmosphere}
-                                    returnKeyType="done"
-                                    onSubmitEditing={addCustomAtmosphere}
-                                />
-                                <TouchableOpacity
-                                    style={[
-                                        styles.customAddButton,
-                                        !otherAtmosphere.trim() && styles.customAddButtonDisabled
-                                    ]}
-                                    onPress={addCustomAtmosphere}
-                                    disabled={!otherAtmosphere.trim()}
-                                >
-                                    <Plus />
-                                </TouchableOpacity>
-                            </View>
-                        </View>
-
-                        {selectedAtmospheres.length > 0 && (
-                            <View style={styles.selectedContainer}>
-                                <Text style={styles.selectedTitle}>Selected:</Text>
-                                <View style={styles.compactPillContainer}>
-                                    {selectedAtmospheres.map(atmosphere =>
-                                        renderCompactPill(atmosphere, (item) => removePill(item, setSelectedAtmospheres))
-                                    )}
-                                </View>
-                            </View>
-                        )}
                     </Animated.View>
                 )
 
             case 3:
                 return (
                     <Animated.View style={[styles.stepContainer, { opacity: fadeAnim }]}>
-                        <View style={styles.budgetGrid}>
+                        <View style={styles.singleSelectGrid}>
                             {budgetOptions.map(option => (
                                 <TouchableOpacity
                                     key={option.label}
                                     style={[
-                                        styles.budgetCard,
-                                        selectedBudget === option.label && styles.budgetCardSelected
+                                        styles.singleSelectCard,
+                                        selectedBudget === option.label && styles.singleSelectCardSelected
                                     ]}
                                     onPress={() => setSelectedBudget(option.label)}
                                 >
-                                    <Text style={styles.budgetEmoji}>{option.emoji}</Text>
+                                    <option.icon color="#fff" size={24} style={{ marginBottom: 8 }} />
                                     <Text style={[
-                                        styles.budgetLabel,
-                                        selectedBudget === option.label && styles.budgetLabelSelected
+                                        styles.singleSelectLabel,
+                                        selectedBudget === option.label && styles.singleSelectLabelSelected
                                     ]}>
                                         {option.label}
                                     </Text>
-                                    <Text style={styles.budgetDesc}>{option.desc}</Text>
+                                    <Text style={styles.singleSelectDesc}>{option.desc}</Text>
                                 </TouchableOpacity>
                             ))}
                         </View>
@@ -598,7 +484,7 @@ export default function CuisineResponseForm({
                 return (
                     <Animated.View style={[styles.stepContainer, { opacity: fadeAnim }]}>
                         <TextInput
-                            style={styles.dietaryInput}
+                            style={styles.notesInput}
                             placeholder="e.g., Vegetarian, No nuts, Gluten-free, Keto..."
                             placeholderTextColor="#999"
                             value={dietary}
@@ -685,7 +571,7 @@ export default function CuisineResponseForm({
                                             style={styles.removeButton}
                                             onPress={() => removeAvailability(date)}
                                         >
-                                            <X />
+                                            <X color="#cc31e8" size={12} />
                                         </TouchableOpacity>
                                     </View>
                                 ))}
@@ -880,6 +766,46 @@ const styles = StyleSheet.create({
         color: '#cc31e8',
     },
 
+    singleSelectGrid: {
+        gap: 12,
+    },
+
+    singleSelectCard: {
+        backgroundColor: 'rgba(255, 255, 255, 0.03)',
+        borderWidth: 2,
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+        borderRadius: 12,
+        padding: 16,
+        alignItems: 'center',
+    },
+
+    singleSelectCardSelected: {
+        backgroundColor: 'rgba(204, 49, 232, 0.15)',
+        borderColor: '#cc31e8',
+        shadowColor: '#cc31e8',
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+    },
+
+    singleSelectLabel: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#fff',
+        marginBottom: 4,
+        textAlign: 'center',
+    },
+
+    singleSelectLabelSelected: {
+        color: '#cc31e8',
+    },
+
+    singleSelectDesc: {
+        fontSize: 12,
+        color: '#999',
+        textAlign: 'center',
+    },
+
     budgetGrid: {
         gap: 12,
     },
@@ -1009,7 +935,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
 
-    dietaryInput: {
+    notesInput: {
         backgroundColor: 'rgba(255, 255, 255, 0.03)',
         borderWidth: 2,
         borderColor: 'rgba(255, 255, 255, 0.1)',
@@ -1017,7 +943,7 @@ const styles = StyleSheet.create({
         padding: 16,
         color: '#fff',
         fontSize: 16,
-        minHeight: 100,
+        minHeight: 120,
         textAlignVertical: 'top',
     },
 
@@ -1214,8 +1140,4 @@ const styles = StyleSheet.create({
         fontWeight: '700',
     },
 
-    miniIcon: {
-        fontSize: 12,
-        color: '#cc31e8',
-    },
 })

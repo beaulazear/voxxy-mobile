@@ -21,15 +21,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient'
 import {
     Users,
-    Clock,
-    MessageSquare,
-    Edit3,
-    Home,
-    UserPlus,
-    Sun,
-    Sunset,
-    Moon,
-    Zap
+    UserPlus
 } from 'lucide-react-native'
 import { API_URL } from '../config'
 import { logger } from '../utils/logger';
@@ -38,24 +30,18 @@ export default function GameNightChat({ visible, onClose }) {
     const { user, setUser } = useContext(UserContext)
 
     const [step, setStep] = useState(1)
-    const totalSteps = 2
+    const totalSteps = 1
 
     const percent = (step / totalSteps) * 100
 
     // Step 1: Group Size
     const [groupSize, setGroupSize] = useState('')
 
-    // Step 2: Time of Day
-    const [timeOfDay, setTimeOfDay] = useState('')
 
     const headers = [
         {
             title: 'How large is your group?',
             subtitle: 'Select one option.',
-        },
-        {
-            title: 'When will it happen?',
-            subtitle: 'Choose the vibe for your game night.',
         },
     ]
 
@@ -88,30 +74,14 @@ export default function GameNightChat({ visible, onClose }) {
         }
     ]
 
-    const timeOfDayOptions = [
-        { value: 'morning game session', label: 'Morning Session', icon: Sun },
-        { value: 'afternoon gaming', label: 'Afternoon Gaming', icon: Sunset },
-        { value: 'evening game night', label: 'Evening Game Night', icon: Moon },
-        { value: 'late night gaming', label: 'Late Night Gaming', icon: Zap }
-    ]
 
-    // Auto-advance for smooth UX
     const handleGroupSizeSelect = (size) => {
         setGroupSize(size)
-        // Auto-advance after a short delay for smooth UX
-        setTimeout(() => {
-            setStep(2)
-        }, 300)
     }
 
-    const handleTimeOfDaySelect = (time) => {
-        setTimeOfDay(time)
-        // Don't auto-advance since this is the last step now
-    }
 
     const isNextDisabled = () => {
         if (step === 1) return !groupSize
-        if (step === 2) return !timeOfDay
         return false
     }
 
@@ -142,9 +112,9 @@ export default function GameNightChat({ visible, onClose }) {
             date_day: 'TBD',
             date_time: 'TBD',
             activity_name: 'Game Night',
-            welcome_message: 'Someone wants you to submit your preferences! Help them plan the perfect game night with your group of friends.',
+            welcome_message: `${user?.name || 'Someone'} wants you to submit your preferences! Help them plan the perfect game night with your group of friends.`,
             allow_participant_time_selection: false,
-            date_notes: timeOfDay,
+            date_notes: 'TBD',
             participants: [],
             collecting: true
         }
@@ -198,73 +168,39 @@ export default function GameNightChat({ visible, onClose }) {
     )
 
     const renderStepContent = () => {
-        switch (step) {
-            case 1:
-                return (
-                    <View style={FormStyles.section}>
-                        <View style={[FormStyles.mobileGrid, { gap: 16 }]}>
-                            {groupSizeOptions.map((option) => (
-                                <View key={option.value} style={[FormStyles.mobileGridItem, { aspectRatio: 1 }]}>
-                                    <GradientCard
-                                        selected={groupSize === option.value}
-                                        onPress={() => handleGroupSizeSelect(option.value)}
-                                        style={{
-                                            flex: 1,
-                                            minHeight: 0, // Let aspectRatio control height
-                                            padding: 16,
-                                            justifyContent: 'center'
-                                        }}
-                                    >
-                                        <option.icon color="#fff" size={28} style={{ marginBottom: 6 }} />
-                                        <Text style={[FormStyles.cardLabel, { fontSize: 14, marginBottom: 2 }]}>{option.label}</Text>
-                                        <Text style={[FormStyles.cardSubtitle, { fontSize: 11 }]}>{option.subtitle}</Text>
-                                    </GradientCard>
-                                </View>
-                            ))}
+        return (
+            <View style={FormStyles.section}>
+                <View style={[FormStyles.mobileGrid, { gap: 16 }]}>
+                    {groupSizeOptions.map((option) => (
+                        <View key={option.value} style={[FormStyles.mobileGridItem, { aspectRatio: 1 }]}>
+                            <GradientCard
+                                selected={groupSize === option.value}
+                                onPress={() => handleGroupSizeSelect(option.value)}
+                                style={{
+                                    flex: 1,
+                                    minHeight: 0, // Let aspectRatio control height
+                                    padding: 16,
+                                    justifyContent: 'center'
+                                }}
+                            >
+                                <option.icon color="#fff" size={28} style={{ marginBottom: 6 }} />
+                                <Text style={[FormStyles.cardLabel, { fontSize: 14, marginBottom: 2 }]}>{option.label}</Text>
+                                <Text style={[FormStyles.cardSubtitle, { fontSize: 11 }]}>{option.subtitle}</Text>
+                            </GradientCard>
                         </View>
-                    </View>
-                )
-
-            case 2:
-                // Time of day selection only
-                return (
-                    <View style={FormStyles.section}>
-                        <View style={[FormStyles.mobileGrid, { gap: 16 }]}>
-                            {timeOfDayOptions.map((option) => (
-                                <View key={option.value} style={[FormStyles.mobileGridItem, { aspectRatio: 1 }]}>
-                                    <GradientTimeCard
-                                        selected={timeOfDay === option.value}
-                                        onPress={() => handleTimeOfDaySelect(option.value)}
-                                        style={{
-                                            flex: 1,
-                                            minHeight: 0, // Let aspectRatio control height
-                                            padding: 16,
-                                            justifyContent: 'center'
-                                        }}
-                                    >
-                                        <option.icon color="#fff" size={20} style={{ marginBottom: 6 }} />
-                                        <Text style={[FormStyles.timeCardText, { fontSize: 14, textAlign: 'center' }]}>
-                                            {option.label}
-                                        </Text>
-                                    </GradientTimeCard>
-                                </View>
-                            ))}
-                        </View>
-                        <Text style={[FormStyles.labelText, {
-                            textAlign: 'center',
-                            color: '#aaa',
-                            fontSize: 14,
-                            marginTop: 20,
-                            lineHeight: 20
-                        }]}>
-                            📅 Specific date and time will be decided later
-                        </Text>
-                    </View>
-                )
-
-            default:
-                return null
-        }
+                    ))}
+                </View>
+                <Text style={[FormStyles.labelText, {
+                    textAlign: 'center',
+                    color: '#aaa',
+                    fontSize: 14,
+                    marginTop: 20,
+                    lineHeight: 20
+                }]}>
+                    📅 Date, time and games will be decided later
+                </Text>
+            </View>
+        )
     }
 
     return (

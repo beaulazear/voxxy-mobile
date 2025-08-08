@@ -752,9 +752,9 @@ export default function HomeScreen({ route }) {
     })
     
     
-    // For Favorites, only show 3 most recent
-    if (filter === 'Favorites' && sortedData.length > 3) {
-      return sortedData.slice(0, 3)
+    // For Favorites, only show 5 most recent
+    if (filter === 'Favorites' && sortedData.length > 5) {
+      return sortedData.slice(0, 5)
     }
 
     return sortedData
@@ -882,6 +882,18 @@ export default function HomeScreen({ route }) {
           {item.price_range && (
             <View style={styles.favoriteCardMeta}>
               <Text style={styles.favoriteCardPrice}>{item.price_range}</Text>
+            </View>
+          )}
+          
+          {/* Saved on date */}
+          {item.created_at && (
+            <View style={styles.favoriteCardMeta}>
+              <Text style={styles.favoriteCardDate}>
+                Saved {new Date(item.created_at).toLocaleDateString('en-US', {
+                  month: 'short',
+                  day: 'numeric'
+                })}
+              </Text>
             </View>
           )}
         </View>
@@ -1012,7 +1024,16 @@ export default function HomeScreen({ route }) {
 
         {/* Right: Status */}
         <View style={styles.listItemStatus}>
-          <Text style={[styles.listItemStatusText, { color: statusColor }]}>
+          {isInvite && statusIcon && (
+            <View style={[styles.listItemStatusIcon, { backgroundColor: statusColor + '20' }]}>
+              {React.createElement(statusIcon, { color: statusColor, size: 16, strokeWidth: 2.5 })}
+            </View>
+          )}
+          <Text style={[
+            styles.listItemStatusText, 
+            { color: statusColor },
+            isInvite && styles.listItemInviteStatusText
+          ]}>
             {statusText}
           </Text>
         </View>
@@ -1068,6 +1089,15 @@ export default function HomeScreen({ route }) {
             )}
             {item.price_range && (
               <Text style={styles.listItemPrice}>{item.price_range}</Text>
+            )}
+            {/* Saved on date */}
+            {item.created_at && (
+              <Text style={styles.listItemSavedDate}>
+                Saved {new Date(item.created_at).toLocaleDateString('en-US', {
+                  month: 'short',
+                  day: 'numeric'
+                })}
+              </Text>
             )}
           </View>
         </View>
@@ -1487,6 +1517,19 @@ export default function HomeScreen({ route }) {
                   {selectedFavorite.title}
                 </Text>
                 
+                {/* Saved on date */}
+                {selectedFavorite.created_at && (
+                  <View style={styles.modalSavedOnSection}>
+                    <Text style={styles.modalSavedOnText}>
+                      Saved on {new Date(selectedFavorite.created_at).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'long', 
+                        day: 'numeric'
+                      })}
+                    </Text>
+                  </View>
+                )}
+                
                 {selectedFavorite.description && (
                   <View style={styles.modalSection}>
                     <Text style={styles.modalSectionTitle}>Description</Text>
@@ -1629,6 +1672,16 @@ export default function HomeScreen({ route }) {
                       <View style={styles.favoritePriceContainer}>
                         <Text style={styles.favoritePriceText}>{item.price_range}</Text>
                       </View>
+                    )}
+                    {/* Saved on date */}
+                    {item.created_at && (
+                      <Text style={styles.modalSavedDate}>
+                        Saved on {new Date(item.created_at).toLocaleDateString('en-US', {
+                          year: 'numeric',
+                          month: 'long', 
+                          day: 'numeric'
+                        })}
+                      </Text>
                     )}
                   </View>
                   <View style={styles.favoriteActions}>
@@ -2710,6 +2763,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
+  favoriteCardDate: {
+    color: 'rgba(212, 175, 55, 0.8)',
+    fontSize: 11,
+    fontWeight: '500',
+    fontStyle: 'italic',
+  },
 
   // Modal Styles
   modalContainer: {
@@ -2774,6 +2833,16 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginBottom: 20,
     textAlign: 'center',
+  },
+  modalSavedOnSection: {
+    marginBottom: 20,
+    alignItems: 'center',
+  },
+  modalSavedOnText: {
+    color: 'rgba(212, 175, 55, 0.9)',
+    fontSize: 14,
+    fontWeight: '500',
+    fontStyle: 'italic',
   },
 
   modalSection: {
@@ -3053,8 +3122,14 @@ const styles = StyleSheet.create({
   },
 
   listItemInvite: {
-    borderColor: 'rgba(211, 148, 245, 0.4)',
-    backgroundColor: 'rgba(211, 148, 245, 0.05)',
+    borderColor: 'rgba(211, 148, 245, 0.6)',
+    borderWidth: 2,
+    backgroundColor: 'rgba(211, 148, 245, 0.08)',
+    shadowColor: 'rgba(211, 148, 245, 0.5)',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 1,
+    shadowRadius: 12,
+    elevation: 8,
   },
 
   userOwnedListItem: {
@@ -3145,11 +3220,33 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
+  listItemSavedDate: {
+    color: 'rgba(212, 175, 55, 0.8)',
+    fontSize: 11,
+    fontWeight: '500',
+    fontStyle: 'italic',
+  },
+  modalSavedDate: {
+    color: 'rgba(212, 175, 55, 0.8)',
+    fontSize: 11,
+    fontWeight: '500',
+    fontStyle: 'italic',
+    marginTop: 4,
+  },
 
   listItemStatus: {
     alignItems: 'flex-end',
     justifyContent: 'center',
     minWidth: 80,
+    gap: 4,
+  },
+
+  listItemStatusIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   listItemStatusText: {
@@ -3158,6 +3255,15 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+  },
+
+  listItemInviteStatusText: {
+    fontSize: 13,
+    fontWeight: '800',
+    shadowColor: 'currentColor',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.3,
+    shadowRadius: 2,
   },
 
   // Host tag styles

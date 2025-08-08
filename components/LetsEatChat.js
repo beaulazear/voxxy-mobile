@@ -257,7 +257,7 @@ export default function LetsEatChat({ visible, onClose }) {
             date_day: 'TBD',
             date_time: 'TBD',
             activity_name: 'Food',
-            welcome_message: 'Someone wants you to submit your preferences! Help them plan the perfect meal with your group of friends.',
+            welcome_message: `${user?.name || 'Someone'} wants you to submit your preferences! Help them plan the perfect meal with your group of friends.`,
             allow_participant_time_selection: false,
             date_notes: timeOfDay,
             participants: [],

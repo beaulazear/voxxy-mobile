@@ -20,27 +20,32 @@ import {
     GradientCard,
     gradientConfigs
 } from '../styles/FormStyles'
+import {
+    Gamepad2,
+    Dice6,
+    CreditCard,
+    Users,
+    Brain,
+    Shuffle,
+    Trophy,
+    Target,
+    Smile,
+    HandHeart,
+    Zap,
+    Clock3,
+    Timer,
+    Calendar,
+    Monitor,
+    Smartphone,
+    Layers
+} from 'lucide-react-native'
 import { UserContext } from '../context/UserContext'
 import { API_URL } from '../config'
 import { logger } from '../utils/logger';
 
 const { width: screenWidth } = Dimensions.get('window')
 
-// Minimalist icon components
-const Gamepad = () => <Text style={styles.miniIcon}>🎮</Text>
-const Monitor = () => <Text style={styles.miniIcon}>🖥️</Text>
-const Dice = () => <Text style={styles.miniIcon}>🎲</Text>
-const Target = () => <Text style={styles.miniIcon}>🎯</Text>
-const Heart = () => <Text style={styles.miniIcon}>❤️</Text>
-const Trophy = () => <Text style={styles.miniIcon}>🏆</Text>
-const Timer = () => <Text style={styles.miniIcon}>⏰</Text>
-const Smile = () => <Text style={styles.miniIcon}>😊</Text>
-const Plus = () => <Text style={styles.miniIcon}>+</Text>
-const Calendar = () => <Text style={styles.miniIcon}>📅</Text>
-const Clock = () => <Text style={styles.miniIcon}>🕐</Text>
-const Users = () => <Text style={styles.miniIcon}>👥</Text>
 const X = () => <Text style={styles.miniIcon}>×</Text>
-const Message = () => <Text style={styles.miniIcon}>💬</Text>
 
 export default function GameNightResponseForm({
     visible,
@@ -59,111 +64,64 @@ export default function GameNightResponseForm({
 
     // Dynamic total steps based on whether availability is needed
     const getTotalSteps = () => {
-        return activity?.allow_participant_time_selection ? 10 : 9
+        return activity?.allow_participant_time_selection ? 6 : 5
     }
 
     const percent = (step / getTotalSteps()) * 100
 
     // Form state
     const [gameType, setGameType] = useState('')
-    const [consoles, setConsoles] = useState([])
-    const [traditionalGames, setTraditionalGames] = useState([])
-    const [customGames, setCustomGames] = useState([])
-    const [newGameInput, setNewGameInput] = useState('')
-    const [gameGenres, setGameGenres] = useState([])
-    const [playStyle, setPlayStyle] = useState('')
     const [competitiveness, setCompetitiveness] = useState('')
-    const [duration, setDuration] = useState(60)
-    const [atmosphere, setAtmosphere] = useState('')
-    const [experienceLevel, setExperienceLevel] = useState('')
-    const [additionalNotes, setAdditionalNotes] = useState('')
+    const [complexity, setComplexity] = useState('')
+    const [duration, setDuration] = useState('')
+    const [setup, setSetup] = useState('')
     const [availability, setAvailability] = useState({})
     const [selectedDate, setSelectedDate] = useState('')
     const [selectedTimes, setSelectedTimes] = useState([])
 
     // Game night options
     const gameTypeOptions = [
-        { label: 'Video Games', emoji: '🎮', desc: 'Console, PC, mobile' },
-        { label: 'Board Games', emoji: '🎲', desc: 'Traditional tabletop' },
-        { label: 'Card Games', emoji: '🃏', desc: 'Playing cards, etc.' },
-        { label: 'Open to All', emoji: '✨', desc: 'Any type of game' }
-    ]
-
-    const consoleOptions = [
-        { label: 'PlayStation 5', emoji: '🎮' },
-        { label: 'PlayStation 4', emoji: '🎮' },
-        { label: 'Xbox Series X/S', emoji: '🎮' },
-        { label: 'Xbox One', emoji: '🎮' },
-        { label: 'Nintendo Switch', emoji: '🎮' },
-        { label: 'PC Gaming', emoji: '💻' },
-        { label: 'Steam Deck', emoji: '🎮' },
-        { label: 'Mobile Games', emoji: '📱' },
-        { label: 'Retro Consoles', emoji: '🕹️' },
-        { label: 'None Available', emoji: '❌' }
-    ]
-
-    const traditionalGameOptions = [
-        { label: 'Classic Board Games', emoji: '🎲' },
-        { label: 'Strategy Board Games', emoji: '♟️' },
-        { label: 'Party Board Games', emoji: '🎉' },
-        { label: 'Card Games (Poker, etc.)', emoji: '🃏' },
-        { label: 'Jackbox Games', emoji: '📺' },
-        { label: 'Trivia Games', emoji: '🧠' },
-        { label: 'Puzzle Games', emoji: '🧩' },
-        { label: 'Cooperative Games', emoji: '🤝' },
-        { label: 'Role-Playing Games', emoji: '⚔️' }
-    ]
-
-    const genreOptions = [
-        { label: 'Strategy', emoji: '♟️' },
-        { label: 'Party Games', emoji: '🎉' },
-        { label: 'Cooperative', emoji: '🤝' },
-        { label: 'Competitive', emoji: '🏆' },
-        { label: 'Card Games', emoji: '🃏' },
-        { label: 'Trivia & Quizzes', emoji: '❓' },
-        { label: 'Puzzle Games', emoji: '🧩' },
-        { label: 'Action Games', emoji: '⚡' },
-        { label: 'Role-Playing', emoji: '⚔️' },
-        { label: 'Social Deduction', emoji: '🕵️' },
-        { label: 'Word Games', emoji: '📝' },
-        { label: 'Drawing Games', emoji: '🎨' }
-    ]
-
-    const playStyleOptions = [
-        { label: 'Work Together', emoji: '🤝', desc: 'Cooperative games' },
-        { label: 'Friendly Competition', emoji: '😊', desc: 'Light competitive fun' },
-        { label: 'Mix of Both', emoji: '⚖️', desc: 'Variety throughout night' }
+        { label: 'Video games', icon: Gamepad2, desc: 'Console, PC, mobile' },
+        { label: 'Board games', icon: Dice6, desc: 'Traditional tabletop' },
+        { label: 'Card games', icon: CreditCard, desc: 'Playing cards, poker' },
+        { label: 'Party games', icon: Users, desc: 'Group party games' },
+        { label: 'Trivia', icon: Brain, desc: 'Quiz and knowledge games' },
+        { label: 'Mix of everything', icon: Shuffle, desc: 'Any type of game' }
     ]
 
     const competitivenessOptions = [
-        { label: 'Casual and Relaxed', emoji: '😌', desc: 'Just for fun' },
-        { label: 'Moderately Competitive', emoji: '🎯', desc: 'We like to win' },
-        { label: 'Highly Competitive', emoji: '🔥', desc: 'Victory at all costs' }
+        { label: 'Ultra competitive - I play to win', icon: Trophy, desc: 'Victory is everything' },
+        { label: 'Moderately competitive', icon: Target, desc: 'I like to win but have fun' },
+        { label: 'Just for fun', icon: Smile, desc: 'Relaxed and casual' },
+        { label: 'Prefer cooperative games', icon: HandHeart, desc: 'Work together, not compete' },
+        { label: "Don't care about winning", icon: Zap, desc: 'Just here for the experience' }
     ]
 
-    const atmosphereOptions = [
-        { label: 'High Energy', emoji: '⚡', desc: 'Fast-paced & exciting' },
-        { label: 'Chill and Relaxed', emoji: '😎', desc: 'Laid-back vibes' },
-        { label: 'Focused and Strategic', emoji: '🧠', desc: 'Deep thinking games' }
+    const complexityOptions = [
+        { label: 'Simple and quick', icon: Zap, desc: 'Easy to learn and play' },
+        { label: 'Medium complexity', icon: Target, desc: 'Some strategy involved' },
+        { label: 'Complex strategy games', icon: Brain, desc: 'Deep thinking required' },
+        { label: 'Mix of simple and complex', icon: Shuffle, desc: 'Variety throughout night' },
+        { label: 'Whatever the group wants', icon: Users, desc: 'Go with the flow' }
     ]
 
-    const experienceOptions = [
-        { label: 'Beginner Friendly', emoji: '🌱', desc: 'New to gaming' },
-        { label: 'Intermediate', emoji: '🎯', desc: 'Some gaming experience' },
-        { label: 'Advanced', emoji: '🏆', desc: 'Experienced gamers' },
-        { label: 'Mixed Skill Levels', emoji: '🌈', desc: 'Variety in our group' }
-    ]
-
-    // Duration options to replace the slider
     const durationOptions = [
-        { value: 30, label: '30 minutes', emoji: '⏱️' },
-        { value: 60, label: '1 hour', emoji: '🕐' },
-        { value: 90, label: '1.5 hours', emoji: '🕐' },
-        { value: 120, label: '2 hours', emoji: '🕑' },
-        { value: 150, label: '2.5 hours', emoji: '🕑' },
-        { value: 180, label: '3 hours', emoji: '🕒' },
-        { value: 240, label: '4+ hours', emoji: '🕓' }
+        { label: 'Quick games (30 min)', icon: Zap, desc: 'Short and sweet' },
+        { label: 'Medium sessions (1-2 hours)', icon: Clock3, desc: 'Standard gaming time' },
+        { label: 'Long sessions (3+ hours)', icon: Timer, desc: 'Extended gameplay' },
+        { label: 'All day gaming', icon: Calendar, desc: 'Epic gaming marathon' },
+        { label: 'Flexible timing', icon: Shuffle, desc: 'Go with the flow' }
     ]
+
+    const setupOptions = [
+        { label: 'Console gaming', icon: Gamepad2, desc: 'Xbox, PlayStation, Nintendo' },
+        { label: 'PC gaming', icon: Monitor, desc: 'Computer gaming setup' },
+        { label: 'Mobile games', icon: Smartphone, desc: 'Phone and tablet games' },
+        { label: 'Traditional tabletop', icon: Dice6, desc: 'Board games and cards' },
+        { label: 'Mix of digital and physical', icon: Layers, desc: 'Best of both worlds' },
+        { label: 'No preference', icon: Shuffle, desc: 'Open to anything' }
+    ]
+
 
     // Evening time slots for game nights
     const timeSlots = [
@@ -215,50 +173,30 @@ export default function GameNightResponseForm({
         switch (step) {
             case 1:
                 return {
-                    title: 'Game Type Preference',
-                    subtitle: 'What type of games interest you most?'
+                    title: 'What type of games do you enjoy most?',
+                    subtitle: 'Select your preferred game category'
                 }
             case 2:
                 return {
-                    title: 'Gaming Platforms',
-                    subtitle: 'Which consoles or platforms do you have?'
+                    title: 'How competitive are you?',
+                    subtitle: 'Tell us about your competitive spirit'
                 }
             case 3:
                 return {
-                    title: 'Game Collection',
-                    subtitle: 'What games do you own or want to try?'
+                    title: "What's your preferred game complexity?",
+                    subtitle: 'How complex do you like your games?'
                 }
             case 4:
                 return {
-                    title: 'Favorite Genres',
-                    subtitle: 'What game styles do you enjoy?'
+                    title: 'How long do you want to play?',
+                    subtitle: 'What duration works best for you?'
                 }
             case 5:
                 return {
-                    title: 'Play Style',
-                    subtitle: 'How do you prefer to play?'
+                    title: "What's your gaming setup preference?",
+                    subtitle: 'Which platforms do you prefer?'
                 }
             case 6:
-                return {
-                    title: 'Competitiveness',
-                    subtitle: 'How competitive is your group?'
-                }
-            case 7:
-                return {
-                    title: 'Session & Atmosphere',
-                    subtitle: 'How long and what vibe?'
-                }
-            case 8:
-                return {
-                    title: 'Experience Level',
-                    subtitle: "What's your group's gaming level?"
-                }
-            case 9:
-                return {
-                    title: 'Additional Preferences',
-                    subtitle: 'Any special requests or notes?'
-                }
-            case 10:
                 return {
                     title: 'Your Availability',
                     subtitle: 'When can you join the game night?'
@@ -269,35 +207,6 @@ export default function GameNightResponseForm({
     }
 
     // Handlers
-    const toggleMultiSelect = (item, currentArray, setter) => {
-        if (currentArray.includes(item)) {
-            setter(currentArray.filter(i => i !== item))
-        } else {
-            setter([...currentArray, item])
-        }
-    }
-
-    const addCustomGame = () => {
-        const trimmed = newGameInput.trim()
-        if (!trimmed || customGames.includes(trimmed)) return
-        setCustomGames([...customGames, trimmed])
-        setNewGameInput('')
-        Keyboard.dismiss()
-    }
-
-    const removeCustomGame = (gameToRemove) => {
-        setCustomGames(customGames.filter(game => game !== gameToRemove))
-    }
-
-    const formatDuration = (minutes) => {
-        if (minutes < 60) return `${minutes} minutes`
-        if (minutes === 60) return '1 hour'
-        if (minutes < 120) return `${minutes} minutes`
-        if (minutes === 120) return '2 hours'
-        if (minutes === 180) return '3 hours'
-        if (minutes === 240) return '4+ hours'
-        return `${Math.floor(minutes / 60)} hours`
-    }
 
     // Availability handlers
     const handleDateChange = (date) => {
@@ -331,23 +240,16 @@ export default function GameNightResponseForm({
         })
     }
 
-    const removePill = (item, setter) => {
-        setter(prev => prev.filter(i => i !== item))
-    }
 
     // Validation
     const isNextDisabled = () => {
         switch (step) {
             case 1: return gameType === ''
-            case 2: return false // Optional
-            case 3: return false // Optional
-            case 4: return gameGenres.length === 0
-            case 5: return playStyle === ''
-            case 6: return competitiveness === ''
-            case 7: return atmosphere === ''
-            case 8: return experienceLevel === ''
-            case 9: return false // Optional
-            case 10: return activity?.allow_participant_time_selection && Object.keys(availability).length === 0
+            case 2: return competitiveness === ''
+            case 3: return complexity === ''
+            case 4: return duration === ''
+            case 5: return setup === ''
+            case 6: return activity?.allow_participant_time_selection && Object.keys(availability).length === 0
             default: return false
         }
     }
@@ -372,29 +274,12 @@ export default function GameNightResponseForm({
 
     // Submission
     const handleSubmit = async () => {
-        // Compile custom games with traditional games
-        const allTraditionalGames = [...traditionalGames]
-        if (customGames.length > 0) {
-            allTraditionalGames.push(`Custom Games: ${customGames.join(', ')}`)
-        }
-
-        const gameTypeText = gameType
-        const consolesText = consoles.length > 0 ? consoles.join(', ') : 'None specified'
-        const gamesText = allTraditionalGames.length > 0 ? allTraditionalGames.join(', ') : 'Open to suggestions'
-        const genresText = gameGenres.join(', ')
-        const notesText = additionalNotes || 'No additional preferences'
-
         const notes = `Game Night Preferences:
-🎮 Game Type: ${gameTypeText}
-🖥️ Consoles Available: ${consolesText}
-🎲 Traditional Games: ${gamesText}
-🎯 Favorite Genres: ${genresText}
-🤝 Play Style: ${playStyle}
+🎮 Game Type: ${gameType}
 🏆 Competitiveness: ${competitiveness}
-⏱️ Preferred Duration: ${formatDuration(duration)}
-🌟 Atmosphere: ${atmosphere}
-📊 Experience Level: ${experienceLevel}
-💭 Additional Notes: ${notesText}`.trim()
+🎯 Game Complexity: ${complexity}
+⏰ Session Duration: ${duration}
+🖥️ Gaming Setup: ${setup}`.trim()
 
         try {
             let endpoint, requestOptions
@@ -523,17 +408,6 @@ export default function GameNightResponseForm({
         </View>
     )
 
-    const renderCompactPill = (item, onRemove) => (
-        <View key={item} style={styles.compactPill}>
-            <Text style={styles.compactPillText}>{item}</Text>
-            <TouchableOpacity
-                onPress={() => onRemove(item)}
-                style={styles.compactPillRemove}
-            >
-                <X />
-            </TouchableOpacity>
-        </View>
-    )
 
     const renderStepContent = () => {
         switch (step) {
@@ -550,7 +424,7 @@ export default function GameNightResponseForm({
                                     ]}
                                     onPress={() => setGameType(option.label)}
                                 >
-                                    <Text style={styles.singleSelectEmoji}>{option.emoji}</Text>
+                                    <option.icon color="#fff" size={24} style={{ marginBottom: 8 }} />
                                     <Text style={[
                                         styles.singleSelectLabel,
                                         gameType === option.label && styles.singleSelectLabelSelected
@@ -567,187 +441,6 @@ export default function GameNightResponseForm({
             case 2:
                 return (
                     <Animated.View style={[styles.stepContainer, { opacity: fadeAnim }]}>
-                        <View style={styles.compactGrid}>
-                            {consoleOptions.map(option => (
-                                <TouchableOpacity
-                                    key={option.label}
-                                    style={[
-                                        styles.compactCard,
-                                        consoles.includes(option.label) && styles.compactCardSelected
-                                    ]}
-                                    onPress={() => toggleMultiSelect(option.label, consoles, setConsoles)}
-                                >
-                                    <Text style={styles.compactEmoji}>{option.emoji}</Text>
-                                    <Text style={[
-                                        styles.compactLabel,
-                                        consoles.includes(option.label) && styles.compactLabelSelected
-                                    ]}>
-                                        {option.label}
-                                    </Text>
-                                </TouchableOpacity>
-                            ))}
-                        </View>
-
-                        {consoles.length > 0 && (
-                            <View style={styles.selectedContainer}>
-                                <Text style={styles.selectedTitle}>Selected:</Text>
-                                <View style={styles.compactPillContainer}>
-                                    {consoles.map(console =>
-                                        renderCompactPill(console, (item) => removePill(item, setConsoles))
-                                    )}
-                                </View>
-                            </View>
-                        )}
-                    </Animated.View>
-                )
-
-            case 3:
-                return (
-                    <Animated.View style={[styles.stepContainer, { opacity: fadeAnim }]}>
-                        <View style={styles.compactGrid}>
-                            {traditionalGameOptions.map(option => (
-                                <TouchableOpacity
-                                    key={option.label}
-                                    style={[
-                                        styles.compactCard,
-                                        traditionalGames.includes(option.label) && styles.compactCardSelected
-                                    ]}
-                                    onPress={() => toggleMultiSelect(option.label, traditionalGames, setTraditionalGames)}
-                                >
-                                    <Text style={styles.compactEmoji}>{option.emoji}</Text>
-                                    <Text style={[
-                                        styles.compactLabel,
-                                        traditionalGames.includes(option.label) && styles.compactLabelSelected
-                                    ]}>
-                                        {option.label}
-                                    </Text>
-                                </TouchableOpacity>
-                            ))}
-                        </View>
-
-                        <View style={styles.customGameSection}>
-                            <Text style={styles.customGameTitle}>Specific Games You Own or Want to Play</Text>
-                            <View style={styles.customInputRow}>
-                                <TextInput
-                                    style={styles.customInput}
-                                    placeholder={gameType === 'Video Games' ?
-                                        "e.g., Mario Kart, Among Us, Rocket League..." :
-                                        "e.g., Codenames, Ticket to Ride, Uno, Monopoly..."}
-                                    placeholderTextColor="#999"
-                                    value={newGameInput}
-                                    onChangeText={setNewGameInput}
-                                    returnKeyType="done"
-                                    onSubmitEditing={addCustomGame}
-                                />
-                                <TouchableOpacity
-                                    style={[
-                                        styles.customAddButton,
-                                        !newGameInput.trim() && styles.customAddButtonDisabled
-                                    ]}
-                                    onPress={addCustomGame}
-                                    disabled={!newGameInput.trim()}
-                                >
-                                    <Plus />
-                                </TouchableOpacity>
-                            </View>
-
-                            {customGames.length > 0 && (
-                                <View style={styles.customGamesList}>
-                                    {customGames.map((game, index) => (
-                                        <View key={index} style={styles.customGameItem}>
-                                            <Text style={styles.customGameText}>{game}</Text>
-                                            <TouchableOpacity
-                                                style={styles.removeGameButton}
-                                                onPress={() => removeCustomGame(game)}
-                                            >
-                                                <X />
-                                            </TouchableOpacity>
-                                        </View>
-                                    ))}
-                                </View>
-                            )}
-                        </View>
-
-                        {traditionalGames.length > 0 && (
-                            <View style={styles.selectedContainer}>
-                                <Text style={styles.selectedTitle}>Selected Categories:</Text>
-                                <View style={styles.compactPillContainer}>
-                                    {traditionalGames.map(game =>
-                                        renderCompactPill(game, (item) => removePill(item, setTraditionalGames))
-                                    )}
-                                </View>
-                            </View>
-                        )}
-                    </Animated.View>
-                )
-
-            case 4:
-                return (
-                    <Animated.View style={[styles.stepContainer, { opacity: fadeAnim }]}>
-                        <View style={styles.compactGrid}>
-                            {genreOptions.map(option => (
-                                <TouchableOpacity
-                                    key={option.label}
-                                    style={[
-                                        styles.compactCard,
-                                        gameGenres.includes(option.label) && styles.compactCardSelected
-                                    ]}
-                                    onPress={() => toggleMultiSelect(option.label, gameGenres, setGameGenres)}
-                                >
-                                    <Text style={styles.compactEmoji}>{option.emoji}</Text>
-                                    <Text style={[
-                                        styles.compactLabel,
-                                        gameGenres.includes(option.label) && styles.compactLabelSelected
-                                    ]}>
-                                        {option.label}
-                                    </Text>
-                                </TouchableOpacity>
-                            ))}
-                        </View>
-
-                        {gameGenres.length > 0 && (
-                            <View style={styles.selectedContainer}>
-                                <Text style={styles.selectedTitle}>Selected:</Text>
-                                <View style={styles.compactPillContainer}>
-                                    {gameGenres.map(genre =>
-                                        renderCompactPill(genre, (item) => removePill(item, setGameGenres))
-                                    )}
-                                </View>
-                            </View>
-                        )}
-                    </Animated.View>
-                )
-
-            case 5:
-                return (
-                    <Animated.View style={[styles.stepContainer, { opacity: fadeAnim }]}>
-                        <View style={styles.singleSelectGrid}>
-                            {playStyleOptions.map(option => (
-                                <TouchableOpacity
-                                    key={option.label}
-                                    style={[
-                                        styles.singleSelectCard,
-                                        playStyle === option.label && styles.singleSelectCardSelected
-                                    ]}
-                                    onPress={() => setPlayStyle(option.label)}
-                                >
-                                    <Text style={styles.singleSelectEmoji}>{option.emoji}</Text>
-                                    <Text style={[
-                                        styles.singleSelectLabel,
-                                        playStyle === option.label && styles.singleSelectLabelSelected
-                                    ]}>
-                                        {option.label}
-                                    </Text>
-                                    <Text style={styles.singleSelectDesc}>{option.desc}</Text>
-                                </TouchableOpacity>
-                            ))}
-                        </View>
-                    </Animated.View>
-                )
-
-            case 6:
-                return (
-                    <Animated.View style={[styles.stepContainer, { opacity: fadeAnim }]}>
                         <View style={styles.singleSelectGrid}>
                             {competitivenessOptions.map(option => (
                                 <TouchableOpacity
@@ -758,7 +451,7 @@ export default function GameNightResponseForm({
                                     ]}
                                     onPress={() => setCompetitiveness(option.label)}
                                 >
-                                    <Text style={styles.singleSelectEmoji}>{option.emoji}</Text>
+                                    <option.icon color="#fff" size={24} style={{ marginBottom: 8 }} />
                                     <Text style={[
                                         styles.singleSelectLabel,
                                         competitiveness === option.label && styles.singleSelectLabelSelected
@@ -772,46 +465,50 @@ export default function GameNightResponseForm({
                     </Animated.View>
                 )
 
-            case 7:
+            case 3:
                 return (
                     <Animated.View style={[styles.stepContainer, { opacity: fadeAnim }]}>
-                        <Text style={styles.sectionSubtitle}>Preferred Session Length:</Text>
-                        <View style={styles.durationGrid}>
+                        <View style={styles.singleSelectGrid}>
+                            {complexityOptions.map(option => (
+                                <TouchableOpacity
+                                    key={option.label}
+                                    style={[
+                                        styles.singleSelectCard,
+                                        complexity === option.label && styles.singleSelectCardSelected
+                                    ]}
+                                    onPress={() => setComplexity(option.label)}
+                                >
+                                    <option.icon color="#fff" size={24} style={{ marginBottom: 8 }} />
+                                    <Text style={[
+                                        styles.singleSelectLabel,
+                                        complexity === option.label && styles.singleSelectLabelSelected
+                                    ]}>
+                                        {option.label}
+                                    </Text>
+                                    <Text style={styles.singleSelectDesc}>{option.desc}</Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+                    </Animated.View>
+                )
+
+            case 4:
+                return (
+                    <Animated.View style={[styles.stepContainer, { opacity: fadeAnim }]}>
+                        <View style={styles.singleSelectGrid}>
                             {durationOptions.map(option => (
                                 <TouchableOpacity
-                                    key={option.value}
-                                    style={[
-                                        styles.durationCard,
-                                        duration === option.value && styles.durationCardSelected
-                                    ]}
-                                    onPress={() => setDuration(option.value)}
-                                >
-                                    <Text style={styles.durationEmoji}>{option.emoji}</Text>
-                                    <Text style={[
-                                        styles.durationLabel,
-                                        duration === option.value && styles.durationLabelSelected
-                                    ]}>
-                                        {option.label}
-                                    </Text>
-                                </TouchableOpacity>
-                            ))}
-                        </View>
-
-                        <Text style={styles.sectionSubtitle}>What atmosphere do you prefer?</Text>
-                        <View style={styles.singleSelectGrid}>
-                            {atmosphereOptions.map(option => (
-                                <TouchableOpacity
                                     key={option.label}
                                     style={[
                                         styles.singleSelectCard,
-                                        atmosphere === option.label && styles.singleSelectCardSelected
+                                        duration === option.label && styles.singleSelectCardSelected
                                     ]}
-                                    onPress={() => setAtmosphere(option.label)}
+                                    onPress={() => setDuration(option.label)}
                                 >
-                                    <Text style={styles.singleSelectEmoji}>{option.emoji}</Text>
+                                    <option.icon color="#fff" size={24} style={{ marginBottom: 8 }} />
                                     <Text style={[
                                         styles.singleSelectLabel,
-                                        atmosphere === option.label && styles.singleSelectLabelSelected
+                                        duration === option.label && styles.singleSelectLabelSelected
                                     ]}>
                                         {option.label}
                                     </Text>
@@ -822,23 +519,23 @@ export default function GameNightResponseForm({
                     </Animated.View>
                 )
 
-            case 8:
+            case 5:
                 return (
                     <Animated.View style={[styles.stepContainer, { opacity: fadeAnim }]}>
                         <View style={styles.singleSelectGrid}>
-                            {experienceOptions.map(option => (
+                            {setupOptions.map(option => (
                                 <TouchableOpacity
                                     key={option.label}
                                     style={[
                                         styles.singleSelectCard,
-                                        experienceLevel === option.label && styles.singleSelectCardSelected
+                                        setup === option.label && styles.singleSelectCardSelected
                                     ]}
-                                    onPress={() => setExperienceLevel(option.label)}
+                                    onPress={() => setSetup(option.label)}
                                 >
-                                    <Text style={styles.singleSelectEmoji}>{option.emoji}</Text>
+                                    <option.icon color="#fff" size={24} style={{ marginBottom: 8 }} />
                                     <Text style={[
                                         styles.singleSelectLabel,
-                                        experienceLevel === option.label && styles.singleSelectLabelSelected
+                                        setup === option.label && styles.singleSelectLabelSelected
                                     ]}>
                                         {option.label}
                                     </Text>
@@ -849,25 +546,7 @@ export default function GameNightResponseForm({
                     </Animated.View>
                 )
 
-            case 9:
-                return (
-                    <Animated.View style={[styles.stepContainer, { opacity: fadeAnim }]}>
-                        <TextInput
-                            style={styles.notesInput}
-                            placeholder="Tell us about any specific games you want to play, snack preferences, accessibility needs, or anything else that would make this the perfect game night..."
-                            placeholderTextColor="#999"
-                            value={additionalNotes}
-                            onChangeText={setAdditionalNotes}
-                            multiline
-                            numberOfLines={6}
-                            textAlignVertical="top"
-                            returnKeyType="done"
-                            onSubmitEditing={() => Keyboard.dismiss()}
-                        />
-                    </Animated.View>
-                )
-
-            case 10:
+            case 6:
                 if (!activity?.allow_participant_time_selection) return null
 
                 return (
@@ -1160,10 +839,6 @@ const styles = StyleSheet.create({
         shadowRadius: 8,
     },
 
-    singleSelectEmoji: {
-        fontSize: 24,
-        marginBottom: 8,
-    },
 
     singleSelectLabel: {
         fontSize: 16,

@@ -20,23 +20,31 @@ import {
     GradientCard,
     gradientConfigs
 } from '../styles/FormStyles'
+import {
+    Wine,
+    Beer,
+    Coffee,
+    Utensils,
+    DollarSign,
+    Heart,
+    Music,
+    Users,
+    Flag,
+    PartyPopper,
+    Building,
+    Gamepad2,
+    Target,
+    CreditCard,
+    Crown,
+    Plus,
+    X
+} from 'lucide-react-native'
 import { UserContext } from '../context/UserContext'
 import { API_URL } from '../config'
 import { logger } from '../utils/logger';
 
 const { width: screenWidth } = Dimensions.get('window')
 
-// Minimalist icon components
-const Utensils = () => <Text style={styles.miniIcon}>🍴</Text>
-const Wine = () => <Text style={styles.miniIcon}>🍷</Text>
-const MapPin = () => <Text style={styles.miniIcon}>📍</Text>
-const DollarSign = () => <Text style={styles.miniIcon}>💰</Text>
-const Heart = () => <Text style={styles.miniIcon}>❤️</Text>
-const Plus = () => <Text style={styles.miniIcon}>+</Text>
-const Calendar = () => <Text style={styles.miniIcon}>📅</Text>
-const Clock = () => <Text style={styles.miniIcon}>🕐</Text>
-const Users = () => <Text style={styles.miniIcon}>👥</Text>
-const X = () => <Text style={styles.miniIcon}>×</Text>
 
 export default function NightOutResponseForm({
     visible,
@@ -61,11 +69,9 @@ export default function NightOutResponseForm({
     const percent = (step / getTotalSteps()) * 100
 
     // Form state
-    const [selectedDrinks, setSelectedDrinks] = useState(['Surprise me!'])
-    const [otherDrink, setOtherDrink] = useState('')
-    const [selectedAtmospheres, setSelectedAtmospheres] = useState([])
-    const [otherAtmosphere, setOtherAtmosphere] = useState('')
-    const [selectedBudget, setSelectedBudget] = useState('No preference')
+    const [selectedDrink, setSelectedDrink] = useState('')
+    const [selectedAtmosphere, setSelectedAtmosphere] = useState('')
+    const [selectedBudget, setSelectedBudget] = useState('')
     const [preferences, setPreferences] = useState(guestMode ? '' : (user?.preferences || ''))
     const [availability, setAvailability] = useState({})
     const [selectedDate, setSelectedDate] = useState('')
@@ -73,32 +79,32 @@ export default function NightOutResponseForm({
 
     // Night out options
     const drinkOptions = [
-        { label: 'Cocktails', emoji: '🍸' },
-        { label: 'Wine', emoji: '🍷' },
-        { label: 'Beer', emoji: '🍺' },
-        { label: 'Whiskey/Spirits', emoji: '🥃' },
-        { label: 'Champagne', emoji: '🥂' },
-        { label: 'Non-alcoholic', emoji: '🥤' },
-        { label: 'Surprise me!', emoji: '🎲' }
+        { label: 'Cocktails', icon: Wine, desc: 'Mixed drinks & cocktails' },
+        { label: 'Wine', icon: Wine, desc: 'Wine bars & tastings' },
+        { label: 'Beer', icon: Beer, desc: 'Craft beer & breweries' },
+        { label: 'Whiskey/Spirits', icon: Coffee, desc: 'Premium spirits' },
+        { label: 'Champagne', icon: Wine, desc: 'Bubbly & celebrations' },
+        { label: 'Non-alcoholic', icon: Coffee, desc: 'Mocktails & sodas' },
+        { label: 'Surprise me!', icon: Target, desc: 'Any drink preference' }
     ]
 
     const atmosphereOptions = [
-        { label: 'LGTBQ+', emoji: '🏳️‍🌈' },
-        { label: 'Casual & Fun', emoji: '🎉' },
-        { label: 'Rooftop Views', emoji: '🌆' },
-        { label: 'Live Music', emoji: '🎵' },
-        { label: 'Dance Floor', emoji: '💃' },
-        { label: 'Wine Bar Vibes', emoji: '🍷' },
-        { label: 'Sports Bar', emoji: '⚽' },
-        { label: 'Romantic Date', emoji: '❤️' },
-        { label: 'Group Hangout', emoji: '👥' }
+        { label: 'LGTBQ+', icon: Flag, desc: 'Inclusive & welcoming' },
+        { label: 'Casual & Fun', icon: PartyPopper, desc: 'Relaxed atmosphere' },
+        { label: 'Rooftop Views', icon: Building, desc: 'Great city views' },
+        { label: 'Live Music', icon: Music, desc: 'Bands & performances' },
+        { label: 'Dance Floor', icon: Music, desc: 'Dancing & nightlife' },
+        { label: 'Wine Bar Vibes', icon: Wine, desc: 'Sophisticated setting' },
+        { label: 'Sports Bar', icon: Gamepad2, desc: 'Sports & games' },
+        { label: 'Romantic Date', icon: Heart, desc: 'Intimate & cozy' },
+        { label: 'Group Hangout', icon: Users, desc: 'Friends & socializing' }
     ]
 
     const budgetOptions = [
-        { label: 'No preference', emoji: '🤷', desc: 'Any price range' },
-        { label: 'Budget-friendly', emoji: '💰', desc: 'Casual dining & drinks' },
-        { label: 'Mid-range', emoji: '💳', desc: 'Nice dinner & cocktails' },
-        { label: 'Upscale night', emoji: '🍾', desc: 'Fine dining & premium drinks' }
+        { label: 'No preference', icon: Target, desc: 'Any price range' },
+        { label: 'Budget-friendly', icon: DollarSign, desc: 'Casual dining & drinks' },
+        { label: 'Mid-range', icon: CreditCard, desc: 'Nice dinner & cocktails' },
+        { label: 'Upscale night', icon: Crown, desc: 'Fine dining & premium drinks' }
     ]
 
     // Evening/night time slots
@@ -180,49 +186,13 @@ export default function NightOutResponseForm({
         }
     }
 
-    // Drink handlers
-    const toggleDrink = (drink) => {
-        if (drink === 'Surprise me!') {
-            setSelectedDrinks(['Surprise me!'])
-            setOtherDrink('')
-            return
-        }
-        const withoutSurprise = selectedDrinks.filter(d => d !== 'Surprise me!')
-        if (withoutSurprise.includes(drink)) {
-            setSelectedDrinks(withoutSurprise.filter(d => d !== drink))
-        } else {
-            setSelectedDrinks([...withoutSurprise, drink])
-        }
+    // Handlers
+    const handleDrinkSelect = (drink) => {
+        setSelectedDrink(drink)
     }
 
-    const addCustomDrink = () => {
-        const trimmed = otherDrink.trim()
-        if (!trimmed) return
-        const withoutSurprise = selectedDrinks.filter(d => d !== 'Surprise me!')
-        if (!withoutSurprise.includes(trimmed)) {
-            setSelectedDrinks([...withoutSurprise, trimmed])
-        }
-        setOtherDrink('')
-        Keyboard.dismiss()
-    }
-
-    // Atmosphere handlers
-    const toggleAtmosphere = (atmosphere) => {
-        setSelectedAtmospheres(prev =>
-            prev.includes(atmosphere)
-                ? prev.filter(a => a !== atmosphere)
-                : [...prev, atmosphere]
-        )
-    }
-
-    const addCustomAtmosphere = () => {
-        const trimmed = otherAtmosphere.trim()
-        if (!trimmed) return
-        if (!selectedAtmospheres.includes(trimmed)) {
-            setSelectedAtmospheres(prev => [...prev, trimmed])
-        }
-        setOtherAtmosphere('')
-        Keyboard.dismiss()
+    const handleAtmosphereSelect = (atmosphere) => {
+        setSelectedAtmosphere(atmosphere)
     }
 
     // Availability handlers
@@ -257,14 +227,10 @@ export default function NightOutResponseForm({
         })
     }
 
-    const removePill = (item, setter) => {
-        setter(prev => prev.filter(i => i !== item))
-    }
-
     // Validation
     const isNextDisabled = () => {
-        if (step === 1) return selectedDrinks.length === 0
-        if (step === 2) return selectedAtmospheres.length === 0
+        if (step === 1) return !selectedDrink
+        if (step === 2) return !selectedAtmosphere
         if (step === 3) return !selectedBudget
         if (step === 4) return false
         if (step === 5 && activity?.allow_participant_time_selection) {
@@ -293,17 +259,11 @@ export default function NightOutResponseForm({
 
     // Submission
     const handleSubmit = async () => {
-        const drinksText = selectedDrinks.join(', ')
-        const atmosText = selectedAtmospheres.join(', ')
-        const budgetText = selectedBudget
-        const preferencesText = preferences || 'None'
-
-        const notes = [
-            `Drink Preferences: ${drinksText}`,
-            `Atmosphere: ${atmosText}`,
-            `Budget: ${budgetText}`,
-            `Special Preferences: ${preferencesText}`,
-        ].join('\n\n')
+        const notes = `Night Out Preferences:
+🍸 Drink Preference: ${selectedDrink}
+🎉 Atmosphere: ${selectedAtmosphere}
+💰 Budget: ${selectedBudget}
+📝 Special Preferences: ${preferences || 'None'}`.trim()
 
         try {
             let endpoint, requestOptions
@@ -432,163 +392,84 @@ export default function NightOutResponseForm({
         </View>
     )
 
-    const renderCompactPill = (item, onRemove) => (
-        <View key={item} style={styles.compactPill}>
-            <Text style={styles.compactPillText}>{item}</Text>
-            <TouchableOpacity
-                onPress={() => onRemove(item)}
-                style={styles.compactPillRemove}
-            >
-                <X />
-            </TouchableOpacity>
-        </View>
-    )
 
     const renderStepContent = () => {
         switch (step) {
             case 1:
                 return (
                     <Animated.View style={[styles.stepContainer, { opacity: fadeAnim }]}>
-                        <View style={styles.compactGrid}>
+                        <View style={styles.singleSelectGrid}>
                             {drinkOptions.map(option => (
                                 <TouchableOpacity
                                     key={option.label}
                                     style={[
-                                        styles.compactCard,
-                                        selectedDrinks.includes(option.label) && styles.compactCardSelected
+                                        styles.singleSelectCard,
+                                        selectedDrink === option.label && styles.singleSelectCardSelected
                                     ]}
-                                    onPress={() => toggleDrink(option.label)}
+                                    onPress={() => handleDrinkSelect(option.label)}
                                 >
-                                    <Text style={styles.compactEmoji}>{option.emoji}</Text>
+                                    <option.icon color="#fff" size={24} style={{ marginBottom: 8 }} />
                                     <Text style={[
-                                        styles.compactLabel,
-                                        selectedDrinks.includes(option.label) && styles.compactLabelSelected
+                                        styles.singleSelectLabel,
+                                        selectedDrink === option.label && styles.singleSelectLabelSelected
                                     ]}>
                                         {option.label}
                                     </Text>
+                                    <Text style={styles.singleSelectDesc}>{option.desc}</Text>
                                 </TouchableOpacity>
                             ))}
                         </View>
-
-                        <View style={styles.customSection}>
-                            <View style={styles.customInputRow}>
-                                <TextInput
-                                    style={styles.customInput}
-                                    placeholder="Add custom drink preference..."
-                                    placeholderTextColor="#999"
-                                    value={otherDrink}
-                                    onChangeText={setOtherDrink}
-                                    returnKeyType="done"
-                                    onSubmitEditing={addCustomDrink}
-                                />
-                                <TouchableOpacity
-                                    style={[
-                                        styles.customAddButton,
-                                        !otherDrink.trim() && styles.customAddButtonDisabled
-                                    ]}
-                                    onPress={addCustomDrink}
-                                    disabled={!otherDrink.trim()}
-                                >
-                                    <Plus />
-                                </TouchableOpacity>
-                            </View>
-                        </View>
-
-                        {selectedDrinks.length > 0 && (
-                            <View style={styles.selectedContainer}>
-                                <Text style={styles.selectedTitle}>Selected:</Text>
-                                <View style={styles.compactPillContainer}>
-                                    {selectedDrinks.map(drink =>
-                                        renderCompactPill(drink, (item) => removePill(item, setSelectedDrinks))
-                                    )}
-                                </View>
-                            </View>
-                        )}
                     </Animated.View>
                 )
 
             case 2:
                 return (
                     <Animated.View style={[styles.stepContainer, { opacity: fadeAnim }]}>
-                        <View style={styles.compactGrid}>
+                        <View style={styles.singleSelectGrid}>
                             {atmosphereOptions.map(option => (
                                 <TouchableOpacity
                                     key={option.label}
                                     style={[
-                                        styles.compactCard,
-                                        selectedAtmospheres.includes(option.label) && styles.compactCardSelected
+                                        styles.singleSelectCard,
+                                        selectedAtmosphere === option.label && styles.singleSelectCardSelected
                                     ]}
-                                    onPress={() => toggleAtmosphere(option.label)}
+                                    onPress={() => handleAtmosphereSelect(option.label)}
                                 >
-                                    <Text style={styles.compactEmoji}>{option.emoji}</Text>
+                                    <option.icon color="#fff" size={24} style={{ marginBottom: 8 }} />
                                     <Text style={[
-                                        styles.compactLabel,
-                                        selectedAtmospheres.includes(option.label) && styles.compactLabelSelected
+                                        styles.singleSelectLabel,
+                                        selectedAtmosphere === option.label && styles.singleSelectLabelSelected
                                     ]}>
                                         {option.label}
                                     </Text>
+                                    <Text style={styles.singleSelectDesc}>{option.desc}</Text>
                                 </TouchableOpacity>
                             ))}
                         </View>
-
-                        <View style={styles.customSection}>
-                            <View style={styles.customInputRow}>
-                                <TextInput
-                                    style={styles.customInput}
-                                    placeholder="Add custom atmosphere..."
-                                    placeholderTextColor="#999"
-                                    value={otherAtmosphere}
-                                    onChangeText={setOtherAtmosphere}
-                                    returnKeyType="done"
-                                    onSubmitEditing={addCustomAtmosphere}
-                                />
-                                <TouchableOpacity
-                                    style={[
-                                        styles.customAddButton,
-                                        !otherAtmosphere.trim() && styles.customAddButtonDisabled
-                                    ]}
-                                    onPress={addCustomAtmosphere}
-                                    disabled={!otherAtmosphere.trim()}
-                                >
-                                    <Plus />
-                                </TouchableOpacity>
-                            </View>
-                        </View>
-
-                        {selectedAtmospheres.length > 0 && (
-                            <View style={styles.selectedContainer}>
-                                <Text style={styles.selectedTitle}>Selected:</Text>
-                                <View style={styles.compactPillContainer}>
-                                    {selectedAtmospheres.map(atmosphere =>
-                                        renderCompactPill(atmosphere, (item) => removePill(item, setSelectedAtmospheres))
-                                    )}
-                                </View>
-                            </View>
-                        )}
                     </Animated.View>
                 )
 
             case 3:
                 return (
                     <Animated.View style={[styles.stepContainer, { opacity: fadeAnim }]}>
-                        <View style={styles.budgetGrid}>
+                        <View style={styles.singleSelectGrid}>
                             {budgetOptions.map(option => (
                                 <TouchableOpacity
                                     key={option.label}
                                     style={[
-                                        styles.budgetCard,
-                                        selectedBudget === option.label && styles.budgetCardSelected
+                                        styles.singleSelectCard,
+                                        selectedBudget === option.label && styles.singleSelectCardSelected
                                     ]}
                                     onPress={() => setSelectedBudget(option.label)}
                                 >
-                                    <Text style={styles.budgetEmoji}>{option.emoji}</Text>
+                                    <option.icon color="#fff" size={24} style={{ marginBottom: 8 }} />
                                     <Text style={[
-                                        styles.budgetLabel,
-                                        selectedBudget === option.label && styles.budgetLabelSelected
+                                        styles.singleSelectLabel,
+                                        selectedBudget === option.label && styles.singleSelectLabelSelected
                                     ]}>
                                         {option.label}
                                     </Text>
-                                    <Text style={styles.budgetDesc}>{option.desc}</Text>
+                                    <Text style={styles.singleSelectDesc}>{option.desc}</Text>
                                 </TouchableOpacity>
                             ))}
                         </View>
@@ -599,7 +480,7 @@ export default function NightOutResponseForm({
                 return (
                     <Animated.View style={[styles.stepContainer, { opacity: fadeAnim }]}>
                         <TextInput
-                            style={styles.preferencesInput}
+                            style={styles.notesInput}
                             placeholder="e.g., Need vegetarian options, prefer quiet spots for conversation, want late night food, rooftop seating..."
                             placeholderTextColor="#999"
                             value={preferences}
@@ -686,7 +567,7 @@ export default function NightOutResponseForm({
                                             style={styles.removeButton}
                                             onPress={() => removeAvailability(date)}
                                         >
-                                            <X />
+                                            <X color="#cc31e8" size={12} />
                                         </TouchableOpacity>
                                     </View>
                                 ))}
@@ -881,6 +762,46 @@ const styles = StyleSheet.create({
         color: '#cc31e8',
     },
 
+    singleSelectGrid: {
+        gap: 12,
+    },
+
+    singleSelectCard: {
+        backgroundColor: 'rgba(255, 255, 255, 0.03)',
+        borderWidth: 2,
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+        borderRadius: 12,
+        padding: 16,
+        alignItems: 'center',
+    },
+
+    singleSelectCardSelected: {
+        backgroundColor: 'rgba(204, 49, 232, 0.15)',
+        borderColor: '#cc31e8',
+        shadowColor: '#cc31e8',
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+    },
+
+    singleSelectLabel: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#fff',
+        marginBottom: 4,
+        textAlign: 'center',
+    },
+
+    singleSelectLabelSelected: {
+        color: '#cc31e8',
+    },
+
+    singleSelectDesc: {
+        fontSize: 12,
+        color: '#999',
+        textAlign: 'center',
+    },
+
     budgetGrid: {
         gap: 12,
     },
@@ -1010,7 +931,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
 
-    preferencesInput: {
+    notesInput: {
         backgroundColor: 'rgba(255, 255, 255, 0.03)',
         borderWidth: 2,
         borderColor: 'rgba(255, 255, 255, 0.1)',
@@ -1018,7 +939,7 @@ const styles = StyleSheet.create({
         padding: 16,
         color: '#fff',
         fontSize: 16,
-        minHeight: 100,
+        minHeight: 120,
         textAlignVertical: 'top',
     },
 
@@ -1215,8 +1136,4 @@ const styles = StyleSheet.create({
         fontWeight: '700',
     },
 
-    miniIcon: {
-        fontSize: 12,
-        color: '#cc31e8',
-    },
 })

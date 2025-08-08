@@ -114,10 +114,30 @@ export default function CocktailsChat({ visible, onClose }) {
     ]
 
     const timeOfDayOptions = [
-        { value: 'brunch cocktails', label: 'Brunch Cocktails', icon: Coffee },
-        { value: 'afternoon drinks', label: 'Afternoon Drinks', icon: Sun },
-        { value: 'happy hour', label: 'Happy Hour', icon: Sunset },
-        { value: 'late night cocktails', label: 'Late Night Cocktails', icon: Moon }
+        { 
+            value: 'brunch cocktails', 
+            label: 'Brunch Cocktails', 
+            subtitle: 'Morning vibes',
+            icon: Coffee 
+        },
+        { 
+            value: 'afternoon drinks', 
+            label: 'Afternoon Drinks', 
+            subtitle: 'Daytime fun',
+            icon: Sun 
+        },
+        { 
+            value: 'happy hour', 
+            label: 'Happy Hour', 
+            subtitle: 'Evening drinks',
+            icon: Sunset 
+        },
+        { 
+            value: 'late night cocktails', 
+            label: 'Late Night Cocktails', 
+            subtitle: 'Night out',
+            icon: Moon 
+        }
     ]
 
     // Auto-advance for smooth UX
@@ -260,7 +280,7 @@ export default function CocktailsChat({ visible, onClose }) {
             date_day: 'TBD',
             date_time: 'TBD',
             activity_name: 'Drinks',
-            welcome_message: 'Someone wants you to submit your preferences! Help them plan the perfect night out with your group of friends.',
+            welcome_message: `${user?.name || 'Someone'} wants you to submit your preferences! Help them plan the perfect night out with your group of friends.`,
             allow_participant_time_selection: false,
             date_notes: timeOfDay,
             participants: [],
@@ -444,7 +464,7 @@ export default function CocktailsChat({ visible, onClose }) {
                         <View style={[FormStyles.mobileGrid, { gap: 16 }]}>
                             {timeOfDayOptions.map((option) => (
                                 <View key={option.value} style={[FormStyles.mobileGridItem, { aspectRatio: 1 }]}>
-                                    <GradientTimeCard
+                                    <GradientCard
                                         selected={timeOfDay === option.value}
                                         onPress={() => handleTimeOfDaySelect(option.value)}
                                         style={{
@@ -454,11 +474,10 @@ export default function CocktailsChat({ visible, onClose }) {
                                             justifyContent: 'center'
                                         }}
                                     >
-                                        <option.icon color="#fff" size={20} style={{ marginBottom: 6 }} />
-                                        <Text style={[FormStyles.timeCardText, { fontSize: 14, textAlign: 'center' }]}>
-                                            {option.label}
-                                        </Text>
-                                    </GradientTimeCard>
+                                        <option.icon color="#fff" size={28} style={{ marginBottom: 6 }} />
+                                        <Text style={[FormStyles.cardLabel, { fontSize: 14, marginBottom: 2 }]}>{option.label}</Text>
+                                        <Text style={[FormStyles.cardSubtitle, { fontSize: 11 }]}>{option.subtitle}</Text>
+                                    </GradientCard>
                                 </View>
                             ))}
                         </View>
