@@ -24,17 +24,26 @@ import {
     Users,
     Clock,
     MessageSquare,
-    Edit3
-} from 'react-native-feather'
+    Edit3,
+    Search,
+    ChevronRight,
+    Home,
+    UserPlus,
+    Coffee,
+    Sun,
+    Sunset,
+    Moon
+} from 'lucide-react-native'
 import * as Location from 'expo-location'
 import { API_URL } from '../config'
-import { logger } from '../utils/logger';
+import { logger } from '../utils/logger'
+import SearchLocationModal from './SearchLocationModal'
 
 export default function CocktailsChat({ visible, onClose }) {
     const { user, setUser } = useContext(UserContext)
 
     const [step, setStep] = useState(1)
-    const totalSteps = 5
+    const totalSteps = 3
 
     const percent = (step / totalSteps) * 100
 
@@ -42,7 +51,16 @@ export default function CocktailsChat({ visible, onClose }) {
     const [location, setLocation] = useState('')
     const [coords, setCoords] = useState(null)
     const [isLocating, setIsLocating] = useState(false)
-    const [currentLocationUsed, setCurrentLocationUsed] = useState(false)
+    const [selectedLocationOption, setSelectedLocationOption] = useState('') // 'profile', 'current', 'custom'
+    const [showSearchModal, setShowSearchModal] = useState(false)
+    const [customLocation, setCustomLocation] = useState({
+        neighborhood: '',
+        city: '',
+        state: '',
+        latitude: null,
+        longitude: null,
+        formatted: ''
+    })
     const [radius] = useState(10)
 
     // Step 2: Group Size
@@ -51,14 +69,10 @@ export default function CocktailsChat({ visible, onClose }) {
     // Step 3: Time of Day
     const [timeOfDay, setTimeOfDay] = useState('')
 
-    // Step 4: Event Name, Step 5: Welcome Message
-    const [eventName, setEventName] = useState('')
-    const [welcomeMessage, setWelcomeMessage] = useState('')
-
     const headers = [
         {
-            title: 'Where to meet for drinks?',
-            subtitle: 'City/neighborhood or use current location.'
+            title: 'Activity Location',
+            subtitle: 'Choose from your saved location, current location, or search for a new one.'
         },
         {
             title: 'How large is your group?',
@@ -68,14 +82,6 @@ export default function CocktailsChat({ visible, onClose }) {
             title: 'When will it happen?',
             subtitle: 'Choose the vibe for your night out.',
         },
-        {
-            title: 'Event Name',
-            subtitle: 'Give your night out a name.',
-        },
-        {
-            title: 'Welcome Message',
-            subtitle: 'Leave a detailed message for your group about tonight\'s plans!',
-        },
     ]
 
     const { title, subtitle } = headers[step - 1]
@@ -83,35 +89,35 @@ export default function CocktailsChat({ visible, onClose }) {
     const groupSizeOptions = [
         {
             value: '1-2',
-            icon: '🥂',
+            icon: Users,
             label: 'Intimate',
             subtitle: '1-2 people'
         },
         {
             value: '3-4',
-            icon: '🍻',
+            icon: Users,
             label: 'Small Group',
             subtitle: '3-4 people'
         },
         {
             value: '5-9',
-            icon: '🎉',
+            icon: UserPlus,
             label: 'Party',
             subtitle: '5-9 people'
         },
         {
             value: '10+',
-            icon: '🍾',
+            icon: UserPlus,
             label: 'Big Night Out',
             subtitle: '10+ people'
         }
     ]
 
     const timeOfDayOptions = [
-        { value: 'brunch cocktails', label: 'Brunch Cocktails 🥂' },
-        { value: 'afternoon drinks', label: 'Afternoon Drinks ☀️' },
-        { value: 'happy hour', label: 'Happy Hour 🍻' },
-        { value: 'late night cocktails', label: 'Late Night Cocktails 🍸' }
+        { value: 'brunch cocktails', label: 'Brunch Cocktails', icon: Coffee },
+        { value: 'afternoon drinks', label: 'Afternoon Drinks', icon: Sun },
+        { value: 'happy hour', label: 'Happy Hour', icon: Sunset },
+        { value: 'late night cocktails', label: 'Late Night Cocktails', icon: Moon }
     ]
 
     // Auto-advance for smooth UX
@@ -125,10 +131,7 @@ export default function CocktailsChat({ visible, onClose }) {
 
     const handleTimeOfDaySelect = (time) => {
         setTimeOfDay(time)
-        // Auto-advance after a short delay for smooth UX
-        setTimeout(() => {
-            setStep(4)
-        }, 300)
+        // Don't auto-advance since this is the last step now
     }
 
     const useCurrentLocation = async () => {
@@ -154,26 +157,69 @@ export default function CocktailsChat({ visible, onClose }) {
                 distanceInterval: 10
             })
 
+            // Reverse geocode to get address
+            const [address] = await Location.reverseGeocodeAsync({
+                latitude: location.coords.latitude,
+                longitude: location.coords.longitude,
+            })
+
+            if (address) {
+                const locationData = {
+                    neighborhood: address.district || address.subregion || '',
+                    city: address.city || '',
+                    state: address.region || '',
+                    formatted: `${address.city}, ${address.region}`,
+                    latitude: location.coords.latitude,
+                    longitude: location.coords.longitude
+                }
+                setCustomLocation(locationData)
+                setLocation(locationData.formatted)
+            }
+
             setCoords({
                 lat: location.coords.latitude,
                 lng: location.coords.longitude,
             })
-            setCurrentLocationUsed(true)
-            setLocation('')
+            setSelectedLocationOption('current')
             setIsLocating(false)
         } catch (error) {
             logger.error('Location error:', error)
-            Alert.alert('Location Error', 'Failed to get your current location. Please enter it manually.')
+            Alert.alert('Location Error', 'Failed to get your current location. Please try another option.')
             setIsLocating(false)
         }
     }
 
+    const handleLocationSelect = (locationData) => {
+        setCustomLocation(locationData)
+        setLocation(locationData.formatted)
+        setSelectedLocationOption('custom')
+        if (locationData.latitude && locationData.longitude) {
+            setCoords({
+                lat: locationData.latitude,
+                lng: locationData.longitude,
+            })
+        }
+    }
+
+    const handleUseProfileLocation = () => {
+        if (user?.city && user?.state) {
+            const profileLocation = `${user.city}, ${user.state}`
+            setLocation(profileLocation)
+            setSelectedLocationOption('profile')
+            // Use user's saved coordinates if available
+            if (user?.latitude && user?.longitude) {
+                setCoords({
+                    lat: user.latitude,
+                    lng: user.longitude,
+                })
+            }
+        }
+    }
+
     const isNextDisabled = () => {
-        if (step === 1) return !location.trim() && !currentLocationUsed
+        if (step === 1) return !selectedLocationOption || !location.trim()
         if (step === 2) return !groupSize
         if (step === 3) return !timeOfDay
-        if (step === 4) return !eventName.trim()
-        if (step === 5) return !welcomeMessage.trim()
         return false
     }
 
@@ -196,17 +242,25 @@ export default function CocktailsChat({ visible, onClose }) {
 
         const payload = {
             activity_type: 'Cocktails',
-            emoji: '🍸',
-            activity_location: currentLocationUsed
-                ? `${coords.lat.toFixed(6)}, ${coords.lng.toFixed(6)}`
-                : location.trim(),
+            emoji: '🥃',
+            activity_location: (() => {
+                // Determine the location string to send
+                if (selectedLocationOption === 'current' && coords) {
+                    return `${coords.lat.toFixed(6)}, ${coords.lng.toFixed(6)}`
+                } else if (selectedLocationOption === 'custom' && customLocation.latitude && customLocation.longitude) {
+                    return `${customLocation.latitude.toFixed(6)}, ${customLocation.longitude.toFixed(6)}`
+                } else if (selectedLocationOption === 'profile' && user?.latitude && user?.longitude) {
+                    return `${user.latitude.toFixed(6)}, ${user.longitude.toFixed(6)}`
+                }
+                return location.trim()
+            })(),
             radius,
             group_size: groupSize,
             // Always send 'TBD' for date/time, save timeOfDay as date_notes
             date_day: 'TBD',
             date_time: 'TBD',
-            activity_name: eventName.trim(),
-            welcome_message: welcomeMessage.trim(),
+            activity_name: 'Drinks',
+            welcome_message: 'Someone wants you to submit your preferences! Help them plan the perfect night out with your group of friends.',
             allow_participant_time_selection: false,
             date_notes: timeOfDay,
             participants: [],
@@ -272,37 +326,88 @@ export default function CocktailsChat({ visible, onClose }) {
             case 1:
                 return (
                     <View style={FormStyles.section}>
-                        <TextInput
-                            style={FormStyles.input}
-                            value={location}
-                            onChangeText={(text) => {
-                                setLocation(text)
-                                setCurrentLocationUsed(false)
-                            }}
-                            placeholder={
-                                currentLocationUsed
-                                    ? 'Using current location'
-                                    : 'Enter city or neighborhood (e.g. Downtown Manhattan, NY)'
-                            }
-                            placeholderTextColor="#aaa"
-                            editable={!currentLocationUsed}
-                        />
+                        {/* Current location display if selected */}
+                        {selectedLocationOption && location && (
+                            <View style={FormStyles.selectedLocationContainer}>
+                                <MapPin color="#cc31e8" size={16} />
+                                <Text style={FormStyles.selectedLocationText}>{location}</Text>
+                            </View>
+                        )}
 
+                        {/* Profile Location Option */}
+                        {user?.city && user?.state && (
+                            <TouchableOpacity
+                                style={[
+                                    FormStyles.locationOptionButton,
+                                    selectedLocationOption === 'profile' && FormStyles.locationOptionButtonSelected
+                                ]}
+                                onPress={handleUseProfileLocation}
+                                activeOpacity={0.7}
+                            >
+                                <View style={FormStyles.locationButtonContent}>
+                                    <Home color="#cc31e8" size={20} />
+                                    <View style={FormStyles.locationButtonTextContainer}>
+                                        <Text style={FormStyles.locationButtonText}>Use My Location</Text>
+                                        <Text style={FormStyles.locationButtonSubtext}>
+                                            {user.city}, {user.state}
+                                        </Text>
+                                    </View>
+                                </View>
+                                <ChevronRight color="#aaa" size={20} />
+                            </TouchableOpacity>
+                        )}
+
+                        {/* Current Device Location Option */}
                         <TouchableOpacity
-                            style={FormStyles.useLocationButton}
+                            style={[
+                                FormStyles.locationOptionButton,
+                                selectedLocationOption === 'current' && FormStyles.locationOptionButtonSelected
+                            ]}
                             onPress={useCurrentLocation}
-                            disabled={isLocating || currentLocationUsed}
+                            disabled={isLocating}
+                            activeOpacity={0.7}
                         >
-                            <MapPin stroke="#cc31e8" width={16} height={16} />
-                            <Text style={FormStyles.useLocationButtonText}>
-                                {currentLocationUsed
-                                    ? 'Using current location'
-                                    : isLocating
-                                        ? 'Locating…'
-                                        : 'Use my current location'}
-                            </Text>
+                            <View style={FormStyles.locationButtonContent}>
+                                <MapPin color="#cc31e8" size={20} />
+                                <View style={FormStyles.locationButtonTextContainer}>
+                                    <Text style={FormStyles.locationButtonText}>
+                                        {isLocating ? 'Getting location...' : 'Use Current Location'}
+                                    </Text>
+                                    <Text style={FormStyles.locationButtonSubtext}>
+                                        GPS location from your device
+                                    </Text>
+                                </View>
+                            </View>
+                            <ChevronRight color="#aaa" size={20} />
                         </TouchableOpacity>
 
+                        {/* Search for Custom Location Option */}
+                        <TouchableOpacity
+                            style={[
+                                FormStyles.locationOptionButton,
+                                selectedLocationOption === 'custom' && FormStyles.locationOptionButtonSelected
+                            ]}
+                            onPress={() => setShowSearchModal(true)}
+                            activeOpacity={0.7}
+                        >
+                            <View style={FormStyles.locationButtonContent}>
+                                <Search color="#cc31e8" size={20} />
+                                <View style={FormStyles.locationButtonTextContainer}>
+                                    <Text style={FormStyles.locationButtonText}>Search for Location</Text>
+                                    <Text style={FormStyles.locationButtonSubtext}>
+                                        Find a specific city or neighborhood
+                                    </Text>
+                                </View>
+                            </View>
+                            <ChevronRight color="#aaa" size={20} />
+                        </TouchableOpacity>
+
+                        {/* Search Location Modal */}
+                        <SearchLocationModal
+                            visible={showSearchModal}
+                            onClose={() => setShowSearchModal(false)}
+                            onLocationSelect={handleLocationSelect}
+                        />
                     </View>
                 )
 
@@ -322,7 +427,7 @@ export default function CocktailsChat({ visible, onClose }) {
                                             justifyContent: 'center'
                                         }}
                                     >
-                                        <Text style={[FormStyles.cardIcon, { fontSize: 28, marginBottom: 6 }]}>{option.icon}</Text>
+                                        <option.icon color="#fff" size={28} style={{ marginBottom: 6 }} />
                                         <Text style={[FormStyles.cardLabel, { fontSize: 14, marginBottom: 2 }]}>{option.label}</Text>
                                         <Text style={[FormStyles.cardSubtitle, { fontSize: 11 }]}>{option.subtitle}</Text>
                                     </GradientCard>
@@ -349,6 +454,7 @@ export default function CocktailsChat({ visible, onClose }) {
                                             justifyContent: 'center'
                                         }}
                                     >
+                                        <option.icon color="#fff" size={20} style={{ marginBottom: 6 }} />
                                         <Text style={[FormStyles.timeCardText, { fontSize: 14, textAlign: 'center' }]}>
                                             {option.label}
                                         </Text>
@@ -365,44 +471,6 @@ export default function CocktailsChat({ visible, onClose }) {
                         }]}>
                             📅 Specific date and time will be decided later
                         </Text>
-                    </View>
-                )
-
-            case 4:
-                // Event name step
-                return (
-                    <View style={FormStyles.section}>
-                        <TextInput
-                            style={FormStyles.input}
-                            value={eventName}
-                            onChangeText={setEventName}
-                            placeholder="Enter event name (e.g. Friday Night Out)"
-                            placeholderTextColor="#aaa"
-                            returnKeyType="next"
-                            onSubmitEditing={() => {
-                                if (eventName.trim()) {
-                                    setStep(5)
-                                }
-                            }}
-                        />
-                    </View>
-                )
-
-            case 5:
-                // Welcome message step
-                return (
-                    <View style={FormStyles.section}>
-                        <TextInput
-                            style={FormStyles.textarea}
-                            value={welcomeMessage}
-                            onChangeText={setWelcomeMessage}
-                            placeholder="Write a welcome message for your group about tonight's plans..."
-                            placeholderTextColor="#aaa"
-                            multiline
-                            numberOfLines={4}
-                            returnKeyType="done"
-                            blurOnSubmit={true}
-                        />
                     </View>
                 )
 

@@ -1,4 +1,4 @@
-import React, { useContext, useMemo, useState, useEffect } from 'react';
+import React, { useContext, useMemo, useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -15,13 +15,14 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { UserContext } from '../context/UserContext';
 import { Bell, Users, Activity, X, ChevronRight, ChevronDown, ChevronUp, MapPin } from 'react-native-feather';
 import { Hamburger, Martini, Dices } from 'lucide-react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { API_URL } from '../config';
 import { getUserDisplayImage, avatarMap } from '../utils/avatarManager';
+import { safeAuthApiCall } from '../utils/safeApiCall';
 
 const { width: screenWidth } = Dimensions.get('window');
 const NAVBAR_HEIGHT = 90;
-const FULL_HEIGHT = 353;
+const FULL_HEIGHT = 375;
 const SCROLL_THRESHOLD = 250;
 
 // Activity configuration matching HomeScreen
@@ -87,14 +88,72 @@ const formatSinceDate = (date) => {
   return years === 1 ? '1 year ago' : `${years} years ago`;
 };
 
-export default function ProfileSnippet({ scrollY = new Animated.Value(0), onScrollToTop, setFilter, setMainTab, invitesCount = 0, inProgressCount = 0, pastCount = 0 }) {
-  const { user } = useContext(UserContext);
+export default function ProfileSnippet({ scrollY = new Animated.Value(0), onScrollToTop, setFilter, setMainTab, invitesCount = 0, inProgressCount = 0, pastCount = 0, userFavorites, onShowFavorites }) {
+  const userContext = useContext(UserContext);
+  const { user } = userContext;
   const navigation = useNavigation();
   const [isNavbarMode, setIsNavbarMode] = useState(false);
   const [showActivitiesModal, setShowActivitiesModal] = useState(false);
   const [showCommunityModal, setShowCommunityModal] = useState(false);
+  const [localUnreadCount, setLocalUnreadCount] = useState(0);
   const [communitySort, setCommunitySort] = useState('activities'); // 'activities' or 'alphabetical'
   const [expandedMember, setExpandedMember] = useState(null); // Track which member's dropdown is expanded
+  
+  // Fetch unread notification count
+  useEffect(() => {
+    const fetchUnreadCount = async () => {
+      if (!user?.token) {
+        setLocalUnreadCount(0);
+        return;
+      }
+      
+      try {
+        const notifications = await safeAuthApiCall(
+          `${API_URL}/notifications`, 
+          user.token, 
+          { method: 'GET' }
+        );
+        const unreadCount = (notifications || []).filter(n => !n.read).length;
+        setLocalUnreadCount(unreadCount);
+      } catch (error) {
+        console.log('Could not fetch notification count:', error.message);
+        setLocalUnreadCount(0);
+      }
+    };
+
+    // Add a small delay to prevent crashes during rapid navigation
+    const timeoutId = setTimeout(() => {
+      fetchUnreadCount();
+    }, 100);
+
+    return () => clearTimeout(timeoutId);
+  }, [user?.token]);
+
+  // Refresh notification count when screen comes back into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      const fetchUnreadCount = async () => {
+        if (!user?.token) {
+          setLocalUnreadCount(0);
+          return;
+        }
+        
+        try {
+          const notifications = await safeAuthApiCall(
+            `${API_URL}/notifications`, 
+            user.token, 
+            { method: 'GET' }
+          );
+          const unreadCount = (notifications || []).filter(n => !n.read).length;
+          setLocalUnreadCount(unreadCount);
+        } catch (error) {
+          console.log('Could not refresh notification count:', error.message);
+        }
+      };
+
+      fetchUnreadCount();
+    }, [user?.token])
+  );
 
   // Listen to scroll changes to update navbar mode
   useEffect(() => {
@@ -439,7 +498,13 @@ export default function ProfileSnippet({ scrollY = new Animated.Value(0), onScro
           style={styles.notificationsButtonTouch}
         >
           <Bell stroke="#fff" width={20} height={20} strokeWidth={2} />
-          {/* You can add a notification badge here later */}
+          {localUnreadCount > 0 && (
+            <View style={styles.notificationBadge}>
+              <Text style={styles.notificationBadgeText}>
+                {localUnreadCount > 99 ? '99+' : localUnreadCount}
+              </Text>
+            </View>
+          )}
         </TouchableOpacity>
       </Animated.View>
 
@@ -457,7 +522,7 @@ export default function ProfileSnippet({ scrollY = new Animated.Value(0), onScro
           ]}
         >
           <TouchableOpacity
-            onPress={onScrollToTop}
+            onPress={() => navigation.navigate('Profile')}
             activeOpacity={0.8}
           >
             <Animated.View
@@ -467,6 +532,7 @@ export default function ProfileSnippet({ scrollY = new Animated.Value(0), onScro
                 borderRadius: profilePicBorderRadius,
                 borderWidth: 3,
                 borderColor: 'rgba(255, 255, 255, 0.8)',
+                backgroundColor: 'rgba(255, 255, 255, 0.9)',
                 overflow: 'hidden',
                 shadowColor: 'rgba(0, 0, 0, 0.3)',
                 shadowOffset: { width: 0, height: 4 },
@@ -532,26 +598,36 @@ export default function ProfileSnippet({ scrollY = new Animated.Value(0), onScro
       <Animated.View style={[styles.statsContainer, { opacity: statsOpacity }]}>
         <TouchableOpacity 
           style={styles.statBox}
-          onPress={() => setShowActivitiesModal(true)}
-          activeOpacity={0.7}
+          onPress={onShowFavorites}
+          activeOpacity={0.8}
         >
           <View style={styles.statIconContainer}>
-            <Activity stroke="#4ECDC4" width={18} height={18} strokeWidth={2.5} />
+            <Image 
+              source={require('../assets/voxxy-triangle.png')} 
+              style={styles.voxxyIcon}
+              resizeMode="contain"
+            />
           </View>
-          <Text style={styles.statNumber}>{completedActivities}</Text>
-          <Text style={styles.statLabel}>Activities{'\n'}Completed</Text>
+          <Text style={styles.statNumber}>{userFavorites?.length || 0}</Text>
+          <Text style={styles.statLabel}>Favorite{'\n'}Activities</Text>
+          <View style={styles.statChevron}>
+            <ChevronRight stroke="rgba(255, 255, 255, 0.6)" width={14} height={14} strokeWidth={2} />
+          </View>
         </TouchableOpacity>
 
         <TouchableOpacity 
           style={styles.statBox}
           onPress={() => setShowCommunityModal(true)}
-          activeOpacity={0.7}
+          activeOpacity={0.8}
         >
           <View style={styles.statIconContainer}>
-            <Users stroke="#fff" width={18} height={18} strokeWidth={2.5} />
+            <Users stroke="#fff" width={20} height={20} strokeWidth={2.5} />
           </View>
           <Text style={styles.statNumber}>{communityCount}</Text>
           <Text style={styles.statLabel}>Community{'\n'}Members</Text>
+          <View style={styles.statChevron}>
+            <ChevronRight stroke="rgba(255, 255, 255, 0.6)" width={14} height={14} strokeWidth={2} />
+          </View>
         </TouchableOpacity>
       </Animated.View>
     </LinearGradient>
@@ -832,6 +908,27 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.3)',
   },
 
+  notificationBadge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    backgroundColor: '#ef4444',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#201925',
+  },
+
+  notificationBadgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+
   profileInfo: {
     alignItems: 'center',
     marginBottom: 24,
@@ -888,40 +985,73 @@ const styles = StyleSheet.create({
 
   statBox: {
     flex: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    borderRadius: 12,
-    padding: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 16,
+    padding: 16,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.25)',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.4)',
+    shadowColor: 'rgba(0, 0, 0, 0.3)',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 1,
+    shadowRadius: 8,
+    elevation: 5,
+    transform: [{ scale: 1 }],
+    position: 'relative',
+    minHeight: 100,
   },
 
   statIconContainer: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    marginBottom: 8,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.5)',
+    shadowColor: 'rgba(0, 0, 0, 0.2)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 4,
   },
 
   statNumber: {
     color: '#fff',
-    fontSize: 20,
-    fontWeight: '700',
+    fontSize: 22,
+    fontWeight: '800',
     fontFamily: 'Montserrat_700Bold',
-    marginBottom: 2,
+    marginBottom: 4,
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
 
   statLabel: {
-    color: 'rgba(255, 255, 255, 0.9)',
-    fontSize: 11,
-    fontWeight: '500',
+    color: 'rgba(255, 255, 255, 0.95)',
+    fontSize: 12,
+    fontWeight: '600',
     textAlign: 'center',
-    lineHeight: 14,
+    lineHeight: 15,
+    marginBottom: 6,
+  },
+
+  statChevron: {
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+    width: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 10,
+  },
+
+  voxxyIcon: {
+    width: 24,
+    height: 24,
   },
 
   // Modal Styles

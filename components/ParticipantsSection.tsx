@@ -26,6 +26,7 @@ import {
     ArrowLeft,
     Mail,
     Phone,
+    Heart,
 } from 'react-native-feather'
 import * as Contacts from 'expo-contacts'
 import { UserContext } from '../context/UserContext'
@@ -308,9 +309,10 @@ export default function ParticipantsSection({
         responses.some(r => r.user_id === p.apId)
     ).length
 
-    // Auto-show invite modal if no participants
+    // Auto-show invite modal if no participants (but only during collecting phase)
     useEffect(() => {
         if (!isOwner) return
+        if (activity?.finalized || activity?.completed || activity?.voting) return // Don't show invite modal for voting/finalized/completed activities
         const hasParticipants = participantsArray.length > 0 || pendingInvitesArray.length > 0
         if (!hasParticipants) {
             const timer = setTimeout(() => {
@@ -318,7 +320,7 @@ export default function ParticipantsSection({
             }, 500)
             return () => clearTimeout(timer)
         }
-    }, [isOwner, participantsArray.length, pendingInvitesArray.length])
+    }, [isOwner, participantsArray.length, pendingInvitesArray.length, activity?.finalized, activity?.completed, activity?.voting])
 
     // Cleanup modals on unmount to prevent stuck modals
     useEffect(() => {
@@ -335,6 +337,12 @@ export default function ParticipantsSection({
         setSelectedContacts([])
         setInviteMode('selection')
         setShowInviteModal(true)
+    }
+
+    const handleSkipInviting = () => {
+        setShowInviteModal(false)
+        // You can add navigation logic here or just close the modal
+        // The user can now browse recommendations and save favorites
     }
 
     const handleAddEmail = () => {
@@ -632,10 +640,26 @@ export default function ParticipantsSection({
 
     const renderModeSelection = () => (
         <View style={styles.modeSelectionContainer}>
-            <View style={styles.modeHeader}>
-                <Text style={styles.modeTitle}>Invite Participants</Text>
-                <Text style={styles.modeSubtitle}>Choose how you'd like to invite people</Text>
-            </View>
+            <View style={styles.topPadding} />
+
+            <TouchableOpacity
+                style={[styles.modeOption, styles.skipOption]}
+                onPress={handleSkipInviting}
+                activeOpacity={0.8}
+            >
+                <View style={styles.modeOptionIcon}>
+                    <Heart stroke="#cc31e8" width={24} height={24} />
+                </View>
+                <View style={styles.modeOptionContent}>
+                    <Text style={styles.modeOptionTitle}>Skip inviting and find favorites yourself!</Text>
+                    <Text style={styles.modeOptionDescription}>
+                        Explore recommendations solo and save your favorites
+                    </Text>
+                </View>
+                <View style={styles.modeOptionArrow}>
+                    <Text style={styles.arrow}>→</Text>
+                </View>
+            </TouchableOpacity>
 
             {availableCrewMembers.length > 0 && (
                 <TouchableOpacity
@@ -644,7 +668,7 @@ export default function ParticipantsSection({
                     activeOpacity={0.8}
                 >
                     <View style={styles.modeOptionIcon}>
-                        <Users stroke="#8b5cf6" width={24} height={24} />
+                        <Users stroke="#cc31e8" width={24} height={24} />
                     </View>
                     <View style={styles.modeOptionContent}>
                         <Text style={styles.modeOptionTitle}>Invite Voxxy Crew</Text>
@@ -667,7 +691,7 @@ export default function ParticipantsSection({
                 activeOpacity={0.8}
             >
                 <View style={styles.modeOptionIcon}>
-                    <Phone stroke="#8b5cf6" width={24} height={24} />
+                    <Phone stroke="#cc31e8" width={24} height={24} />
                 </View>
                 <View style={styles.modeOptionContent}>
                     <Text style={styles.modeOptionTitle}>Invite from Contacts</Text>
@@ -686,7 +710,7 @@ export default function ParticipantsSection({
                 activeOpacity={0.8}
             >
                 <View style={styles.modeOptionIcon}>
-                    <Mail stroke="#8b5cf6" width={24} height={24} />
+                    <Mail stroke="#cc31e8" width={24} height={24} />
                 </View>
                 <View style={styles.modeOptionContent}>
                     <Text style={styles.modeOptionTitle}>Add by Email</Text>
@@ -813,7 +837,7 @@ export default function ParticipantsSection({
     const getHeaderTitle = () => {
         switch (inviteMode) {
             case 'selection':
-                return 'Round Up the Crew 🎉'
+                return 'Invite Your Friends'
             case 'crew':
                 return 'Select Crew Members'
             case 'contacts':
@@ -821,7 +845,7 @@ export default function ParticipantsSection({
             case 'manual':
                 return 'Add by Email'
             default:
-                return 'Round Up the Crew 🎉'
+                return 'Invite Your Friends'
         }
     }
 
@@ -841,7 +865,7 @@ export default function ParticipantsSection({
                 <View style={styles.participantsTitle}>
                     <Users stroke="#8b5cf6" width={20} height={20} />
                     <Text style={styles.participantsTitleText}>
-                        {allParticipants.length} {allParticipants.length === 1 ? 'Voxxer' : 'Voxxers'}
+                        {allParticipants.length} Community Member{allParticipants.length === 1 ? '' : 's'}
                     </Text>
                 </View>
 
@@ -861,8 +885,8 @@ export default function ParticipantsSection({
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.participantsGrid}
             >
-                {/* Invite Button */}
-                {isOwner && (
+                {/* Invite Button - only show during collecting phase */}
+                {isOwner && !activity?.finalized && !activity?.completed && !activity?.voting && (
                     <TouchableOpacity style={styles.inviteButton} onPress={handleInviteClick}>
                         <Plus stroke="#fff" width={24} height={24} />
                         <Text style={styles.inviteButtonText}>Invite</Text>
@@ -913,7 +937,7 @@ export default function ParticipantsSection({
                                     style={styles.headerButton}
                                     onPress={() => setInviteMode('selection')}
                                 >
-                                    <ArrowLeft stroke="#8b5cf6" width={20} height={20} />
+                                    <ArrowLeft stroke="#cc31e8" width={20} height={20} />
                                 </TouchableOpacity>
                             ) : (
                                 <View style={styles.headerSpacer} />
@@ -927,7 +951,7 @@ export default function ParticipantsSection({
                                 style={styles.headerButton}
                                 onPress={() => setShowInviteModal(false)}
                             >
-                                <X stroke="#8b5cf6" width={20} height={20} />
+                                <X stroke="#cc31e8" width={20} height={20} />
                             </TouchableOpacity>
                         </View>
 
@@ -1217,6 +1241,7 @@ const styles = StyleSheet.create({
     headerTitle: {
         fontSize: 20,
         fontWeight: '700',
+        fontFamily: 'Montserrat_700Bold',
         color: '#fff',
         textAlign: 'center',
         flex: 1,
@@ -1242,6 +1267,7 @@ const styles = StyleSheet.create({
     modeTitle: {
         fontSize: 28,
         fontWeight: '700',
+        fontFamily: 'Montserrat_700Bold',
         color: '#fff',
         marginBottom: 8,
         textAlign: 'center',
@@ -1249,7 +1275,8 @@ const styles = StyleSheet.create({
 
     modeSubtitle: {
         fontSize: 16,
-        color: '#8b5cf6',
+        fontFamily: 'Montserrat_500Medium',
+        color: '#cc31e8',
         textAlign: 'center',
     },
 
@@ -1258,7 +1285,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         backgroundColor: 'rgba(255, 255, 255, 0.05)',
         borderWidth: 2,
-        borderColor: 'rgba(139, 92, 246, 0.3)',
+        borderColor: 'rgba(204, 49, 232, 0.3)',
         borderRadius: 20,
         padding: 24,
         marginBottom: 16,
@@ -1268,7 +1295,7 @@ const styles = StyleSheet.create({
         width: 48,
         height: 48,
         borderRadius: 24,
-        backgroundColor: 'rgba(139, 92, 246, 0.2)',
+        backgroundColor: 'rgba(204, 49, 232, 0.2)',
         alignItems: 'center',
         justifyContent: 'center',
         marginRight: 20,
@@ -1281,13 +1308,15 @@ const styles = StyleSheet.create({
     modeOptionTitle: {
         fontSize: 18,
         fontWeight: '600',
+        fontFamily: 'Montserrat_600SemiBold',
         color: '#fff',
         marginBottom: 4,
     },
 
     modeOptionDescription: {
         fontSize: 14,
-        color: '#8b5cf6',
+        fontFamily: 'Montserrat_400Regular',
+        color: '#cc31e8',
         lineHeight: 20,
     },
 
@@ -1297,8 +1326,18 @@ const styles = StyleSheet.create({
 
     arrow: {
         fontSize: 20,
-        color: '#8b5cf6',
+        color: '#cc31e8',
         fontWeight: '600',
+        fontFamily: 'Montserrat_600SemiBold',
+    },
+
+    skipOption: {
+        backgroundColor: 'rgba(204, 49, 232, 0.08)',
+        borderColor: 'rgba(204, 49, 232, 0.4)',
+    },
+
+    topPadding: {
+        height: 32,
     },
 
     // Crew Selection Styles

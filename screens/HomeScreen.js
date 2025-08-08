@@ -19,9 +19,8 @@ import { LinearGradient } from 'expo-linear-gradient'
 import { UserContext } from '../context/UserContext'
 import AccountCreatedScreen from './AccountCreatedScreen'
 import VoxxyFooter from '../components/VoxxyFooter'
-import { Users, HelpCircle, X, Plus, Zap, CheckCircle, BookOpen, Mail, Coffee, MapPin, Star, User, Activity, Hamburger, Martini, Dices, ChevronRight } from 'lucide-react-native'
+import { Users, HelpCircle, X, Plus, Zap, CheckCircle, BookOpen, Mail, Coffee, MapPin, Star, User, Activity, Hamburger, Martini, Dices, ChevronRight, ToggleLeft, ToggleRight, Grid3X3, List } from 'lucide-react-native'
 import CustomHeader from '../components/CustomHeader'
-import YourCommunity from '../components/YourCommunity'
 import ProfileSnippet from '../components/ProfileSnippet'
 import { useNavigation } from '@react-navigation/native';
 import PushNotificationService from '../services/PushNotificationService';
@@ -34,9 +33,8 @@ const { width: screenWidth } = Dimensions.get('window')
 const FULL_HEIGHT = 333
 
 const FILTERS = [
-  { key: 'In Progress', icon: Zap },
-  { key: 'Past Activities', icon: CheckCircle },
-  { key: 'Invites', icon: Mail },
+  { key: 'Toggle', icon: Grid3X3, isToggle: true },
+  { key: 'Active', icon: Zap },
   { key: 'Favorites', icon: Star }
 ]
 
@@ -166,7 +164,7 @@ function ProgressDisplay({ activity, currentUserId }) {
           <View style={styles.bandBackground} />
           <View style={styles.respondedBadge}>
             <CheckCircle color="#4ECDC4" size={16} strokeWidth={2.5} />
-            <Text style={styles.respondedText}>Preferences submitted!</Text>
+            <Text style={styles.respondedText}>Submitted!</Text>
           </View>
         </View>
       ) : (
@@ -182,23 +180,40 @@ function ProgressDisplay({ activity, currentUserId }) {
   )
 }
 
-// See All Past Activities Card
+// See All Card Component
 function SeeAllCard({ onPress, totalCount, type = 'activities' }) {
+  const isFavorites = type === 'favorites'
   return (
     <TouchableOpacity
-      style={styles.seeAllCard}
+      style={[
+        styles.seeAllCard,
+        isFavorites && styles.seeAllFavoritesCard
+      ]}
       onPress={onPress}
       activeOpacity={0.8}
     >
-      <View style={styles.seeAllContent}>
-        <View style={styles.seeAllIconContainer}>
-          <BookOpen color="#B954EC" size={24} strokeWidth={2} />
+      {/* Header matching activity cards */}
+      <View style={[styles.cardHeader, styles.seeAllHeader]}>
+        <View style={styles.cardIconContainer}>
+          <BookOpen color={isFavorites ? "#D4AF37" : "#B954EC"} size={20} strokeWidth={2} />
         </View>
-        <Text style={styles.seeAllTitle}>See All</Text>
-        <Text style={styles.seeAllSubtitle}>{totalCount} total {type}</Text>
-        <View style={styles.seeAllArrow}>
-          <Text style={styles.seeAllArrowText}>→</Text>
+        <View style={styles.cardHeaderInfo}>
+          <Text style={styles.cardType}>Collection</Text>
+          <Text style={styles.cardHost}>view all</Text>
         </View>
+      </View>
+      
+      {/* Content area */}
+      <View style={styles.seeAllMainContent}>
+        <Text style={styles.seeAllCount}>{totalCount}</Text>
+        <Text style={styles.seeAllLabel}>Total {type}</Text>
+      </View>
+      
+      {/* Bottom area matching activity cards */}
+      <View style={styles.cardTitleArea}>
+        <Text style={styles.cardTitle}>
+          {isFavorites ? 'View All Favorites' : 'View All Activities'}
+        </Text>
       </View>
     </TouchableOpacity>
   )
@@ -553,18 +568,17 @@ function ModernTab({ filter, isActive, onPress }) {
 }
 
 
-export default function HomeScreen() {
+export default function HomeScreen({ route }) {
   const { user } = useContext(UserContext)
   const navigation = useNavigation()
-  const [mainTab, setMainTab] = useState('Activities')
   const [filter, setFilter] = useState('')
   const [showAllPast, setShowAllPast] = useState(false)
   const [userFavorites, setUserFavorites] = useState([])
   const [loadingFavorites, setLoadingFavorites] = useState(false)
   const [selectedFavorite, setSelectedFavorite] = useState(null)
   const [showFavoriteModal, setShowFavoriteModal] = useState(false)
-  const [showPastActivitiesModal, setShowPastActivitiesModal] = useState(false)
   const [showAllFavoritesModal, setShowAllFavoritesModal] = useState(false)
+  const [isListView, setIsListView] = useState(true)
   const scrollY = useRef(new Animated.Value(0)).current
   const scrollRef = useRef(null)
 
@@ -588,9 +602,16 @@ export default function HomeScreen() {
         { method: 'GET' }
       )
       
-      console.log('Fetched favorites:', favorites)
-      console.log('Favorites count:', favorites.length)
-      setUserFavorites(favorites || [])
+      // Filter out favorites where the activity has been deleted
+      const validFavorites = (favorites || []).filter(fav => {
+        const hasActivity = fav.activity || fav.pinned_activity?.activity
+        if (!hasActivity) {
+          console.log('Filtering out favorite with missing activity:', fav.id)
+        }
+        return hasActivity
+      })
+      
+      setUserFavorites(validFavorites)
     } catch (error) {
       console.error('Error fetching favorites:', error)
       const userMessage = handleApiError(error, 'Failed to load favorites. Please try again.');
@@ -613,13 +634,47 @@ export default function HomeScreen() {
     }
   }, [filter, user?.token])
 
-  // Also fetch favorites when component mounts if we're on favorites tab
+  // Fetch favorites on component mount to always have the count available
   useEffect(() => {
-    if (filter === 'Favorites' && user?.token && userFavorites.length === 0) {
-      console.log('Component mounted on Favorites tab, fetching...')
+    if (user?.token) {
+      console.log('Fetching favorites on component mount...')
       fetchUserFavorites()
     }
   }, [user?.token])
+
+  // Handle navigation params to show favorites modal
+  useEffect(() => {
+    if (route?.params?.showFavorites) {
+      setShowAllFavoritesModal(true)
+      // Clear the param to prevent it from triggering again
+      navigation.setParams({ showFavorites: undefined })
+    }
+  }, [route?.params?.showFavorites, navigation])
+
+  // Delete a favorite
+  const deleteFavorite = async (favoriteId) => {
+    if (!user?.token) return
+
+    try {
+      await safeAuthApiCall(
+        `${API_URL}/user_activities/${favoriteId}`,
+        user.token,
+        { method: 'DELETE' }
+      )
+      
+      // Update the local state by removing the deleted favorite
+      setUserFavorites(prevFavorites => 
+        prevFavorites.filter(fav => fav.id !== favoriteId)
+      )
+      
+      console.log(`Favorite with ID ${favoriteId} deleted successfully`)
+      Alert.alert('Success', 'Favorite removed successfully!')
+    } catch (error) {
+      console.error('Error deleting favorite:', error)
+      const userMessage = handleApiError(error, 'Failed to remove favorite. Please try again.')
+      Alert.alert('Error', userMessage)
+    }
+  }
 
   const activities = useMemo(() => {
     if (!user) return []
@@ -640,27 +695,23 @@ export default function HomeScreen() {
   useEffect(() => {
     // Only set filter if it's not already set
     if (!filter || filter === '') {
-      if (invites.length > 0) {
-        setFilter('Invites')
-      } else if (inProgress.length > 0) {
-        setFilter('In Progress')
-      } else if (past.length > 0) {
-        setFilter('Past Activities')
-      } else {
-        setFilter('In Progress')
-      }
+      setFilter('Active')
     }
-  }, [invites.length, inProgress.length, past.length, filter])
+  }, [filter])
 
   if (user && !user.confirmed_at) {
     return <AccountCreatedScreen />
   }
 
+  // Store the original unsliced counts for accurate totals
+  const originalCounts = {
+    'Favorites': userFavorites.length,
+    'Active': inProgress.length + invites.length
+  }
+
   const filteredActivities = (() => {
     const dataMap = {
-      'In Progress': inProgress,
-      'Past Activities': past,
-      'Invites': invites,
+      'Active': [...inProgress, ...invites],
       'Favorites': userFavorites,
     }
 
@@ -673,7 +724,7 @@ export default function HomeScreen() {
 
     const sortedData = data.sort((a, b) => {
       // For in-progress activities, prioritize action needed items
-      if (filter === 'In Progress') {
+      if (filter === 'Active') {
         const aUserResponse = a.responses?.find(r => r.user_id === user?.id)
         const bUserResponse = b.responses?.find(r => r.user_id === user?.id)
         const aIsHost = a.user_id === user?.id
@@ -687,8 +738,8 @@ export default function HomeScreen() {
         if (!aActionNeeded && bActionNeeded) return 1
       }
       
-      // For Past Activities and Favorites, sort by created_at (most recent first)
-      if (filter === 'Past Activities' || filter === 'Favorites') {
+      // For Favorites, sort by created_at (most recent first)
+      if (filter === 'Favorites') {
         const dateA = new Date(a.created_at || '1970-01-01')
         const dateB = new Date(b.created_at || '1970-01-01')
         return dateB - dateA
@@ -699,11 +750,7 @@ export default function HomeScreen() {
       const dateB = new Date(b.date_day || '9999-12-31')
       return dateA - dateB
     })
-
-    // For Past Activities, only show 3 most recent
-    if (filter === 'Past Activities' && sortedData.length > 3) {
-      return sortedData.slice(0, 3)
-    }
+    
     
     // For Favorites, only show 3 most recent
     if (filter === 'Favorites' && sortedData.length > 3) {
@@ -765,6 +812,12 @@ export default function HomeScreen() {
     console.log('pinnedActivity:', pinnedActivity)
     console.log('activity:', activity)
     
+    // Skip rendering if activity is missing (shouldn't happen with filtering, but extra safety)
+    if (!activity) {
+      console.warn('Skipping favorite card with missing activity:', item.id)
+      return null
+    }
+    
     const activityType = activity?.activity_type || 'Restaurant'
     const displayInfo = getActivityDisplayInfo(activityType)
 
@@ -786,6 +839,11 @@ export default function HomeScreen() {
         }}
         activeOpacity={0.9}
       >
+        {/* Corner decorations for favorites */}
+        <View style={[styles.cardCorner, styles.cardCornerTopLeft, styles.favoriteCorner]} />
+        <View style={[styles.cardCorner, styles.cardCornerTopRight, styles.favoriteCorner]} />
+        <View style={[styles.cardCorner, styles.cardCornerBottomLeft, styles.favoriteCorner]} />
+        <View style={[styles.cardCorner, styles.cardCornerBottomRight, styles.favoriteCorner]} />
         {/* Header with icon and activity type */}
         <View style={styles.cardHeader}>
           <View style={styles.cardIconContainer}>
@@ -836,6 +894,192 @@ export default function HomeScreen() {
     )
   }
 
+  function renderListItem({ item, index }) {
+    const firstName = item.user?.name?.split(' ')[0] || ''
+    const isInvite = invites.some(invite => invite.id === item.id)
+    const isInProgress = !item.finalized && !item.completed && !isInvite
+    const isFinalizedWithDateTime = item.finalized && item.date_day && item.date_time
+    const isCompleted = item.completed
+    const displayInfo = getActivityDisplayInfo(item.activity_type)
+    const isUserHost = item.user?.id === user?.id
+    
+    // Debug logging for first list item
+    if (index === 0) {
+      console.log('DEBUG - First list item:', {
+        itemUserId: item.user?.id,
+        currentUserId: user?.id,
+        userName: user?.name,
+        isUserHost,
+        itemName: item.activity_name
+      })
+    }
+
+    let countdownTs = null
+    if (isFinalizedWithDateTime) {
+      countdownTs = getEventDateTime(item)
+    }
+
+    // Get status text and color
+    let statusText = 'Planning...'
+    let statusColor = '#B8A5C4'
+    let statusIcon = Activity
+
+    if (isInvite) {
+      statusText = 'NEW INVITE'
+      statusColor = '#d394f5'
+      statusIcon = Mail
+    } else if (isCompleted) {
+      statusText = 'COMPLETED'
+      statusColor = '#4ECDC4'
+      statusIcon = CheckCircle
+    } else if (countdownTs) {
+      const timeLeft = Math.max(countdownTs - Date.now(), 0)
+      const days = Math.floor(timeLeft / (24 * 3600000))
+      const hrs = Math.floor((timeLeft % (24 * 3600000)) / 3600000)
+      const mins = Math.floor((timeLeft % 3600000) / 60000)
+      
+      if (timeLeft <= 0) {
+        statusText = 'STARTED'
+        statusColor = '#4ECDC4'
+      } else {
+        statusText = `${days > 0 ? days + 'd ' : ''}${hrs}h ${mins}m`
+        statusColor = '#FFE66D'
+      }
+    } else if (isInProgress) {
+      const userResponse = item.responses?.find(r => r.user_id === user?.id)
+      const isHost = item.user_id === user?.id
+      
+      if (isHost) {
+        statusText = 'WAITING FOR RESPONSES'
+        statusColor = '#B954EC'
+        statusIcon = Users
+      } else if (userResponse) {
+        statusText = 'SUBMITTED'
+        statusColor = '#4ECDC4'
+        statusIcon = CheckCircle
+      } else {
+        statusText = 'ACTION NEEDED'
+        statusColor = '#FFE66D'
+        statusIcon = Zap
+      }
+    }
+
+    return (
+      <TouchableOpacity
+        style={[
+          styles.listItem,
+          isInvite && styles.listItemInvite,
+          isUserHost && styles.userOwnedListItem,
+          index === 0 && styles.listItemFirst,
+          index === displayedActivities.length - 1 && styles.listItemLast
+        ]}
+        onPress={() => {
+          if (Haptics?.impactAsync) {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+          }
+          navigation.navigate('ActivityDetails', { activityId: item.id })
+        }}
+        activeOpacity={0.7}
+      >
+        {/* Left: Activity Icon */}
+        <View style={styles.listItemIcon}>
+          {displayInfo.icon && (
+            <displayInfo.icon 
+              color={displayInfo.iconColor} 
+              size={24} 
+              strokeWidth={2.5}
+            />
+          )}
+        </View>
+
+        {/* Center: Activity Info */}
+        <View style={styles.listItemContent}>
+          <Text style={[
+            styles.listItemTitle,
+            !item.finalized && { color: 'rgba(255, 255, 255, 0.6)' }
+          ]} numberOfLines={1}>
+            {item.finalized ? item.activity_name : 'Collecting'}
+          </Text>
+          <View style={styles.listItemMeta}>
+            <Text style={styles.listItemType}>{displayInfo.displayText}</Text>
+            <Text style={styles.listItemHost}>by {isUserHost ? 'you' : firstName}</Text>
+            {item.finalized && item.date_day && (
+              <Text style={styles.listItemDate}>{formatDate(item.date_day)}</Text>
+            )}
+          </View>
+        </View>
+
+
+        {/* Right: Status */}
+        <View style={styles.listItemStatus}>
+          <Text style={[styles.listItemStatusText, { color: statusColor }]}>
+            {statusText}
+          </Text>
+        </View>
+      </TouchableOpacity>
+    )
+  }
+
+  function renderFavoriteListItem({ item, index }) {
+    const pinnedActivity = item.pinned_activity || item
+    const activity = item.activity || pinnedActivity?.activity
+    const activityType = activity?.activity_type || 'Restaurant'
+    const displayInfo = getActivityDisplayInfo(activityType)
+
+    return (
+      <TouchableOpacity
+        style={[
+          styles.listItem,
+          styles.listItemFavorite,
+          index === 0 && styles.listItemFirst,
+          index === displayedActivities.length - 1 && styles.listItemLast
+        ]}
+        onPress={() => {
+          if (Haptics?.impactAsync) {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+          }
+          setSelectedFavorite(item)
+          setShowFavoriteModal(true)
+        }}
+        activeOpacity={0.7}
+      >
+        {/* Left: Activity Icon */}
+        <View style={styles.listItemIcon}>
+          {displayInfo.icon && (
+            <displayInfo.icon 
+              color={displayInfo.iconColor} 
+              size={24} 
+              strokeWidth={2.5}
+            />
+          )}
+        </View>
+
+        {/* Center: Favorite Info */}
+        <View style={styles.listItemContent}>
+          <Text style={styles.listItemTitle} numberOfLines={1}>
+            {item.title || pinnedActivity?.title || 'Favorite Recommendation'}
+          </Text>
+          <View style={styles.listItemMeta}>
+            <Text style={styles.listItemType}>{displayInfo.displayText}</Text>
+            {item.address && (
+              <Text style={styles.listItemLocation} numberOfLines={1}>
+                {item.address.split(',')[0]}
+              </Text>
+            )}
+            {item.price_range && (
+              <Text style={styles.listItemPrice}>{item.price_range}</Text>
+            )}
+          </View>
+        </View>
+
+        {/* Right: Favorite Star */}
+        <View style={styles.listItemStatus}>
+          <Star color="#D4AF37" size={18} fill="#D4AF37" />
+        </View>
+      </TouchableOpacity>
+    )
+  }
+
   function renderCard({ item, index }) {
     const firstName = item.user?.name?.split(' ')[0] || ''
     const isInvite = invites.some(invite => invite.id === item.id)
@@ -843,6 +1087,18 @@ export default function HomeScreen() {
     const isFinalizedWithDateTime = item.finalized && item.date_day && item.date_time
     const isCompleted = item.completed
     const displayInfo = getActivityDisplayInfo(item.activity_type)
+    const isUserHost = item.user?.id === user?.id
+    
+    // Debug logging for first grid card  
+    if (index === 0) {
+      console.log('DEBUG - First grid card:', {
+        itemUserId: item.user?.id,
+        currentUserId: user?.id,
+        userName: user?.name,
+        isUserHost,
+        itemName: item.activity_name
+      })
+    }
 
     let countdownTs = null
     if (isFinalizedWithDateTime) {
@@ -854,6 +1110,7 @@ export default function HomeScreen() {
         style={[
           styles.card,
           isInvite && styles.inviteCard,
+          isUserHost && styles.userOwnedCard,
           index === 0 && styles.firstCard,
           index === displayedActivities.length - 1 && styles.lastCard
         ]}
@@ -865,6 +1122,13 @@ export default function HomeScreen() {
         }}
         activeOpacity={0.9}
       >
+        {/* Corner decorations for activity cards */}
+        <View style={[styles.cardCorner, styles.cardCornerTopLeft, styles.activityCorner]} />
+        <View style={[styles.cardCorner, styles.cardCornerTopRight, styles.activityCorner]} />
+        <View style={[styles.cardCorner, styles.cardCornerBottomLeft, styles.activityCorner]} />
+        <View style={[styles.cardCorner, styles.cardCornerBottomRight, styles.activityCorner]} />
+        
+        
         {/* Header with icon and activity type */}
         <View style={styles.cardHeader}>
           <View style={styles.cardIconContainer}>
@@ -878,24 +1142,31 @@ export default function HomeScreen() {
           </View>
           <View style={styles.cardHeaderInfo}>
             <Text style={styles.cardType}>{displayInfo.displayText}</Text>
-            <Text style={styles.cardHost}>by {firstName}</Text>
+            <Text style={styles.cardHost}>by {isUserHost ? 'you' : firstName}</Text>
           </View>
         </View>
 
         {/* Status/Content Area */}
         <View style={styles.cardStatusArea}>
           {isInvite ? (
-            <View style={styles.overlayStatusContainer}>
-              <Mail color="#d394f5" size={14} />
-              <Text style={styles.overlayStatusText}>Invitation</Text>
+            <View style={styles.inviteStatusContainer}>
+              <View style={styles.inviteBadge}>
+                <Mail color="#fff" size={16} strokeWidth={2.5} />
+                <Text style={styles.inviteBadgeText}>NEW INVITE</Text>
+              </View>
+              <Text style={styles.invitePrompt}>Tap to respond!</Text>
             </View>
           ) : countdownTs ? (
             <CountdownText targetTs={countdownTs} activityType={item.activity_type} />
           ) : isInProgress ? (
             <ProgressDisplay activity={item} currentUserId={user?.id} />
           ) : isCompleted ? (
-            <View style={styles.overlayStatusContainer}>
-              <Text style={styles.overlayStatusText}>Completed</Text>
+            <View style={styles.completedContainer}>
+              <View style={styles.completedStamp}>
+                <CheckCircle color="#4ECDC4" size={24} strokeWidth={2.5} />
+                <Text style={styles.completedText}>COLLECTED</Text>
+              </View>
+              <Text style={styles.completedDate}>{formatDate(item.date_day)}</Text>
             </View>
           ) : (
             <View style={styles.overlayStatusContainer}>
@@ -904,10 +1175,10 @@ export default function HomeScreen() {
           )}
         </View>
 
-        {/* Activity Name */}
+        {/* Activity Name or Status */}
         <View style={styles.cardTitleArea}>
           <Text style={styles.cardTitle} numberOfLines={3} ellipsizeMode="tail">
-            {item.activity_name}
+            {item.finalized ? item.activity_name : 'Collecting preferences'}
           </Text>
         </View>
       </TouchableOpacity>
@@ -918,52 +1189,6 @@ export default function HomeScreen() {
     <>
       <View style={{ height: 300 }} />
       
-      {/* Main Tab Bar */}
-      <View style={styles.mainTabContainer}>
-        <View style={styles.mainTabBar}>
-          <TouchableOpacity
-            style={[styles.mainTab, mainTab === 'Activities' && styles.mainTabActive]}
-            onPress={() => {
-              if (Haptics?.impactAsync) {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-              }
-              setMainTab('Activities')
-              // Set appropriate filter when switching to Activities tab
-              if (invites.length > 0) {
-                setFilter('Invites')
-              } else if (inProgress.length > 0) {
-                setFilter('In Progress')
-              } else if (past.length > 0) {
-                setFilter('Past Activities')
-              } else {
-                setFilter('In Progress')
-              }
-            }}
-            activeOpacity={0.7}
-          >
-            <Activity color={mainTab === 'Activities' ? '#fff' : '#B8A5C4'} size={18} strokeWidth={2.5} />
-            <Text style={[styles.mainTabLabel, mainTab === 'Activities' && styles.mainTabLabelActive]}>
-              Activities
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.mainTab, mainTab === 'Community' && styles.mainTabActive]}
-            onPress={() => {
-              if (Haptics?.impactAsync) {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-              }
-              setMainTab('Community')
-            }}
-            activeOpacity={0.7}
-          >
-            <Users color={mainTab === 'Community' ? '#fff' : '#B8A5C4'} size={18} strokeWidth={2.5} />
-            <Text style={[styles.mainTabLabel, mainTab === 'Community' && styles.mainTabLabelActive]}>
-              Community
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
 
 
     </>
@@ -981,10 +1206,11 @@ export default function HomeScreen() {
         scrollY={scrollY} 
         onScrollToTop={scrollToTop} 
         setFilter={setFilter} 
-        setMainTab={setMainTab}
         invitesCount={invites.length}
         inProgressCount={inProgress.length}
         pastCount={past.length}
+        userFavorites={userFavorites}
+        onShowFavorites={() => setShowAllFavoritesModal(true)}
       />
       <Animated.FlatList
         ref={scrollRef}
@@ -999,23 +1225,53 @@ export default function HomeScreen() {
         scrollEventThrottle={16}
         ListFooterComponent={() => (
           <>
-            {mainTab === 'Activities' ? (
+            {/* Main content - Activities */}
               <>
-                {/* Activities section with side filters */}
-                <View style={styles.activitiesWithFilters}>
-                  {/* Side Filter Buttons */}
-                  <View style={styles.sideFilters}>
+                {/* Top Filter Tabs */}
+                <ScrollView 
+                  horizontal 
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.topFiltersContent}
+                  style={styles.topFiltersContainer}
+                >
                     {FILTERS.map((filterItem) => {
                       const isActive = filter === filterItem.key
-                      const IconComponent = filterItem.icon
-                      const count = filterItem.key === 'Invites' ? invites.length : 
-                                   filterItem.key === 'Favorites' ? userFavorites.length : 0
+                      const IconComponent = filterItem.isToggle ? (isListView ? Grid3X3 : List) : filterItem.icon
+                      const count = filterItem.key === 'Favorites' ? userFavorites.length : 
+                                   filterItem.key === 'Active' ? (inProgress.length + invites.length) : 0
+                      
+                      if (filterItem.isToggle) {
+                        return (
+                          <TouchableOpacity
+                            key={filterItem.key}
+                            style={[
+                              styles.topFilterTab,
+                              styles.topToggleTab
+                            ]}
+                            onPress={() => {
+                              if (Haptics?.impactAsync) {
+                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+                              }
+                              setIsListView(!isListView)
+                            }}
+                            activeOpacity={0.7}
+                          >
+                            <IconComponent
+                              stroke={isListView ? '#4ECDC4' : '#B8A5C4'}
+                              width={18}
+                              height={18}
+                              strokeWidth={2.5}
+                            />
+                          </TouchableOpacity>
+                        )
+                      }
+                      
                       return (
                         <TouchableOpacity
                           key={filterItem.key}
                           style={[
-                            styles.sideFilterButton,
-                            isActive && styles.sideFilterButtonActive
+                            styles.topFilterTab,
+                            isActive && styles.topFilterTabActive
                           ]}
                           onPress={() => {
                             if (Haptics?.impactAsync) {
@@ -1028,22 +1284,28 @@ export default function HomeScreen() {
                         >
                           <IconComponent
                             stroke={isActive ? '#fff' : '#B8A5C4'}
-                            width={16}
-                            height={16}
+                            width={18}
+                            height={18}
                             strokeWidth={isActive ? 2.5 : 2}
                           />
-                          {filterItem.key === 'Invites' && count > 0 && (
-                            <View style={styles.sideFilterBadge}>
-                              <Text style={styles.sideFilterBadgeText}>{count}</Text>
+                          <Text style={[
+                            styles.topFilterTabText,
+                            isActive && styles.topFilterTabTextActive
+                          ]}>
+                            {filterItem.key}
+                          </Text>
+                          {count > 0 && (
+                            <View style={styles.topFilterBadge}>
+                              <Text style={styles.topFilterBadgeText}>{count}</Text>
                             </View>
                           )}
                         </TouchableOpacity>
                       )
                     })}
                     
-                    {/* Plus button to create new activity */}
+                    {/* Create new activity button */}
                     <TouchableOpacity
-                      style={styles.sideCreateButton}
+                      style={styles.topCreateTab}
                       onPress={() => {
                         if (Haptics?.impactAsync) {
                           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
@@ -1054,24 +1316,20 @@ export default function HomeScreen() {
                     >
                       <Plus
                         color='#4ECDC4'
-                        size={14}
+                        size={16}
                         strokeWidth={2.5}
                       />
+                      <Text style={styles.topCreateTabText}>New</Text>
                     </TouchableOpacity>
-                  </View>
+                </ScrollView>
+
+                {/* Activities section */}
+                <View style={styles.activitiesContainer}>
                   
-                  {/* Horizontal Activities List or Empty State */}
+                  {/* Activities List or Empty State - Grid or List View */}
                   {filteredActivities.length === 0 ? (
                     <View style={styles.sideEmptyContainer}>
-                      {filter === 'Invites' ? (
-                        <>
-                          <Text style={styles.sideEmptyIcon}>💌</Text>
-                          <Text style={styles.sideEmpty}>No invites to show</Text>
-                          <Text style={styles.sideEmptySub}>
-                            Invites will appear here!
-                          </Text>
-                        </>
-                      ) : filter === 'Favorites' ? (
+                                      {filter === 'Favorites' ? (
                         <>
                           {loadingFavorites ? (
                             <>
@@ -1101,11 +1359,57 @@ export default function HomeScreen() {
                         </>
                       )}
                     </View>
+                  ) : isListView ? (
+                    // Vertical List View
+                    <ScrollView 
+                      style={styles.listContainer}
+                      contentContainerStyle={styles.listContent}
+                      showsVerticalScrollIndicator={false}
+                    >
+                      {displayedActivities.map((item, index) => {
+                        const key = filter === 'Favorites' 
+                          ? String(item.id || `${item.user_id}-${item.pinned_activity_id}`)
+                          : String(item.id)
+                        
+                        if (filter === 'Favorites') {
+                          return (
+                            <View key={key}>
+                              {renderFavoriteListItem({ item, index })}
+                            </View>
+                          )
+                        }
+                        return (
+                          <View key={key}>
+                            {renderListItem({ item, index })}
+                          </View>
+                        )
+                      })}
+                      
+                      {/* Show "See All" button for favorites in list view */}
+                      {filter === 'Favorites' && originalCounts['Favorites'] > displayedActivities.length && (
+                        <TouchableOpacity
+                          style={styles.seeAllListItem}
+                          onPress={() => setShowAllFavoritesModal(true)}
+                          activeOpacity={0.7}
+                        >
+                          <View style={styles.seeAllListIcon}>
+                            <BookOpen color="#B8A5C4" size={20} strokeWidth={2} />
+                          </View>
+                          <View style={styles.seeAllListContent}>
+                            <Text style={styles.seeAllListTitle}>View All Favorites</Text>
+                            <Text style={styles.seeAllListSubtitle}>
+                              {userFavorites.length} total favorites
+                            </Text>
+                          </View>
+                          <ChevronRight stroke="#B8A5C4" width={20} height={20} />
+                        </TouchableOpacity>
+                      )}
+                    </ScrollView>
                   ) : (
+                    // Horizontal Grid View (existing)
                     <FlatList
                       data={
-                        (filter === 'Past Activities' && past.length > 3) || 
-                        (filter === 'Favorites' && userFavorites.length > 3)
+                        (filter === 'Favorites' && originalCounts['Favorites'] >= 1)
                           ? [...displayedActivities, { isSeeAll: true }]
                           : displayedActivities
                       }
@@ -1124,13 +1428,11 @@ export default function HomeScreen() {
                           return (
                             <SeeAllCard 
                               onPress={() => {
-                                if (filter === 'Past Activities') {
-                                  setShowPastActivitiesModal(true)
-                                } else if (filter === 'Favorites') {
+                                if (filter === 'Favorites') {
                                   setShowAllFavoritesModal(true)
                                 }
                               }}
-                              totalCount={filter === 'Past Activities' ? past.length : userFavorites.length}
+                              totalCount={filter === 'Favorites' ? userFavorites.length : (originalCounts[filter] || 0)}
                               type={filter === 'Favorites' ? 'favorites' : 'activities'}
                             />
                           )
@@ -1143,7 +1445,7 @@ export default function HomeScreen() {
                       contentContainerStyle={styles.horizontalGrid}
                       snapToAlignment="start"
                       decelerationRate="fast"
-                      snapToInterval={176} // card width + margin (160 + 16)
+                      snapToInterval={216} // card width + margin (200 + 16)
                     />
                   )}
                 </View>
@@ -1151,12 +1453,6 @@ export default function HomeScreen() {
                 {/* Animated Start New Activity Button - Wide Version */}
                 <AnimatedStartNewActivityButton navigation={navigation} />
               </>
-            ) : (
-              /* Show community section */
-              <View style={styles.communityContainer}>
-                <YourCommunity onCreateBoard={() => navigation.navigate('TripDashboardScreen')} />
-              </View>
-            )}
             <ListFooter />
           </>
         )}
@@ -1277,71 +1573,6 @@ export default function HomeScreen() {
         </SafeAreaView>
       </Modal>
       
-      {/* Past Activities Modal */}
-      <Modal
-        visible={showPastActivitiesModal}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={() => setShowPastActivitiesModal(false)}
-      >
-        <SafeAreaView style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
-            <TouchableOpacity
-              style={styles.modalCloseButton}
-              onPress={() => setShowPastActivitiesModal(false)}
-            >
-              <X stroke="#fff" width={20} height={20} strokeWidth={2.5} />
-            </TouchableOpacity>
-            <Text style={styles.modalTitle}>All Past Activities</Text>
-            <View style={styles.modalHeaderSpacer} />
-          </View>
-          
-          <FlatList
-            data={past.sort((a, b) => new Date(b.created_at || '1970-01-01') - new Date(a.created_at || '1970-01-01'))}
-            keyExtractor={(item) => String(item.id)}
-            renderItem={({ item }) => {
-              const displayInfo = getActivityDisplayInfo(item.activity_type)
-              return (
-                <TouchableOpacity
-                  style={styles.pastActivityItem}
-                  onPress={() => {
-                    setShowPastActivitiesModal(false)
-                    navigation.navigate('ActivityDetails', { activityId: item.id })
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.pastActivityIcon}>
-                    {displayInfo.icon && (
-                      <displayInfo.icon 
-                        color={displayInfo.iconColor} 
-                        size={24} 
-                        strokeWidth={2}
-                      />
-                    )}
-                  </View>
-                  <View style={styles.pastActivityContent}>
-                    <Text style={styles.pastActivityTitle}>{item.activity_name}</Text>
-                    <Text style={styles.pastActivityMeta}>
-                      {displayInfo.displayText} • {formatDate(item.date_day)}
-                    </Text>
-                    <View style={styles.pastActivityParticipants}>
-                      <Users stroke="#B8A5C4" width={14} height={14} />
-                      <Text style={styles.pastActivityParticipantText}>
-                        {item.participants?.length || 0} participants
-                      </Text>
-                    </View>
-                  </View>
-                  <ChevronRight stroke="#B8A5C4" width={20} height={20} />
-                </TouchableOpacity>
-              )
-            }}
-            contentContainerStyle={styles.modalListContent}
-            showsVerticalScrollIndicator={false}
-            ItemSeparatorComponent={() => <View style={styles.pastActivitySeparator} />}
-          />
-        </SafeAreaView>
-      </Modal>
-      
       {/* All Favorites Modal */}
       <Modal
         visible={showAllFavoritesModal}
@@ -1400,7 +1631,30 @@ export default function HomeScreen() {
                       </View>
                     )}
                   </View>
-                  <ChevronRight stroke="#B8A5C4" width={20} height={20} />
+                  <View style={styles.favoriteActions}>
+                    <TouchableOpacity
+                      style={styles.deleteFavoriteButton}
+                      onPress={(e) => {
+                        e.stopPropagation()
+                        Alert.alert(
+                          'Remove Favorite',
+                          'Are you sure you want to remove this favorite?',
+                          [
+                            { text: 'Cancel', style: 'cancel' },
+                            { 
+                              text: 'Remove', 
+                              style: 'destructive',
+                              onPress: () => deleteFavorite(item.id)
+                            }
+                          ]
+                        )
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <X stroke="#ff6b6b" width={18} height={18} />
+                    </TouchableOpacity>
+                    <ChevronRight stroke="#B8A5C4" width={20} height={20} />
+                  </View>
                 </TouchableOpacity>
               )
             }}
@@ -1429,88 +1683,101 @@ const styles = StyleSheet.create({
     paddingTop: 8,
   },
 
-  // Activities with filters layout
-  activitiesWithFilters: {
+  // Top filter tabs layout
+  topFiltersContainer: {
+    paddingHorizontal: CARD_MARGIN,
+    paddingTop: 16,
+    paddingBottom: 12,
+  },
+
+  topFiltersContent: {
+    paddingRight: CARD_MARGIN,
+    gap: 8,
+  },
+
+  topFilterTab: {
     flexDirection: 'row',
-    alignItems: 'stretch',
-    minHeight: 200, // Match card height
-  },
-
-  // Side filter buttons
-  sideFilters: {
-    paddingLeft: 8,
-    paddingTop: 0,
-    paddingRight: 4,
-    gap: 6,
-    justifyContent: 'center',
-  },
-
-  sideFilterButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
+    alignItems: 'center',
     backgroundColor: 'rgba(42, 30, 46, 0.6)',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
     borderWidth: 1,
     borderColor: 'rgba(185, 84, 236, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    gap: 8,
     shadowColor: 'rgba(185, 84, 236, 0.15)',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 1,
     shadowRadius: 4,
   },
 
-  sideFilterButtonActive: {
-    backgroundColor: 'rgba(185, 84, 236, 0.2)',
-    borderColor: 'rgba(185, 84, 236, 0.4)',
+  topFilterTabActive: {
+    backgroundColor: 'rgba(185, 84, 236, 0.3)',
+    borderColor: 'rgba(185, 84, 236, 0.5)',
     shadowColor: 'rgba(185, 84, 236, 0.3)',
-    shadowRadius: 6,
   },
 
-  sideFilterBadge: {
-    position: 'absolute',
-    top: -4,
-    right: -4,
-    backgroundColor: '#CF38DD',
-    borderRadius: 8,
-    minWidth: 14,
-    height: 14,
+  topFilterTabText: {
+    color: '#B8A5C4',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+
+  topFilterTabTextActive: {
+    color: '#fff',
+  },
+
+  topFilterBadge: {
+    backgroundColor: '#6B46C1',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#201925',
+    paddingHorizontal: 6,
   },
 
-  sideFilterBadgeText: {
-    color: '#fff',
-    fontSize: 8,
-    fontWeight: '700',
+  topFilterBadgeText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.3,
   },
 
-  sideCreateButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
-    backgroundColor: 'rgba(78, 205, 196, 0.1)',
+  topCreateTab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(78, 205, 196, 0.15)',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
     borderWidth: 1,
     borderColor: 'rgba(78, 205, 196, 0.3)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    gap: 8,
     shadowColor: 'rgba(78, 205, 196, 0.2)',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 1,
     shadowRadius: 4,
-    marginTop: 4,
   },
 
-  // Side empty state (positioned to the right of buttons)
-  sideEmptyContainer: {
+  topCreateTabText: {
+    color: '#4ECDC4',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+
+  // Activities container layout
+  activitiesContainer: {
     flex: 1,
+  },
+
+  // Empty state container
+  sideEmptyContainer: {
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 32,
-    paddingVertical: 20,
-    minHeight: 200, // Match card height
+    paddingVertical: 40,
+    minHeight: 220,
   },
 
   sideEmptyIcon: {
@@ -1587,61 +1854,13 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
 
-  // Main Tab Styles
-  mainTabContainer: {
-    paddingHorizontal: 16,
-    marginBottom: 8,
-    marginTop: -8,
-  },
-
-  mainTabBar: {
-    flexDirection: 'row',
-    backgroundColor: 'rgba(42, 30, 46, 0.8)',
-    borderRadius: 20,
-    padding: 4,
-    borderWidth: 1,
-    borderColor: 'rgba(185, 84, 236, 0.3)',
-    shadowColor: 'rgba(185, 84, 236, 0.2)',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 1,
-    shadowRadius: 12,
-  },
-
-  mainTab: {
-    flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-
-  mainTabActive: {
-    backgroundColor: '#CF38DD',
-    shadowColor: 'rgba(207, 56, 221, 0.4)',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 8,
-  },
-
-  mainTabLabel: {
-    color: '#B8A5C4',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-
-  mainTabLabelActive: {
-    color: '#fff',
-  },
 
 
 
   // Animated Create Card Styles
   createCard: {
-    width: 180,
-    height: 200,
+    width: 200,
+    height: 220,
     marginRight: 16,
     borderRadius: 24,
     overflow: 'hidden',
@@ -1781,25 +2000,36 @@ const styles = StyleSheet.create({
   },
 
   card: {
-    width: 180,
-    height: 200,
+    width: 200,
+    height: 220,
     marginRight: 16,
-    backgroundColor: 'rgba(42, 30, 46, 0.95)',
-    borderRadius: 20,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(64, 51, 71, 0.5)',
-    shadowColor: 'rgba(0, 0, 0, 0.3)',
-    shadowOffset: { width: 0, height: 12 },
+    backgroundColor: '#1a1420',
+    borderRadius: 16,
+    overflow: 'visible',
+    borderWidth: 2,
+    borderColor: 'rgba(185, 84, 236, 0.3)',
+    shadowColor: 'rgba(0, 0, 0, 0.5)',
+    shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 1,
-    shadowRadius: 20,
-    elevation: 15,
+    shadowRadius: 16,
+    elevation: 20,
     position: 'relative',
   },
   favoriteCard: {
-    borderColor: 'rgba(212, 175, 55, 0.4)',
-    backgroundColor: 'rgba(42, 30, 46, 0.98)',
-    shadowColor: 'rgba(212, 175, 55, 0.2)',
+    borderColor: 'rgba(212, 175, 55, 0.6)',
+    backgroundColor: '#1a1420',
+    borderWidth: 2,
+  },
+
+  userOwnedCard: {
+    borderColor: 'rgba(139, 92, 246, 0.6)',
+    borderWidth: 2,
+    backgroundColor: 'rgba(139, 92, 246, 0.02)',
+    shadowColor: '#8B5CF6',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
   },
   favoriteIndicator: {
     marginLeft: 'auto',
@@ -1846,13 +2076,14 @@ const styles = StyleSheet.create({
   },
 
   inviteCard: {
-    borderColor: 'rgba(211, 148, 245, 0.8)',
+    borderColor: 'rgba(211, 148, 245, 0.6)',
     borderWidth: 2,
     shadowColor: 'rgba(211, 148, 245, 0.4)',
-    shadowOffset: { width: 0, height: 12 },
+    shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 1,
-    shadowRadius: 24,
+    shadowRadius: 16,
     elevation: 18,
+    backgroundColor: '#1a1420',
   },
 
   // New compact card header styles
@@ -1862,15 +2093,26 @@ const styles = StyleSheet.create({
     padding: 12,
     paddingBottom: 8,
     gap: 10,
+    backgroundColor: 'rgba(185, 84, 236, 0.08)',
+    borderTopLeftRadius: 14,
+    borderTopRightRadius: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(185, 84, 236, 0.15)',
   },
 
   cardIconContainer: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    shadowColor: 'rgba(0, 0, 0, 0.3)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 4,
   },
 
   cardHeaderInfo: {
@@ -1880,35 +2122,45 @@ const styles = StyleSheet.create({
   cardType: {
     color: '#fff',
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '700',
     marginBottom: 2,
-    letterSpacing: 0.2,
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
   },
 
   cardHost: {
-    color: '#B8A5C4',
+    color: '#9B7FA6',
     fontSize: 11,
-    fontWeight: '500',
-    opacity: 0.8,
+    fontWeight: '600',
+    opacity: 0.9,
+    fontStyle: 'italic',
   },
 
   // Status area for different card states
   cardStatusArea: {
     flex: 1,
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 16,
     justifyContent: 'center',
-    minHeight: 60,
+    minHeight: 80,
     overflow: 'visible',
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
   },
 
 
   // Card title area
   cardTitleArea: {
     paddingHorizontal: 12,
-    paddingBottom: 12,
-    paddingTop: 4,
+    paddingBottom: 16,
+    paddingTop: 8,
     flex: 0,
     justifyContent: 'flex-end',
+    backgroundColor: 'rgba(185, 84, 236, 0.05)',
+    borderBottomLeftRadius: 14,
+    borderBottomRightRadius: 14,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(185, 84, 236, 0.1)',
+    minHeight: 50,
   },
 
 
@@ -1924,7 +2176,7 @@ const styles = StyleSheet.create({
 
   overlayStatusText: {
     color: '#fff',
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '600',
     letterSpacing: 0.3,
     textShadowColor: 'rgba(0, 0, 0, 0.5)',
@@ -1962,14 +2214,14 @@ const styles = StyleSheet.create({
 
   countdownNumber: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: 20,
     fontWeight: '700',
-    lineHeight: 18,
+    lineHeight: 22,
   },
 
   countdownUnit: {
     color: '#d8cce2',
-    fontSize: 8,
+    fontSize: 10,
     fontWeight: '500',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -1978,7 +2230,7 @@ const styles = StyleSheet.create({
 
   countdownCompleted: {
     color: '#4ECDC4',
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '700',
     textAlign: 'center',
   },
@@ -2001,7 +2253,7 @@ const styles = StyleSheet.create({
 
   respondedText: {
     color: '#fff',
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '600',
     letterSpacing: 0.2,
     textAlign: 'center',
@@ -2021,7 +2273,7 @@ const styles = StyleSheet.create({
 
   actionNeededText: {
     color: '#fff',
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '600',
     letterSpacing: 0.2,
     textAlign: 'center',
@@ -2041,7 +2293,7 @@ const styles = StyleSheet.create({
 
   hostText: {
     color: '#fff',
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '600',
     letterSpacing: 0.2,
     textAlign: 'center',
@@ -2088,11 +2340,146 @@ const styles = StyleSheet.create({
 
   cardTitle: {
     color: '#fff',
-    fontWeight: '600',
+    fontWeight: '700',
+    fontSize: 14,
+    lineHeight: 18,
+    textAlign: 'center',
+    letterSpacing: 0.2,
+    fontFamily: 'Montserrat_700Bold',
+    textShadowColor: 'rgba(185, 84, 236, 0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+
+  // Card corner decorations
+  cardCorner: {
+    position: 'absolute',
+    width: 16,
+    height: 16,
+    borderColor: 'rgba(185, 84, 236, 0.4)',
+    borderWidth: 2,
+    zIndex: 10,
+  },
+
+  cardCornerTopLeft: {
+    top: -1,
+    left: -1,
+    borderRightWidth: 0,
+    borderBottomWidth: 0,
+    borderTopLeftRadius: 16,
+  },
+
+  cardCornerTopRight: {
+    top: -1,
+    right: -1,
+    borderLeftWidth: 0,
+    borderBottomWidth: 0,
+    borderTopRightRadius: 16,
+  },
+
+  cardCornerBottomLeft: {
+    bottom: -1,
+    left: -1,
+    borderRightWidth: 0,
+    borderTopWidth: 0,
+    borderBottomLeftRadius: 16,
+  },
+
+  cardCornerBottomRight: {
+    bottom: -1,
+    right: -1,
+    borderLeftWidth: 0,
+    borderTopWidth: 0,
+    borderBottomRightRadius: 16,
+  },
+
+  // Favorite card corner style
+  favoriteCorner: {
+    borderColor: 'rgba(212, 175, 55, 0.6)',
+    borderWidth: 2,
+  },
+
+  // Activity card corner style
+  activityCorner: {
+    borderColor: 'rgba(185, 84, 236, 0.4)',
+    borderWidth: 2,
+  },
+
+  // Completed card styles
+  completedContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+  },
+
+  completedStamp: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(78, 205, 196, 0.15)',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: 'rgba(78, 205, 196, 0.3)',
+    shadowColor: 'rgba(78, 205, 196, 0.4)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 6,
+  },
+
+  completedText: {
+    color: '#4ECDC4',
     fontSize: 13,
-    lineHeight: 16,
-    textAlign: 'left',
-    letterSpacing: -0.2,
+    fontWeight: '800',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+  },
+
+  completedDate: {
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: 8,
+  },
+
+  // Invite card special styles
+  inviteStatusContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    gap: 8,
+  },
+
+  inviteBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(211, 148, 245, 0.25)',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: 'rgba(211, 148, 245, 0.5)',
+    shadowColor: 'rgba(211, 148, 245, 0.6)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 8,
+  },
+
+  inviteBadgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+  },
+
+  invitePrompt: {
+    color: 'rgba(211, 148, 245, 0.9)',
+    fontSize: 13,
+    fontWeight: '600',
+    fontStyle: 'italic',
   },
 
 
@@ -2127,11 +2514,6 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
 
-  communityContainer: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 40,
-  },
 
   showMore: {
     alignSelf: 'center',
@@ -2491,66 +2873,61 @@ const styles = StyleSheet.create({
   
   // See All Card Styles
   seeAllCard: {
-    width: 160,
-    height: 200,
+    width: 200,
+    height: 220,
     marginRight: 16,
-    backgroundColor: 'rgba(42, 30, 46, 0.95)',
-    borderRadius: 24,
+    backgroundColor: '#1a1420',
+    borderRadius: 16,
     borderWidth: 2,
-    borderColor: 'rgba(185, 84, 236, 0.4)',
+    borderColor: 'rgba(185, 84, 236, 0.3)',
     borderStyle: 'dashed',
-    shadowColor: 'rgba(185, 84, 236, 0.2)',
-    shadowOffset: { width: 0, height: 4 },
+    shadowColor: 'rgba(0, 0, 0, 0.5)',
+    shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 1,
-    shadowRadius: 8,
-    elevation: 8,
+    shadowRadius: 16,
+    elevation: 20,
     overflow: 'hidden',
+    position: 'relative',
   },
   
-  seeAllContent: {
+  seeAllFavoritesCard: {
+    borderColor: 'rgba(212, 175, 55, 0.4)',
+    borderStyle: 'dashed',
+  },
+  
+  seeAllHeader: {
+    borderStyle: 'none',
+  },
+  
+  seeAllMainContent: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
   },
   
-  seeAllIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: 'rgba(185, 84, 236, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(185, 84, 236, 0.4)',
-  },
-  
-  seeAllTitle: {
+  seeAllCount: {
     color: '#fff',
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: 36,
+    fontWeight: '800',
     marginBottom: 4,
+    fontFamily: 'Montserrat_700Bold',
+    textShadowColor: 'rgba(185, 84, 236, 0.3)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
   },
   
-  seeAllSubtitle: {
+  seeAllLabel: {
     color: '#B8A5C4',
     fontSize: 12,
-    fontWeight: '500',
-    marginBottom: 8,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
   
-  seeAllArrow: {
-    marginTop: 8,
-  },
-  
-  seeAllArrowText: {
-    color: '#B954EC',
-    fontSize: 24,
-    fontWeight: '700',
-  },
-  
-  // Past Activities Modal Styles
+  // Modal List Styles (used by Favorites)
   modalListContent: {
     paddingHorizontal: 20,
     paddingTop: 8,
@@ -2625,5 +3002,257 @@ const styles = StyleSheet.create({
     color: '#4ECDC4',
     fontSize: 12,
     fontWeight: '600',
+  },
+
+  favoriteActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+
+  deleteFavoriteButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 107, 107, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 107, 107, 0.3)',
+  },
+
+  // Toggle Tab Styles
+  topToggleTab: {
+    borderColor: 'rgba(78, 205, 196, 0.3)',
+  },
+
+  // List View Styles
+  listContainer: {
+    flex: 1,
+  },
+
+  listContent: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+  },
+
+  listItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(42, 30, 46, 0.6)',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(185, 84, 236, 0.2)',
+    shadowColor: 'rgba(0, 0, 0, 0.3)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+
+  listItemInvite: {
+    borderColor: 'rgba(211, 148, 245, 0.4)',
+    backgroundColor: 'rgba(211, 148, 245, 0.05)',
+  },
+
+  userOwnedListItem: {
+    borderColor: 'rgba(139, 92, 246, 0.5)',
+    borderWidth: 2,
+    backgroundColor: 'rgba(139, 92, 246, 0.03)',
+    shadowColor: '#8B5CF6',
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+
+  listItemFavorite: {
+    borderColor: 'rgba(212, 175, 55, 0.4)',
+    backgroundColor: 'rgba(212, 175, 55, 0.05)',
+  },
+
+  listItemFirst: {
+    marginTop: 0,
+  },
+
+  listItemLast: {
+    marginBottom: 16,
+  },
+
+  listItemIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+
+  listItemContent: {
+    flex: 1,
+    marginRight: 12,
+  },
+
+  listItemTitle: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 6,
+    fontFamily: 'Montserrat_700Bold',
+  },
+
+  listItemMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+
+  listItemType: {
+    color: '#B8A5C4',
+    fontSize: 13,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+
+  listItemHost: {
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontSize: 13,
+    fontWeight: '500',
+    fontStyle: 'italic',
+  },
+
+  listItemDate: {
+    color: '#4ECDC4',
+    fontSize: 13,
+    fontWeight: '500',
+  },
+
+  listItemLocation: {
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: 12,
+    fontWeight: '500',
+    flex: 1,
+  },
+
+  listItemPrice: {
+    color: '#D4AF37',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+
+  listItemStatus: {
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    minWidth: 80,
+  },
+
+  listItemStatusText: {
+    fontSize: 12,
+    fontWeight: '700',
+    textAlign: 'right',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+
+  // Host tag styles
+  hostTag: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: '#667eea',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    zIndex: 10,
+  },
+
+  hostTagText: {
+    color: '#fff',
+    fontSize: 9,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+
+  listHostBadge: {
+    backgroundColor: '#667eea',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginBottom: 4,
+  },
+
+  listHostBadgeText: {
+    color: '#fff',
+    fontSize: 9,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    textAlign: 'right',
+  },
+
+  listHostBadgeCorner: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: '#667eea',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    zIndex: 10,
+  },
+
+  listHostBadgeCornerText: {
+    color: '#fff',
+    fontSize: 9,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+
+  // See All List Item Styles
+  seeAllListItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(42, 30, 46, 0.4)',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(185, 84, 236, 0.15)',
+    borderStyle: 'dashed',
+  },
+
+  seeAllListIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+
+  seeAllListContent: {
+    flex: 1,
+    marginRight: 12,
+  },
+
+  seeAllListTitle: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+
+  seeAllListSubtitle: {
+    color: '#B8A5C4',
+    fontSize: 13,
+    fontWeight: '500',
   },
 })

@@ -130,11 +130,18 @@ const NotificationItem = ({ notification, onPress, onMarkAsRead, onDelete }) => 
 
 export default function NotificationsScreen() {
     const navigation = useNavigation();
-    const { user } = useContext(UserContext);
+    const userContext = useContext(UserContext);
+    console.log('🔍 DEBUG: userContext keys:', userContext ? Object.keys(userContext) : 'null');
+    console.log('🔍 DEBUG: setUnreadNotificationCount type:', typeof userContext?.setUnreadNotificationCount);
+    
+    const { user } = userContext;
+    const unreadNotificationCount = userContext.unreadNotificationCount || 0;
+    const setUnreadNotificationCount = userContext.setUnreadNotificationCount || (() => {
+        console.warn('setUnreadNotificationCount function not available');
+    });
     const [notifications, setNotifications] = useState([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
-    const [unreadCount, setUnreadCount] = useState(0);
 
     const fetchNotifications = async (isRefresh = false) => {
         try {
@@ -142,7 +149,17 @@ export default function NotificationsScreen() {
             
             const data = await safeAuthApiCall(`${API_URL}/notifications`, user.token, { method: 'GET' });
             setNotifications(data || []);
-            setUnreadCount(data?.filter(n => !n.read).length || 0);
+            
+            // Count unread notifications
+            const unreadCount = (data || []).filter(n => !n.read).length;
+            setUnreadNotificationCount(unreadCount);
+            
+            // Auto-mark all notifications as read when visiting the screen (not on refresh)
+            if (unreadCount > 0 && !isRefresh) {
+                setTimeout(() => {
+                    markAllAsReadSilently();
+                }, 500); // Small delay to let the UI render first
+            }
         } catch (error) {
             console.error('Error fetching notifications:', error);
             const userMessage = handleApiError(error, 'Failed to load notifications');
@@ -166,7 +183,7 @@ export default function NotificationsScreen() {
                         : notif
                 )
             );
-            setUnreadCount(prev => Math.max(0, prev - 1));
+            setUnreadNotificationCount(prev => Math.max(0, prev - 1));
         } catch (error) {
             console.error('Error marking notification as read:', error);
             Alert.alert('Error', 'Failed to mark notification as read');
@@ -181,7 +198,7 @@ export default function NotificationsScreen() {
             setNotifications(prev => prev.filter(notif => notif.id !== notificationId));
             
             if (deletedNotification && !deletedNotification.read) {
-                setUnreadCount(prev => Math.max(0, prev - 1));
+                setUnreadNotificationCount(prev => Math.max(0, prev - 1));
             }
         } catch (error) {
             console.error('Error deleting notification:', error);
@@ -190,7 +207,7 @@ export default function NotificationsScreen() {
     };
 
     const markAllAsRead = async () => {
-        if (unreadCount === 0) return;
+        if (unreadNotificationCount === 0) return;
 
         try {
             await safeAuthApiCall(`${API_URL}/notifications/mark_all_as_read`, user.token, { method: 'PUT' });
@@ -198,14 +215,36 @@ export default function NotificationsScreen() {
             setNotifications(prev => 
                 prev.map(notif => ({ ...notif, read: true }))
             );
-            setUnreadCount(0);
+            setUnreadNotificationCount(0);
         } catch (error) {
             console.error('Error marking all as read:', error);
             Alert.alert('Error', 'Failed to mark all notifications as read');
         }
     };
 
+    // Silent version for auto-marking as read when visiting screen
+    const markAllAsReadSilently = async () => {
+        try {
+            await safeAuthApiCall(`${API_URL}/notifications/mark_all_as_read`, user.token, { method: 'PUT' });
+            
+            setNotifications(prev => 
+                prev.map(notif => ({ ...notif, read: true }))
+            );
+            setUnreadNotificationCount(0);
+        } catch (error) {
+            console.log('Could not auto-mark notifications as read:', error.message);
+        }
+    };
+
     const handleNotificationPress = (notification) => {
+        console.log('🔍 DEBUG Notification pressed:', {
+            title: notification.title,
+            body: notification.body,
+            type: notification.type,
+            data: notification.data,
+            hasActivityId: !!notification.data?.activityId
+        });
+
         // Mark as read when pressed
         if (!notification.read) {
             markAsRead(notification.id);
@@ -216,6 +255,8 @@ export default function NotificationsScreen() {
             navigation.navigate('ActivityDetails', { 
                 activityId: notification.data.activityId 
             });
+        } else {
+            console.warn('Cannot navigate - notification missing activityId:', notification);
         }
     };
 
@@ -275,9 +316,9 @@ export default function NotificationsScreen() {
                 <View style={styles.headerContent}>
                     <View style={styles.titleRow}>
                         <Text style={styles.headerTitle}>Notifications</Text>
-                        {unreadCount > 0 && (
+                        {unreadNotificationCount > 0 && (
                             <View style={styles.unreadBadge}>
-                                <Text style={styles.unreadBadgeText}>{unreadCount}</Text>
+                                <Text style={styles.unreadBadgeText}>{unreadNotificationCount}</Text>
                             </View>
                         )}
                     </View>

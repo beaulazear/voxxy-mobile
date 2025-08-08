@@ -82,7 +82,11 @@ const AppNavigator = () => {
       <Stack.Screen
         name="ActivityDetails"
         component={ActivityDetailsScreen}
-        options={{ headerShown: false }}
+        options={{ 
+          headerShown: false,
+          animation: 'slide_from_right',
+          gestureDirection: 'horizontal'
+        }}
       />
       <Stack.Screen name="FAQ" component={FAQScreen} />
       <Stack.Screen name="TripDashboardScreen" component={TripDashboardScreen} />

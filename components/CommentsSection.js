@@ -474,7 +474,7 @@ const CommentsSection = ({ activity }) => {
 
                     {comments.length === 0 && (
                         <View style={styles.emptyState}>
-                            <Icons.MessageCircle size={24} color="rgba(255, 255, 255, 0.4)" />
+                            <Icons.MessageCircle size={20} color="rgba(255, 255, 255, 0.4)" />
                             <Text style={styles.emptyStateText}>No messages yet. Start the conversation!</Text>
                         </View>
                     )}
@@ -708,9 +708,11 @@ const styles = StyleSheet.create({
     },
     emptyState: {
         flex: 1,
+        flexDirection: 'row',
         justifyContent: 'center',
         alignItems: 'center',
         paddingVertical: 40,
+        gap: 8,
     },
     emptyStateText: {
         color: '#e2e8f0',

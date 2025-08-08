@@ -451,6 +451,72 @@ export const FormStyles = StyleSheet.create({
         fontWeight: '600',
     },
 
+    // Location Picker Styles - New
+    selectedLocationContainer: {
+        backgroundColor: 'rgba(204, 49, 232, 0.1)',
+        borderWidth: 2,
+        borderColor: 'rgba(204, 49, 232, 0.3)',
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        borderRadius: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+        marginBottom: 20,
+    },
+    selectedLocationText: {
+        color: colors.primary,
+        fontSize: 14,
+        fontWeight: '600',
+        flex: 1,
+    },
+    locationOptionButton: {
+        backgroundColor: colors.cardBackground,
+        borderWidth: 2,
+        borderColor: colors.border,
+        paddingVertical: 16,
+        paddingHorizontal: 16,
+        borderRadius: 16,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 12,
+        shadowColor: colors.shadow,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 2,
+    },
+    locationOptionButtonSelected: {
+        backgroundColor: 'rgba(204, 49, 232, 0.1)',
+        borderColor: colors.primary,
+        shadowColor: colors.primaryShadow,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        elevation: 4,
+    },
+    locationButtonContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        flex: 1,
+    },
+    locationButtonTextContainer: {
+        flex: 1,
+    },
+    locationButtonText: {
+        color: colors.textPrimary,
+        fontSize: 16,
+        fontWeight: '600',
+        marginBottom: 2,
+    },
+    locationButtonSubtext: {
+        color: colors.textMuted,
+        fontSize: 13,
+        fontWeight: '500',
+    },
+
     // Toggle Switch - Enhanced
     toggleContainer: {
         flexDirection: 'row',

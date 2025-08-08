@@ -555,36 +555,48 @@ export default function ActivityHeader({
                 <View style={styles.mainContent}>
                     {/* Title Section */}
                     <View style={styles.titleSection}>
+                        {ACTIVITY_CONFIG[activity.activity_type] && (() => {
+                            const IconComponent = ACTIVITY_CONFIG[activity.activity_type].icon;
+                            return (
+                                <IconComponent
+                                    color={ACTIVITY_CONFIG[activity.activity_type].iconColor}
+                                    size={24}
+                                    strokeWidth={2}
+                                />
+                            );
+                        })()}
                         <Text style={styles.activityTitle}>{activity.activity_name}</Text>
                     </View>
 
-                    {/* Host Section */}
-                    <View style={styles.hostSection}>
-                        <View style={styles.hostAvatarContainer}>
-                            <View style={styles.hostAvatar}>
-                                <Image
-                                    source={getDisplayImage(activity.user)}
-                                    style={styles.hostImage}
-                                    defaultSource={DefaultIcon}
-                                    onError={() => logger.debug(`❌ Avatar failed to load for ${activity.user?.name}`)}
-                                    onLoad={() => logger.debug(`✅ Avatar loaded for ${activity.user?.name}`)}
-                                />
-                                <View style={styles.hostBadge}>
-                                    <Star stroke="#fff" width={12} height={12} fill="#fff" />
+                    {/* Host Section - only show to participants during collecting/voting phases */}
+                    {(!isOwner || activity.finalized) && (
+                        <View style={styles.hostSection}>
+                            <View style={styles.hostAvatarContainer}>
+                                <View style={styles.hostAvatar}>
+                                    <Image
+                                        source={getDisplayImage(activity.user)}
+                                        style={styles.hostImage}
+                                        defaultSource={DefaultIcon}
+                                        onError={() => logger.debug(`❌ Avatar failed to load for ${activity.user?.name}`)}
+                                        onLoad={() => logger.debug(`✅ Avatar loaded for ${activity.user?.name}`)}
+                                    />
+                                    <View style={styles.hostBadge}>
+                                        <Star stroke="#fff" width={12} height={12} fill="#fff" />
+                                    </View>
                                 </View>
+                                <Text style={styles.hostNameSubtle}>
+                                    {activity.user?.name || 'Host'}
+                                </Text>
                             </View>
-                            <Text style={styles.hostNameSubtle}>
-                                {activity.user?.name || 'Host'}
-                            </Text>
-                        </View>
 
-                        <View style={styles.hostInfo}>
-                            <Text style={styles.welcomeMessageTitle}>Welcome message</Text>
-                            <Text style={styles.welcomeMessage}>
-                                {activity.welcome_message || "Welcome to this activity! Let's make it amazing together 🎉"}
-                            </Text>
+                            <View style={styles.hostInfo}>
+                                <Text style={styles.welcomeMessageTitle}>Welcome message</Text>
+                                <Text style={styles.welcomeMessage}>
+                                    {activity.welcome_message || "Welcome to this activity! Let's make it amazing together 🎉"}
+                                </Text>
+                            </View>
                         </View>
-                    </View>
+                    )}
                 </View>
             </View>
         </>
@@ -744,7 +756,10 @@ const styles = StyleSheet.create({
     },
 
     titleSection: {
+        flexDirection: 'row',
         alignItems: 'center',
+        justifyContent: 'center',
+        gap: 12,
     },
 
     activityTitle: {

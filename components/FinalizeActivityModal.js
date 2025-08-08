@@ -50,7 +50,8 @@ export default function FinalizeActivityModal({
     const { user } = useContext(UserContext)
 
     const [formData, setFormData] = useState({
-        welcome_message: activity.welcome_message || '',
+        activity_name: '',
+        welcome_message: '',
         date_day: activity.date_day ? new Date(activity.date_day + 'T00:00:00') : new Date(),
         date_time: activity.date_time ? new Date(activity.date_time) : new Date(),
         activity_location: activity.activity_location || '',
@@ -62,6 +63,8 @@ export default function FinalizeActivityModal({
     const [selectedTimeSlotId, setSelectedTimeSlotId] = useState(null)
     const [showDatePicker, setShowDatePicker] = useState(false)
     const [showTimePicker, setShowTimePicker] = useState(false)
+    const [tempDate, setTempDate] = useState(null)
+    const [tempTime, setTempTime] = useState(null)
 
     const token = user?.token
 
@@ -81,17 +84,22 @@ export default function FinalizeActivityModal({
     // Validation logic
     const timeSlotValid = !usesTimeSlots || selectedTimeSlotId != null
     const pinnedActivityValid = !usesPinnedActivities || selectedPinnedId != null
+    const activityNameValid = formData.activity_name.trim()
     const welcomeMessageValid = formData.welcome_message.trim()
 
-    const canSubmit = hasBasicDetails && timeSlotValid && pinnedActivityValid && welcomeMessageValid
+    const canSubmit = hasBasicDetails && timeSlotValid && pinnedActivityValid && activityNameValid && welcomeMessageValid
 
     logger.debug(activity)
 
-    // Auto-select highest voted pinned activity
+    // Auto-select highest priority pinned activity (favorited > liked > first)
     useEffect(() => {
         if (pinnedActivities?.length) {
             const top = pinnedActivities.reduce(
-                (prev, curr) => (curr.vote_count || 0) > (prev.vote_count || 0) ? curr : prev,
+                (prev, curr) => {
+                    const prevScore = (prev.is_favorited ? 100 : 0) + (prev.is_liked ? 10 : 0)
+                    const currScore = (curr.is_favorited ? 100 : 0) + (curr.is_liked ? 10 : 0)
+                    return currScore > prevScore ? curr : prev
+                },
                 pinnedActivities[0]
             )
             setSelectedPinnedId(top.id)
@@ -114,15 +122,51 @@ export default function FinalizeActivityModal({
     }
 
     const handleDateChange = (event, selectedDate) => {
-        const currentDate = selectedDate || formData.date_day
-        setShowDatePicker(Platform.OS === 'ios')
-        setFormData({ ...formData, date_day: currentDate })
+        if (Platform.OS === 'ios') {
+            setTempDate(selectedDate || formData.date_day)
+        } else {
+            // Android automatically confirms
+            const currentDate = selectedDate || formData.date_day
+            setShowDatePicker(false)
+            setFormData({ ...formData, date_day: currentDate })
+        }
     }
 
     const handleTimeChange = (event, selectedTime) => {
-        const currentTime = selectedTime || formData.date_time
-        setShowTimePicker(Platform.OS === 'ios')
-        setFormData({ ...formData, date_time: currentTime })
+        if (Platform.OS === 'ios') {
+            setTempTime(selectedTime || formData.date_time)
+        } else {
+            // Android automatically confirms
+            const currentTime = selectedTime || formData.date_time
+            setShowTimePicker(false)
+            setFormData({ ...formData, date_time: currentTime })
+        }
+    }
+
+    const confirmDateChange = () => {
+        if (tempDate) {
+            setFormData({ ...formData, date_day: tempDate })
+        }
+        setShowDatePicker(false)
+        setTempDate(null)
+    }
+
+    const confirmTimeChange = () => {
+        if (tempTime) {
+            setFormData({ ...formData, date_time: tempTime })
+        }
+        setShowTimePicker(false)
+        setTempTime(null)
+    }
+
+    const cancelDateChange = () => {
+        setShowDatePicker(false)
+        setTempDate(null)
+    }
+
+    const cancelTimeChange = () => {
+        setShowTimePicker(false)
+        setTempTime(null)
     }
 
     const formatTo12h = (timeInput) => {
@@ -205,6 +249,9 @@ export default function FinalizeActivityModal({
             if (!formData.activity_location.trim()) {
                 msgs.push('Please enter an activity location.')
             }
+            if (!formData.activity_name.trim()) {
+                msgs.push('Please enter an activity name.')
+            }
             if (usesTimeSlots && selectedTimeSlotId == null)
                 msgs.push('Please choose a time slot.')
             if (usesPinnedActivities && selectedPinnedId == null)
@@ -236,6 +283,7 @@ export default function FinalizeActivityModal({
         }
 
         const payload = {
+            activity_name: formData.activity_name,
             welcome_message: formData.welcome_message,
             date_day: formatDateForAPI(formData.date_day),
             date_time: formatTimeForAPI(formData.date_time),
@@ -285,7 +333,13 @@ export default function FinalizeActivityModal({
         if (!usesPinnedActivities || !pinnedActivities?.length) return null
 
         const sortedActivities = [...pinnedActivities]
-            .sort((a, b) => (b.vote_count || 0) - (a.vote_count || 0))
+            .sort((a, b) => {
+                // Sort by favorited first, then liked, then by ID for consistency
+                const aScore = (a.is_favorited ? 100 : 0) + (a.is_liked ? 10 : 0)
+                const bScore = (b.is_favorited ? 100 : 0) + (b.is_liked ? 10 : 0)
+                if (aScore !== bScore) return bScore - aScore
+                return a.id - b.id
+            })
 
         return (
             <View style={styles.section}>
@@ -316,9 +370,18 @@ export default function FinalizeActivityModal({
                                 ]}>
                                     {p.title}
                                 </Text>
-                                <View style={styles.voteCount}>
-                                    <Heart stroke="#dc267f" fill="#dc267f" width={14} height={14} />
-                                    <Text style={styles.voteCountText}>{p.vote_count || 0} votes</Text>
+                                <View style={styles.statusIndicators}>
+                                    {p.is_liked && (
+                                        <View style={styles.statusBadge}>
+                                            <Heart stroke="#dc267f" fill="#dc267f" width={12} height={12} />
+                                            <Text style={styles.statusText}>Liked</Text>
+                                        </View>
+                                    )}
+                                    {p.is_favorited && (
+                                        <View style={[styles.statusBadge, styles.favoriteBadge]}>
+                                            <Text style={styles.statusText}>⭐ Favorited</Text>
+                                        </View>
+                                    )}
                                 </View>
                             </View>
                         </TouchableOpacity>
@@ -358,9 +421,18 @@ export default function FinalizeActivityModal({
                                 ]}>
                                     {formatDate(slot.date)} @ {formatTo12h(slot.time)}
                                 </Text>
-                                <View style={styles.voteCount}>
-                                    <Heart stroke="#dc267f" fill="#dc267f" width={14} height={14} />
-                                    <Text style={styles.voteCountText}>{slot.votes_count || 0} votes</Text>
+                                <View style={styles.statusIndicators}>
+                                    {slot.is_liked && (
+                                        <View style={styles.statusBadge}>
+                                            <Heart stroke="#dc267f" fill="#dc267f" width={12} height={12} />
+                                            <Text style={styles.statusText}>Liked</Text>
+                                        </View>
+                                    )}
+                                    {slot.is_favorited && (
+                                        <View style={[styles.statusBadge, styles.favoriteBadge]}>
+                                            <Text style={styles.statusText}>⭐ Favorited</Text>
+                                        </View>
+                                    )}
                                 </View>
                             </View>
                         </TouchableOpacity>
@@ -433,6 +505,38 @@ export default function FinalizeActivityModal({
                         </View>
                     )}
 
+                    {/* Activity Name Input */}
+                    <View style={styles.section}>
+                        <View style={styles.sectionHeader}>
+                            <Text style={styles.sectionTitle}>Activity Name</Text>
+                        </View>
+                        <TextInput
+                            style={FormStyles.input}
+                            placeholder="Enter activity name..."
+                            placeholderTextColor="#aaa"
+                            value={formData.activity_name}
+                            onChangeText={(value) => handleInputChange('activity_name', value)}
+                        />
+                    </View>
+
+                    {/* Welcome Message */}
+                    <View style={styles.section}>
+                        <View style={styles.sectionHeader}>
+                            <MessageSquare stroke="#cc31e8" width={20} height={20} />
+                            <Text style={styles.sectionTitle}>Welcome Message</Text>
+                        </View>
+                        <TextInput
+                            style={FormStyles.textarea}
+                            placeholder="Write a welcome message for participants..."
+                            placeholderTextColor="#aaa"
+                            value={formData.welcome_message}
+                            onChangeText={(value) => handleInputChange('welcome_message', value)}
+                            multiline
+                            numberOfLines={4}
+                            textAlignVertical="top"
+                        />
+                    </View>
+
                     {/* Date Selection */}
                     <View style={styles.section}>
                         <View style={styles.sectionHeader}>
@@ -441,20 +545,41 @@ export default function FinalizeActivityModal({
                         </View>
                         <TouchableOpacity
                             style={styles.dateTimeButton}
-                            onPress={() => setShowDatePicker(true)}
+                            onPress={() => {
+                                setTempDate(formData.date_day)
+                                setShowDatePicker(true)
+                            }}
                         >
                             <Text style={styles.dateTimeButtonText}>
                                 {formatDate(formData.date_day)}
                             </Text>
                         </TouchableOpacity>
                         {showDatePicker && (
-                            <DateTimePicker
-                                value={formData.date_day}
-                                mode="date"
-                                display={Platform.OS === 'ios' ? 'compact' : 'default'}
-                                onChange={handleDateChange}
-                                minimumDate={new Date()}
-                            />
+                            <View>
+                                <DateTimePicker
+                                    value={tempDate || formData.date_day}
+                                    mode="date"
+                                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                                    onChange={handleDateChange}
+                                    minimumDate={new Date()}
+                                />
+                                {Platform.OS === 'ios' && (
+                                    <View style={styles.pickerButtons}>
+                                        <TouchableOpacity 
+                                            style={[styles.pickerButton, styles.cancelButton]} 
+                                            onPress={cancelDateChange}
+                                        >
+                                            <Text style={styles.cancelButtonText}>Cancel</Text>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity 
+                                            style={[styles.pickerButton, styles.confirmButton]} 
+                                            onPress={confirmDateChange}
+                                        >
+                                            <Text style={styles.confirmButtonText}>Done</Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                )}
+                            </View>
                         )}
                     </View>
 
@@ -466,19 +591,40 @@ export default function FinalizeActivityModal({
                         </View>
                         <TouchableOpacity
                             style={styles.dateTimeButton}
-                            onPress={() => setShowTimePicker(true)}
+                            onPress={() => {
+                                setTempTime(formData.date_time)
+                                setShowTimePicker(true)
+                            }}
                         >
                             <Text style={styles.dateTimeButtonText}>
                                 {formatTo12h(formData.date_time)}
                             </Text>
                         </TouchableOpacity>
                         {showTimePicker && (
-                            <DateTimePicker
-                                value={formData.date_time}
-                                mode="time"
-                                display={Platform.OS === 'ios' ? 'compact' : 'default'}
-                                onChange={handleTimeChange}
-                            />
+                            <View>
+                                <DateTimePicker
+                                    value={tempTime || formData.date_time}
+                                    mode="time"
+                                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                                    onChange={handleTimeChange}
+                                />
+                                {Platform.OS === 'ios' && (
+                                    <View style={styles.pickerButtons}>
+                                        <TouchableOpacity 
+                                            style={[styles.pickerButton, styles.cancelButton]} 
+                                            onPress={cancelTimeChange}
+                                        >
+                                            <Text style={styles.cancelButtonText}>Cancel</Text>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity 
+                                            style={[styles.pickerButton, styles.confirmButton]} 
+                                            onPress={confirmTimeChange}
+                                        >
+                                            <Text style={styles.confirmButtonText}>Done</Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                )}
+                            </View>
                         )}
                     </View>
 
@@ -500,24 +646,6 @@ export default function FinalizeActivityModal({
                     {renderPinnedActivities()}
                     {renderTimeSlots()}
                     {renderEmptyState()}
-
-                    {/* Welcome Message */}
-                    <View style={[styles.section, styles.lastSection]}>
-                        <View style={styles.sectionHeader}>
-                            <MessageSquare stroke="#cc31e8" width={20} height={20} />
-                            <Text style={styles.sectionTitle}>Welcome Message</Text>
-                        </View>
-                        <TextInput
-                            style={FormStyles.textarea}
-                            placeholder="Write a welcome message for participants..."
-                            placeholderTextColor="#aaa"
-                            value={formData.welcome_message}
-                            onChangeText={(value) => handleInputChange('welcome_message', value)}
-                            multiline
-                            numberOfLines={4}
-                            textAlignVertical="top"
-                        />
-                    </View>
                 </ScrollView>
 
                 {/* Footer Buttons */}
@@ -642,7 +770,13 @@ const styles = StyleSheet.create({
         color: '#cc31e8',
     },
 
-    voteCount: {
+    statusIndicators: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+
+    statusBadge: {
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: 'rgba(220, 38, 127, 0.2)',
@@ -651,7 +785,11 @@ const styles = StyleSheet.create({
         borderRadius: 12,
     },
 
-    voteCountText: {
+    favoriteBadge: {
+        backgroundColor: 'rgba(255, 193, 7, 0.2)',
+    },
+
+    statusText: {
         fontSize: 12,
         color: '#dc267f',
         fontWeight: '600',
@@ -708,5 +846,43 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: '600',
         textAlign: 'center',
+    },
+
+    pickerButtons: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        paddingHorizontal: 20,
+        paddingVertical: 10,
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        borderRadius: 12,
+        marginTop: 10,
+    },
+
+    pickerButton: {
+        paddingHorizontal: 20,
+        paddingVertical: 8,
+        borderRadius: 8,
+        minWidth: 80,
+        alignItems: 'center',
+    },
+
+    cancelButton: {
+        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    },
+
+    confirmButton: {
+        backgroundColor: '#cc31e8',
+    },
+
+    cancelButtonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '600',
+    },
+
+    confirmButtonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '600',
     },
 })

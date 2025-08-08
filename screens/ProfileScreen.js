@@ -1,4 +1,4 @@
-import React, { useState, useContext, useEffect } from 'react';
+import React, { useState, useContext, useEffect, useMemo } from 'react';
 import {
     View,
     Text,
@@ -14,21 +14,69 @@ import {
     ActivityIndicator,
     Modal,
 } from 'react-native';
-import { UserContext } from '../context/UserContext';
+import { UserContext } from '../context/UserContext'
 import { useNavigation } from '@react-navigation/native';
 import { API_URL } from '../config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NotificationSettings from '../components/NotificationSettings';
-import { ArrowLeft, User, Settings, Edit3, Trash2, LogOut, Camera, MapPin } from 'react-native-feather';
+import { ArrowLeft, User, Settings, Edit3, Trash2, LogOut, Camera, MapPin, Calendar, X, Activity, Users, ChevronRight } from 'react-native-feather';
+import { Hamburger, Martini, Dices } from 'lucide-react-native';
 import PushNotificationService from '../services/PushNotificationService'
 import { logger } from '../utils/logger';
 import { getUserDisplayImage } from '../utils/avatarManager';
 import * as ImagePicker from 'expo-image-picker';
 import LocationPicker from '../components/LocationPicker';
 
+// Activity configuration matching ProfileSnippet
+const ACTIVITY_CONFIG = {
+  'Restaurant': {
+    displayText: 'Food',
+    emoji: '🍜',
+    icon: Hamburger,
+    iconColor: '#FF6B6B'
+  },
+  'Game Night': {
+    displayText: 'Game Night',
+    emoji: '🎮',
+    icon: Dices,
+    iconColor: '#A8E6CF'
+  },
+  'Cocktails': {
+    displayText: 'Drinks',
+    emoji: '🍸',
+    icon: Martini,
+    iconColor: '#4ECDC4'
+  },
+  'Meeting': {
+    displayText: 'Lets Meet!',
+    emoji: '👥',
+    icon: Users,
+    iconColor: '#4ECDC4'
+  }
+};
+
+const getActivityDisplayInfo = (activityType) => {
+  return ACTIVITY_CONFIG[activityType] || {
+    displayText: 'Activity',
+    emoji: '🎉',
+    icon: Activity,
+    iconColor: '#B8A5C4'
+  };
+};
+
+const formatDate = (dateString) => {
+  if (!dateString) return 'TBD';
+  const date = new Date(dateString);
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric'
+  });
+};
+
 export default function ProfileScreen() {
     const { user, setUser, updateUser } = useContext(UserContext);
     const navigation = useNavigation();
+    const [showPastActivitiesModal, setShowPastActivitiesModal] = useState(false);
 
     // Profile tab states
     const [isEditingName, setIsEditingName] = useState(false);
@@ -58,6 +106,18 @@ export default function ProfileScreen() {
     const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
     const token = user?.token;
+
+    // Calculate completed activities (same logic as ProfileSnippet)
+    const completedActivitiesList = useMemo(() => {
+        const myActivities = user?.activities?.filter(a => a.completed) || [];
+        const participantActivities = user?.participant_activities
+            ?.filter(p => p.accepted && p.activity?.completed)
+            .map(p => p.activity) || [];
+        
+        // Remove duplicates by activity id
+        const uniqueCompleted = [...new Map([...myActivities, ...participantActivities].map(a => [a.id, a])).values()];
+        return uniqueCompleted;
+    }, [user]);
 
 
     // Comprehensive avatar handling function
@@ -520,6 +580,22 @@ export default function ProfileScreen() {
                     <Text style={styles.buttonText}>Save Preferences</Text>
                 </TouchableOpacity>
             </View>
+
+            {/* Past Activities Button */}
+            <TouchableOpacity
+                style={styles.pastActivitiesButton}
+                onPress={() => setShowPastActivitiesModal(true)}
+                activeOpacity={0.8}
+            >
+                <Calendar stroke="#4ECDC4" width={20} height={20} strokeWidth={2} />
+                <View style={styles.pastActivitiesButtonContent}>
+                    <Text style={styles.pastActivitiesButtonText}>View Past Activities</Text>
+                    <Text style={styles.pastActivitiesButtonCount}>
+                        {completedActivitiesList.length} {completedActivitiesList.length === 1 ? 'activity' : 'activities'} completed
+                    </Text>
+                </View>
+                <ChevronRight stroke="#4ECDC4" width={20} height={20} strokeWidth={2} />
+            </TouchableOpacity>
         </View>
     );
 
@@ -620,6 +696,93 @@ export default function ProfileScreen() {
                     </View>
                 </Modal>
             </ScrollView>
+
+            {/* Past Activities Modal */}
+            <Modal
+                visible={showPastActivitiesModal}
+                animationType="slide"
+                presentationStyle="pageSheet"
+                onRequestClose={() => setShowPastActivitiesModal(false)}
+            >
+                <SafeAreaView style={styles.modalContainer}>
+                    <View style={styles.modalHeader}>
+                        <TouchableOpacity
+                            style={styles.modalCloseButton}
+                            onPress={() => setShowPastActivitiesModal(false)}
+                        >
+                            <X stroke="#fff" width={20} height={20} strokeWidth={2.5} />
+                        </TouchableOpacity>
+                        <Text style={styles.modalTitle}>All Past Activities</Text>
+                        <View style={styles.modalHeaderSpacer} />
+                    </View>
+                    
+                    <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
+                        {completedActivitiesList.length === 0 ? (
+                            <View style={styles.modalCard}>
+                                <Text style={styles.modalCardTitle}>No Past Activities</Text>
+                                <Text style={styles.modalCardText}>
+                                    You haven't completed any activities yet. Start creating activities to build your history!
+                                </Text>
+                                <TouchableOpacity 
+                                    style={styles.modalButton}
+                                    onPress={() => {
+                                        setShowPastActivitiesModal(false)
+                                        navigation.navigate('Home')
+                                    }}
+                                    activeOpacity={0.8}
+                                >
+                                    <Text style={styles.modalButtonText}>Start Creating Activities</Text>
+                                </TouchableOpacity>
+                            </View>
+                        ) : (
+                            <View style={styles.modalListContainer}>
+                                {completedActivitiesList
+                                    .sort((a, b) => new Date(b.created_at || '1970-01-01') - new Date(a.created_at || '1970-01-01'))
+                                    .map((item, index) => {
+                                        const displayInfo = getActivityDisplayInfo(item.activity_type);
+                                        return (
+                                            <TouchableOpacity
+                                                key={String(item.id)}
+                                                style={[
+                                                    styles.pastActivityItem,
+                                                    index === completedActivitiesList.length - 1 && { marginBottom: 0 }
+                                                ]}
+                                                onPress={() => {
+                                                    setShowPastActivitiesModal(false);
+                                                    navigation.navigate('ActivityDetails', { activityId: item.id });
+                                                }}
+                                                activeOpacity={0.7}
+                                            >
+                                                <View style={styles.pastActivityIcon}>
+                                                    {displayInfo.icon && (
+                                                        <displayInfo.icon 
+                                                            color={displayInfo.iconColor} 
+                                                            size={24} 
+                                                            strokeWidth={2}
+                                                        />
+                                                    )}
+                                                </View>
+                                                <View style={styles.pastActivityContent}>
+                                                    <Text style={styles.pastActivityTitle}>{item.activity_name}</Text>
+                                                    <Text style={styles.pastActivityMeta}>
+                                                        {displayInfo.displayText} • {formatDate(item.date_day)}
+                                                    </Text>
+                                                    <View style={styles.pastActivityParticipants}>
+                                                        <Users stroke="#B8A5C4" width={14} height={14} />
+                                                        <Text style={styles.pastActivityParticipantText}>
+                                                            {item.participants?.length || 0} participants
+                                                        </Text>
+                                                    </View>
+                                                </View>
+                                                <ChevronRight stroke="#B8A5C4" width={20} height={20} />
+                                            </TouchableOpacity>
+                                        );
+                                    })}
+                            </View>
+                        )}
+                    </ScrollView>
+                </SafeAreaView>
+            </Modal>
         </SafeAreaView>
     );
 }
@@ -952,6 +1115,37 @@ const styles = StyleSheet.create({
         flex: 1,
         alignItems: 'center',
     },
+    pastActivitiesButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(78, 205, 196, 0.1)',
+        borderWidth: 2,
+        borderColor: 'rgba(78, 205, 196, 0.3)',
+        borderRadius: 16,
+        paddingVertical: 16,
+        paddingHorizontal: 20,
+        marginBottom: 20,
+        gap: 12,
+    },
+
+    pastActivitiesButtonContent: {
+        flex: 1,
+    },
+
+    pastActivitiesButtonText: {
+        color: '#4ECDC4',
+        fontSize: 16,
+        fontWeight: '600',
+    },
+
+    pastActivitiesButtonCount: {
+        color: '#4ECDC4',
+        fontSize: 12,
+        fontWeight: '500',
+        opacity: 0.8,
+        marginTop: 2,
+    },
+
     logoutButton: {
         backgroundColor: '#6b6b6b',
         paddingVertical: 8,
@@ -986,9 +1180,13 @@ const styles = StyleSheet.create({
     },
     modalHeader: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 20,
+        justifyContent: 'space-between',
+        paddingHorizontal: 20,
+        paddingVertical: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+        backgroundColor: '#201925',
     },
     modalTitle: {
         fontSize: 18,
@@ -1022,5 +1220,119 @@ const styles = StyleSheet.create({
         width: '100%',
         height: '100%',
         borderRadius: 35,
+    },
+
+    // Modal content styles
+    modalCard: {
+        backgroundColor: 'rgba(42, 30, 46, 0.8)',
+        borderRadius: 16,
+        padding: 20,
+        margin: 16,
+        borderWidth: 1,
+        borderColor: 'rgba(78, 205, 196, 0.3)',
+        alignItems: 'center',
+    },
+
+    modalCardTitle: {
+        color: '#fff',
+        fontSize: 20,
+        fontWeight: '700',
+        marginBottom: 12,
+        textAlign: 'center',
+        fontFamily: 'Montserrat_700Bold',
+    },
+
+    modalCardText: {
+        color: 'rgba(255, 255, 255, 0.8)',
+        fontSize: 16,
+        lineHeight: 22,
+        textAlign: 'center',
+        marginBottom: 20,
+    },
+
+    modalButton: {
+        backgroundColor: '#4ECDC4',
+        paddingVertical: 12,
+        paddingHorizontal: 24,
+        borderRadius: 12,
+        alignItems: 'center',
+    },
+
+    modalButtonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '600',
+    },
+
+    modalListContainer: {
+        padding: 16,
+    },
+
+    pastActivityItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(42, 30, 46, 0.6)',
+        borderRadius: 16,
+        padding: 16,
+        marginBottom: 12,
+        borderWidth: 1,
+        borderColor: 'rgba(64, 51, 71, 0.5)',
+    },
+
+    pastActivityIcon: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        backgroundColor: 'rgba(185, 84, 236, 0.1)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 16,
+        borderWidth: 1,
+        borderColor: 'rgba(185, 84, 236, 0.2)',
+    },
+
+    pastActivityContent: {
+        flex: 1,
+        marginRight: 12,
+    },
+
+    pastActivityTitle: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '600',
+        marginBottom: 4,
+    },
+
+    pastActivityMeta: {
+        color: '#B8A5C4',
+        fontSize: 13,
+        fontWeight: '500',
+        marginBottom: 6,
+    },
+
+    pastActivityParticipants: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+    },
+
+    pastActivityParticipantText: {
+        color: '#B8A5C4',
+        fontSize: 12,
+        fontWeight: '500',
+    },
+
+    modalHeaderSpacer: {
+        width: 40,
+    },
+
+    modalContainer: {
+        flex: 1,
+        backgroundColor: '#201925',
+    },
+
+    modalContent: {
+        flex: 1,
+        backgroundColor: '#201925',
     },
 });

@@ -20,6 +20,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Icon from 'react-native-vector-icons/Feather';
 import { UserContext } from '../context/UserContext';
 import { API_URL } from '../config';
+import { useNavigation } from '@react-navigation/native';
 
 // Updated Icons object using Feather icons
 const Icons = {
@@ -484,6 +485,7 @@ export default function AIRecommendations({
     onEdit,
 }) {
     const { user, setUser, refreshUser } = useContext(UserContext);
+    const navigation = useNavigation();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [showChat, setShowChat] = useState(false);
@@ -1169,8 +1171,14 @@ export default function AIRecommendations({
                             ? 'Your favorite has been saved for future reference and the activity is completed.'
                             : `Your ${favoriteRecommendations.length} favorites have been saved for future reference and the activity is completed.`;
                         
-                        Alert.alert('Success!', successMessage);
+                        // Navigate to home and show favorites modal
                         setRefreshTrigger(f => !f);
+                        navigation.navigate('/', { showFavorites: true });
+                        
+                        // Show success message after a brief delay
+                        setTimeout(() => {
+                            Alert.alert('Success!', successMessage);
+                        }, 500);
                     } catch (error) {
                         console.error('=== FAVORITES SAVE ERROR ===');
                         console.error('Error details:', error);
@@ -1351,50 +1359,36 @@ export default function AIRecommendations({
                                 <View style={styles.loadingAnimation}>
                                     <Animated.View 
                                         style={[
-                                            styles.loadingCircle, 
-                                            styles.loadingCircle1,
+                                            styles.voxxyTriangleContainer,
                                             {
-                                                transform: [{
-                                                    rotate: spinValue1.interpolate({
-                                                        inputRange: [0, 1],
-                                                        outputRange: ['0deg', '360deg']
-                                                    })
-                                                }]
+                                                transform: [
+                                                    {
+                                                        scale: pulseValue.interpolate({
+                                                            inputRange: [0.8, 1.2],
+                                                            outputRange: [0.8, 1.2]
+                                                        })
+                                                    },
+                                                    {
+                                                        rotate: spinValue1.interpolate({
+                                                            inputRange: [0, 1],
+                                                            outputRange: ['0deg', '360deg']
+                                                        })
+                                                    }
+                                                ],
+                                                opacity: pulseOpacity
                                             }
-                                        ]} 
-                                    />
-                                    <Animated.View 
-                                        style={[
-                                            styles.loadingCircle, 
-                                            styles.loadingCircle2,
-                                            {
-                                                transform: [{
-                                                    rotate: spinValue2.interpolate({
-                                                        inputRange: [0, 1],
-                                                        outputRange: ['360deg', '0deg']
-                                                    })
-                                                }]
-                                            }
-                                        ]} 
-                                    />
-                                    <Animated.View 
-                                        style={[
-                                            styles.loadingCircle, 
-                                            styles.loadingCircle3,
-                                            {
-                                                transform: [{
-                                                    rotate: spinValue3.interpolate({
-                                                        inputRange: [0, 1],
-                                                        outputRange: ['0deg', '360deg']
-                                                    })
-                                                }]
-                                            }
-                                        ]} 
-                                    />
+                                        ]}
+                                    >
+                                        <Image 
+                                            source={require('../assets/voxxy-triangle.png')} 
+                                            style={styles.voxxyTriangle}
+                                            resizeMode="contain"
+                                        />
+                                    </Animated.View>
                                 </View>
-                                <Text style={styles.loadingModalTitle}>✨ Generating Magic ✨</Text>
+                                <Text style={styles.loadingModalTitle}>Crafting Your Perfect Experience</Text>
                                 <Text style={styles.loadingModalSubtitle}>
-                                    Our AI is crafting perfect recommendations based on your group's preferences...
+                                    Voxxy's AI is curating the perfect recommendations for your group...
                                 </Text>
                                 <View style={styles.loadingDots}>
                                     <Animated.View 
@@ -2050,10 +2044,11 @@ const styles = StyleSheet.create({
     collectingTitle: {
         color: '#fff',
         fontSize: 18,
-        fontWeight: '600',
+        fontWeight: '700',
+        fontFamily: 'Montserrat_700Bold',
         textAlign: 'center',
         marginBottom: 16,
-        opacity: 0.9,
+        opacity: 1,
     },
     cardTitle: {
         color: '#fff',
@@ -2918,6 +2913,17 @@ const styles = StyleSheet.create({
         left: 20,
         borderTopColor: '#CF38DD',
         borderRightColor: '#CF38DD',
+    },
+    voxxyTriangleContainer: {
+        width: 100,
+        height: 100,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    voxxyTriangle: {
+        width: 80,
+        height: 80,
+        tintColor: undefined, // Let the image use its natural colors
     },
     loadingModalTitle: {
         color: '#fff',

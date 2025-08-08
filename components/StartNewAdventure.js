@@ -137,7 +137,7 @@ export default function StartNewAdventure({ onTripSelect, onBack }) {
                 </TouchableOpacity>
                 <View style={styles.headerContent}>
                     <Text style={styles.title}>
-                        Create New Activity
+                        Start New Activity
                     </Text>
                 </View>
             </View>

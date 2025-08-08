@@ -13,6 +13,7 @@ export const UserContext = createContext();
 export const UserProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -211,6 +212,8 @@ export const UserProvider = ({ children }) => {
       logout,
       updateUser,
       refreshUser,
+      unreadNotificationCount,
+      setUnreadNotificationCount,
     }}>
       {children}
     </UserContext.Provider>

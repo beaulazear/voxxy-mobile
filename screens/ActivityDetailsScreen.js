@@ -129,15 +129,9 @@ export default function ActivityDetailsScreen({ route }) {
             logger.debug(`🔍 Activity state - Type: ${activity.activity_type}, Voting: ${activity.voting}, Finalized: ${activity.finalized}`)
             logger.debug(`🔍 Pinned activities in context: ${activity.pinned_activities?.length || 0}`)
 
-            // Set pinned activities from context data if available
-            if (activity.pinned_activities && activity.pinned_activities.length > 0) {
-                logger.debug('📌 Using pinned activities from context data')
-                setPinnedActivities(activity.pinned_activities)
-            }
-
             // Fetch pinned activities for activity types that use them (Restaurant, Cocktails, Game Night)
             // Only fetch if activity is in voting phase or has pinned activities (not during preference collection phase)
-            if (['Restaurant', 'Cocktails', 'Game Night'].includes(activity.activity_type) && (activity.voting || activity.finalized) && (!activity.pinned_activities || activity.pinned_activities.length === 0)) {
+            if (['Restaurant', 'Cocktails', 'Game Night'].includes(activity.activity_type) && (activity.voting || activity.finalized)) {
                 logger.debug(`🍽️ Fetching pinned activities for activity ${activityId} (voting: ${activity.voting}, finalized: ${activity.finalized})`)
                 
                 if (!token) {
@@ -177,6 +171,11 @@ export default function ActivityDetailsScreen({ route }) {
                 fetchPinnedActivities()
             } else if (['Restaurant', 'Cocktails', 'Game Night'].includes(activity.activity_type)) {
                 logger.debug(`⏸️ Skipping pinned activities fetch for activity ${activityId} - recommendations not yet generated`)
+                // Use context data as fallback only if we're not fetching from API
+                if (activity.pinned_activities && activity.pinned_activities.length > 0) {
+                    logger.debug('📌 Using pinned activities from context data as fallback')
+                    setPinnedActivities(activity.pinned_activities)
+                }
             }
 
             // Fetch time slots for meetings
@@ -302,7 +301,7 @@ export default function ActivityDetailsScreen({ route }) {
     }
 
     const handleBack = () => {
-        navigation.navigate('/')
+        navigation.goBack()
     }
 
     const handleDelete = (id) => {
@@ -337,6 +336,10 @@ export default function ActivityDetailsScreen({ route }) {
                 activities: prevUser.activities.filter(
                     activity => activity.id !== id
                 ),
+                // Also remove any user_activities (favorites) that reference this deleted activity
+                user_activities: prevUser.user_activities?.filter(
+                    ua => ua.activity_id !== id && ua.pinned_activity?.activity_id !== id
+                ) || []
             }))
 
             Alert.alert(
