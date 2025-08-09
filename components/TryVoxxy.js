@@ -31,6 +31,15 @@ const SwipeableCard = ({ recommendation, onSwipeLeft, onSwipeRight }) => {
     const pan = useRef(new Animated.ValueXY()).current
     const scale = useRef(new Animated.Value(1)).current
     const rotate = useRef(new Animated.Value(0)).current
+    
+    // Cleanup animated values on unmount
+    useEffect(() => {
+        return () => {
+            pan.removeAllListeners()
+            scale.removeAllListeners()
+            rotate.removeAllListeners()
+        }
+    }, [])
 
     const panResponder = PanResponder.create({
         onStartShouldSetPanResponder: () => true,
@@ -224,21 +233,53 @@ export default function TryVoxxy() {
 
     // ── Effects ────────────────────────────────────────────────────
     useEffect(() => {
+        let isMounted = true;
+        
         const loadCachedRecommendations = async () => {
             try {
                 const sessionToken = await getOrCreateSessionToken();
-                const response = await fetch(`${API_URL}/try_voxxy_cached?session_token=${sessionToken}`);
+                
+                // Add proper headers
+                const response = await fetch(`${API_URL}/try_voxxy_cached`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Session-Token': sessionToken
+                    }
+                });
+                
+                if (!response.ok) {
+                    console.warn('Failed to load cached recommendations:', response.status);
+                    return;
+                }
+                
                 const data = await response.json();
-                const recommendations = data.recommendations || [];
-                setRecs(recommendations);
+                
+                // Only update state if component is still mounted
+                if (isMounted) {
+                    const recommendations = data.recommendations || [];
+                    setRecs(recommendations);
+                    
+                    // If we have cached recommendations, show them
+                    if (recommendations.length > 0) {
+                        setShowSwipeModal(true);
+                    }
+                }
             } catch (error) {
                 console.error('Failed to load cached recommendations:', error);
             } finally {
-                setLoadingRecs(false);
+                if (isMounted) {
+                    setLoadingRecs(false);
+                }
             }
         };
 
         loadCachedRecommendations();
+        
+        // Cleanup function
+        return () => {
+            isMounted = false;
+        };
     }, [])
 
 
@@ -302,7 +343,7 @@ export default function TryVoxxy() {
             
             <ScrollView contentContainerStyle={s.inner}>
                 <View style={s.heroSection}>
-                    <Text style={s.heroTitle}>Try <Text style={s.highlight}>Voxxy</Text></Text>
+                    <Text style={s.heroTitle}>Discover <Text style={s.highlight}>Great Places</Text></Text>
                     <Text style={s.sub}>
                         {recs.length
                             ? 'Your personalized recommendations are ready! Swipe to explore.'
@@ -332,7 +373,7 @@ export default function TryVoxxy() {
                                 </TouchableOpacity>
                             </LinearGradient>
                             
-                            <TouchableOpacity style={s.secondaryButton} onPress={openPlan}>
+                            <TouchableOpacity style={s.secondaryButton} onPress={() => setSignupVisible(true)}>
                                 <Text style={s.secondaryButtonText}>Try Again</Text>
                             </TouchableOpacity>
                         </View>
@@ -483,22 +524,12 @@ export default function TryVoxxy() {
                                     />
 
                                     <View style={s.resultsActions}>
-                                        <TouchableOpacity style={s.tryAgainButton} onPress={resetSwipe}>
-                                            <Text style={s.tryAgainButtonText}>Try Different Preferences</Text>
+                                        <TouchableOpacity style={s.compactButton} onPress={() => setSignupVisible(true)}>
+                                            <Text style={s.compactButtonText}>New Preferences</Text>
                                         </TouchableOpacity>
-                                        <LinearGradient
-                                            colors={['#667eea', '#764ba2']}
-                                            style={s.signupGradientButton}
-                                            start={{ x: 0, y: 0 }}
-                                            end={{ x: 1, y: 1 }}
-                                        >
-                                            <TouchableOpacity 
-                                                style={s.signupButtonInner} 
-                                                onPress={() => setSignupVisible(true)}
-                                            >
-                                                <Text style={s.signupButtonText}>Sign Up for Full Experience</Text>
-                                            </TouchableOpacity>
-                                        </LinearGradient>
+                                        <TouchableOpacity style={s.compactSignupButton} onPress={() => setSignupVisible(true)}>
+                                            <Text style={s.compactSignupButtonText}>Sign Up</Text>
+                                        </TouchableOpacity>
                                     </View>
                                 </View>
                             ) : (
@@ -507,9 +538,14 @@ export default function TryVoxxy() {
                                     <Text style={s.noLikesText}>
                                         Maybe try adjusting your preferences or try again with different options.
                                     </Text>
-                                    <TouchableOpacity style={s.tryAgainButton} onPress={resetSwipe}>
-                                        <Text style={s.tryAgainButtonText}>🔄 Try Again</Text>
-                                    </TouchableOpacity>
+                                    <View style={s.resultsActions}>
+                                        <TouchableOpacity style={s.compactButton} onPress={() => setSignupVisible(true)}>
+                                            <Text style={s.compactButtonText}>New Preferences</Text>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity style={s.compactSignupButton} onPress={() => setSignupVisible(true)}>
+                                            <Text style={s.compactSignupButtonText}>Sign Up</Text>
+                                        </TouchableOpacity>
+                                    </View>
                                 </View>
                             )}
                         </ScrollView>
@@ -618,20 +654,19 @@ export default function TryVoxxy() {
                                 <Text style={s.closeTxt}>✖</Text>
                             </TouchableOpacity>
                             
-                            <Text style={s.signupTitle}>Sign Up for Voxxy!</Text>
+                            <Text style={s.signupTitle}>Create an Account for More!</Text>
                             <Text style={s.signupDescription}>
-                                Join Voxxy to create activities, get personalized AI recommendations, 
-                                and plan amazing experiences with friends.
+                                Create an account for more recommendations and to plan with your group!
                             </Text>
                             
                             <TouchableOpacity 
                                 style={s.btn} 
                                 onPress={() => {
                                     setSignupVisible(false)
-                                    // Navigate to signup - you'll need to add navigation here
+                                    navigation.navigate('SignUp')
                                 }}
                             >
-                                <Text style={s.btnText}>Get Started</Text>
+                                <Text style={s.btnText}>Create Account</Text>
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -809,9 +844,9 @@ const s = StyleSheet.create({
     recMeta: { color: '#bbb', fontSize: 14, marginTop: 4 },
 
     modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'center', alignItems: 'center' },
-    modal: { backgroundColor: '#1a1a27', padding: 20, width: '85%', borderRadius: 8 },
+    modal: { backgroundColor: '#1a1a27', padding: 25, paddingTop: 45, width: '85%', borderRadius: 8 },
 
-    close: { position: 'absolute', top: 10, right: 10 },
+    close: { position: 'absolute', top: 15, right: 15, zIndex: 10 },
     closeTxt: { fontSize: 18, color: '#bbb' },
 
     label: { fontSize: 14, color: '#bbb', marginBottom: 4 },
@@ -1190,44 +1225,41 @@ const s = StyleSheet.create({
         marginTop: 20,
     },
     
-    tryAgainButton: {
+    compactButton: {
         flex: 1,
         backgroundColor: 'rgba(255, 255, 255, 0.08)',
-        paddingVertical: 20,
-        paddingHorizontal: 24,
-        borderRadius: 14,
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        borderRadius: 8,
         alignItems: 'center',
         borderWidth: 1,
         borderColor: 'rgba(255, 255, 255, 0.15)',
     },
     
-    tryAgainButtonText: {
+    compactButtonText: {
         color: '#fff',
-        fontSize: 16,
+        fontSize: 14,
         fontWeight: '600',
     },
     
-    signupGradientButton: {
+    compactSignupButton: {
         flex: 1,
-        borderRadius: 14,
-        shadowColor: '#667eea',
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.3,
-        shadowRadius: 12,
-        elevation: 6,
-    },
-    
-    signupButtonInner: {
-        paddingVertical: 20,
-        paddingHorizontal: 24,
+        backgroundColor: '#667eea',
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        borderRadius: 8,
         alignItems: 'center',
+        shadowColor: '#667eea',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+        elevation: 3,
     },
     
-    signupButtonText: {
+    compactSignupButtonText: {
         color: '#fff',
-        fontSize: 16,
+        fontSize: 14,
         fontWeight: '700',
-        fontFamily: 'Montserrat_700Bold',
     },
     
     noLikesContainer: {
@@ -1493,7 +1525,8 @@ const s = StyleSheet.create({
         fontWeight: '700',
         fontFamily: 'Montserrat_700Bold',
         textAlign: 'center',
-        marginBottom: 12,
+        marginBottom: 16,
+        paddingRight: 30, // Add padding to avoid X button
     },
 
     signupDescription: {

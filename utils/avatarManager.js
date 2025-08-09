@@ -1,17 +1,18 @@
 import { Image } from 'react-native';
 import { logger } from './logger';
 
-// Only keeping Weird5.jpg as the default avatar
+// Using voxxy-triangle.png as the default avatar
 const avatarMap = {
     'Weird5.jpg': require('../assets/Weird5.jpg'),
+    'voxxy-triangle.png': require('../assets/voxxy-triangle.png'),
 };
 
 // Cache for prefetched images
 const imageCache = new Map();
 
-// Get avatar source - now only returns the default Weird5.jpg
+// Get avatar source - now returns voxxy-triangle.png as default
 export const getAvatarSource = (filename) => {
-    return avatarMap['Weird5.jpg'];
+    return avatarMap['voxxy-triangle.png'];
 };
 
 // Prefetch images to prevent loading delays
@@ -53,5 +54,5 @@ export const getUserDisplayImage = (userObj, API_URL) => {
     }
     
     // Default avatar
-    return avatarMap['Weird5.jpg'];
+    return avatarMap['voxxy-triangle.png'];
 };

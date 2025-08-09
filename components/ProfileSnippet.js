@@ -354,7 +354,7 @@ export default function ProfileSnippet({ scrollY = new Animated.Value(0), onScro
     }
 
     // Fallback to default image
-    return require('../assets/Weird5.jpg');
+    return require('../assets/voxxy-triangle.png');
   };
 
   // Get profile image or use default - matching ProfileScreen logic
@@ -386,7 +386,7 @@ export default function ProfileSnippet({ scrollY = new Animated.Value(0), onScro
     }
     
     // Default avatar
-    return require('../assets/Weird5.jpg');
+    return require('../assets/voxxy-triangle.png');
   };
 
   if (!user) return null;
@@ -532,17 +532,27 @@ export default function ProfileSnippet({ scrollY = new Animated.Value(0), onScro
                 borderRadius: profilePicBorderRadius,
                 borderWidth: 3,
                 borderColor: 'rgba(255, 255, 255, 0.8)',
-                backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                backgroundColor: '#ffffff',
                 overflow: 'hidden',
                 shadowColor: 'rgba(0, 0, 0, 0.3)',
                 shadowOffset: { width: 0, height: 4 },
                 shadowOpacity: 1,
                 shadowRadius: 8,
+                justifyContent: 'center',
+                alignItems: 'center',
               }}
             >
               <Image 
                 source={getDisplayImage()} 
-                style={styles.profilePic}
+                style={[
+                  styles.profilePic,
+                  // Special styling for voxxy triangle
+                  (getDisplayImage() === require('../assets/voxxy-triangle.png')) && {
+                    width: '70%',
+                    height: '70%',
+                    resizeMode: 'contain',
+                  }
+                ]}
               />
             </Animated.View>
           </TouchableOpacity>
@@ -621,7 +631,7 @@ export default function ProfileSnippet({ scrollY = new Animated.Value(0), onScro
           activeOpacity={0.8}
         >
           <View style={styles.statIconContainer}>
-            <Users stroke="#fff" width={20} height={20} strokeWidth={2.5} />
+            <Users stroke="#6B4E7A" width={20} height={20} strokeWidth={2.5} />
           </View>
           <Text style={styles.statNumber}>{communityCount}</Text>
           <Text style={styles.statLabel}>Community{'\n'}Members</Text>
@@ -771,10 +781,27 @@ export default function ProfileSnippet({ scrollY = new Animated.Value(0), onScro
                   onPress={() => setExpandedMember(isExpanded ? null : item.id)}
                   activeOpacity={0.7}
                 >
-                  <Image 
-                    source={getMemberDisplayImage(item)}
-                    style={styles.memberAvatar}
-                  />
+                  <View style={[
+                    styles.memberAvatar,
+                    (getMemberDisplayImage(item) === require('../assets/voxxy-triangle.png')) && {
+                      backgroundColor: '#ffffff',
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                    }
+                  ]}>
+                    <Image 
+                      source={getMemberDisplayImage(item)}
+                      style={[
+                        styles.memberAvatarImage,
+                        // Special styling for voxxy triangle
+                        (getMemberDisplayImage(item) === require('../assets/voxxy-triangle.png')) && {
+                          width: '70%',
+                          height: '70%',
+                          resizeMode: 'contain',
+                        }
+                      ]}
+                    />
+                  </View>
                   <View style={styles.memberInfo}>
                     <Text style={styles.memberName}>{item.name || 'Unknown'}</Text>
                     <Text style={styles.memberSince}>
@@ -1005,7 +1032,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    backgroundColor: '#ffffff',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 8,
@@ -1052,6 +1079,11 @@ const styles = StyleSheet.create({
   voxxyIcon: {
     width: 24,
     height: 24,
+    shadowColor: 'rgba(0, 0, 0, 0.25)',
+    shadowOffset: { width: 1, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 3,
+    elevation: 4,
   },
 
   // Modal Styles
@@ -1170,6 +1202,12 @@ const styles = StyleSheet.create({
     marginRight: 12,
     borderWidth: 2,
     borderColor: 'rgba(255, 255, 255, 0.2)',
+    overflow: 'hidden',
+  },
+
+  memberAvatarImage: {
+    width: '100%',
+    height: '100%',
   },
 
   memberInfo: {

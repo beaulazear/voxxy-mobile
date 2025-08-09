@@ -38,7 +38,7 @@ export default function LandingScreen() {
                     style={[styles.bigButton, styles.tryVoxxyButton]}
                     onPress={() => navigation.navigate('TryVoxxy')}
                 >
-                    <Text style={styles.bigButtonText}>Try Voxxy Now</Text>
+                    <Text style={styles.bigButtonText}>Get Recommendations</Text>
                 </TouchableOpacity>
             </View>
         </SafeAreaView>
