@@ -32,6 +32,7 @@ import {
 import { UserContext } from '../context/UserContext'
 import { API_URL } from '../config'
 import { logger } from '../utils/logger';
+import { safeAuthApiCall, handleApiError } from '../utils/safeApiCall';
 
 // Activity Type Logic:
 // - Meeting: Uses time slots (pinned) for scheduling
@@ -59,6 +60,7 @@ export default function FinalizeActivityModal({
 
     const [errors, setErrors] = useState([])
     const [isSubmitting, setIsSubmitting] = useState(false)
+    const [loadingMessage, setLoadingMessage] = useState('')
     const [selectedPinnedId, setSelectedPinnedId] = useState(null)
     const [selectedTimeSlotId, setSelectedTimeSlotId] = useState(null)
     const [showDatePicker, setShowDatePicker] = useState(false)
@@ -266,6 +268,7 @@ export default function FinalizeActivityModal({
 
         setIsSubmitting(true)
         setErrors([])
+        setLoadingMessage('Finalizing activity...')
 
         // Format date and time for API
         const formatDateForAPI = (date) => {
@@ -296,36 +299,32 @@ export default function FinalizeActivityModal({
         }
 
         try {
-            const response = await fetch(`${API_URL}/activities/${activity.id}`, {
-                method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
-                },
-                body: JSON.stringify({ activity: payload }),
-            })
-
-            const data = await response.json()
-
-            if (!response.ok) {
-                const errorMessages = data.errors || [data.error] || ['Unknown error']
-                setErrors(errorMessages)
-                Alert.alert('Error', errorMessages.join('\n'))
-                return
-            }
+            setLoadingMessage('Sending updates...')
+            const data = await safeAuthApiCall(
+                `${API_URL}/activities/${activity.id}`,
+                token,
+                {
+                    method: 'PATCH',
+                    body: JSON.stringify({ activity: payload }),
+                }
+            )
 
             // Success
+            setLoadingMessage('Finalization complete!')
             onUpdate(data)
-            Alert.alert('Success!', 'Activity finalized successfully!')
-            onClose()
+            setTimeout(() => {
+                Alert.alert('Success!', 'Activity finalized successfully!')
+                onClose()
+            }, 300)
 
         } catch (error) {
             logger.error('Error updating activity:', error)
-            const errorMessage = error.message || 'Failed to update activity'
-            setErrors([errorMessage])
-            Alert.alert('Error', errorMessage)
+            const userMessage = handleApiError(error, 'Failed to finalize activity')
+            setErrors([userMessage])
+            Alert.alert('Error', userMessage)
         } finally {
             setIsSubmitting(false)
+            setLoadingMessage('')
         }
     }
 
@@ -667,7 +666,7 @@ export default function FinalizeActivityModal({
                         <View style={styles.buttonContent}>
                             <CheckCircle stroke="#fff" width={16} height={16} />
                             <Text style={[FormStyles.buttonText, FormStyles.buttonTextPrimary]}>
-                                {isSubmitting ? 'Finalizing...' : 'Finalize & Share'}
+                                {isSubmitting ? (loadingMessage || 'Finalizing...') : 'Finalize & Share'}
                             </Text>
                         </View>
                     </GradientButton>

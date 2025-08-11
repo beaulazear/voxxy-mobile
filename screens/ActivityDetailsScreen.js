@@ -98,6 +98,7 @@ export default function ActivityDetailsScreen({ route }) {
     const [showUpdateModal, setShowUpdateModal] = useState(false)
     const [showFinalizeModal, setShowFinalizeModal] = useState(false)
     const [pinnedActivities, setPinnedActivities] = useState([])
+    const [isUpdating, setIsUpdating] = useState(false)
     
     // Refs
     const scrollViewRef = useRef(null)
@@ -623,6 +624,16 @@ export default function ActivityDetailsScreen({ route }) {
                 </ScrollView>
             </KeyboardAvoidingView>
 
+            {/* Loading Overlay */}
+            {isUpdating && (
+                <View style={styles.loadingOverlay}>
+                    <View style={styles.loadingContainer}>
+                        <ActivityIndicator size="large" color="#cc31e8" />
+                        <Text style={styles.loadingText}>Updating activity...</Text>
+                    </View>
+                </View>
+            )}
+
             {/* Pending Invite Overlay */}
             {pendingInvite && (
                 <InvitePromptOverlay
@@ -639,21 +650,28 @@ export default function ActivityDetailsScreen({ route }) {
                 visible={showUpdateModal}
                 onClose={() => setShowUpdateModal(false)}
                 onUpdate={(updatedActivity) => {
-                    // Update the activity in user context
-                    setUser(prevUser => ({
-                        ...prevUser,
-                        activities: prevUser.activities.map(act =>
-                            act.id === updatedActivity.id ? updatedActivity : act
-                        ),
-                        participant_activities: prevUser.participant_activities.map(p =>
-                            p.activity.id === updatedActivity.id
-                                ? { ...p, activity: updatedActivity }
-                                : p
-                        ),
-                    }))
-
-                    setCurrentActivity(updatedActivity)
-                    setRefreshTrigger(prev => !prev)
+                    // Optimize: Only update if activity actually changed
+                    if (JSON.stringify(updatedActivity) !== JSON.stringify(currentActivity)) {
+                        // Update local state first for immediate feedback
+                        setCurrentActivity(updatedActivity)
+                        
+                        // Then update user context in background
+                        requestAnimationFrame(() => {
+                            setUser(prevUser => ({
+                                ...prevUser,
+                                activities: prevUser.activities.map(act =>
+                                    act.id === updatedActivity.id ? updatedActivity : act
+                                ),
+                                participant_activities: prevUser.participant_activities.map(p =>
+                                    p.activity.id === updatedActivity.id
+                                        ? { ...p, activity: updatedActivity }
+                                        : p
+                                ),
+                            }))
+                        })
+                        
+                        setRefreshTrigger(prev => !prev)
+                    }
                 }}
             />
 
@@ -666,20 +684,28 @@ export default function ActivityDetailsScreen({ route }) {
                 pinnedActivities={pinnedActivities}
                 pinned={pinned}
                 onUpdate={(updatedActivity) => {
-                    setUser(prevUser => ({
-                        ...prevUser,
-                        activities: prevUser.activities.map(act =>
-                            act.id === updatedActivity.id ? updatedActivity : act
-                        ),
-                        participant_activities: prevUser.participant_activities.map(p =>
-                            p.activity.id === updatedActivity.id
-                                ? { ...p, activity: updatedActivity }
-                                : p
-                        ),
-                    }))
-
-                    setCurrentActivity(updatedActivity)
-                    setRefreshTrigger(prev => !prev)
+                    // Optimize: Only update if activity actually changed
+                    if (JSON.stringify(updatedActivity) !== JSON.stringify(currentActivity)) {
+                        // Update local state first for immediate feedback
+                        setCurrentActivity(updatedActivity)
+                        
+                        // Then update user context in background
+                        requestAnimationFrame(() => {
+                            setUser(prevUser => ({
+                                ...prevUser,
+                                activities: prevUser.activities.map(act =>
+                                    act.id === updatedActivity.id ? updatedActivity : act
+                                ),
+                                participant_activities: prevUser.participant_activities.map(p =>
+                                    p.activity.id === updatedActivity.id
+                                        ? { ...p, activity: updatedActivity }
+                                        : p
+                                ),
+                            }))
+                        })
+                        
+                        setRefreshTrigger(prev => !prev)
+                    }
                 }}
             />
         </SafeAreaView>
@@ -744,16 +770,32 @@ const styles = StyleSheet.create({
     },
 
     // Loading Styles
-    loadingContainer: {
-        flex: 1,
+    loadingOverlay: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0, 0, 0, 0.7)',
         justifyContent: 'center',
         alignItems: 'center',
+        zIndex: 999,
+    },
+    
+    loadingContainer: {
+        backgroundColor: 'rgba(32, 25, 37, 0.95)',
+        borderRadius: 16,
+        padding: 24,
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(204, 49, 232, 0.3)',
     },
 
     loadingText: {
         color: '#fff',
-        fontSize: 18,
+        fontSize: 16,
         fontWeight: '600',
+        marginTop: 12,
     },
 
     // Content Section Styles

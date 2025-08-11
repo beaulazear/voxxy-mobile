@@ -644,6 +644,7 @@ const styles = StyleSheet.create({
         width: '100%',
         paddingHorizontal: 16,
         paddingVertical: 16,
+        position: 'relative',  // Ensure the wrapper is the positioning context
     },
     chatPanel: {
         backgroundColor: 'rgba(255, 255, 255, 0.03)',
@@ -910,28 +911,29 @@ const styles = StyleSheet.create({
     // Toast notification styles
     toastContainer: {
         position: 'absolute',
-        top: 0,
-        left: 16,
-        right: 16,
-        zIndex: 1000,
+        top: -60,  // Position above the component to avoid being covered
+        left: 0,
+        right: 0,
+        zIndex: 99999,  // Increased to ensure it appears above all modals
+        elevation: 999,  // For Android
         alignItems: 'center',
     },
     toast: {
-        backgroundColor: 'rgba(255, 255, 255, 0.03)',
+        backgroundColor: 'rgba(32, 25, 37, 0.98)',  // More opaque background
         borderRadius: 16,
         padding: 16,
         flexDirection: 'row',
         alignItems: 'center',
         borderWidth: 1,
-        borderColor: 'rgba(40, 167, 69, 0.3)',
+        borderColor: 'rgba(102, 126, 234, 0.5)',  // Changed to match app theme
         shadowColor: '#000',
         shadowOffset: {
             width: 0,
             height: 4,
         },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-        elevation: 8,
+        shadowOpacity: 0.5,  // Stronger shadow
+        shadowRadius: 12,
+        elevation: 10,
         minWidth: 280,
         maxWidth: 320,
     },
@@ -953,7 +955,7 @@ const styles = StyleSheet.create({
         fontSize: 12,
     },
     toastBadge: {
-        backgroundColor: '#28a745',
+        backgroundColor: '#667eea',  // Changed to match app's primary color
         borderRadius: 12,
         minWidth: 24,
         height: 24,

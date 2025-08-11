@@ -21,6 +21,7 @@ import {
 import { UserContext } from '../context/UserContext'
 import { API_URL } from '../config'
 import { logger } from '../utils/logger';
+import { safeAuthApiCall, handleApiError } from '../utils/safeApiCall';
 
 export default function UpdateDetailsModal({ activity, visible, onClose, onUpdate }) {
     const { user } = useContext(UserContext)
@@ -31,6 +32,7 @@ export default function UpdateDetailsModal({ activity, visible, onClose, onUpdat
     const [welcomeMessage, setWelcomeMessage] = useState(activity.welcome_message || '')
     const [errors, setErrors] = useState([])
     const [isSubmitting, setIsSubmitting] = useState(false)
+    const [loadingMessage, setLoadingMessage] = useState('')
 
     // Location state
     const [usingCurrentLocation, setUsingCurrentLocation] = useState(false)
@@ -95,6 +97,7 @@ export default function UpdateDetailsModal({ activity, visible, onClose, onUpdat
 
         setIsSubmitting(true)
         setErrors([])
+        setLoadingMessage('Updating activity...')
 
         const payload = {
             activity_name: name.trim(),
@@ -109,32 +112,30 @@ export default function UpdateDetailsModal({ activity, visible, onClose, onUpdat
         }
 
         try {
-            const response = await fetch(`${API_URL}/activities/${activity.id}`, {
-                method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
-                },
-                body: JSON.stringify({ activity: payload }),
-            })
-
-            const data = await response.json()
-
-            if (!response.ok) {
-                setErrors(data.errors || [data.error] || ['Unknown error'])
-                return
-            }
+            const data = await safeAuthApiCall(
+                `${API_URL}/activities/${activity.id}`,
+                token,
+                {
+                    method: 'PATCH',
+                    body: JSON.stringify({ activity: payload }),
+                }
+            )
 
             // Success
+            setLoadingMessage('Update complete!')
             onUpdate(data)
-            Alert.alert('Success!', 'Activity updated successfully!')
-            onClose()
+            setTimeout(() => {
+                Alert.alert('Success!', 'Activity updated successfully!')
+                onClose()
+            }, 200)
 
         } catch (error) {
             logger.error('Error updating activity:', error)
-            setErrors([error.message || 'Failed to update activity'])
+            const userMessage = handleApiError(error, 'Failed to update activity')
+            setErrors([userMessage])
         } finally {
             setIsSubmitting(false)
+            setLoadingMessage('')
         }
     }
 
@@ -281,10 +282,20 @@ export default function UpdateDetailsModal({ activity, visible, onClose, onUpdat
                         style={[FormStyles.flex1, !canSave() && FormStyles.buttonDisabled]}
                     >
                         <View style={styles.buttonContent}>
-                            <Save stroke="#fff" width={16} height={16} />
-                            <Text style={[FormStyles.buttonText, FormStyles.buttonTextPrimary]}>
-                                {isSubmitting ? 'Saving...' : 'Save'}
-                            </Text>
+                            {isSubmitting ? (
+                                <>
+                                    <Text style={[FormStyles.buttonText, FormStyles.buttonTextPrimary]}>
+                                        {loadingMessage || 'Saving...'}
+                                    </Text>
+                                </>
+                            ) : (
+                                <>
+                                    <Save stroke="#fff" width={16} height={16} />
+                                    <Text style={[FormStyles.buttonText, FormStyles.buttonTextPrimary]}>
+                                        Save
+                                    </Text>
+                                </>
+                            )}
                         </View>
                     </GradientButton>
                 </View>

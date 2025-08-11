@@ -18,6 +18,9 @@ export const UserProvider = ({ children }) => {
   useEffect(() => {
     const loadUser = async () => {
       try {
+        // Clear any existing badge count on app launch
+        await PushNotificationService.clearBadge();
+        
         const token = await AsyncStorage.getItem('jwt');
         if (!token) return setLoading(false);
 
@@ -32,6 +35,21 @@ export const UserProvider = ({ children }) => {
 
         // Set up push notifications after user is loaded
         setupPushNotificationsForUser(userWithToken);
+        
+        // Fetch and set the actual unread count
+        try {
+          const notifications = await safeAuthApiCall(
+            `${API_URL}/notifications`,
+            token,
+            { method: 'GET' }
+          );
+          const unreadCount = (notifications || []).filter(n => !n.read).length;
+          setUnreadNotificationCount(unreadCount);
+          // Update system badge to match actual unread count
+          await PushNotificationService.setBadgeCount(unreadCount);
+        } catch (error) {
+          logger.error('Failed to fetch initial notification count:', error);
+        }
       } catch (err) {
         logger.error('Failed to auto-login:', err);
         // Remove invalid token

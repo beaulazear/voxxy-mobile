@@ -13,10 +13,11 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ArrowLeft, Bell, CheckCircle, User, Calendar, MessageCircle, X } from 'react-native-feather';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { UserContext } from '../context/UserContext';
 import { API_URL } from '../config';
 import { safeAuthApiCall, handleApiError } from '../utils/safeApiCall';
+import PushNotificationService from '../services/PushNotificationService';
 
 const NOTIFICATION_TYPES = {
     'activity_invite': {
@@ -142,6 +143,14 @@ export default function NotificationsScreen() {
     const [notifications, setNotifications] = useState([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+
+    // Clear system badge when screen is focused
+    useFocusEffect(
+        React.useCallback(() => {
+            // Clear the system badge count when viewing notifications
+            PushNotificationService.clearBadge();
+        }, [])
+    );
 
     const fetchNotifications = async (isRefresh = false) => {
         try {

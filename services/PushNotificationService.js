@@ -11,7 +11,7 @@ Notifications.setNotificationHandler({
     handleNotification: async () => ({
         shouldShowAlert: true,
         shouldPlaySound: true,
-        shouldSetBadge: false,
+        shouldSetBadge: true, // Allow notifications to update the badge
     }),
 });
 
@@ -139,6 +139,26 @@ class PushNotificationService {
             }
         } catch (error) {
             logger.error('Error sending push token to backend:', error);
+        }
+    }
+
+    // Clear the app badge count
+    async clearBadge() {
+        try {
+            await Notifications.setBadgeCountAsync(0);
+            logger.debug('Badge count cleared');
+        } catch (error) {
+            logger.error('Error clearing badge count:', error);
+        }
+    }
+
+    // Set the app badge count
+    async setBadgeCount(count) {
+        try {
+            await Notifications.setBadgeCountAsync(count);
+            logger.debug('Badge count set to:', count);
+        } catch (error) {
+            logger.error('Error setting badge count:', error);
         }
     }
 

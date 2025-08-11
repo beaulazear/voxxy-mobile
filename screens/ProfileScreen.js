@@ -74,7 +74,7 @@ const formatDate = (dateString) => {
 };
 
 export default function ProfileScreen() {
-    const { user, setUser, updateUser } = useContext(UserContext);
+    const { user, setUser, updateUser, logout } = useContext(UserContext);
     const navigation = useNavigation();
     const [showPastActivitiesModal, setShowPastActivitiesModal] = useState(false);
 
@@ -156,10 +156,9 @@ export default function ProfileScreen() {
                         } catch (error) {
                             logger.debug("Server logout failed, proceeding anyway:", error);
                         } finally {
-                            logger.debug("🧹 Removing token and logging out");
-                            await AsyncStorage.removeItem('jwt');
-                            setUser(null);
-                            navigation.navigate('/');
+                            logger.debug("🧹 Logging out using context method");
+                            await logout(); // Use context logout which handles cleanup
+                            navigation.replace('/'); // Use replace for clean navigation
                         }
                     }
                 }
@@ -428,29 +427,28 @@ export default function ProfileScreen() {
                 {
                     text: 'Delete',
                     style: 'destructive',
-                    onPress: () => {
-                        fetch(`${API_URL}/users/${user.id}`, {
-                            method: 'DELETE',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${token}`,
-                            },
-                        })
-                            .then((res) => {
-                                if (!res.ok) throw new Error('Failed to delete account');
-                                setUser(null);
-                                // Clear stored token
-                                AsyncStorage.removeItem('jwt');
-                                // Navigate back to landing page
-                                navigation.reset({
-                                    index: 0,
-                                    routes: [{ name: 'Home' }],
-                                });
-                            })
-                            .catch((err) => {
-                                logger.error('Delete error:', err);
-                                Alert.alert('Error', 'Deletion failed.');
+                    onPress: async () => {
+                        try {
+                            const res = await fetch(`${API_URL}/users/${user.id}`, {
+                                method: 'DELETE',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${token}`,
+                                },
                             });
+                            
+                            if (!res.ok) throw new Error('Failed to delete account');
+                            
+                            // Use the logout method from context which handles all cleanup
+                            await logout();
+                            
+                            // Navigate to landing screen using replace for clean navigation
+                            navigation.replace('/');
+                            
+                        } catch (err) {
+                            logger.error('Delete error:', err);
+                            Alert.alert('Error', 'Failed to delete account. Please try again.');
+                        }
                     },
                 },
             ]

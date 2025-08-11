@@ -36,8 +36,8 @@ export default function LoginScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [autoSubmitTriggered, setAutoSubmitTriggered] = useState(false);
-  const [isManuallyTyping, setIsManuallyTyping] = useState(false);
-  const typingTimeoutRef = useRef(null);
+  const [isAutoFilling, setIsAutoFilling] = useState(false);
+  const autoSubmitTimeoutRef = useRef(null);
 
   useEffect(() => {
     AsyncStorage.getItem('jwt').then(token => {
@@ -45,48 +45,46 @@ export default function LoginScreen() {
     });
   }, []);
 
-  // Auto-submit when both fields are filled (only from autofill, not manual typing)
+  // Auto-submit when both fields are filled (from autofill)
   useEffect(() => {
-    if (email.trim() && password.trim() && !autoSubmitTriggered && !isLoading && !isManuallyTyping) {
-      // Small delay to ensure autofill is complete and distinguish from manual typing
-      const timer = setTimeout(() => {
+    // Clear any existing timeout
+    if (autoSubmitTimeoutRef.current) {
+      clearTimeout(autoSubmitTimeoutRef.current);
+    }
+    
+    if (email.trim() && password.trim() && !autoSubmitTriggered && !isLoading) {
+      // Show loading immediately when both fields are populated
+      setIsAutoFilling(true);
+      
+      // Very short delay (50ms) just to ensure autofill is complete
+      autoSubmitTimeoutRef.current = setTimeout(() => {
         setAutoSubmitTriggered(true);
         handleLogin();
-      }, 500);
-      
-      return () => clearTimeout(timer);
+      }, 50);
     }
-  }, [email, password, autoSubmitTriggered, isLoading, isManuallyTyping]);
+    
+    return () => {
+      if (autoSubmitTimeoutRef.current) {
+        clearTimeout(autoSubmitTimeoutRef.current);
+      }
+    };
+  }, [email, password]);
 
-  // Track manual typing to prevent autosubmit during manual entry
+  // Simple change handlers - autofill will populate both fields at once
   const handleEmailChange = (text) => {
     setEmail(text);
-    setIsManuallyTyping(true);
-    
-    // Clear the typing timeout and set a new one
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
+    // Cancel auto-submit if user is manually typing (fields won't both be filled instantly)
+    if (autoSubmitTimeoutRef.current) {
+      clearTimeout(autoSubmitTimeoutRef.current);
     }
-    
-    // After user stops typing for 2 seconds, allow autosubmit again
-    typingTimeoutRef.current = setTimeout(() => {
-      setIsManuallyTyping(false);
-    }, 2000);
   };
 
   const handlePasswordChange = (text) => {
     setPassword(text);
-    setIsManuallyTyping(true);
-    
-    // Clear the typing timeout and set a new one
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
+    // Cancel auto-submit if user is manually typing
+    if (autoSubmitTimeoutRef.current) {
+      clearTimeout(autoSubmitTimeoutRef.current);
     }
-    
-    // After user stops typing for 2 seconds, allow autosubmit again
-    typingTimeoutRef.current = setTimeout(() => {
-      setIsManuallyTyping(false);
-    }, 2000);
   };
 
   const handleLogin = async () => {
@@ -96,6 +94,7 @@ export default function LoginScreen() {
     const emailTrimmed = email.toLowerCase().trim();
     if (!emailTrimmed || !password) {
       Alert.alert('Error', 'Please fill in all fields');
+      setIsAutoFilling(false);
       return;
     }
     
@@ -103,10 +102,12 @@ export default function LoginScreen() {
     const emailValidation = validateEmail(emailTrimmed);
     if (!emailValidation.isValid) {
       Alert.alert('Error', emailValidation.error);
+      setIsAutoFilling(false);
       return;
     }
     
     setIsLoading(true);
+    setIsAutoFilling(false);
     Keyboard.dismiss();
     try {
       const data = await safeApiCall(
@@ -130,6 +131,7 @@ export default function LoginScreen() {
       const errorMessage = handleApiError(err, 'Invalid email or password. Please try again.');
       Alert.alert('Login Failed', errorMessage);
       setIsLoading(false);
+      setIsAutoFilling(false);
     }
   };
 
@@ -210,13 +212,16 @@ export default function LoginScreen() {
               </View>
 
               <TouchableOpacity
-                style={[styles.submitButton, isLoading && styles.submitButtonDisabled]}
+                style={[styles.submitButton, (isLoading || isAutoFilling) && styles.submitButtonDisabled]}
                 onPress={handleLogin}
-                disabled={isLoading}
+                disabled={isLoading || isAutoFilling}
                 activeOpacity={0.8}
               >
-                {isLoading ? (
-                  <ActivityIndicator color="#fff" size="small" />
+                {(isLoading || isAutoFilling) ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <ActivityIndicator color="#fff" size="small" />
+                    <Text style={[styles.submitText, { marginLeft: 10 }]}>Signing in...</Text>
+                  </View>
                 ) : (
                   <Text style={styles.submitText}>Sign In</Text>
                 )}
