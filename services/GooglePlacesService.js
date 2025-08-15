@@ -14,18 +14,18 @@ class GooglePlacesService {
     /**
      * Search for places using Google Places Autocomplete API
      * @param {string} input - Search query
-     * @param {string} types - Place types to search for (default: '(cities)')
+     * @param {string} types - Place types to search for (default: 'geocode' for all location types)
      * @param {string} language - Language for results (default: 'en')
      * @returns {Promise<Array>} Array of place predictions
      */
-    async searchPlaces(input, types = '(cities)', language = 'en') {
+    async searchPlaces(input, types = 'geocode', language = 'en') {
         console.log('GooglePlacesService.searchPlaces called with:', input);
         if (!input || input.length < 2) {
             return [];
         }
 
         try {
-            const url = `${API_URL}/api/places/search?query=${encodeURIComponent(input)}`;
+            const url = `${API_URL}/api/places/search?query=${encodeURIComponent(input)}&types=${encodeURIComponent(types)}`;
             console.log('Calling Rails API:', url);
             
             const response = await fetch(url, {

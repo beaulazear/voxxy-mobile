@@ -46,7 +46,8 @@ const SearchLocationModal = ({ visible, onClose, onLocationSelect }) => {
         try {
             setIsLoading(true);
             
-            const results = await GooglePlacesService.searchPlaces(query);
+            // Pass 'geocode' to get all location types including neighborhoods
+            const results = await GooglePlacesService.searchPlaces(query, 'geocode');
             console.log('Search results:', results);
             setSuggestions(results);
         } catch (error) {
@@ -129,7 +130,7 @@ const SearchLocationModal = ({ visible, onClose, onLocationSelect }) => {
                             style={styles.searchInput}
                             value={searchText}
                             onChangeText={handleSearchChange}
-                            placeholder="Search for your city or neighborhood..."
+                            placeholder="Search neighborhood, city (e.g. Bushwick, Brooklyn)"
                             placeholderTextColor={colors.textMuted}
                             autoCorrect={false}
                             autoCapitalize="words"

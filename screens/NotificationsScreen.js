@@ -12,12 +12,13 @@ import {
     StatusBar,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ArrowLeft, Bell, CheckCircle, User, Calendar, MessageCircle, X } from 'react-native-feather';
+import { ArrowLeft, Bell, CheckCircle, User, Calendar, MessageCircle, X, Clock } from 'react-native-feather';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { UserContext } from '../context/UserContext';
 import { API_URL } from '../config';
 import { safeAuthApiCall, handleApiError } from '../utils/safeApiCall';
 import PushNotificationService from '../services/PushNotificationService';
+import { TOUCH_TARGETS, SPACING } from '../styles/AccessibilityStyles';
 
 const NOTIFICATION_TYPES = {
     'activity_invite': {
@@ -53,7 +54,10 @@ const NOTIFICATION_TYPES = {
 };
 
 const formatTime = (dateString) => {
-    if (!dateString) return '';
+    if (!dateString) {
+        console.log('⚠️ No timestamp provided for notification');
+        return 'Recently';
+    }
     
     const date = new Date(dateString);
     const now = new Date();
@@ -68,9 +72,12 @@ const formatTime = (dateString) => {
     if (diffInDays === 1) return 'Yesterday';
     if (diffInDays < 7) return `${diffInDays}d ago`;
     
+    // For older notifications, show date and time
     return date.toLocaleDateString('en-US', {
         month: 'short',
         day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
         ...(date.getFullYear() !== now.getFullYear() && { year: 'numeric' })
     });
 };
@@ -100,9 +107,12 @@ const NotificationItem = ({ notification, onPress, onMarkAsRead, onDelete }) => 
                     <Text style={styles.notificationBody} numberOfLines={3}>
                         {notification.body}
                     </Text>
-                    <Text style={styles.notificationTime}>
-                        {formatTime(notification.created_at)}
-                    </Text>
+                    <View style={styles.timeContainer}>
+                        <Clock color="#B8A5C4" size={12} style={{ marginRight: 4 }} />
+                        <Text style={styles.notificationTime}>
+                            {formatTime(notification.created_at || notification.createdAt)}
+                        </Text>
+                    </View>
                 </View>
                 
                 {!notification.read && <View style={styles.unreadDot} />}
@@ -157,6 +167,16 @@ export default function NotificationsScreen() {
             if (!isRefresh) setLoading(true);
             
             const data = await safeAuthApiCall(`${API_URL}/notifications`, user.token, { method: 'GET' });
+            
+            // Debug: Check if timestamps are present
+            if (data && data.length > 0) {
+                console.log('🕒 Sample notification timestamp:', {
+                    created_at: data[0].created_at,
+                    createdAt: data[0].createdAt,
+                    title: data[0].title
+                });
+            }
+            
             setNotifications(data || []);
             
             // Count unread notifications
@@ -259,10 +279,11 @@ export default function NotificationsScreen() {
             markAsRead(notification.id);
         }
 
-        // Navigate based on notification type
+        // Navigate based on notification type with forceRefresh flag
         if (notification.data?.activityId) {
             navigation.navigate('ActivityDetails', { 
-                activityId: notification.data.activityId 
+                activityId: notification.data.activityId,
+                forceRefresh: true // Force refresh to get latest data
             });
         } else {
             console.warn('Cannot navigate - notification missing activityId:', notification);
@@ -378,9 +399,11 @@ const styles = StyleSheet.create({
     },
 
     backButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
+        minWidth: TOUCH_TARGETS.MIN_SIZE,
+        minHeight: TOUCH_TARGETS.MIN_SIZE,
+        width: TOUCH_TARGETS.MIN_SIZE,
+        height: TOUCH_TARGETS.MIN_SIZE,
+        borderRadius: 22,
         backgroundColor: 'rgba(255, 255, 255, 0.1)',
         borderWidth: 1,
         borderColor: 'rgba(255, 255, 255, 0.2)',
@@ -442,7 +465,7 @@ const styles = StyleSheet.create({
     notificationItem: {
         backgroundColor: '#2a1f36',
         marginHorizontal: 16,
-        marginVertical: 4,
+        marginVertical: 6,
         borderRadius: 16,
         padding: 16,
         borderWidth: 1,
@@ -496,10 +519,16 @@ const styles = StyleSheet.create({
         marginBottom: 8,
     },
 
+    timeContainer: {
+        marginTop: 4,
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
     notificationTime: {
-        color: 'rgba(255, 255, 255, 0.5)',
-        fontSize: 12,
-        fontWeight: '500',
+        color: '#B8A5C4',
+        fontSize: 13,
+        fontWeight: '600',
+        fontFamily: 'Montserrat_400Regular',
     },
 
     unreadDot: {
@@ -514,14 +543,16 @@ const styles = StyleSheet.create({
     actionButtons: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 8,
+        gap: SPACING.COMFORTABLE_GAP,
         marginLeft: 12,
     },
 
     actionButton: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
+        minWidth: TOUCH_TARGETS.MIN_SIZE,
+        minHeight: TOUCH_TARGETS.MIN_SIZE,
+        width: TOUCH_TARGETS.MIN_SIZE,
+        height: TOUCH_TARGETS.MIN_SIZE,
+        borderRadius: 22,
         backgroundColor: 'rgba(255, 255, 255, 0.1)',
         alignItems: 'center',
         justifyContent: 'center',

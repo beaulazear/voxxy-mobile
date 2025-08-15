@@ -107,8 +107,8 @@ function getActivityStatusInfo(activity) {
         return {
             text: 'Voting',
             icon: CheckCircle,
-            color: '#667eea',
-            bgColor: 'rgba(102, 126, 234, 0.15)'
+            color: '#cc31e8',
+            bgColor: 'rgba(204, 49, 232, 0.15)'
         };
     }
     

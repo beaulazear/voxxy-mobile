@@ -210,6 +210,20 @@ export const UserProvider = ({ children }) => {
 
       const userWithToken = { ...userData, token: user.token };
       setUser(userWithToken);
+      
+      // Also refresh notifications count
+      try {
+        const notifications = await safeAuthApiCall(
+          `${API_URL}/notifications`,
+          user.token,
+          { method: 'GET' }
+        );
+        const unreadCount = (notifications || []).filter(n => !n.read).length;
+        setUnreadNotificationCount(unreadCount);
+      } catch (notifErr) {
+        logger.debug('Could not refresh notification count');
+      }
+      
       return userWithToken;
     } catch (err) {
       logger.error('Failed to refresh user:', err);
@@ -218,6 +232,45 @@ export const UserProvider = ({ children }) => {
         await AsyncStorage.removeItem('jwt');
         setUser(null);
       }
+    }
+  };
+
+  // Refresh a specific activity
+  const refreshActivity = async (activityId) => {
+    if (!user?.token || !activityId) return;
+
+    try {
+      const activityData = await safeAuthApiCall(
+        `${API_URL}/activities/${activityId}`,
+        user.token,
+        { method: 'GET' }
+      );
+
+      if (activityData) {
+        setUser(prevUser => {
+          if (!prevUser) return prevUser;
+          
+          const updatedActivities = (prevUser.activities || []).map(act => 
+            act.id === activityData.id ? activityData : act
+          );
+          
+          const updatedParticipantActivities = (prevUser.participant_activities || []).map(p => 
+            p.activity.id === activityData.id 
+              ? { ...p, activity: activityData }
+              : p
+          );
+          
+          return {
+            ...prevUser,
+            activities: updatedActivities,
+            participant_activities: updatedParticipantActivities
+          };
+        });
+      }
+      
+      return activityData;
+    } catch (error) {
+      logger.error('Error refreshing activity:', error);
     }
   };
 
@@ -230,6 +283,7 @@ export const UserProvider = ({ children }) => {
       logout,
       updateUser,
       refreshUser,
+      refreshActivity,
       unreadNotificationCount,
       setUnreadNotificationCount,
     }}>

@@ -24,25 +24,25 @@ import { useNavigation } from '@react-navigation/native';
 
 // Updated Icons object using Feather icons
 const Icons = {
-    Users: (props) => <Icon name="users" size={16} color="#667eea" {...props} />,
-    Share: (props) => <Icon name="share" size={16} color="#667eea" {...props} />,
-    HelpCircle: (props) => <Icon name="help-circle" size={16} color="#667eea" {...props} />,
-    CheckCircle: (props) => <Icon name="check-circle" size={16} color="#667eea" {...props} />,
-    Clock: (props) => <Icon name="clock" size={16} color="#667eea" {...props} />,
-    Vote: (props) => <Icon name="check-square" size={16} color="#667eea" {...props} />,
-    BookHeart: (props) => <Icon name="book" size={16} color="#667eea" {...props} />,
-    Flag: (props) => <Icon name="flag" size={16} color="#667eea" {...props} />,
-    X: (props) => <Icon name="x" size={16} color="#667eea" {...props} />,
-    ExternalLink: (props) => <Icon name="external-link" size={16} color="#667eea" {...props} />,
-    MapPin: (props) => <Icon name="map-pin" size={16} color="#667eea" {...props} />,
-    DollarSign: (props) => <Icon name="dollar-sign" size={16} color="#667eea" {...props} />,
-    Globe: (props) => <Icon name="globe" size={16} color="#667eea" {...props} />,
-    Zap: (props) => <Icon name="zap" size={16} color="#667eea" {...props} />,
-    Calendar: (props) => <Icon name="calendar" size={16} color="#667eea" {...props} />,
-    Star: (props) => <Icon name="star" size={16} color="#667eea" {...props} />,
-    RotateCcw: (props) => <Icon name="rotate-ccw" size={16} color="#667eea" {...props} />,
-    FastForward: (props) => <Icon name="fast-forward" size={16} color="#667eea" {...props} />,
-    ChevronRight: (props) => <Icon name="chevron-right" size={16} color="#667eea" {...props} />,
+    Users: (props) => <Icon name="users" size={16} color="#cc31e8" {...props} />,
+    Share: (props) => <Icon name="share" size={16} color="#cc31e8" {...props} />,
+    HelpCircle: (props) => <Icon name="help-circle" size={16} color="#cc31e8" {...props} />,
+    CheckCircle: (props) => <Icon name="check-circle" size={16} color="#cc31e8" {...props} />,
+    Clock: (props) => <Icon name="clock" size={16} color="#cc31e8" {...props} />,
+    Vote: (props) => <Icon name="check-square" size={16} color="#cc31e8" {...props} />,
+    BookHeart: (props) => <Icon name="book" size={16} color="#cc31e8" {...props} />,
+    Flag: (props) => <Icon name="flag" size={16} color="#cc31e8" {...props} />,
+    X: (props) => <Icon name="x" size={16} color="#cc31e8" {...props} />,
+    ExternalLink: (props) => <Icon name="external-link" size={16} color="#cc31e8" {...props} />,
+    MapPin: (props) => <Icon name="map-pin" size={16} color="#cc31e8" {...props} />,
+    DollarSign: (props) => <Icon name="dollar-sign" size={16} color="#cc31e8" {...props} />,
+    Globe: (props) => <Icon name="globe" size={16} color="#cc31e8" {...props} />,
+    Zap: (props) => <Icon name="zap" size={16} color="#cc31e8" {...props} />,
+    Calendar: (props) => <Icon name="calendar" size={16} color="#cc31e8" {...props} />,
+    Star: (props) => <Icon name="star" size={16} color="#cc31e8" {...props} />,
+    RotateCcw: (props) => <Icon name="rotate-ccw" size={16} color="#cc31e8" {...props} />,
+    FastForward: (props) => <Icon name="fast-forward" size={16} color="#cc31e8" {...props} />,
+    ChevronRight: (props) => <Icon name="chevron-right" size={16} color="#cc31e8" {...props} />,
 };
 
 import CuisineResponseForm from './CuisineResponseForm';
@@ -72,7 +72,7 @@ const analyzeAvailability = (responses) => {
     const availabilityData = {};
     const participantCount = {};
 
-    responses.forEach(response => {
+    (responses || []).forEach(response => {
         const availability = response.availability || {};
         const participantName = response.user?.name || response.email || 'Anonymous';
 
@@ -99,7 +99,7 @@ const analyzeAvailability = (responses) => {
 const AvailabilityDisplay = ({ responses, activity }) => {
     if (!activity.allow_participant_time_selection) return null;
 
-    const responsesWithAvailability = responses.filter(r =>
+    const responsesWithAvailability = (responses || []).filter(r =>
         r.availability && Object.keys(r.availability).length > 0
     );
 
@@ -403,22 +403,22 @@ const SwipeableCard = ({ recommendation, onSwipeLeft, onSwipeRight, onFlag, onFa
                     {isGameNight ? (
                         <>
                             <View style={styles.cardDetailRow}>
-                                <Icons.Users color="#667eea" size={16} />
+                                <Icons.Users color="#cc31e8" size={16} />
                                 <Text style={styles.cardDetailText}>Players: {recommendation.address || 'N/A'}</Text>
                             </View>
                             <View style={styles.cardDetailRow}>
-                                <Icons.Clock color="#667eea" size={16} />
+                                <Icons.Clock color="#cc31e8" size={16} />
                                 <Text style={styles.cardDetailText}>Play Time: {recommendation.hours || 'N/A'}</Text>
                             </View>
                         </>
                     ) : (
                         <>
                             <View style={styles.cardDetailRow}>
-                                <Icons.Clock color="#667eea" size={16} />
+                                <Icons.Clock color="#cc31e8" size={16} />
                                 <Text style={styles.cardDetailText}>{recommendation.hours || 'N/A'}</Text>
                             </View>
                             <View style={styles.cardDetailRow}>
-                                <Icons.MapPin color="#667eea" size={16} />
+                                <Icons.MapPin color="#cc31e8" size={16} />
                                 <Text style={styles.cardDetailText}>{recommendation.address || 'N/A'}</Text>
                             </View>
                         </>
@@ -639,7 +639,7 @@ export default function AIRecommendations({
         }
     }, [collecting, isOwner]);
 
-    const { id, responses, activity_location, date_notes, collecting, finalized, voting, completed, active, selected_pinned_activity_id } = activity;
+    const { id, responses = [], activity_location, date_notes, collecting, finalized, voting, completed, active, selected_pinned_activity_id } = activity;
 
     const activityType = activity.activity_type || 'Restaurant';
 
@@ -1557,7 +1557,7 @@ export default function AIRecommendations({
                             </View>
 
                             <TouchableOpacity style={styles.resetButton} onPress={resetCards}>
-                                <Icons.RotateCcw color="#667eea" size={16} />
+                                <Icons.RotateCcw color="#cc31e8" size={16} />
                                 <Text style={styles.resetButtonText}>Review Again</Text>
                             </TouchableOpacity>
                         </>
@@ -2062,7 +2062,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     submissionCount: {
-        color: '#667eea',
+        color: '#cc31e8',
         fontSize: 48,
         fontWeight: '700',
         fontFamily: 'Montserrat_700Bold',
@@ -2098,7 +2098,7 @@ const styles = StyleSheet.create({
         marginBottom: 12,
     },
     subtleActionButtonText: {
-        color: '#667eea',
+        color: '#cc31e8',
         fontSize: 13,
         fontWeight: '600',
         marginLeft: 8,
@@ -2109,7 +2109,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#201925',
         borderRadius: 8,
         borderWidth: 1.5,
-        borderColor: '#667eea',
+        borderColor: '#cc31e8',
         paddingHorizontal: 12,
         paddingVertical: 8,
         marginHorizontal: 16,
@@ -2118,7 +2118,7 @@ const styles = StyleSheet.create({
         flexShrink: 1,
     },
     shareButtonText: {
-        color: '#667eea',
+        color: '#cc31e8',
         fontSize: 14,
         fontWeight: '600',
         marginLeft: 8,
@@ -2134,7 +2134,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: '#667eea',
+        backgroundColor: '#cc31e8',
         paddingHorizontal: 24,
         paddingVertical: 12,
         borderRadius: 12,
@@ -2155,7 +2155,7 @@ const styles = StyleSheet.create({
     },
     progressBar: {
         height: '100%',
-        backgroundColor: '#667eea',
+        backgroundColor: '#cc31e8',
         borderRadius: 3,
     },
     availabilitySection: {
@@ -2203,7 +2203,7 @@ const styles = StyleSheet.create({
         marginBottom: 8,
     },
     dateHeader: {
-        color: '#667eea',
+        color: '#cc31e8',
         fontSize: 12,
         fontWeight: '600',
         marginBottom: 8,
@@ -2220,7 +2220,7 @@ const styles = StyleSheet.create({
         paddingVertical: 2,
     },
     timeSlotText: {
-        color: '#667eea',
+        color: '#cc31e8',
         fontSize: 11,
     },
     overlapAnalysis: {
@@ -2382,7 +2382,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: '#667eea',
+        backgroundColor: '#cc31e8',
         paddingHorizontal: 16,
         paddingVertical: 12,
         borderRadius: 12,
@@ -2412,7 +2412,7 @@ const styles = StyleSheet.create({
     preferencesButton: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#667eea',
+        backgroundColor: '#cc31e8',
         paddingHorizontal: 20,
         paddingVertical: 12,
         borderRadius: 12,
@@ -2450,14 +2450,14 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: 'transparent',
-        borderColor: '#667eea',
+        borderColor: '#cc31e8',
         borderWidth: 1,
         paddingHorizontal: 20,
         paddingVertical: 12,
         borderRadius: 12,
     },
     resubmitButtonText: {
-        color: '#667eea',
+        color: '#cc31e8',
         fontWeight: '600',
         marginLeft: 8,
     },
@@ -2607,7 +2607,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: '#667eea',
+        backgroundColor: '#cc31e8',
         paddingVertical: 16,
         paddingHorizontal: 32,
         borderRadius: 12,
@@ -2675,7 +2675,7 @@ const styles = StyleSheet.create({
         marginLeft: 6,
     },
     progressPercentage: {
-        color: '#667eea',
+        color: '#cc31e8',
         fontSize: 14,
         fontWeight: '600',
     },
@@ -2784,7 +2784,7 @@ const styles = StyleSheet.create({
         paddingVertical: 8,
     },
     websiteLinkText: {
-        color: '#667eea',
+        color: '#cc31e8',
         fontSize: 14,
         fontWeight: '600',
         marginHorizontal: 6,
@@ -2796,7 +2796,7 @@ const styles = StyleSheet.create({
         marginBottom: 20,
     },
     reasonTitle: {
-        color: '#667eea',
+        color: '#cc31e8',
         fontSize: 16,
         fontWeight: '600',
         marginBottom: 8,
@@ -2847,7 +2847,7 @@ const styles = StyleSheet.create({
         lineHeight: 18,
     },
     reviewToggleButton: {
-        color: '#667eea',
+        color: '#cc31e8',
         fontWeight: '600',
         textDecorationLine: 'underline',
     },
@@ -3155,7 +3155,7 @@ const styles = StyleSheet.create({
         marginBottom: 16,
     },
     cardReasonTitle: {
-        color: '#667eea',
+        color: '#cc31e8',
         fontSize: 14,
         fontWeight: '600',
         marginBottom: 4,
@@ -3217,7 +3217,7 @@ const styles = StyleSheet.create({
         marginBottom: 20,
     },
     skipButtonText: {
-        color: '#667eea',
+        color: '#cc31e8',
         fontSize: 14,
         fontWeight: '600',
         marginLeft: 8,
@@ -3281,7 +3281,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         backgroundColor: '#201925',
         borderWidth: 1.5,
-        borderColor: '#667eea',
+        borderColor: '#cc31e8',
         paddingHorizontal: 12,
         paddingVertical: 8,
         borderRadius: 8,
@@ -3290,7 +3290,7 @@ const styles = StyleSheet.create({
         marginBottom: 20,
     },
     shareButtonText: {
-        color: '#667eea',
+        color: '#cc31e8',
         fontWeight: '600',
         fontSize: 14,
         marginLeft: 8,
@@ -3316,7 +3316,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: 'transparent',
-        borderColor: '#667eea',
+        borderColor: '#cc31e8',
         borderWidth: 1,
         paddingHorizontal: 20,
         paddingVertical: 12,
@@ -3325,7 +3325,7 @@ const styles = StyleSheet.create({
         marginBottom: 20,
     },
     resetButtonText: {
-        color: '#667eea',
+        color: '#cc31e8',
         fontSize: 14,
         fontWeight: '600',
         marginLeft: 8,
@@ -3353,7 +3353,7 @@ const styles = StyleSheet.create({
     tryAgainButton: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#667eea',
+        backgroundColor: '#cc31e8',
         paddingHorizontal: 24,
         paddingVertical: 12,
         borderRadius: 12,
@@ -3389,7 +3389,7 @@ const styles = StyleSheet.create({
     generateButton: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#667eea',
+        backgroundColor: '#cc31e8',
         paddingHorizontal: 24,
         paddingVertical: 12,
         borderRadius: 12,
@@ -3443,7 +3443,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: '#667eea',
+        backgroundColor: '#cc31e8',
         paddingHorizontal: 24,
         paddingVertical: 14,
         borderRadius: 12,
@@ -3543,11 +3543,11 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: '#667eea',
+        backgroundColor: '#cc31e8',
         paddingVertical: 14,
         borderRadius: 12,
         elevation: 3,
-        shadowColor: '#667eea',
+        shadowColor: '#cc31e8',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.3,
         shadowRadius: 4,
@@ -3690,7 +3690,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: '#667eea',
+        backgroundColor: '#cc31e8',
         borderRadius: 12,
         paddingVertical: 14,
         paddingHorizontal: 20,

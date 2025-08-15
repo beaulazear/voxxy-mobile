@@ -18,6 +18,7 @@ import { API_URL } from '../config';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { logger } from '../utils/logger';
+import { TOUCH_TARGETS, SPACING } from '../styles/AccessibilityStyles';
 
 export default function VerificationCodeScreen() {
     const { user, setUser } = useContext(UserContext);
@@ -63,7 +64,53 @@ export default function VerificationCodeScreen() {
     }, [timer]);
 
     const handleCodeChange = (index, value) => {
-        if (value.length > 1) return; // Only allow single digits
+        // Handle paste of full code
+        if (value.length > 1) {
+            // Extract only digits from the pasted value
+            const digits = value.replace(/\D/g, '').slice(0, 6);
+            
+            if (digits.length === 6) {
+                // If we have exactly 6 digits, fill all inputs
+                const newCode = digits.split('');
+                setCode(newCode);
+                setError('');
+                
+                // Focus the last input
+                inputRefs.current[5]?.focus();
+                
+                // Auto-submit
+                handleVerifyCode(digits);
+            } else if (digits.length > 0) {
+                // Partial paste
+                const newCode = [...code];
+                
+                // Fill in the digits starting from the current index
+                for (let i = 0; i < digits.length && index + i < 6; i++) {
+                    newCode[index + i] = digits[i];
+                }
+                
+                setCode(newCode);
+                setError('');
+                
+                // Focus the next empty input or the last input if all are filled
+                const nextEmptyIndex = newCode.findIndex((digit, idx) => idx > index && digit === '');
+                if (nextEmptyIndex !== -1) {
+                    inputRefs.current[nextEmptyIndex]?.focus();
+                } else if (index + digits.length < 6) {
+                    inputRefs.current[Math.min(index + digits.length, 5)]?.focus();
+                } else {
+                    inputRefs.current[5]?.focus();
+                }
+                
+                // Auto-submit when all 6 digits are entered
+                if (newCode.every(digit => digit !== '') && newCode.join('').length === 6) {
+                    handleVerifyCode(newCode.join(''));
+                }
+            }
+            return;
+        }
+        
+        // Handle single digit input
         if (!/^\d*$/.test(value)) return; // Only allow numbers
         
         const newCode = [...code];
@@ -229,7 +276,6 @@ export default function VerificationCodeScreen() {
                                 onChangeText={(value) => handleCodeChange(index, value)}
                                 onKeyPress={({ nativeEvent }) => handleKeyPress(index, nativeEvent.key)}
                                 keyboardType="numeric"
-                                maxLength={1}
                                 textAlign="center"
                                 editable={!isVerifying}
                                 selectTextOnFocus
@@ -292,8 +338,10 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     backButton: {
-        width: 40,
-        height: 40,
+        minWidth: TOUCH_TARGETS.MIN_SIZE,
+        minHeight: TOUCH_TARGETS.MIN_SIZE,
+        width: TOUCH_TARGETS.MIN_SIZE,
+        height: TOUCH_TARGETS.MIN_SIZE,
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -342,13 +390,16 @@ const styles = StyleSheet.create({
     },
     codeContainer: {
         flexDirection: 'row',
-        justifyContent: 'center',
-        gap: 12,
+        justifyContent: 'space-between',
+        width: '100%',
+        maxWidth: 340,
+        alignSelf: 'center',
         marginBottom: 24,
+        paddingHorizontal: 10,
     },
     codeInput: {
-        width: 45,
-        height: 55,
+        width: 48,
+        height: 60,
         borderWidth: 2,
         borderColor: 'rgba(157, 96, 248, 0.3)',
         borderRadius: 12,
@@ -391,10 +442,11 @@ const styles = StyleSheet.create({
     },
     buttonContainer: {
         width: '100%',
-        gap: 16,
+        gap: SPACING.FORM_GAP,
     },
     resendButton: {
         alignItems: 'center',
+        minHeight: TOUCH_TARGETS.COMFORTABLE_SIZE,
         paddingVertical: 16,
     },
     resendButtonDisabled: {
@@ -410,7 +462,8 @@ const styles = StyleSheet.create({
     },
     logoutButton: {
         alignItems: 'center',
-        paddingVertical: 12,
+        minHeight: TOUCH_TARGETS.MIN_SIZE,
+        paddingVertical: 14,
     },
     logoutText: {
         color: '#ccc',

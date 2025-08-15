@@ -21,6 +21,7 @@ import { UserContext } from '../context/UserContext';
 import { API_URL } from '../config';
 import { logger } from '../utils/logger';
 import { safeAuthApiCall, handleApiError } from '../utils/safeApiCall';
+import { TOUCH_TARGETS, SPACING } from '../styles/AccessibilityStyles';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -56,10 +57,10 @@ const getDisplayImage = (user) => {
 
 // Icon components using stylish icons
 const Icons = {
-    MessageCircle: ({ size = 20, color = "#667eea" }) => <Feather.MessageCircle size={size} color={color} />,
-    Send: ({ size = 20, color = "#667eea" }) => <Feather.Send size={size} color={color} />,
+    MessageCircle: ({ size = 20, color = "#cc31e8" }) => <Feather.MessageCircle size={size} color={color} />,
+    Send: ({ size = 20, color = "#cc31e8" }) => <Feather.Send size={size} color={color} />,
     X: ({ size = 20, color = "#fff" }) => <Feather.X size={size} color={color} />,
-    ChevronUp: ({ size = 16, color = "#667eea" }) => <Feather.ChevronUp size={size} color={color} />,
+    ChevronUp: ({ size = 16, color = "#cc31e8" }) => <Feather.ChevronUp size={size} color={color} />,
 };
 
 const CommentsSection = ({ activity }) => {
@@ -465,7 +466,7 @@ const CommentsSection = ({ activity }) => {
                             style={styles.viewAllButton}
                             onPress={() => setShowAllCommentsModal(true)}
                         >
-                            <Icons.ChevronUp size={16} color="#667eea" />
+                            <Icons.ChevronUp size={16} color="#cc31e8" />
                             <Text style={styles.viewAllText}>
                                 View all {comments.length} updates
                             </Text>
@@ -519,7 +520,7 @@ const CommentsSection = ({ activity }) => {
                     ]}
                 >
                     <View style={styles.toast}>
-                        <Icons.MessageCircle size={16} color="#667eea" />
+                        <Icons.MessageCircle size={16} color="#cc31e8" />
                         <View style={styles.toastContent}>
                             <Text style={styles.toastTitle}>
                                 {newMessageCount === 1 ? 'New Message' : `${newMessageCount} New Messages`}
@@ -881,8 +882,10 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     sendButton: {
-        width: 44,
-        height: 44,
+        minWidth: TOUCH_TARGETS.COMFORTABLE_SIZE,
+        minHeight: TOUCH_TARGETS.COMFORTABLE_SIZE,
+        width: TOUCH_TARGETS.COMFORTABLE_SIZE,
+        height: TOUCH_TARGETS.COMFORTABLE_SIZE,
         borderRadius: 12,
         justifyContent: 'center',
         alignItems: 'center',
@@ -955,7 +958,7 @@ const styles = StyleSheet.create({
         fontSize: 12,
     },
     toastBadge: {
-        backgroundColor: '#667eea',  // Changed to match app's primary color
+        backgroundColor: '#cc31e8',  // Changed to match app's primary color
         borderRadius: 12,
         minWidth: 24,
         height: 24,
@@ -981,7 +984,7 @@ const styles = StyleSheet.create({
         alignSelf: 'center',
     },
     viewAllText: {
-        color: '#667eea',
+        color: '#cc31e8',
         fontSize: 14,
         fontWeight: '600',
         marginLeft: 6,
@@ -1056,7 +1059,7 @@ const styles = StyleSheet.create({
         borderColor: 'rgba(102, 126, 234, 0.2)',
     },
     modalEmptyHintText: {
-        color: '#667eea',
+        color: '#cc31e8',
         fontSize: 14,
         textAlign: 'center',
         fontWeight: '500',

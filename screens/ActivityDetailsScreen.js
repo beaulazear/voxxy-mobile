@@ -14,6 +14,7 @@ import {
     KeyboardAvoidingView,
     Platform,
     Keyboard,
+    AppState,
 } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { UserContext } from '../context/UserContext'
@@ -27,6 +28,7 @@ import UpdateDetailsModal from '../components/UpdateDetailsModal'
 import FinalizeActivityModal from '../components/FinalizeActivityModal'
 import { API_URL } from '../config'
 import { logger } from '../utils/logger';
+import { TOUCH_TARGETS, SPACING } from '../styles/AccessibilityStyles';
 import { safeAuthApiCall, handleApiError } from '../utils/safeApiCall';
 
 const adventures = [
@@ -87,8 +89,8 @@ const getActivityDetails = (activityType) => {
 }
 
 export default function ActivityDetailsScreen({ route }) {
-    const { activityId } = route.params
-    const { user, setUser } = useContext(UserContext)
+    const { activityId, forceRefresh } = route.params
+    const { user, setUser, refreshUser } = useContext(UserContext)
     const navigation = useNavigation()
 
 
@@ -99,12 +101,14 @@ export default function ActivityDetailsScreen({ route }) {
     const [showFinalizeModal, setShowFinalizeModal] = useState(false)
     const [pinnedActivities, setPinnedActivities] = useState([])
     const [isUpdating, setIsUpdating] = useState(false)
+    const [lastRefreshTime, setLastRefreshTime] = useState(Date.now())
     
     // Refs
     const scrollViewRef = useRef(null)
     const [pinned, setPinned] = useState([])
     const [loadingPinned, setLoadingPinned] = useState(false)
     const [loadingTimeSlots, setLoadingTimeSlots] = useState(false)
+    const pollingRef = useRef(null)
 
     // Token - match ProfileScreen pattern exactly
     const token = user?.token
@@ -124,7 +128,15 @@ export default function ActivityDetailsScreen({ route }) {
             user?.activities?.find(act => act.id === activityId) ||
             user?.participant_activities?.find(p => p.activity.id === activityId)?.activity
 
-        if (activity) {
+        // Validate that we have a proper activity object, not a user object
+        const isValidActivity = activity && (
+            activity.activity_type !== undefined ||
+            activity.participants !== undefined ||
+            activity.responses !== undefined ||
+            activity.user_id !== undefined
+        ) && !activity.email // User objects have email, activities don't
+
+        if (activity && isValidActivity) {
             setCurrentActivity(activity)
             
             logger.debug(`🔍 Activity state - Type: ${activity.activity_type}, Voting: ${activity.voting}, Finalized: ${activity.finalized}`)
@@ -205,8 +217,134 @@ export default function ActivityDetailsScreen({ route }) {
                 
                 fetchTimeSlots()
             }
+        } else if (activity && !isValidActivity) {
+            // Log error and navigate back if we got bad data
+            logger.error('❌ Invalid activity data detected - got user object instead of activity');
+            logger.debug('Invalid object keys:', Object.keys(activity));
+            Alert.alert(
+                'Data Error',
+                'There was an issue loading this activity. Please try again.',
+                [{ text: 'OK', onPress: () => navigation.goBack() }]
+            );
         }
     }, [user, activityId, refreshTrigger, token])
+
+    // Handle forceRefresh from notification navigation
+    useEffect(() => {
+        if (forceRefresh) {
+            logger.debug('🔄 Force refreshing from notification tap');
+            // Refresh user context to get latest data
+            if (refreshUser) {
+                refreshUser();
+            }
+            setRefreshTrigger(prev => !prev);
+        }
+    }, [forceRefresh, refreshUser]);
+
+    // Set up polling for real-time updates
+    useEffect(() => {
+        // Only poll if we have an activity and user is logged in
+        if (!currentActivity || !user?.token) {
+            return;
+        }
+
+        // Function to fetch latest activity data
+        const fetchLatestActivity = async () => {
+            try {
+                // Don't fetch if modal is open or user is typing
+                if (showUpdateModal || showFinalizeModal) {
+                    return;
+                }
+
+                const data = await safeAuthApiCall(
+                    `${API_URL}/activities/${activityId}`,
+                    user.token,
+                    { method: 'GET' }
+                );
+
+                if (data) {
+                    // Check if there are actual changes
+                    const hasChanges = JSON.stringify(data) !== JSON.stringify(currentActivity);
+                    
+                    if (hasChanges) {
+                        logger.debug('📊 Activity data changed, updating...');
+                        
+                        // Update the activity in user context
+                        setUser(prevUser => {
+                            if (!prevUser) return prevUser;
+                            
+                            const updatedActivities = (prevUser.activities || []).map(act => 
+                                act.id === data.id ? data : act
+                            );
+                            
+                            const updatedParticipantActivities = (prevUser.participant_activities || []).map(p => 
+                                p.activity.id === data.id 
+                                    ? { ...p, activity: data }
+                                    : p
+                            );
+                            
+                            return {
+                                ...prevUser,
+                                activities: updatedActivities,
+                                participant_activities: updatedParticipantActivities
+                            };
+                        });
+                        
+                        setCurrentActivity(data);
+                        setLastRefreshTime(Date.now());
+                    }
+                }
+            } catch (error) {
+                // Silent fail for polling - don't interrupt user
+                logger.debug('Polling error (silent):', error.message);
+            }
+        };
+
+        // Handle app state changes
+        const handleAppStateChange = (nextAppState) => {
+            if (nextAppState === 'active') {
+                logger.debug('📦 App became active - resuming activity polling');
+                // Fetch immediately when returning to app
+                fetchLatestActivity();
+                
+                // Restart polling if not already running
+                if (!pollingRef.current) {
+                    const pollInterval = currentActivity.finalized ? 30000 : 5000;
+                    pollingRef.current = setInterval(fetchLatestActivity, pollInterval);
+                }
+            } else {
+                logger.debug('📦 App went to background - pausing activity polling');
+                // Stop polling when app goes to background
+                if (pollingRef.current) {
+                    clearInterval(pollingRef.current);
+                    pollingRef.current = null;
+                }
+            }
+        };
+
+        // Subscribe to app state changes
+        const appStateSubscription = AppState.addEventListener('change', handleAppStateChange);
+
+        // Start polling if app is active
+        if (AppState.currentState === 'active') {
+            logger.debug('🔄 Setting up activity polling for activity:', activityId);
+            // Fetch immediately on mount
+            fetchLatestActivity();
+            
+            // Start polling - more frequent for active activities
+            const pollInterval = currentActivity.finalized ? 30000 : 5000; // 5s for active, 30s for finalized
+            pollingRef.current = setInterval(fetchLatestActivity, pollInterval);
+        }
+
+        // Cleanup on unmount or when dependencies change
+        return () => {
+            if (pollingRef.current) {
+                clearInterval(pollingRef.current);
+                pollingRef.current = null;
+            }
+            appStateSubscription?.remove();
+        };
+    }, [activityId, user?.token, currentActivity?.finalized, showUpdateModal, showFinalizeModal]);
 
     // Auto-scroll to bottom when keyboard opens
     useEffect(() => {
@@ -544,19 +682,37 @@ export default function ActivityDetailsScreen({ route }) {
         )
     }
 
+    // Validate activity structure before checking ownership
+    const isValidActivity = currentActivity && (
+        currentActivity.activity_type !== undefined ||
+        currentActivity.participants !== undefined ||
+        currentActivity.responses !== undefined ||
+        currentActivity.user_id !== undefined
+    ) && !currentActivity.email; // User objects have email, activities don't
+
     // Use loose comparison to handle string/number type differences
-    const isOwner = (user?.id == currentActivity?.user_id) || (user?.id == currentActivity?.user?.id)
-    
-    // Debug logging for owner check
-    console.log('🔍 DEBUG: Owner check in ActivityDetailsScreen');
-    console.log('- user.id:', user?.id, '(type:', typeof user?.id, ')');
-    console.log('- currentActivity.user_id:', currentActivity?.user_id, '(type:', typeof currentActivity?.user_id, ')');
-    console.log('- currentActivity.user?.id:', currentActivity?.user?.id, '(type:', typeof currentActivity?.user?.id, ')');
-    console.log('- currentActivity object keys:', currentActivity ? Object.keys(currentActivity) : 'none');
-    console.log('- currentActivity.user object:', currentActivity?.user);
-    console.log('- isOwner result:', isOwner);
-    console.log('- First check (user.id === currentActivity.user_id):', user?.id === currentActivity?.user_id);
-    console.log('- Second check (user.id === currentActivity.user?.id):', user?.id === currentActivity?.user?.id);
+    const isOwner = isValidActivity && (
+        (user?.id == currentActivity?.user_id) || 
+        (user?.id == currentActivity?.user?.id)
+    )
+
+    // Don't render if we have invalid activity data
+    if (currentActivity && !isValidActivity) {
+        return (
+            <SafeAreaView style={styles.safe}>
+                <StatusBar backgroundColor="#201925" barStyle="light-content" />
+                <View style={styles.errorContainer}>
+                    <Text style={styles.errorText}>Unable to load activity</Text>
+                    <TouchableOpacity 
+                        style={styles.errorBackButton} 
+                        onPress={() => navigation.goBack()}
+                    >
+                        <Text style={styles.errorBackButtonText}>Go Back</Text>
+                    </TouchableOpacity>
+                </View>
+            </SafeAreaView>
+        );
+    }
 
     return (
         <SafeAreaView style={styles.safe}>
@@ -600,7 +756,6 @@ export default function ActivityDetailsScreen({ route }) {
                     />
 
                     <View style={[styles.contentSection, pendingInvite && styles.blurred]}>
-                        {console.log('🔍 DEBUG: Passing isOwner to AIRecommendations:', isOwner)}
                         <AIRecommendations
                             activity={currentActivity}
                             pinnedActivities={pinnedActivities}
@@ -769,6 +924,34 @@ const styles = StyleSheet.create({
         flexGrow: 1,
     },
 
+    // Error container styles
+    errorContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20,
+    },
+    
+    errorText: {
+        color: '#fff',
+        fontSize: 18,
+        marginBottom: 20,
+        textAlign: 'center',
+    },
+    
+    errorBackButton: {
+        backgroundColor: '#cc31e8',
+        paddingHorizontal: 30,
+        paddingVertical: 12,
+        borderRadius: 25,
+    },
+    
+    errorBackButtonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '600',
+    },
+
     // Loading Styles
     loadingOverlay: {
         position: 'absolute',
@@ -908,11 +1091,16 @@ const styles = StyleSheet.create({
 
     inviteCloseButton: {
         position: 'absolute',
-        top: 12,
-        right: 12,
-        padding: 8,
-        borderRadius: 20,
+        top: 8,
+        right: 8,
+        minWidth: TOUCH_TARGETS.MIN_SIZE,
+        minHeight: TOUCH_TARGETS.MIN_SIZE,
+        width: TOUCH_TARGETS.MIN_SIZE,
+        height: TOUCH_TARGETS.MIN_SIZE,
+        borderRadius: 22,
         backgroundColor: 'rgba(255, 255, 255, 0.1)',
+        justifyContent: 'center',
+        alignItems: 'center',
     },
 
     inviteTitle: {
@@ -951,16 +1139,19 @@ const styles = StyleSheet.create({
 
     inviteButtons: {
         flexDirection: 'row',
-        gap: 14,
+        gap: SPACING.FORM_GAP,
         width: '100%',
     },
 
     acceptButton: {
         backgroundColor: '#cf38dd',
+        minHeight: TOUCH_TARGETS.COMFORTABLE_SIZE,
         paddingHorizontal: 28,
         paddingVertical: 14,
         borderRadius: 16,
         flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
         shadowColor: '#cf38dd',
         shadowOffset: {
             width: 0,
@@ -980,10 +1171,13 @@ const styles = StyleSheet.create({
 
     declineButton: {
         backgroundColor: 'rgba(255, 255, 255, 0.08)',
+        minHeight: TOUCH_TARGETS.COMFORTABLE_SIZE,
         paddingHorizontal: 28,
         paddingVertical: 14,
         borderRadius: 16,
         flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
         borderWidth: 1,
         borderColor: 'rgba(255, 255, 255, 0.15)',
     },

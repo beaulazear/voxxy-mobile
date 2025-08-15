@@ -109,9 +109,9 @@ export default function StartNewAdventure({ onTripSelect, onBack }) {
                 activeOpacity={active ? 0.7 : 1}
                 disabled={!active}
             >
-                <View style={[styles.iconContainer, { backgroundColor: `${iconColor}15` }]}>
+                <View style={[styles.iconContainer, { backgroundColor: active ? 'rgba(255, 255, 255, 0.05)' : 'transparent' }]}>
                     <IconComponent 
-                        color={active ? iconColor : '#888'} 
+                        color={active ? '#E0E0E0' : '#666'} 
                         size={32} 
                         strokeWidth={2}
                     />
@@ -176,9 +176,9 @@ const styles = StyleSheet.create({
         width: 40,
         height: 40,
         borderRadius: 12,
-        backgroundColor: 'rgba(139, 92, 246, 0.9)',
+        backgroundColor: 'rgba(255, 255, 255, 0.1)',
         borderWidth: 1,
-        borderColor: '#8b5cf6',
+        borderColor: 'rgba(255, 255, 255, 0.2)',
         alignItems: 'center',
         justifyContent: 'center',
     },
@@ -228,29 +228,30 @@ const styles = StyleSheet.create({
 
     activityCard: {
         width: '47%', // Slightly less than 50% to account for gap
-        backgroundColor: '#3a2a40',
+        backgroundColor: 'rgba(255, 255, 255, 0.04)',
         borderRadius: 16,
         padding: 24,
         alignItems: 'center',
         minHeight: 160,
         justifyContent: 'space-between',
         position: 'relative',
-        borderWidth: 2,
+        borderWidth: 1,
     },
 
     activeCard: {
-        borderColor: '#B931D6',
+        borderColor: 'rgba(255, 255, 255, 0.15)',
+        backgroundColor: 'rgba(255, 255, 255, 0.06)',
         opacity: 1,
-        shadowColor: 'rgba(185, 49, 214, 0.3)',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 1,
-        shadowRadius: 8,
-        elevation: 8,
+        shadowColor: 'rgba(0, 0, 0, 0.2)',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.5,
+        shadowRadius: 4,
+        elevation: 3,
     },
 
     inactiveCard: {
-        borderColor: 'rgba(64, 51, 71, 0.3)',
-        opacity: 0.5,
+        borderColor: 'rgba(255, 255, 255, 0.05)',
+        opacity: 0.4,
     },
 
     leftCard: {
@@ -268,8 +269,8 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         marginBottom: 12,
-        borderWidth: 2,
-        borderColor: 'rgba(255, 255, 255, 0.1)',
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.08)',
     },
 
     emoji: {
@@ -297,16 +298,18 @@ const styles = StyleSheet.create({
         position: 'absolute',
         top: 8,
         right: 8,
-        backgroundColor: 'rgba(255, 152, 0, 0.9)',
+        backgroundColor: 'rgba(255, 255, 255, 0.1)',
         paddingHorizontal: 6,
         paddingVertical: 3,
         borderRadius: 8,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.15)',
     },
 
     comingSoonText: {
         fontSize: 9,
         fontWeight: '600',
-        color: '#fff',
+        color: 'rgba(255, 255, 255, 0.7)',
         textTransform: 'uppercase',
         letterSpacing: 0.3,
     },

@@ -525,7 +525,7 @@ function AnimatedStartNewActivityButton({ navigation }) {
               </View>
 
               <View style={styles.wideButtonCallToAction}>
-                <Text style={styles.wideButtonActionText}>Ready to vibe? Let's go! →</Text>
+                <Text style={styles.wideButtonActionText}>Ready to vibe? →</Text>
                 <View style={styles.wideButtonSparkle}>
                   <Zap color="#ffffff" size={18} strokeWidth={2.5} />
                 </View>
@@ -678,10 +678,25 @@ export default function HomeScreen({ route }) {
 
   const activities = useMemo(() => {
     if (!user) return []
-    const mine = user?.activities || []
+    
+    // Helper function to validate activity structure
+    const isValidActivity = (activity) => {
+      return activity && (
+        activity.activity_type !== undefined ||
+        activity.participants !== undefined ||
+        activity.responses !== undefined ||
+        activity.user_id !== undefined
+      ) && !activity.email // User objects have email, activities don't
+    }
+    
+    // Filter out invalid activities from user.activities
+    const mine = (user?.activities || []).filter(isValidActivity)
+    
+    // Filter and validate participant activities
     const theirs = user?.participant_activities
-      ?.filter(p => p.accepted)
+      ?.filter(p => p.accepted && p.activity && isValidActivity(p.activity))
       .map(p => p.activity) || []
+    
     return [...new Map([...mine, ...theirs].map(a => [a.id, a])).values()]
   }, [user])
 
@@ -689,7 +704,15 @@ export default function HomeScreen({ route }) {
   const inProgress = activities.filter(a => !a.completed)
   const past = activities.filter(a => a.completed)
   const invites = user?.participant_activities
-    ?.filter(p => !p.accepted)
+    ?.filter(p => {
+      const isValidActivity = p.activity && (
+        p.activity.activity_type !== undefined ||
+        p.activity.participants !== undefined ||
+        p.activity.responses !== undefined ||
+        p.activity.user_id !== undefined
+      ) && !p.activity.email
+      return !p.accepted && isValidActivity
+    })
     .map(p => p.activity) || []
 
   useEffect(() => {
@@ -1355,40 +1378,17 @@ export default function HomeScreen({ route }) {
 
                 {/* Activities section */}
                 <View style={styles.activitiesContainer}>
-                  
-                  {/* Activities List or Empty State - Grid or List View */}
                   {filteredActivities.length === 0 ? (
-                    <View style={styles.sideEmptyContainer}>
-                                      {filter === 'Favorites' ? (
-                        <>
-                          {loadingFavorites ? (
-                            <>
-                              <Text style={styles.sideEmptyIcon}>⏳</Text>
-                              <Text style={styles.sideEmpty}>Loading favorites...</Text>
-                              <Text style={styles.sideEmptySub}>
-                                Fetching your saved recommendations
-                              </Text>
-                            </>
-                          ) : (
-                            <>
-                              <Text style={styles.sideEmptyIcon}>⭐</Text>
-                              <Text style={styles.sideEmpty}>No favorites yet</Text>
-                              <Text style={styles.sideEmptySub}>
-                                Mark activities as favorites to see them here!
-                              </Text>
-                            </>
-                          )}
-                        </>
-                      ) : (
-                        <>
-                          <Text style={styles.sideEmptyIcon}>📱</Text>
-                          <Text style={styles.sideEmpty}>No activities to show</Text>
-                          <Text style={styles.sideEmptySub}>
-                            Start by creating your first activity!
-                          </Text>
-                        </>
-                      )}
-                    </View>
+                    // Show loading state for favorites
+                    filter === 'Favorites' && loadingFavorites ? (
+                      <View style={styles.sideEmptyContainer}>
+                        <Text style={styles.sideEmptyIcon}>⏳</Text>
+                        <Text style={styles.sideEmpty}>Loading favorites...</Text>
+                        <Text style={styles.sideEmptySub}>
+                          Fetching your saved recommendations
+                        </Text>
+                      </View>
+                    ) : null // No empty state - just show Start New Activity button
                   ) : isListView ? (
                     // Vertical List View
                     <ScrollView 
@@ -3271,7 +3271,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 8,
     right: 8,
-    backgroundColor: '#667eea',
+    backgroundColor: '#cc31e8',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6,
@@ -3286,7 +3286,7 @@ const styles = StyleSheet.create({
   },
 
   listHostBadge: {
-    backgroundColor: '#667eea',
+    backgroundColor: '#cc31e8',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6,
@@ -3305,7 +3305,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 8,
     right: 8,
-    backgroundColor: '#667eea',
+    backgroundColor: '#cc31e8',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6,

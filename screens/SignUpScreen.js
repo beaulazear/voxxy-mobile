@@ -21,7 +21,7 @@ import { UserContext } from '../context/UserContext';
 import { safeApiCall, handleApiError } from '../utils/safeApiCall';
 import { validateEmail, validateUserName, validatePassword } from '../utils/validation';
 import { ArrowLeft, Eye, EyeOff, Check, X } from 'lucide-react-native';
-import LocationPicker from '../components/LocationPicker';
+import { TOUCH_TARGETS, SPACING } from '../styles/AccessibilityStyles';
 
 export default function SignUpScreen() {
     const { setUser } = useContext(UserContext);
@@ -36,14 +36,6 @@ export default function SignUpScreen() {
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmation, setShowConfirmation] = useState(false);
     const [validationErrors, setValidationErrors] = useState({});
-    const [location, setLocation] = useState({
-        neighborhood: '',
-        city: '',
-        state: '',
-        latitude: null,
-        longitude: null,
-        formatted: ''
-    });
     
     // Animation refs
     const fadeAnim = useRef(new Animated.Value(1)).current;
@@ -55,7 +47,6 @@ export default function SignUpScreen() {
         "What's your email?",
         "Create a password",
         "Confirm your password",
-        "Where are you located?",
     ];
 
     const inputs = [
@@ -63,7 +54,6 @@ export default function SignUpScreen() {
         { value: email, onChange: setEmail, placeholder: 'you@example.com', secure: false, keyboard: 'email-address' },
         { value: password, onChange: setPassword, placeholder: '••••••••', secure: true, keyboard: 'default' },
         { value: confirmation, onChange: setConfirmation, placeholder: '••••••••', secure: true, keyboard: 'default' },
-        { value: location.formatted, onChange: () => {}, placeholder: 'Search for your city...', secure: false, keyboard: 'default', isLocation: true },
     ];
 
     // Real-time validation
@@ -82,8 +72,6 @@ export default function SignUpScreen() {
                     strengthText: passwordValid.strengthText
                 };
             }
-            case 4: 
-                return { isValid: true, error: null }; // Location is optional
             default: return { isValid: false, error: null };
         }
     }, [step, name, email, password, confirmation]);
@@ -165,13 +153,8 @@ export default function SignUpScreen() {
                         user: { 
                             name: nameValidation.sanitized, 
                             email: emailValidation.sanitized, 
-                            password, 
-                            password_confirmation: confirmation,
-                            neighborhood: location.neighborhood,
-                            city: location.city,
-                            state: location.state,
-                            latitude: location.latitude,
-                            longitude: location.longitude
+                            password: password, 
+                            password_confirmation: confirmation
                         },
                     }),
                 }
@@ -187,13 +170,14 @@ export default function SignUpScreen() {
                 navigation.replace('VerificationCode');
             });
         } catch (e) {
-            const errorMessage = handleApiError(e, 'Sign up failed. Please try again.');
-            Alert.alert('Error', errorMessage);
+            // Display the actual error message from the server
+            const errorMessage = e.message || handleApiError(e, 'Sign up failed. Please try again.');
+            Alert.alert('Sign Up Error', errorMessage);
             setIsLoading(false);
         }
     };
 
-    const { value, onChange, placeholder, secure, keyboard, isLocation } = inputs[step];
+    const { value, onChange, placeholder, secure, keyboard } = inputs[step];
     const isLast = step === inputs.length - 1;
     const canProceed = validateStep();
     
@@ -254,14 +238,7 @@ export default function SignUpScreen() {
                     }}>
                         <Text style={styles.heading}>{labels[step]}</Text>
 
-                        {isLocation ? (
-                            <LocationPicker
-                                onLocationSelect={setLocation}
-                                currentLocation={location}
-                                placeholder={placeholder}
-                            />
-                        ) : (
-                            <View style={styles.inputContainer}>
+                        <View style={styles.inputContainer}>
                                 <TextInput
                                     ref={inputRef}
                                     style={[
@@ -309,7 +286,7 @@ export default function SignUpScreen() {
                                 )}
                                 
                                 {/* Validation status icon */}
-                                {value.length > 0 && !isLocation && (
+                                {value.length > 0 && (
                                     <View style={styles.validationIcon}>
                                         {canProceed ? (
                                             <Check size={18} color="#28a745" />
@@ -319,7 +296,6 @@ export default function SignUpScreen() {
                                     </View>
                                 )}
                             </View>
-                        )}
                         
                         {/* Validation error message */}
                         {validationErrors[step] && (
@@ -376,17 +352,6 @@ export default function SignUpScreen() {
                         )}
                     </TouchableOpacity>
 
-                    {/* Skip button for location step */}
-                    {step === 4 && (
-                        <TouchableOpacity
-                            style={styles.skipButton}
-                            onPress={handleSignUp}
-                            disabled={isLoading}
-                        >
-                            <Text style={styles.skipText}>Skip for now</Text>
-                        </TouchableOpacity>
-                    )}
-
                     {step === 0 && (
                         <View style={styles.linksContainer}>
                             <TouchableOpacity
@@ -437,7 +402,16 @@ export default function SignUpScreen() {
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#201925' },
     nav: { height: 60, justifyContent: 'center', paddingHorizontal: 16 },
-    backButton: { width: 32 },
+    backButton: { 
+        minWidth: TOUCH_TARGETS.MIN_SIZE,
+        minHeight: TOUCH_TARGETS.MIN_SIZE,
+        width: TOUCH_TARGETS.MIN_SIZE,
+        height: TOUCH_TARGETS.MIN_SIZE,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginLeft: -8,
+        paddingLeft: 8,
+    },
     content: {
         flex: 1,
         justifyContent: 'flex-start',
@@ -453,14 +427,15 @@ const styles = StyleSheet.create({
     },
     inputContainer: {
         position: 'relative',
-        marginBottom: 16,
+        marginBottom: SPACING.FORM_GAP,
     },
     input: {
         backgroundColor: '#211825',
         borderRadius: 12,
+        minHeight: TOUCH_TARGETS.LARGE_SIZE,
         paddingVertical: 14,
         paddingHorizontal: 16,
-        paddingRight: 50,
+        paddingRight: 96,
         fontSize: 16,
         color: '#fff',
         borderWidth: 1.5,
@@ -477,21 +452,27 @@ const styles = StyleSheet.create({
     },
     eyeButton: {
         position: 'absolute',
-        right: 44,
-        top: 0,
-        bottom: 0,
+        right: 48,
+        top: '50%',
+        transform: [{ translateY: -22 }],
+        minWidth: TOUCH_TARGETS.MIN_SIZE,
+        minHeight: TOUCH_TARGETS.MIN_SIZE,
+        width: TOUCH_TARGETS.MIN_SIZE,
+        height: TOUCH_TARGETS.MIN_SIZE,
         justifyContent: 'center',
         alignItems: 'center',
-        width: 40,
     },
     validationIcon: {
         position: 'absolute',
-        right: 12,
-        top: 0,
-        bottom: 0,
+        right: 8,
+        top: '50%',
+        transform: [{ translateY: -22 }],
+        minWidth: TOUCH_TARGETS.MIN_SIZE,
+        minHeight: TOUCH_TARGETS.MIN_SIZE,
+        width: TOUCH_TARGETS.MIN_SIZE,
+        height: TOUCH_TARGETS.MIN_SIZE,
         justifyContent: 'center',
         alignItems: 'center',
-        width: 24,
     },
     errorContainer: {
         marginTop: -12,
@@ -544,10 +525,12 @@ const styles = StyleSheet.create({
     },
     nextButton: {
         backgroundColor: '#cc31e8',
-        paddingVertical: 14,
+        minHeight: TOUCH_TARGETS.LARGE_SIZE,
+        paddingVertical: 16,
         borderRadius: 50,
         alignItems: 'center',
-        marginBottom: 12,
+        marginBottom: SPACING.COMFORTABLE_GAP,
+        marginTop: SPACING.MIN_GAP,
         shadowColor: '#cc31e8',
         shadowOffset: {
             width: 0,
@@ -571,25 +554,52 @@ const styles = StyleSheet.create({
     loadingText: {
         marginLeft: 8,
     },
-    linksContainer: { marginTop: 8 },
+    linksContainer: { 
+        marginTop: 24,
+        alignItems: 'center',
+        gap: 8,
+    },
     linkButton: { 
         alignItems: 'center', 
-        paddingVertical: 8,
-        marginBottom: 8,
+        minHeight: TOUCH_TARGETS.LARGE_SIZE,
+        paddingVertical: 16,
+        paddingHorizontal: 20,
+        marginBottom: 4,
+        justifyContent: 'center',
     },
     backLinkButton: { 
         alignItems: 'center', 
-        paddingVertical: 6,
-    },
-    loginText: { fontSize: 14, color: '#ccc', textAlign: 'center' },
-    backLinkText: { fontSize: 13, color: '#aaa', textAlign: 'center' },
-    textLinkAction: { color: '#cc31e8', fontWeight: '500' },
-    legalText: {
-        fontSize: 14,
-        color: '#666',
-        textAlign: 'center',
-        lineHeight: 20,
+        minHeight: TOUCH_TARGETS.LARGE_SIZE,
+        paddingVertical: 16,
         paddingHorizontal: 20,
+        justifyContent: 'center',
+    },
+    loginText: { 
+        fontSize: 18, 
+        color: 'rgba(255, 255, 255, 0.8)', 
+        textAlign: 'center',
+        fontWeight: '500',
+        lineHeight: 24,
+    },
+    backLinkText: { 
+        fontSize: 17, 
+        color: 'rgba(255, 255, 255, 0.7)', 
+        textAlign: 'center',
+        fontWeight: '600',
+        lineHeight: 24,
+    },
+    textLinkAction: { 
+        color: '#cc31e8', 
+        fontWeight: '700',
+        fontSize: 18,
+    },
+    legalText: {
+        fontSize: 16,
+        color: 'rgba(255, 255, 255, 0.6)',
+        textAlign: 'center',
+        lineHeight: 22,
+        paddingHorizontal: 20,
+        marginTop: 8,
     },
     skipButton: {
         alignItems: 'center',

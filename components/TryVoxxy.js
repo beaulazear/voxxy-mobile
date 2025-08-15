@@ -18,7 +18,7 @@ import {
     Dimensions,
 } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
-import { CheckCircle, X, Star, ChevronRight, Clock, MapPin, ArrowLeft } from 'react-native-feather'
+import { CheckCircle, X, Star, ChevronRight, Clock, MapPin, ArrowLeft, Coffee } from 'react-native-feather'
 import { API_URL } from '../config'
 import { useNavigation } from '@react-navigation/native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
@@ -328,41 +328,27 @@ export default function TryVoxxy() {
     // ── Render ─────────────────────────────────────────────────────
     return (
         <SafeAreaView style={s.container}>
-            {/* Header with back button */}
-            <View style={s.header}>
-                <TouchableOpacity 
-                    style={s.backButton}
-                    onPress={() => navigation.goBack()}
-                    activeOpacity={0.7}
-                >
-                    <ArrowLeft stroke="#fff" width={24} height={24} strokeWidth={2} />
-                </TouchableOpacity>
-                <Text style={s.headerTitle}>Try Voxxy</Text>
-                <View style={s.headerSpacer} />
-            </View>
+            {/* Simple back button */}
+            <TouchableOpacity 
+                style={s.floatingBackButton}
+                onPress={() => navigation.goBack()}
+                activeOpacity={0.7}
+            >
+                <ArrowLeft stroke="#fff" width={20} height={20} strokeWidth={2.5} />
+            </TouchableOpacity>
             
             <ScrollView contentContainerStyle={s.inner}>
-                <View style={s.heroSection}>
-                    <Text style={s.heroTitle}>Discover <Text style={s.highlight}>Great Places</Text></Text>
-                    <Text style={s.sub}>
-                        {recs.length
-                            ? 'Your personalized recommendations are ready! Swipe to explore.'
-                            : !loadingRecs
-                                ? 'Get personalized restaurant recommendations in seconds'
-                                : 'Loading your experience...'}
-                    </Text>
-                </View>
 
                 {loadingRecs ? (
                     <View style={s.loadingContainer}>
-                        <ActivityIndicator size="large" color="#667eea" />
+                        <ActivityIndicator size="large" color="#cc31e8" />
                         <Text style={s.loadingText}>Setting up your experience...</Text>
                     </View>
                 ) : recs.length > 0 ? (
                     <>
                         <View style={s.actionSection}>
                             <LinearGradient
-                                colors={['#667eea', '#764ba2']}
+                                colors={['#cc31e8', '#764ba2']}
                                 style={s.primaryButton}
                                 start={{ x: 0, y: 0 }}
                                 end={{ x: 1, y: 1 }}
@@ -424,28 +410,29 @@ export default function TryVoxxy() {
                     </>
                 ) : (
                     !loadingRecs && (
-                        <View style={s.emptyCard}>
+                        <TouchableOpacity 
+                            style={s.startNewActivityCard}
+                            onPress={openPlan}
+                            activeOpacity={0.8}
+                        >
                             <LinearGradient
-                                colors={['rgba(102, 126, 234, 0.1)', 'rgba(118, 75, 162, 0.1)']}
-                                style={s.emptyCardGradient}
+                                colors={['#cc31e8', '#9051e1']}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 1 }}
+                                style={s.startNewActivityGradient}
                             >
-                                <View style={s.iconCircle}>
-                                    <Star stroke="#667eea" width={32} height={32} strokeWidth={2} />
+                                <View style={s.startNewActivityContent}>
+                                    <View style={s.startNewActivityIconContainer}>
+                                        <Coffee stroke="#ffffff" width={32} height={32} strokeWidth={2.5} />
+                                    </View>
+                                    <Text style={s.startNewActivityTitle}>Find Your Next Spot</Text>
+                                    <Text style={s.startNewActivitySubtitle}>Get instant restaurant recommendations tailored to your taste</Text>
+                                    <View style={s.readyToVibeContainer}>
+                                        <Text style={s.readyToVibeText}>Let's eat! →</Text>
+                                    </View>
                                 </View>
-                                <Text style={s.emptyTitle}>Discover Great Places</Text>
-                                <Text style={s.emptySubtitle}>Tell us your preferences and get personalized recommendations</Text>
-                                <LinearGradient
-                                    colors={['#667eea', '#764ba2']}
-                                    style={s.startButton}
-                                    start={{ x: 0, y: 0 }}
-                                    end={{ x: 1, y: 1 }}
-                                >
-                                    <TouchableOpacity style={s.startButtonContent} onPress={openPlan}>
-                                        <Text style={s.startButtonText}>Start Experience</Text>
-                                    </TouchableOpacity>
-                                </LinearGradient>
                             </LinearGradient>
-                        </View>
+                        </TouchableOpacity>
                     )
                 )}
             </ScrollView>
@@ -517,7 +504,7 @@ export default function TryVoxxy() {
                                                             {item.description || 'No description available'}
                                                         </Text>
                                                     </View>
-                                                    <ChevronRight stroke="#667eea" width={24} height={24} />
+                                                    <ChevronRight stroke="#cc31e8" width={24} height={24} />
                                                 </LinearGradient>
                                             </TouchableOpacity>
                                         )}
@@ -682,59 +669,25 @@ const s = StyleSheet.create({
         backgroundColor: '#0f0f14' 
     },
     inner: { 
-        padding: 24, 
-        paddingBottom: 0 
-    },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: 20,
-        paddingVertical: 16,
-        borderBottomWidth: 1,
-        borderBottomColor: 'rgba(255, 255, 255, 0.1)',
-    },
-    backButton: {
-        width: 44,
-        height: 44,
-        borderRadius: 22,
-        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+        flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
+        padding: 24, 
+        paddingBottom: 100 
     },
-    headerTitle: {
-        color: '#fff',
-        fontSize: 20,
-        fontWeight: '700',
-        fontFamily: 'Montserrat_700Bold',
-    },
-    headerSpacer: {
-        width: 44, // Same as back button for centering
-    },
-    heroSection: {
+    floatingBackButton: {
+        position: 'absolute',
+        top: 50,
+        left: 20,
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: 32,
-    },
-    heroTitle: { 
-        fontSize: 36, 
-        fontWeight: '700', 
-        color: '#fff', 
-        textAlign: 'center',
-        fontFamily: 'Montserrat_700Bold',
-        marginBottom: 12,
-    },
-    highlight: { 
-        color: '#667eea',
-        textShadowColor: 'rgba(102, 126, 234, 0.5)',
-        textShadowOffset: { width: 0, height: 2 },
-        textShadowRadius: 8,
-    },
-    sub: { 
-        fontSize: 16, 
-        color: 'rgba(255, 255, 255, 0.7)', 
-        textAlign: 'center',
-        lineHeight: 24,
-        paddingHorizontal: 20,
+        zIndex: 10,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.1)',
     },
     actionSection: {
         marginVertical: 24,
@@ -742,7 +695,7 @@ const s = StyleSheet.create({
     },
     primaryButton: {
         borderRadius: 16,
-        shadowColor: '#667eea',
+        shadowColor: '#cc31e8',
         shadowOffset: { width: 0, height: 8 },
         shadowOpacity: 0.3,
         shadowRadius: 16,
@@ -776,55 +729,78 @@ const s = StyleSheet.create({
         fontWeight: '600',
         textAlign: 'center',
     },
-    emptyCard: {
-        marginTop: 40,
-        borderRadius: 24,
+    startNewActivityCard: {
+        width: '100%',
+        maxWidth: 350,
+        borderRadius: 28,
         overflow: 'hidden',
+        shadowColor: 'rgba(204, 49, 232, 0.6)',
+        shadowOffset: { width: 0, height: 12 },
+        shadowOpacity: 0.9,
+        shadowRadius: 24,
+        elevation: 25,
     },
-    emptyCardGradient: {
-        padding: 32,
+    startNewActivityGradient: {
+        borderRadius: 28,
+        padding: 4,
+    },
+    startNewActivityContent: {
         alignItems: 'center',
-        borderRadius: 24,
-        borderWidth: 1,
-        borderColor: 'rgba(102, 126, 234, 0.2)',
+        justifyContent: 'center',
+        paddingHorizontal: 28,
+        paddingVertical: 48,
+        gap: 16,
     },
-    iconCircle: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
-        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+    startNewActivityIconContainer: {
+        width: 64,
+        height: 64,
+        borderRadius: 32,
+        backgroundColor: 'rgba(255, 255, 255, 0.15)',
         justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: 24,
+        marginBottom: 8,
+        shadowColor: 'rgba(0, 0, 0, 0.2)',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 1,
+        shadowRadius: 8,
+        borderWidth: 2,
+        borderColor: 'rgba(255, 255, 255, 0.2)',
     },
-    emptyTitle: {
+    startNewActivityTitle: {
+        color: '#ffffff',
         fontSize: 24,
         fontWeight: '700',
-        fontFamily: 'Montserrat_700Bold',
-        color: '#fff',
-        marginBottom: 12,
-    },
-    emptySubtitle: {
-        fontSize: 16,
-        color: 'rgba(255, 255, 255, 0.7)',
         textAlign: 'center',
-        lineHeight: 24,
-        marginBottom: 32,
-        paddingHorizontal: 20,
-    },
-    startButton: {
-        borderRadius: 12,
-        overflow: 'hidden',
-    },
-    startButtonContent: {
-        paddingVertical: 16,
-        paddingHorizontal: 32,
-    },
-    startButtonText: {
-        color: '#fff',
-        fontSize: 17,
-        fontWeight: '700',
+        lineHeight: 28,
         fontFamily: 'Montserrat_700Bold',
+        textShadowColor: 'rgba(0, 0, 0, 0.3)',
+        textShadowOffset: { width: 0, height: 1 },
+        textShadowRadius: 2,
+    },
+    startNewActivitySubtitle: {
+        color: 'rgba(255, 255, 255, 0.95)',
+        fontSize: 16,
+        fontWeight: '500',
+        textAlign: 'center',
+        lineHeight: 22,
+        paddingHorizontal: 10,
+    },
+    readyToVibeContainer: {
+        backgroundColor: 'rgba(255, 255, 255, 0.25)',
+        paddingHorizontal: 28,
+        paddingVertical: 12,
+        borderRadius: 24,
+        marginTop: 12,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.35)',
+    },
+    readyToVibeText: {
+        color: '#ffffff',
+        fontSize: 16,
+        fontWeight: '700',
+        textShadowColor: 'rgba(0, 0, 0, 0.2)',
+        textShadowOffset: { width: 0, height: 1 },
+        textShadowRadius: 2,
     },
     loadingContainer: {
         flex: 1,
@@ -953,7 +929,7 @@ const s = StyleSheet.create({
         height: 520,
         borderRadius: 24,
         position: 'absolute',
-        shadowColor: '#667eea',
+        shadowColor: '#cc31e8',
         shadowOffset: { width: 0, height: 12 },
         shadowOpacity: 0.35,
         shadowRadius: 20,
@@ -1034,7 +1010,7 @@ const s = StyleSheet.create({
     },
     
     cardReasonTitle: {
-        color: '#667eea',
+        color: '#cc31e8',
         fontSize: 14,
         fontWeight: '700',
         fontFamily: 'Montserrat_700Bold',
@@ -1180,7 +1156,7 @@ const s = StyleSheet.create({
         marginBottom: 16,
         borderRadius: 16,
         overflow: 'hidden',
-        shadowColor: '#667eea',
+        shadowColor: '#cc31e8',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.1,
         shadowRadius: 8,
@@ -1244,12 +1220,12 @@ const s = StyleSheet.create({
     
     compactSignupButton: {
         flex: 1,
-        backgroundColor: '#667eea',
+        backgroundColor: '#cc31e8',
         paddingVertical: 12,
         paddingHorizontal: 16,
         borderRadius: 8,
         alignItems: 'center',
-        shadowColor: '#667eea',
+        shadowColor: '#cc31e8',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.3,
         shadowRadius: 4,

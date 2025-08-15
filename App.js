@@ -43,18 +43,23 @@ const AppNavigator = () => {
 
   // Handle notification responses for navigation
   useEffect(() => {
-    const subscription = Notifications.addNotificationResponseReceivedListener(response => {
+    const subscription = Notifications.addNotificationResponseReceivedListener(async response => {
       const { notification } = response;
       const data = notification.request.content.data;
 
-      // Handle different notification types
-      if (data?.type === 'activity_invite' && data?.activityId) {
-        navigate('ActivityDetails', { activityId: data.activityId });
-      } else if (data?.type === 'activity_update' && data?.activityId) {
-        navigate('ActivityDetails', { activityId: data.activityId });
-      } else if (data?.type === 'general') {
-        navigate('/'); // Navigate to home
-      }
+      // Delay navigation slightly to ensure context is ready
+      setTimeout(() => {
+        // Handle different notification types
+        if (data?.type === 'activity_invite' && data?.activityId) {
+          navigate('ActivityDetails', { activityId: data.activityId, forceRefresh: true });
+        } else if (data?.type === 'activity_update' && data?.activityId) {
+          navigate('ActivityDetails', { activityId: data.activityId, forceRefresh: true });
+        } else if (data?.type === 'comment' && data?.activityId) {
+          navigate('ActivityDetails', { activityId: data.activityId, forceRefresh: true });
+        } else if (data?.type === 'general') {
+          navigate('/'); // Navigate to home
+        }
+      }, 500); // Give context time to load
     });
 
     return () => subscription.remove();

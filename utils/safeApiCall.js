@@ -67,7 +67,12 @@ export const safeApiCall = async (url, options = {}, timeout = DEFAULT_TIMEOUT) 
         if (errorBody) {
           try {
             const parsedError = JSON.parse(errorBody);
-            errorDetails = parsedError.error || parsedError.message || errorMessage;
+            // Handle Rails errors array format
+            if (parsedError.errors && Array.isArray(parsedError.errors)) {
+              errorDetails = parsedError.errors.join(', ');
+            } else {
+              errorDetails = parsedError.error || parsedError.message || errorMessage;
+            }
           } catch {
             // If JSON parsing fails, use the text as error details
             errorDetails = errorBody.substring(0, 200); // Limit error length

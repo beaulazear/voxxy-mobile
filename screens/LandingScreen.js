@@ -1,46 +1,74 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
-    View,
     Text,
     TouchableOpacity,
     StyleSheet,
     SafeAreaView,
+    Animated,
 } from 'react-native';
 import HeaderSvg from '../assets/header.svg';
 import { useNavigation } from '@react-navigation/native';
+import { TOUCH_TARGETS, SPACING } from '../styles/AccessibilityStyles';
 
 export default function LandingScreen() {
     const navigation = useNavigation();
+    const fadeAnim = useRef(new Animated.Value(0)).current;
+    const slideAnim = useRef(new Animated.Value(30)).current;
+
+    useEffect(() => {
+        Animated.parallel([
+            Animated.timing(fadeAnim, {
+                toValue: 1,
+                duration: 600,
+                useNativeDriver: true,
+            }),
+            Animated.timing(slideAnim, {
+                toValue: 0,
+                duration: 600,
+                useNativeDriver: true,
+            })
+        ]).start();
+    }, []);
 
     return (
         <SafeAreaView style={styles.container}>
-            <View style={styles.top}>
-                <HeaderSvg width={260} height={60} />
+            <Animated.View style={[styles.top, {
+                opacity: fadeAnim,
+                transform: [{ translateY: slideAnim }]
+            }]}>
+                <HeaderSvg width={280} height={65} />
+                <Text style={styles.tagline}>Plan Your Next Activity</Text>
                 <Text style={styles.subtitle}>
-                    As a beta user, you’ll get early access to new features, special perks, and a direct line to share feedback. Help shape the future of group planning as we grow and improve together.
+                    Find spots everyone will love
                 </Text>
-            </View>
+            </Animated.View>
 
-            <View style={styles.menu}>
+            <Animated.View style={[styles.menu, {
+                opacity: fadeAnim,
+                transform: [{ translateY: slideAnim }]
+            }]}>
                 <TouchableOpacity
-                    style={styles.bigButton}
-                    onPress={() => navigation.navigate('Login')}
-                >
-                    <Text style={styles.bigButtonText}>Log In</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                    style={[styles.bigButton, styles.signUpButton]}
+                    style={styles.primaryButton}
                     onPress={() => navigation.navigate('SignUp')}
+                    activeOpacity={0.8}
                 >
-                    <Text style={styles.bigButtonText}>Create New Account</Text>
+                    <Text style={styles.primaryButtonText}>Get Started →</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                    style={[styles.bigButton, styles.tryVoxxyButton]}
-                    onPress={() => navigation.navigate('TryVoxxy')}
+                    style={styles.secondaryButton}
+                    onPress={() => navigation.navigate('Login')}
+                    activeOpacity={0.8}
                 >
-                    <Text style={styles.bigButtonText}>Get Recommendations</Text>
+                    <Text style={styles.secondaryButtonText}>Sign In</Text>
                 </TouchableOpacity>
-            </View>
+                <TouchableOpacity
+                    style={styles.ghostButton}
+                    onPress={() => navigation.navigate('TryVoxxy')}
+                    activeOpacity={0.7}
+                >
+                    <Text style={styles.ghostButtonText}>✨ Try Voxxy First</Text>
+                </TouchableOpacity>
+            </Animated.View>
         </SafeAreaView>
     );
 }
@@ -54,38 +82,81 @@ const styles = StyleSheet.create({
     },
     top: {
         alignItems: 'center',
-        marginBottom: 20,
+        marginBottom: 40,
+    },
+    tagline: {
+        marginTop: 25,
+        fontSize: 28,
+        fontWeight: '800',
+        color: '#fff',
+        textAlign: 'center',
+        marginBottom: 8,
     },
     subtitle: {
-        marginTop: 10,
-        fontSize: 14,
-        color: '#ccc',
+        marginTop: 4,
+        fontSize: 18,
+        color: 'rgba(255, 255, 255, 0.7)',
         textAlign: 'center',
-        lineHeight: 20,
-        padding: 10,
+        lineHeight: 24,
+        paddingHorizontal: 20,
+        fontWeight: '500',
     },
     menu: {
         width: '100%',
         alignItems: 'center',
         paddingHorizontal: 20,
+        gap: SPACING.COMFORTABLE_GAP,
     },
-    bigButton: {
+    primaryButton: {
         width: '100%',
         backgroundColor: '#cc31e8',
-        paddingVertical: 16,
+        minHeight: TOUCH_TARGETS.LARGE_SIZE,
+        paddingVertical: 18,
         borderRadius: 50,
         alignItems: 'center',
+        justifyContent: 'center',
         marginVertical: 8,
+        shadowColor: '#cc31e8',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 4,
     },
-    signUpButton: {
-        backgroundColor: '#592566',
+    primaryButtonText: {
+        color: '#fff',
+        fontSize: 19,
+        fontWeight: '700',
+        letterSpacing: 0.5,
     },
-    tryVoxxyButton: {
-        backgroundColor: '#4a90e2',
+    secondaryButton: {
+        width: '100%',
+        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+        minHeight: TOUCH_TARGETS.LARGE_SIZE,
+        paddingVertical: 18,
+        borderRadius: 50,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginVertical: 8,
+        borderWidth: 1.5,
+        borderColor: 'rgba(204, 49, 232, 0.3)',
     },
-    bigButtonText: {
+    secondaryButtonText: {
         color: '#fff',
         fontSize: 18,
         fontWeight: '600',
+    },
+    ghostButton: {
+        width: '100%',
+        minHeight: TOUCH_TARGETS.MIN_SIZE,
+        paddingVertical: 14,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginTop: 8,
+    },
+    ghostButtonText: {
+        color: 'rgba(255, 255, 255, 0.7)',
+        fontSize: 17,
+        fontWeight: '600',
+        textDecorationLine: 'underline',
     },
 });
