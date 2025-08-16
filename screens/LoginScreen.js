@@ -130,7 +130,7 @@ export default function LoginScreen() {
             transform: [{ translateX: slideAnim }]
           }}>
             {/* HEADER */}
-            <Text style={styles.heading}>Welcome back</Text>
+            <Text style={styles.heading}>Welcome back ✨</Text>
 
             <View style={styles.inputContainer}>
               <Text style={styles.inputLabel}>Email</Text>

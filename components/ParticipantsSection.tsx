@@ -309,18 +309,7 @@ export default function ParticipantsSection({
         responses.some(r => r.user_id === p.apId)
     ).length
 
-    // Auto-show invite modal if no participants (but only during collecting phase)
-    useEffect(() => {
-        if (!isOwner) return
-        if (activity?.finalized || activity?.completed || activity?.voting) return // Don't show invite modal for voting/finalized/completed activities
-        const hasParticipants = participantsArray.length > 0 || pendingInvitesArray.length > 0
-        if (!hasParticipants) {
-            const timer = setTimeout(() => {
-                setShowInviteModal(true)
-            }, 500)
-            return () => clearTimeout(timer)
-        }
-    }, [isOwner, participantsArray.length, pendingInvitesArray.length, activity?.finalized, activity?.completed, activity?.voting])
+    // Removed auto-show invite modal - users can manually click to invite friends when they want
 
     // Cleanup modals on unmount to prevent stuck modals
     useEffect(() => {
@@ -642,25 +631,6 @@ export default function ParticipantsSection({
         <View style={styles.modeSelectionContainer}>
             <View style={styles.topPadding} />
 
-            <TouchableOpacity
-                style={[styles.modeOption, styles.skipOption]}
-                onPress={handleSkipInviting}
-                activeOpacity={0.8}
-            >
-                <View style={styles.modeOptionIcon}>
-                    <Heart stroke="#cc31e8" width={24} height={24} />
-                </View>
-                <View style={styles.modeOptionContent}>
-                    <Text style={styles.modeOptionTitle}>Skip inviting and find favorites yourself!</Text>
-                    <Text style={styles.modeOptionDescription}>
-                        Explore recommendations solo and save your favorites
-                    </Text>
-                </View>
-                <View style={styles.modeOptionArrow}>
-                    <Text style={styles.arrow}>→</Text>
-                </View>
-            </TouchableOpacity>
-
             {availableCrewMembers.length > 0 && (
                 <TouchableOpacity
                     style={styles.modeOption}
@@ -865,7 +835,7 @@ export default function ParticipantsSection({
                 <View style={styles.participantsTitle}>
                     <Users stroke="#8b5cf6" width={20} height={20} />
                     <Text style={styles.participantsTitleText}>
-                        {allParticipants.length} Community Member{allParticipants.length === 1 ? '' : 's'}
+                        {allParticipants.length === 1 ? 'Invite Your Friends' : `${allParticipants.length} Community Member${allParticipants.length === 1 ? '' : 's'}`}
                     </Text>
                 </View>
 

@@ -309,8 +309,11 @@ export default function ActivityDetailsScreen({ route }) {
                 
                 // Restart polling if not already running
                 if (!pollingRef.current) {
-                    const pollInterval = currentActivity.finalized ? 30000 : 5000;
-                    pollingRef.current = setInterval(fetchLatestActivity, pollInterval);
+                    // Check finalized state from latest fetch
+                    fetchLatestActivity().then(() => {
+                        const pollInterval = 5000; // Use fixed 5s interval for simplicity
+                        pollingRef.current = setInterval(fetchLatestActivity, pollInterval);
+                    });
                 }
             } else {
                 logger.debug('📦 App went to background - pausing activity polling');
@@ -331,8 +334,8 @@ export default function ActivityDetailsScreen({ route }) {
             // Fetch immediately on mount
             fetchLatestActivity();
             
-            // Start polling - more frequent for active activities
-            const pollInterval = currentActivity.finalized ? 30000 : 5000; // 5s for active, 30s for finalized
+            // Start polling with fixed interval
+            const pollInterval = 5000; // Use fixed 5s interval
             pollingRef.current = setInterval(fetchLatestActivity, pollInterval);
         }
 
@@ -344,7 +347,7 @@ export default function ActivityDetailsScreen({ route }) {
             }
             appStateSubscription?.remove();
         };
-    }, [activityId, user?.token, currentActivity?.finalized, showUpdateModal, showFinalizeModal]);
+    }, [activityId, user?.token, showUpdateModal, showFinalizeModal]); // Removed currentActivity?.finalized to prevent re-renders
 
     // Auto-scroll to bottom when keyboard opens
     useEffect(() => {

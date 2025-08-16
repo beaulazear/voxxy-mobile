@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import {
     Modal,
     View,
@@ -12,6 +12,7 @@ import {
     Animated,
     Dimensions,
     ActivityIndicator,
+    Easing,
 } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import {
@@ -34,12 +35,15 @@ import {
     DollarSign,
     CreditCard,
     Crown,
-    X
+    X,
+    Search
 } from 'lucide-react-native'
 import * as Location from 'expo-location'
+import * as Haptics from 'expo-haptics'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { API_URL } from '../config'
 import { logger } from '../utils/logger'
+import SearchLocationModal from './SearchLocationModal'
 
 const { width: screenWidth } = Dimensions.get('window')
 
@@ -48,17 +52,24 @@ export default function TryVoxxyChat({ visible, onClose, onChatComplete }) {
     const totalSteps = 5
     const percent = (step / totalSteps) * 100
     const [fadeAnim] = useState(new Animated.Value(0))
+    const [successAnim] = useState(new Animated.Value(0))
+    const [pulseAnim] = useState(new Animated.Value(1))
+    const progressAnim = useRef(new Animated.Value(0)).current
+    const [showSuccess, setShowSuccess] = useState(false)
+    const [loadingMessage, setLoadingMessage] = useState('Analyzing your preferences...')
 
     // Form state
     const [location, setLocation] = useState('')
     const [coords, setCoords] = useState(null)
     const [isLocating, setIsLocating] = useState(false)
     const [currentLocationUsed, setCurrentLocationUsed] = useState(false)
+    const [showLocationSearch, setShowLocationSearch] = useState(false)
     const [selectedOutingType, setSelectedOutingType] = useState('')
     const [selectedCuisines, setSelectedCuisines] = useState([])
     const [selectedVibes, setSelectedVibes] = useState([])
     const [selectedBudget, setSelectedBudget] = useState('')
     const [isSubmitting, setIsSubmitting] = useState(false)
+    const [pressedCard, setPressedCard] = useState(null)
     
     // Outing type options
     const outingTypeOptions = [
@@ -71,14 +82,13 @@ export default function TryVoxxyChat({ visible, onClose, onChatComplete }) {
     // Cuisine options with icons
     const cuisineOptions = [
         { label: 'Italian', icon: Pizza, desc: 'Pasta, pizza, risotto' },
-        { label: 'Mexican', icon: ChefHat, desc: 'Tacos, burritos, quesadillas' },
+        { label: 'Mexican', icon: Beef, desc: 'Tacos, burritos, quesadillas' },
         { label: 'Chinese', icon: Utensils, desc: 'Stir-fry, dim sum, noodles' },
         { label: 'Japanese', icon: Fish, desc: 'Sushi, ramen, tempura' },
-        { label: 'American', icon: Beef, desc: 'Burgers, steaks, BBQ' },
-        { label: 'Indian', icon: ChefHat, desc: 'Curry, naan, biryani' },
-        { label: 'Thai', icon: Cherry, desc: 'Pad thai, curry, spring rolls' },
-        { label: 'Mediterranean', icon: Cherry, desc: 'Hummus, falafel, kebabs' },
-        { label: 'Something New', icon: Target, desc: 'Surprise me!' }
+        { label: 'American', icon: Coffee, desc: 'Burgers, steaks, BBQ' },
+        { label: 'Indian', icon: Cherry, desc: 'Curry, naan, biryani' },
+        { label: 'Thai', icon: ChefHat, desc: 'Pad thai, curry, spring rolls' },
+        { label: 'Mediterranean', icon: Wine, desc: 'Hummus, falafel, kebabs' }
     ]
 
     const vibeOptions = [
@@ -106,6 +116,45 @@ export default function TryVoxxyChat({ visible, onClose, onChatComplete }) {
             useNativeDriver: true,
         }).start()
     }, [step])
+
+    // Animate progress bar
+    useEffect(() => {
+        Animated.timing(progressAnim, {
+            toValue: percent,
+            duration: 500,
+            easing: Easing.bezier(0.25, 0.1, 0.25, 1),
+            useNativeDriver: false,
+        }).start()
+    }, [percent])
+
+    // Pulse animation for loading
+    const startPulseAnimation = () => {
+        Animated.loop(
+            Animated.sequence([
+                Animated.timing(pulseAnim, {
+                    toValue: 1.1,
+                    duration: 1000,
+                    useNativeDriver: true,
+                }),
+                Animated.timing(pulseAnim, {
+                    toValue: 1,
+                    duration: 1000,
+                    useNativeDriver: true,
+                }),
+            ])
+        ).start()
+    }
+
+    // Success animation
+    const showSuccessAnimation = () => {
+        setShowSuccess(true)
+        Animated.spring(successAnim, {
+            toValue: 1,
+            friction: 4,
+            tension: 40,
+            useNativeDriver: true,
+        }).start()
+    }
 
     // Step content
     const getStepContent = () => {
@@ -190,6 +239,11 @@ export default function TryVoxxyChat({ visible, onClose, onChatComplete }) {
 
     // Toggle functions for multi-select
     const toggleCuisine = (cuisine) => {
+        try {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+        } catch (e) {
+            // Haptics not available
+        }
         setSelectedCuisines(prev => 
             prev.includes(cuisine) 
                 ? prev.filter(c => c !== cuisine)
@@ -198,6 +252,11 @@ export default function TryVoxxyChat({ visible, onClose, onChatComplete }) {
     }
 
     const toggleVibe = (vibe) => {
+        try {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+        } catch (e) {
+            // Haptics not available
+        }
         setSelectedVibes(prev => 
             prev.includes(vibe) 
                 ? prev.filter(v => v !== vibe)
@@ -211,7 +270,7 @@ export default function TryVoxxyChat({ visible, onClose, onChatComplete }) {
         
         switch (step) {
             case 1:
-                const hasTypedLocation = location.trim() && location !== 'Using current location'
+                const hasTypedLocation = location && location.trim() && location !== 'Using current location'
                 const hasCurrentLocation = currentLocationUsed && coords && coords.lat && coords.lng
                 return !hasTypedLocation && !hasCurrentLocation
             case 2:
@@ -229,6 +288,11 @@ export default function TryVoxxyChat({ visible, onClose, onChatComplete }) {
 
     // Navigation
     const handleNext = () => {
+        try {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+        } catch (e) {
+            // Haptics not available
+        }
         if (step < totalSteps) {
             fadeAnim.setValue(0)
             setStep(step + 1)
@@ -238,11 +302,34 @@ export default function TryVoxxyChat({ visible, onClose, onChatComplete }) {
     }
 
     const handleBack = () => {
+        try {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+        } catch (e) {
+            // Haptics not available
+        }
         if (step > 1) {
             fadeAnim.setValue(0)
             setStep(step - 1)
         }
     }
+
+    // Loading messages rotation
+    useEffect(() => {
+        if (isSubmitting) {
+            const messages = [
+                'Analyzing your preferences...',
+                'Finding perfect matches...',
+                'Curating recommendations...',
+                'Almost there...'
+            ]
+            let index = 0
+            const interval = setInterval(() => {
+                index = (index + 1) % messages.length
+                setLoadingMessage(messages[index])
+            }, 2000)
+            return () => clearInterval(interval)
+        }
+    }, [isSubmitting])
 
     // Submission
     const handleSubmit = async () => {
@@ -250,6 +337,7 @@ export default function TryVoxxyChat({ visible, onClose, onChatComplete }) {
         
         try {
             setIsSubmitting(true)
+            startPulseAnimation()
             const token = await getOrCreateSessionToken()
             logger.debug('🚀 Starting handleSubmit with token:', token.substring(0, 10) + '...')
             
@@ -354,13 +442,19 @@ export default function TryVoxxyChat({ visible, onClose, onChatComplete }) {
                 }
                 
                 // Check if we should allow retry
-                if (errorData.should_retry) {
+                if (errorData.should_retry || response.status >= 500) {
                     Alert.alert(
                         'Error',
                         errorMessage,
                         [
                             { text: 'Cancel', style: 'cancel' },
-                            { text: 'Try Again', onPress: () => handleSubmit() }
+                            { 
+                                text: 'Try Again', 
+                                onPress: () => {
+                                    setIsSubmitting(false)
+                                    setTimeout(() => handleSubmit(), 100)
+                                }
+                            }
                         ]
                     )
                 } else {
@@ -382,16 +476,27 @@ export default function TryVoxxyChat({ visible, onClose, onChatComplete }) {
                 )
             }
             
-            onChatComplete(data.recommendations || [])
+            // Show success animation before completing
+            if (data.recommendations && data.recommendations.length > 0) {
+                showSuccessAnimation()
+                setTimeout(() => {
+                    setShowSuccess(false)
+                    setIsSubmitting(false)
+                    onChatComplete(data.recommendations)
+                }, 2000)
+            } else {
+                setIsSubmitting(false)
+                onChatComplete(data.recommendations || [])
+            }
         } catch (error) {
             logger.error('💥 Final error in handleSubmit:', {
                 errorMessage: error.message,
                 errorStack: error.stack
             })
             Alert.alert('Error', error.message || 'Failed to get recommendations. Please try again.')
-            onChatComplete([])
-        } finally {
             setIsSubmitting(false)
+            setShowSuccess(false)
+            onChatComplete([])
         }
     }
 
@@ -401,12 +506,17 @@ export default function TryVoxxyChat({ visible, onClose, onChatComplete }) {
                 <Animated.View
                     style={[
                         styles.progressFill,
-                        { width: `${percent}%` }
+                        {
+                            width: progressAnim.interpolate({
+                                inputRange: [0, 100],
+                                outputRange: ['0%', '100%']
+                            })
+                        }
                     ]}
                 />
             </View>
             <Text style={styles.progressText}>
-                {step} of {totalSteps}
+                {isSubmitting ? 'Processing...' : `${step} of ${totalSteps}`}
             </Text>
         </View>
     )
@@ -416,21 +526,26 @@ export default function TryVoxxyChat({ visible, onClose, onChatComplete }) {
             case 1:
                 return (
                     <Animated.View style={[styles.stepContainer, { opacity: fadeAnim }]}>
-                        <TextInput
-                            style={styles.notesInput}
-                            value={location}
-                            onChangeText={(text) => {
-                                setLocation(text)
-                                setCurrentLocationUsed(false)
-                            }}
-                            placeholder={
-                                currentLocationUsed
-                                    ? 'Using current location'
-                                    : 'Enter city or neighborhood (e.g. San Francisco, CA)'
-                            }
-                            placeholderTextColor="#999"
-                            editable={!currentLocationUsed}
-                        />
+                        <TouchableOpacity
+                            style={styles.searchLocationButton}
+                            onPress={() => setShowLocationSearch(true)}
+                            disabled={currentLocationUsed}
+                        >
+                            <Search color="#cc31e8" size={20} />
+                            <Text style={styles.searchLocationText}>
+                                {location && !currentLocationUsed
+                                    ? location
+                                    : currentLocationUsed
+                                        ? 'Using current location'
+                                        : 'Search for a location'}
+                            </Text>
+                        </TouchableOpacity>
+
+                        <View style={styles.orDivider}>
+                            <View style={styles.dividerLine} />
+                            <Text style={styles.orText}>OR</Text>
+                            <View style={styles.dividerLine} />
+                        </View>
 
                         <TouchableOpacity
                             style={styles.locationButton}
@@ -446,6 +561,19 @@ export default function TryVoxxyChat({ visible, onClose, onChatComplete }) {
                                         : 'Use my current location'}
                             </Text>
                         </TouchableOpacity>
+
+                        <SearchLocationModal
+                            visible={showLocationSearch}
+                            onClose={() => setShowLocationSearch(false)}
+                            onLocationSelect={(selectedLocation) => {
+                                console.log('TryVoxxyChat onLocationSelect:', selectedLocation)
+                                const locationText = selectedLocation.formatted || selectedLocation.description || selectedLocation.formatted_address || ''
+                                setLocation(locationText)
+                                setCurrentLocationUsed(false)
+                                setCoords(null) // Clear coords since we're using a text location
+                                setShowLocationSearch(false)
+                            }}
+                        />
                     </Animated.View>
                 )
 
@@ -460,7 +588,14 @@ export default function TryVoxxyChat({ visible, onClose, onChatComplete }) {
                                         styles.singleSelectCard,
                                         selectedOutingType === option.label && styles.singleSelectCardSelected
                                     ]}
-                                    onPress={() => setSelectedOutingType(option.label)}
+                                    onPress={() => {
+                                        try {
+                                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+                                        } catch (e) {
+                                            // Haptics not available
+                                        }
+                                        setSelectedOutingType(option.label)
+                                    }}
                                 >
                                     <option.icon color="#fff" size={24} style={{ marginBottom: 8 }} />
                                     <Text style={[
@@ -577,7 +712,14 @@ export default function TryVoxxyChat({ visible, onClose, onChatComplete }) {
                                         styles.singleSelectCard,
                                         selectedBudget === option.label && styles.singleSelectCardSelected
                                     ]}
-                                    onPress={() => setSelectedBudget(option.label)}
+                                    onPress={() => {
+                                        try {
+                                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+                                        } catch (e) {
+                                            // Haptics not available
+                                        }
+                                        setSelectedBudget(option.label)
+                                    }}
                                 >
                                     <option.icon color="#fff" size={24} style={{ marginBottom: 8 }} />
                                     <Text style={[
@@ -625,6 +767,56 @@ export default function TryVoxxyChat({ visible, onClose, onChatComplete }) {
                     {renderStepContent()}
                 </ScrollView>
 
+                {/* Full Screen Loading/Success Overlay */}
+                {(isSubmitting || showSuccess) && (
+                    <Modal
+                        visible={isSubmitting || showSuccess}
+                        transparent
+                        animationType="fade"
+                    >
+                        <Animated.View
+                            style={[
+                                styles.fullScreenOverlay,
+                                {
+                                    opacity: isSubmitting ? 1 : successAnim,
+                                }
+                            ]}
+                        >
+                            {!showSuccess ? (
+                                <Animated.View style={[styles.loadingContent, { transform: [{ scale: pulseAnim }] }]}>
+                                    <View style={styles.loadingIconLarge}>
+                                        <ActivityIndicator size="large" color="#cc31e8" />
+                                    </View>
+                                    <Text style={styles.loadingTitleLarge}>{loadingMessage}</Text>
+                                    <Text style={styles.loadingSubtitleLarge}>Finding the perfect spots for you...</Text>
+                                </Animated.View>
+                            ) : (
+                                <Animated.View
+                                    style={[
+                                        styles.successContent,
+                                        {
+                                            transform: [
+                                                {
+                                                    scale: successAnim.interpolate({
+                                                        inputRange: [0, 1],
+                                                        outputRange: [0.3, 1]
+                                                    })
+                                                }
+                                            ]
+                                        }
+                                    ]}
+                                >
+                                    <View style={styles.successIcon}>
+                                        <Text style={styles.successEmoji}>🎉</Text>
+                                    </View>
+                                    <Text style={styles.successTitle}>Your recommendations are here!</Text>
+                                    <Text style={styles.successSubtitle}>We found amazing spots for you</Text>
+                                </Animated.View>
+                            )}
+                        </Animated.View>
+                    </Modal>
+                )}
+
                 <View style={styles.buttonRow}>
                     <TouchableOpacity
                         style={styles.closeButton}
@@ -652,16 +844,9 @@ export default function TryVoxxyChat({ visible, onClose, onChatComplete }) {
                             colors={['#cc31e8', '#9b1dbd']}
                             style={styles.nextButtonGradient}
                         >
-                            {isSubmitting ? (
-                                <View style={styles.loadingContainer}>
-                                    <ActivityIndicator size="small" color="#fff" />
-                                    <Text style={styles.loadingText}>Getting Recommendations...</Text>
-                                </View>
-                            ) : (
-                                <Text style={styles.nextButtonText}>
-                                    {step < totalSteps ? 'Next' : 'Get Recommendations'}
-                                </Text>
-                            )}
+                            <Text style={styles.nextButtonText}>
+                                {step < totalSteps ? 'Next' : 'Finish'}
+                            </Text>
                         </LinearGradient>
                     </TouchableOpacity>
                 </View>
@@ -744,20 +929,21 @@ const styles = StyleSheet.create({
     compactGrid: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        gap: 8,
+        gap: 10,
         marginBottom: 20,
+        justifyContent: 'space-between',
     },
 
     compactCard: {
         backgroundColor: 'rgba(255, 255, 255, 0.03)',
         borderWidth: 2,
         borderColor: 'rgba(255, 255, 255, 0.1)',
-        borderRadius: 12,
-        padding: 12,
-        minWidth: (screenWidth - 72) / 3,
+        borderRadius: 14,
+        padding: 16,
+        width: (screenWidth - 58) / 2 - 5,
         alignItems: 'center',
         justifyContent: 'center',
-        minHeight: 70,
+        minHeight: 90,
     },
 
     compactCardSelected: {
@@ -770,11 +956,12 @@ const styles = StyleSheet.create({
     },
 
     compactLabel: {
-        fontSize: 11,
+        fontSize: 13,
         fontWeight: '600',
         color: '#ccc',
         textAlign: 'center',
-        lineHeight: 14,
+        lineHeight: 16,
+        marginTop: 4,
     },
 
     compactLabelSelected: {
@@ -901,25 +1088,67 @@ const styles = StyleSheet.create({
         fontWeight: '600',
     },
 
+    searchLocationButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(255, 255, 255, 0.03)',
+        borderWidth: 2,
+        borderColor: 'rgba(204, 49, 232, 0.3)',
+        borderRadius: 12,
+        padding: 16,
+        gap: 12,
+        marginBottom: 20,
+    },
+
+    searchLocationText: {
+        color: '#fff',
+        fontSize: 16,
+        flex: 1,
+    },
+
+    orDivider: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 20,
+        gap: 12,
+    },
+
+    dividerLine: {
+        flex: 1,
+        height: 1,
+        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    },
+
+    orText: {
+        color: 'rgba(255, 255, 255, 0.5)',
+        fontSize: 12,
+        fontWeight: '600',
+        textTransform: 'uppercase',
+        letterSpacing: 1,
+    },
+
     buttonRow: {
         flexDirection: 'row',
         paddingHorizontal: 24,
-        paddingVertical: 16,
-        gap: 8,
+        paddingTop: 20,
+        paddingBottom: 30,
+        gap: 12,
     },
 
     closeButton: {
         backgroundColor: 'rgba(255, 69, 69, 0.15)',
         borderWidth: 2,
         borderColor: 'rgba(255, 69, 69, 0.3)',
-        borderRadius: 8,
-        paddingVertical: 12,
-        paddingHorizontal: 16,
+        borderRadius: 12,
+        paddingVertical: 16,
+        paddingHorizontal: 20,
+        minHeight: 52,
+        justifyContent: 'center',
     },
 
     closeButtonText: {
         color: '#ff4545',
-        fontSize: 14,
+        fontSize: 16,
         fontWeight: '600',
         textAlign: 'center',
     },
@@ -928,9 +1157,11 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(255, 255, 255, 0.1)',
         borderWidth: 2,
         borderColor: 'rgba(255, 255, 255, 0.2)',
-        borderRadius: 8,
-        paddingVertical: 12,
-        paddingHorizontal: 16,
+        borderRadius: 12,
+        paddingVertical: 16,
+        paddingHorizontal: 20,
+        minHeight: 52,
+        justifyContent: 'center',
     },
 
     backButtonDisabled: {
@@ -939,7 +1170,7 @@ const styles = StyleSheet.create({
 
     backButtonText: {
         color: '#fff',
-        fontSize: 14,
+        fontSize: 16,
         fontWeight: '600',
         textAlign: 'center',
     },
@@ -950,8 +1181,9 @@ const styles = StyleSheet.create({
 
     nextButton: {
         flex: 1,
-        borderRadius: 8,
+        borderRadius: 12,
         overflow: 'hidden',
+        minHeight: 52,
     },
 
     nextButtonDisabled: {
@@ -959,9 +1191,11 @@ const styles = StyleSheet.create({
     },
 
     nextButtonGradient: {
-        paddingVertical: 12,
+        paddingVertical: 16,
         paddingHorizontal: 20,
         alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: 52,
     },
 
     nextButtonText: {
@@ -980,5 +1214,78 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 16,
         fontWeight: '700',
+    },
+
+    fullScreenOverlay: {
+        flex: 1,
+        backgroundColor: '#0f0f14',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+
+    loadingContent: {
+        alignItems: 'center',
+        padding: 32,
+    },
+
+    loadingIconLarge: {
+        width: 100,
+        height: 100,
+        borderRadius: 50,
+        backgroundColor: 'rgba(204, 49, 232, 0.1)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 32,
+        borderWidth: 2,
+        borderColor: 'rgba(204, 49, 232, 0.2)',
+    },
+
+    loadingTitleLarge: {
+        fontSize: 20,
+        fontWeight: '700',
+        color: '#fff',
+        marginBottom: 12,
+        textAlign: 'center',
+    },
+
+    loadingSubtitleLarge: {
+        fontSize: 16,
+        color: 'rgba(255, 255, 255, 0.6)',
+        textAlign: 'center',
+    },
+
+    successContent: {
+        alignItems: 'center',
+        padding: 32,
+    },
+
+    successIcon: {
+        width: 100,
+        height: 100,
+        borderRadius: 50,
+        backgroundColor: 'rgba(204, 49, 232, 0.15)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 32,
+        borderWidth: 2,
+        borderColor: 'rgba(204, 49, 232, 0.3)',
+    },
+
+    successEmoji: {
+        fontSize: 50,
+    },
+
+    successTitle: {
+        fontSize: 28,
+        fontWeight: '700',
+        color: '#fff',
+        marginBottom: 12,
+        textAlign: 'center',
+    },
+
+    successSubtitle: {
+        fontSize: 18,
+        color: 'rgba(255, 255, 255, 0.7)',
+        textAlign: 'center',
     },
 })

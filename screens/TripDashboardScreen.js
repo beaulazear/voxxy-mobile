@@ -13,9 +13,9 @@ import { UserContext } from '../context/UserContext'
 import { useNavigation } from '@react-navigation/native'
 import { X } from 'lucide-react-native'
 import StartNewAdventure from '../components/StartNewAdventure'
-import LetsEatChat from '../components/LetsEatChat'
-import CocktailsChat from '../components/CocktailsChat'
-import GameNightChat from '../components/GameNightChat'
+import LetsEatChatNew from '../components/LetsEatChatNew'
+import CocktailsChatNew from '../components/CocktailsChatNew'
+import GameNightChatNew from '../components/GameNightChatNew'
 import { logger } from '../utils/logger';
 
 
@@ -88,17 +88,17 @@ export default function TripDashboard() {
                 onBack={handleBack}
             />
 
-            <LetsEatChat
+            <LetsEatChatNew
                 visible={selectedTrip === 'Restaurant'}
                 onClose={handleFormClose}
             />
 
-            <CocktailsChat
+            <CocktailsChatNew
                 visible={selectedTrip === 'Night Out'}
                 onClose={handleFormClose}
             />
 
-            <GameNightChat
+            <GameNightChatNew
                 visible={selectedTrip === 'Game Night'}
                 onClose={handleFormClose}
             />

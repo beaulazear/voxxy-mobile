@@ -1,201 +1,23 @@
 // components/TryVoxxy.js
 
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
     SafeAreaView,
     View,
     Text,
-    TextInput,
     TouchableOpacity,
     Modal,
     FlatList,
     ScrollView,
     ActivityIndicator,
     StyleSheet,
-    Alert,
-    Animated,
-    PanResponder,
-    Dimensions,
 } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
-import { CheckCircle, X, Star, ChevronRight, Clock, MapPin, ArrowLeft, Coffee } from 'react-native-feather'
+import { ChevronRight, Clock, MapPin, ArrowLeft, Coffee } from 'react-native-feather'
 import { API_URL } from '../config'
 import { useNavigation } from '@react-navigation/native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import TryVoxxyChat from './TryVoxxyChat'
-
-const { width: screenWidth } = Dimensions.get('window')
-
-// Swipeable Card Component
-const SwipeableCard = ({ recommendation, onSwipeLeft, onSwipeRight }) => {
-    const pan = useRef(new Animated.ValueXY()).current
-    const scale = useRef(new Animated.Value(1)).current
-    const rotate = useRef(new Animated.Value(0)).current
-    
-    // Cleanup animated values on unmount
-    useEffect(() => {
-        return () => {
-            pan.removeAllListeners()
-            scale.removeAllListeners()
-            rotate.removeAllListeners()
-        }
-    }, [])
-
-    const panResponder = PanResponder.create({
-        onStartShouldSetPanResponder: () => true,
-        onMoveShouldSetPanResponder: (evt, gestureState) => {
-            return Math.abs(gestureState.dx) > Math.abs(gestureState.dy) && Math.abs(gestureState.dx) > 10
-        },
-        onPanResponderGrant: () => {
-            pan.setOffset({ x: pan.x._value, y: pan.y._value })
-            Animated.spring(scale, { toValue: 1.05, useNativeDriver: false }).start()
-        },
-        onPanResponderMove: (evt, gestureState) => {
-            pan.setValue({ x: gestureState.dx, y: gestureState.dy })
-            const rotation = gestureState.dx / screenWidth * 30
-            rotate.setValue(rotation)
-        },
-        onPanResponderRelease: (evt, gestureState) => {
-            pan.flattenOffset()
-            
-            const threshold = screenWidth * 0.2
-            
-            if (gestureState.dx > threshold) {
-                // Swipe right - like
-                Animated.parallel([
-                    Animated.timing(pan, {
-                        toValue: { x: screenWidth + 100, y: gestureState.dy },
-                        duration: 300,
-                        useNativeDriver: false,
-                    }),
-                    Animated.timing(rotate, {
-                        toValue: 30,
-                        duration: 300,
-                        useNativeDriver: false,
-                    }),
-                ]).start(() => onSwipeRight(recommendation))
-            } else if (gestureState.dx < -threshold) {
-                // Swipe left - pass
-                Animated.parallel([
-                    Animated.timing(pan, {
-                        toValue: { x: -screenWidth - 100, y: gestureState.dy },
-                        duration: 300,
-                        useNativeDriver: false,
-                    }),
-                    Animated.timing(rotate, {
-                        toValue: -30,
-                        duration: 300,
-                        useNativeDriver: false,  
-                    }),
-                ]).start(() => onSwipeLeft(recommendation))
-            } else {
-                // Snap back to center
-                Animated.parallel([
-                    Animated.spring(pan, {
-                        toValue: { x: 0, y: 0 },
-                        useNativeDriver: false,
-                    }),
-                    Animated.spring(scale, {
-                        toValue: 1,
-                        useNativeDriver: false,
-                    }),
-                    Animated.spring(rotate, {
-                        toValue: 0,
-                        useNativeDriver: false,
-                    }),
-                ]).start()
-            }
-        },
-    })
-
-    const rotateInterpolate = rotate.interpolate({
-        inputRange: [-30, 0, 30],
-        outputRange: ['-30deg', '0deg', '30deg'],
-    })
-
-    return (
-        <Animated.View
-            style={[
-                s.swipeCard,
-                {
-                    transform: [
-                        { translateX: pan.x },
-                        { translateY: pan.y },
-                        { rotate: rotateInterpolate },
-                        { scale: scale },
-                    ],
-                },
-            ]}
-            {...panResponder.panHandlers}
-        >
-            {/* Swipe Indicators */}
-            <Animated.View 
-                style={[
-                    s.swipeIndicator, 
-                    s.likeIndicator,
-                    { opacity: pan.x.interpolate({ inputRange: [0, 75], outputRange: [0, 1] }) }
-                ]}
-            >
-                <CheckCircle stroke="#28a745" width={32} height={32} strokeWidth={2.5} />
-                <Text style={s.likeText}>LIKE</Text>
-            </Animated.View>
-            
-            <Animated.View 
-                style={[
-                    s.swipeIndicator, 
-                    s.passIndicator,
-                    { opacity: pan.x.interpolate({ inputRange: [-75, 0], outputRange: [1, 0] }) }
-                ]}
-            >
-                <X stroke="#e74c3c" width={32} height={32} strokeWidth={2.5} />
-                <Text style={s.passText}>PASS</Text>
-            </Animated.View>
-
-            {/* Card Content */}
-            <LinearGradient
-                colors={['#3A2D44', '#2C1E33']}
-                style={s.cardGradient}
-            >
-                <View style={s.cardHeader}>
-                    <View style={s.cardTitleContainer}>
-                        <Text style={s.cardTitle} numberOfLines={2}>{recommendation.name}</Text>
-                    </View>
-                    <Text style={s.cardPriceCorner}>{recommendation.price_range || '$'}</Text>
-                </View>
-                
-                <View style={s.cardDetails}>
-                    <ScrollView style={s.cardScrollView} showsVerticalScrollIndicator={false}>
-                        <Text style={s.cardDescription}>
-                            {recommendation.description || 'No description available'}
-                        </Text>
-                        
-                        {recommendation.reason && (
-                            <View style={s.cardReasonSection}>
-                                <Text style={s.cardReasonTitle}>Why this place?</Text>
-                                <Text style={s.cardReasonText}>{recommendation.reason}</Text>
-                            </View>
-                        )}
-                    </ScrollView>
-                    
-                    <View style={s.cardFooter}>
-                        <View style={s.cardDetailRow}>
-                            <Clock stroke="#B8A5C4" width={16} height={16} />
-                            <Text style={s.cardDetailText}>{recommendation.hours || 'Hours not available'}</Text>
-                        </View>
-                        {recommendation.address && (
-                            <View style={s.cardDetailRow}>
-                                <MapPin stroke="#B8A5C4" width={16} height={16} />
-                                <Text style={s.cardDetailText} numberOfLines={1}>
-                                    {recommendation.address}
-                                </Text>
-                            </View>
-                        )}
-                    </View>
-                </View>
-            </LinearGradient>
-        </Animated.View>
-    )
-}
 
 export default function TryVoxxy() {
     const navigation = useNavigation()
@@ -203,19 +25,9 @@ export default function TryVoxxy() {
     // ── State ─────────────────────────────────────────────────────
     const [recs, setRecs] = useState([])
     const [loadingRecs, setLoadingRecs] = useState(true)
-
     const [chatVisible, setChatVisible] = useState(false)
-    const [showLoader, setShowLoader] = useState(false)
-
+    const [showRecommendations, setShowRecommendations] = useState(false)
     const [detailRec, setDetailRec] = useState(null)
-    const [signupVisible, setSignupVisible] = useState(false)
-
-    // Swipeable states
-    const [currentCardIndex, setCurrentCardIndex] = useState(0)
-    const [likedRecommendations, setLikedRecommendations] = useState([])
-    const [passedRecommendations, setPassedRecommendations] = useState([])
-    const [showingResults, setShowingResults] = useState(false)
-    const [showSwipeModal, setShowSwipeModal] = useState(false)
 
     // ── Helper Functions ──────────────────────────────────────────
     const getOrCreateSessionToken = async () => {
@@ -262,7 +74,7 @@ export default function TryVoxxy() {
                     
                     // If we have cached recommendations, show them
                     if (recommendations.length > 0) {
-                        setShowSwipeModal(true);
+                        setShowRecommendations(true);
                     }
                 }
             } catch (error) {
@@ -282,62 +94,153 @@ export default function TryVoxxy() {
         };
     }, [])
 
-
     // ── Handlers ───────────────────────────────────────────────────
     function openPlan() { 
         setChatVisible(true) 
     }
-    
-    // Swipe handlers
-    const handleSwipeRight = (recommendation) => {
-        setLikedRecommendations(prev => [...prev, recommendation])
-        const nextIndex = currentCardIndex + 1
-        if (nextIndex >= recs.length) {
-            setShowingResults(true)
-        } else {
-            setCurrentCardIndex(nextIndex)
-        }
-    }
 
-    const handleSwipeLeft = (recommendation) => {
-        setPassedRecommendations(prev => [...prev, recommendation])
-        const nextIndex = currentCardIndex + 1
-        if (nextIndex >= recs.length) {
-            setShowingResults(true)
-        } else {
-            setCurrentCardIndex(nextIndex)
-        }
-    }
-
-    const openSwipeInterface = () => {
-        if (recs.length === 0) return
-        setCurrentCardIndex(0)
-        setLikedRecommendations([])
-        setPassedRecommendations([])
-        setShowingResults(false)
-        setShowSwipeModal(true)
-    }
-
-    const resetSwipe = () => {
-        setCurrentCardIndex(0)
-        setLikedRecommendations([])
-        setPassedRecommendations([])
-        setShowingResults(false)
-    }
+    const renderRecommendationItem = ({ item }) => (
+        <TouchableOpacity 
+            style={s.recCard}
+            onPress={() => setDetailRec(item)}
+            activeOpacity={0.7}
+        >
+            <LinearGradient
+                colors={['rgba(204, 49, 232, 0.05)', 'rgba(118, 75, 162, 0.05)']}
+                style={s.recCardGradient}
+            >
+                <View style={s.recCardContent}>
+                    <View style={s.recCardHeader}>
+                        <Text style={s.recCardName} numberOfLines={1}>{item.name}</Text>
+                        <Text style={s.recCardPrice}>{item.price_range || '$'}</Text>
+                    </View>
+                    {item.description && (
+                        <Text style={s.recCardDescription} numberOfLines={2}>
+                            {item.description}
+                        </Text>
+                    )}
+                    <View style={s.recCardFooter}>
+                        {item.address && (
+                            <View style={s.recCardInfo}>
+                                <MapPin stroke="#B8A5C4" width={14} height={14} />
+                                <Text style={s.recCardInfoText} numberOfLines={1}>
+                                    {item.address}
+                                </Text>
+                            </View>
+                        )}
+                    </View>
+                </View>
+                <ChevronRight stroke="#cc31e8" width={20} height={20} />
+            </LinearGradient>
+        </TouchableOpacity>
+    )
 
     // ── Render ─────────────────────────────────────────────────────
+    if (showRecommendations && recs.length > 0) {
+        return (
+            <SafeAreaView style={s.container}>
+                {/* Header with back button and title */}
+                <View style={s.header}>
+                    <TouchableOpacity 
+                        style={s.backButton}
+                        onPress={() => navigation.goBack()}
+                        activeOpacity={0.7}
+                    >
+                        <ArrowLeft stroke="#fff" width={20} height={20} strokeWidth={2.5} />
+                    </TouchableOpacity>
+                    <Text style={s.headerTitle}>Your Recommendations</Text>
+                    <View style={{ width: 40 }} />
+                </View>
+
+                {/* Recommendations List */}
+                <FlatList
+                    data={recs}
+                    keyExtractor={(_, i) => i.toString()}
+                    renderItem={renderRecommendationItem}
+                    contentContainerStyle={s.listContent}
+                    showsVerticalScrollIndicator={false}
+                />
+
+                {/* CTA Signup Button */}
+                <View style={s.ctaContainer}>
+                    <TouchableOpacity 
+                        style={s.ctaButton}
+                        onPress={() => navigation.navigate('SignUp')}
+                        activeOpacity={0.8}
+                    >
+                        <LinearGradient
+                            colors={['#cc31e8', '#9b1dbd']}
+                            style={s.ctaGradient}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
+                        >
+                            <Text style={s.ctaText}>Create your Voxxy account ✨</Text>
+                        </LinearGradient>
+                    </TouchableOpacity>
+                </View>
+
+                {/* Detail Modal - moved here so it's available when showing recommendations */}
+                {detailRec && (
+                    <Modal visible={!!detailRec} transparent animationType="fade">
+                        <View style={s.modalBg}>
+                            <View style={s.detailModal}>
+                                <TouchableOpacity style={s.close} onPress={() => setDetailRec(null)}>
+                                    <Text style={s.closeTxt}>✖</Text>
+                                </TouchableOpacity>
+                                
+                                <ScrollView showsVerticalScrollIndicator={false}>
+                                    <Text style={s.detailTitle}>{detailRec.name}</Text>
+                                    <Text style={s.detailMeta}>{detailRec.price_range}</Text>
+                                    
+                                    {detailRec.description && (
+                                        <Text style={s.detailDescription}>{detailRec.description}</Text>
+                                    )}
+
+                                    {detailRec.reason && (
+                                        <View style={s.detailReasonSection}>
+                                            <Text style={s.detailReasonTitle}>Why we picked this</Text>
+                                            <Text style={s.detailReasonText}>{detailRec.reason}</Text>
+                                        </View>
+                                    )}
+                                    
+                                    {detailRec.hours && (
+                                        <View style={s.detailInfoRow}>
+                                            <Clock stroke="#B8A5C4" width={16} height={16} />
+                                            <Text style={s.detailInfo}>{detailRec.hours}</Text>
+                                        </View>
+                                    )}
+                                    
+                                    {detailRec.address && (
+                                        <View style={s.detailInfoRow}>
+                                            <MapPin stroke="#B8A5C4" width={16} height={16} />
+                                            <Text style={s.detailInfo}>{detailRec.address}</Text>
+                                        </View>
+                                    )}
+                                </ScrollView>
+                            </View>
+                        </View>
+                    </Modal>
+                )}
+            </SafeAreaView>
+        )
+    }
+
     return (
         <SafeAreaView style={s.container}>
-            {/* Simple back button */}
-            <TouchableOpacity 
-                style={s.floatingBackButton}
-                onPress={() => navigation.goBack()}
-                activeOpacity={0.7}
-            >
-                <ArrowLeft stroke="#fff" width={20} height={20} strokeWidth={2.5} />
-            </TouchableOpacity>
+            {/* Header with back button and title */}
+            <View style={s.mainHeader}>
+                <TouchableOpacity 
+                    style={s.headerBackButton}
+                    onPress={() => navigation.goBack()}
+                    activeOpacity={0.7}
+                >
+                    <ArrowLeft stroke="#fff" width={20} height={20} strokeWidth={2.5} />
+                </TouchableOpacity>
+                <Text style={s.mainHeaderTitle}>Try Voxxy</Text>
+                <View style={{ width: 40 }} />
+            </View>
             
-            <ScrollView contentContainerStyle={s.inner}>
+            <ScrollView contentContainerStyle={s.inner} showsVerticalScrollIndicator={false}>
 
                 {loadingRecs ? (
                     <View style={s.loadingContainer}>
@@ -345,93 +248,58 @@ export default function TryVoxxy() {
                         <Text style={s.loadingText}>Setting up your experience...</Text>
                     </View>
                 ) : recs.length > 0 ? (
-                    <>
-                        <View style={s.actionSection}>
+                    // If we have cached recommendations, show a button to view them
+                    <TouchableOpacity 
+                        style={s.startNewActivityCard}
+                        onPress={() => setShowRecommendations(true)}
+                        activeOpacity={0.8}
+                    >
+                        <View style={s.startNewActivityOutline}>
                             <LinearGradient
-                                colors={['#cc31e8', '#764ba2']}
-                                style={s.primaryButton}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 1 }}
-                            >
-                                <TouchableOpacity style={s.buttonContent} onPress={openSwipeInterface}>
-                                    <Text style={s.primaryButtonText}>View Recommendations</Text>
-                                    <ChevronRight stroke="#fff" width={20} height={20} />
-                                </TouchableOpacity>
-                            </LinearGradient>
-                            
-                            <TouchableOpacity style={s.secondaryButton} onPress={() => setSignupVisible(true)}>
-                                <Text style={s.secondaryButtonText}>Try Again</Text>
-                            </TouchableOpacity>
-                        </View>
-                        
-                        {/* Show liked recommendations if any */}
-                        {likedRecommendations.length > 0 && (
-                            <View style={s.likedSection}>
-                                <View style={s.sectionHeader}>
-                                    <Star stroke="#D4AF37" fill="#D4AF37" width={20} height={20} />
-                                    <Text style={s.likedTitle}>Your Favorites</Text>
-                                </View>
-                                <FlatList
-                                    data={likedRecommendations}
-                                    keyExtractor={(_, i) => i.toString()}
-                                    horizontal
-                                    showsHorizontalScrollIndicator={false}
-                                    scrollEnabled={true}
-                                    renderItem={({ item }) => (
-                                        <TouchableOpacity style={s.likedCard} onPress={() => setDetailRec(item)}>
-                                            <LinearGradient
-                                                colors={['rgba(212, 175, 55, 0.1)', 'rgba(212, 175, 55, 0.05)']}
-                                                style={s.likedCardGradient}
-                                            >
-                                                <Text style={s.likedCardName} numberOfLines={1}>{item.name}</Text>
-                                                <Text style={s.likedCardMeta}>{item.price_range}</Text>
-                                            </LinearGradient>
-                                        </TouchableOpacity>
-                                    )}
-                                />
-                            </View>
-                        )}
-                        
-                        {/* Fallback list view */}
-                        <View style={s.fallbackSection}>
-                            <Text style={s.fallbackTitle}>All Recommendations</Text>
-                            <FlatList
-                                data={recs}
-                                keyExtractor={(_, i) => i.toString()}
-                                scrollEnabled={false}
-                                renderItem={({ item }) => (
-                                    <TouchableOpacity style={s.rec} onPress={() => setDetailRec(item)}>
-                                        <Text style={s.recName}>{item.name}</Text>
-                                        <Text style={s.recMeta}>{item.price_range}</Text>
-                                    </TouchableOpacity>
-                                )}
-                            />
-                        </View>
-                    </>
-                ) : (
-                    !loadingRecs && (
-                        <TouchableOpacity 
-                            style={s.startNewActivityCard}
-                            onPress={openPlan}
-                            activeOpacity={0.8}
-                        >
-                            <LinearGradient
-                                colors={['#cc31e8', '#9051e1']}
+                                colors={['rgba(204, 49, 232, 0.1)', 'rgba(144, 81, 225, 0.05)']}
                                 start={{ x: 0, y: 0 }}
                                 end={{ x: 1, y: 1 }}
                                 style={s.startNewActivityGradient}
                             >
                                 <View style={s.startNewActivityContent}>
                                     <View style={s.startNewActivityIconContainer}>
-                                        <Coffee stroke="#ffffff" width={32} height={32} strokeWidth={2.5} />
+                                        <Coffee stroke="#cc31e8" width={32} height={32} strokeWidth={2.5} />
                                     </View>
-                                    <Text style={s.startNewActivityTitle}>Find Your Next Spot</Text>
-                                    <Text style={s.startNewActivitySubtitle}>Get instant restaurant recommendations tailored to your taste</Text>
+                                    <Text style={s.startNewActivityTitle}>View Your Recommendations</Text>
+                                    <Text style={s.startNewActivitySubtitle}>You have {recs.length} restaurant recommendations ready</Text>
                                     <View style={s.readyToVibeContainer}>
-                                        <Text style={s.readyToVibeText}>Let's eat! →</Text>
+                                        <Text style={s.readyToVibeText}>View now →</Text>
                                     </View>
                                 </View>
                             </LinearGradient>
+                        </View>
+                    </TouchableOpacity>
+                ) : (
+                    !chatVisible && (
+                        <TouchableOpacity 
+                            style={s.startNewActivityCard}
+                            onPress={openPlan}
+                            activeOpacity={0.8}
+                        >
+                            <View style={s.startNewActivityOutline}>
+                                <LinearGradient
+                                    colors={['rgba(204, 49, 232, 0.1)', 'rgba(144, 81, 225, 0.05)']}
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 1 }}
+                                    style={s.startNewActivityGradient}
+                                >
+                                    <View style={s.startNewActivityContent}>
+                                        <View style={s.startNewActivityIconContainer}>
+                                            <Coffee stroke="#cc31e8" width={32} height={32} strokeWidth={2.5} />
+                                        </View>
+                                        <Text style={s.startNewActivityTitle}>Find Your Next Spot</Text>
+                                        <Text style={s.startNewActivitySubtitle}>Get instant restaurant recommendations tailored to your taste</Text>
+                                        <View style={s.readyToVibeContainer}>
+                                            <Text style={s.readyToVibeText}>Let's eat! →</Text>
+                                        </View>
+                                    </View>
+                                </LinearGradient>
+                            </View>
                         </TouchableOpacity>
                     )
                 )}
@@ -443,222 +311,16 @@ export default function TryVoxxy() {
                 onClose={() => setChatVisible(false)}
                 onChatComplete={(newRecommendations) => {
                     setRecs(newRecommendations)
-                    setChatVisible(false)
-                    // Open swipe interface when recommendations are ready
+                    // Wait for the success animation to complete before closing modal
                     setTimeout(() => {
-                        setShowSwipeModal(true)
-                    }, 500)
+                        setChatVisible(false)
+                        // Show recommendations after modal closes
+                        setTimeout(() => {
+                            setShowRecommendations(true)
+                        }, 300)
+                    }, 2100)
                 }}
             />
-
-            {/* Swipe Modal */}
-            <Modal
-                visible={showSwipeModal}
-                animationType="slide"
-                onRequestClose={() => setShowSwipeModal(false)}
-            >
-                <SafeAreaView style={s.swipeContainer}>
-                    {showingResults ? (
-                        // Results View
-                        <ScrollView style={s.resultsContainer}>
-                            <View style={s.resultsHeader}>
-                                <TouchableOpacity 
-                                    style={s.closeButton}
-                                    onPress={() => setShowSwipeModal(false)}
-                                >
-                                    <X stroke="#fff" width={24} height={24} />
-                                </TouchableOpacity>
-                                <Text style={s.resultsTitle}>Your Results!</Text>
-                                <View style={{ width: 40 }} />
-                            </View>
-
-                            {likedRecommendations.length > 0 ? (
-                                <View style={s.resultsSection}>
-                                    <LinearGradient
-                                        colors={['rgba(212, 175, 55, 0.1)', 'rgba(212, 175, 55, 0.05)']}
-                                        style={s.resultsStats}
-                                    >
-                                        <Star stroke="#D4AF37" fill="#D4AF37" width={28} height={28} />
-                                        <Text style={s.resultsStatsText}>
-                                            You liked {likedRecommendations.length} out of {recs.length} recommendations!
-                                        </Text>
-                                    </LinearGradient>
-
-                                    <FlatList
-                                        data={likedRecommendations}
-                                        keyExtractor={(_, i) => i.toString()}
-                                        scrollEnabled={false}
-                                        renderItem={({ item }) => (
-                                            <TouchableOpacity 
-                                                style={s.resultItem}
-                                                onPress={() => setDetailRec(item)}
-                                            >
-                                                <LinearGradient
-                                                    colors={['rgba(102, 126, 234, 0.05)', 'rgba(118, 75, 162, 0.05)']}
-                                                    style={s.resultGradient}
-                                                >
-                                                    <View style={s.resultContent}>
-                                                        <Text style={s.resultName}>{item.name}</Text>
-                                                        <Text style={s.resultMeta}>{item.price_range}</Text>
-                                                        <Text style={s.resultDescription} numberOfLines={2}>
-                                                            {item.description || 'No description available'}
-                                                        </Text>
-                                                    </View>
-                                                    <ChevronRight stroke="#cc31e8" width={24} height={24} />
-                                                </LinearGradient>
-                                            </TouchableOpacity>
-                                        )}
-                                    />
-
-                                    <View style={s.resultsActions}>
-                                        <TouchableOpacity style={s.compactButton} onPress={() => setSignupVisible(true)}>
-                                            <Text style={s.compactButtonText}>New Preferences</Text>
-                                        </TouchableOpacity>
-                                        <TouchableOpacity style={s.compactSignupButton} onPress={() => setSignupVisible(true)}>
-                                            <Text style={s.compactSignupButtonText}>Sign Up</Text>
-                                        </TouchableOpacity>
-                                    </View>
-                                </View>
-                            ) : (
-                                <View style={s.noLikesContainer}>
-                                    <Text style={s.noLikesTitle}>No likes this time!</Text>
-                                    <Text style={s.noLikesText}>
-                                        Maybe try adjusting your preferences or try again with different options.
-                                    </Text>
-                                    <View style={s.resultsActions}>
-                                        <TouchableOpacity style={s.compactButton} onPress={() => setSignupVisible(true)}>
-                                            <Text style={s.compactButtonText}>New Preferences</Text>
-                                        </TouchableOpacity>
-                                        <TouchableOpacity style={s.compactSignupButton} onPress={() => setSignupVisible(true)}>
-                                            <Text style={s.compactSignupButtonText}>Sign Up</Text>
-                                        </TouchableOpacity>
-                                    </View>
-                                </View>
-                            )}
-                        </ScrollView>
-                    ) : (
-                        // Swipe Interface
-                        <>
-                            <View style={s.swipeHeader}>
-                                <TouchableOpacity 
-                                    style={s.closeButton}
-                                    onPress={() => setShowSwipeModal(false)}
-                                >
-                                    <X stroke="#fff" width={24} height={24} />
-                                </TouchableOpacity>
-                                <Text style={s.swipeHeaderTitle}>Swipe Your Preferences</Text>
-                                <View style={{ width: 40 }} />
-                            </View>
-
-                            <View style={s.swipeInstructions}>
-                                <View style={s.instructionItem}>
-                                    <View style={s.swipeLeftDemo}>
-                                        <X color="#e74c3c" size={16} />
-                                    </View>
-                                    <Text style={s.instructionText}>Swipe left to pass</Text>
-                                </View>
-                                <View style={s.instructionItem}>
-                                    <View style={s.swipeRightDemo}>
-                                        <CheckCircle color="#28a745" size={16} />
-                                    </View>
-                                    <Text style={s.instructionText}>Swipe right to like</Text>
-                                </View>
-                            </View>
-
-
-                            <View style={s.cardStack}>
-                                {recs[currentCardIndex] && (
-                                    <SwipeableCard
-                                        key={recs[currentCardIndex].id || currentCardIndex}
-                                        recommendation={recs[currentCardIndex]}
-                                        onSwipeLeft={handleSwipeLeft}
-                                        onSwipeRight={handleSwipeRight}
-                                    />
-                                )}
-                                
-                                {/* Next card preview */}
-                                {recs[currentCardIndex + 1] && (
-                                    <View style={[s.swipeCard, s.nextCard]}>
-                                        <LinearGradient
-                                            colors={['#2C1E33', '#241730']}
-                                            style={s.cardGradient}
-                                        >
-                                            <Text style={s.nextCardTitle}>
-                                                {recs[currentCardIndex + 1].name}
-                                            </Text>
-                                        </LinearGradient>
-                                    </View>
-                                )}
-                            </View>
-
-                            <View style={s.swipeProgress}>
-                                <Text style={s.progressText}>
-                                    {currentCardIndex + 1} of {recs.length}
-                                </Text>
-                            </View>
-                        </>
-                    )}
-                </SafeAreaView>
-            </Modal>
-
-
-            {/* Detail Modal */}
-            {detailRec && (
-                <Modal visible={!!detailRec} transparent animationType="fade">
-                    <View style={s.modalBg}>
-                        <View style={s.detailModal}>
-                            <TouchableOpacity style={s.close} onPress={() => setDetailRec(null)}>
-                                <Text style={s.closeTxt}>✖</Text>
-                            </TouchableOpacity>
-                            
-                            <ScrollView>
-                                <Text style={s.detailTitle}>{detailRec.name}</Text>
-                                <Text style={s.detailMeta}>{detailRec.price_range}</Text>
-                                
-                                {detailRec.description && (
-                                    <Text style={s.detailDescription}>{detailRec.description}</Text>
-                                )}
-                                
-                                {detailRec.hours && (
-                                    <Text style={s.detailInfo}>Hours: {detailRec.hours}</Text>
-                                )}
-                                
-                                {detailRec.address && (
-                                    <Text style={s.detailInfo}>📍 {detailRec.address}</Text>
-                                )}
-                            </ScrollView>
-                        </View>
-                    </View>
-                </Modal>
-            )}
-
-            {/* Signup Modal */}
-            {signupVisible && (
-                <Modal visible={signupVisible} transparent animationType="fade">
-                    <View style={s.modalBg}>
-                        <View style={s.modal}>
-                            <TouchableOpacity style={s.close} onPress={() => setSignupVisible(false)}>
-                                <Text style={s.closeTxt}>✖</Text>
-                            </TouchableOpacity>
-                            
-                            <Text style={s.signupTitle}>Create an Account for More!</Text>
-                            <Text style={s.signupDescription}>
-                                Create an account for more recommendations and to plan with your group!
-                            </Text>
-                            
-                            <TouchableOpacity 
-                                style={s.btn} 
-                                onPress={() => {
-                                    setSignupVisible(false)
-                                    navigation.navigate('SignUp')
-                                }}
-                            >
-                                <Text style={s.btnText}>Create Account</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                </Modal>
-            )}
         </SafeAreaView>
     )
 }
@@ -669,80 +331,179 @@ const s = StyleSheet.create({
         backgroundColor: '#0f0f14' 
     },
     inner: { 
-        flex: 1,
+        flexGrow: 1,
         justifyContent: 'center',
         alignItems: 'center',
         padding: 24, 
-        paddingBottom: 100 
+        paddingTop: 20,
+        paddingBottom: 40 
     },
-    floatingBackButton: {
-        position: 'absolute',
-        top: 50,
-        left: 20,
+    
+    // ── Main Header Styles ─────────────────────────────
+    mainHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 20,
+        paddingVertical: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+    },
+    headerBackButton: {
         width: 40,
         height: 40,
         borderRadius: 20,
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        backgroundColor: 'rgba(255, 255, 255, 0.1)',
         justifyContent: 'center',
         alignItems: 'center',
-        zIndex: 10,
-        borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.1)',
     },
-    actionSection: {
-        marginVertical: 24,
-        gap: 16,
+    mainHeaderTitle: {
+        color: '#fff',
+        fontSize: 20,
+        fontWeight: '700',
+        fontFamily: 'Montserrat_700Bold',
     },
-    primaryButton: {
-        borderRadius: 16,
-        shadowColor: '#cc31e8',
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.3,
-        shadowRadius: 16,
-        elevation: 8,
-    },
-    buttonContent: {
+
+    // ── Header Styles ──────────────────────────────────
+    header: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: 18,
-        paddingHorizontal: 24,
-        gap: 12,
+        justifyContent: 'space-between',
+        paddingHorizontal: 20,
+        paddingVertical: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: 'rgba(255, 255, 255, 0.1)',
     },
-    primaryButtonText: {
+    backButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    headerTitle: {
+        color: '#fff',
+        fontSize: 20,
+        fontWeight: '700',
+        fontFamily: 'Montserrat_700Bold',
+    },
+
+    // ── List Styles ─────────────────────────────────────
+    listContent: {
+        padding: 20,
+        paddingBottom: 100,
+    },
+    recCard: {
+        marginBottom: 16,
+        borderRadius: 16,
+        overflow: 'hidden',
+    },
+    recCardGradient: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 16,
+        borderWidth: 1,
+        borderColor: 'rgba(204, 49, 232, 0.2)',
+        borderRadius: 16,
+    },
+    recCardContent: {
+        flex: 1,
+        marginRight: 12,
+    },
+    recCardHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 8,
+    },
+    recCardName: {
         color: '#fff',
         fontSize: 18,
         fontWeight: '700',
         fontFamily: 'Montserrat_700Bold',
+        flex: 1,
+        marginRight: 12,
     },
-    secondaryButton: {
-        backgroundColor: 'rgba(255, 255, 255, 0.1)',
-        borderRadius: 16,
-        paddingVertical: 16,
-        paddingHorizontal: 24,
-        borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.2)',
-    },
-    secondaryButtonText: {
-        color: '#fff',
+    recCardPrice: {
+        color: '#cc31e8',
         fontSize: 16,
         fontWeight: '600',
-        textAlign: 'center',
     },
+    recCardDescription: {
+        color: 'rgba(255, 255, 255, 0.7)',
+        fontSize: 14,
+        lineHeight: 20,
+        marginBottom: 12,
+    },
+    recCardFooter: {
+        gap: 8,
+    },
+    recCardInfo: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+    },
+    recCardInfoText: {
+        color: '#B8A5C4',
+        fontSize: 13,
+        flex: 1,
+    },
+
+    // ── CTA Button Styles ───────────────────────────────
+    ctaContainer: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        backgroundColor: '#0f0f14',
+        paddingHorizontal: 20,
+        paddingVertical: 16,
+        paddingBottom: 36,
+        borderTopWidth: 1,
+        borderTopColor: 'rgba(255, 255, 255, 0.1)',
+    },
+    ctaButton: {
+        borderRadius: 12,
+        overflow: 'hidden',
+        shadowColor: '#cc31e8',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 5,
+    },
+    ctaGradient: {
+        paddingVertical: 16,
+        paddingHorizontal: 24,
+        alignItems: 'center',
+    },
+    ctaText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '700',
+        fontFamily: 'Montserrat_700Bold',
+    },
+
+    // ── Start Activity Card Styles ─────────────────────
     startNewActivityCard: {
         width: '100%',
         maxWidth: 350,
         borderRadius: 28,
+        shadowColor: 'rgba(204, 49, 232, 0.4)',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.6,
+        shadowRadius: 16,
+        elevation: 15,
+    },
+    startNewActivityOutline: {
+        borderRadius: 28,
+        borderWidth: 2,
+        borderColor: '#cc31e8',
         overflow: 'hidden',
-        shadowColor: 'rgba(204, 49, 232, 0.6)',
-        shadowOffset: { width: 0, height: 12 },
-        shadowOpacity: 0.9,
-        shadowRadius: 24,
-        elevation: 25,
     },
     startNewActivityGradient: {
-        borderRadius: 28,
-        padding: 4,
+        borderRadius: 26,
+        backgroundColor: 'rgba(15, 15, 20, 0.8)',
     },
     startNewActivityContent: {
         alignItems: 'center',
@@ -755,16 +516,12 @@ const s = StyleSheet.create({
         width: 64,
         height: 64,
         borderRadius: 32,
-        backgroundColor: 'rgba(255, 255, 255, 0.15)',
+        backgroundColor: 'rgba(204, 49, 232, 0.1)',
         justifyContent: 'center',
         alignItems: 'center',
         marginBottom: 8,
-        shadowColor: 'rgba(0, 0, 0, 0.2)',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 1,
-        shadowRadius: 8,
         borderWidth: 2,
-        borderColor: 'rgba(255, 255, 255, 0.2)',
+        borderColor: 'rgba(204, 49, 232, 0.3)',
     },
     startNewActivityTitle: {
         color: '#ffffff',
@@ -773,12 +530,9 @@ const s = StyleSheet.create({
         textAlign: 'center',
         lineHeight: 28,
         fontFamily: 'Montserrat_700Bold',
-        textShadowColor: 'rgba(0, 0, 0, 0.3)',
-        textShadowOffset: { width: 0, height: 1 },
-        textShadowRadius: 2,
     },
     startNewActivitySubtitle: {
-        color: 'rgba(255, 255, 255, 0.95)',
+        color: 'rgba(255, 255, 255, 0.8)',
         fontSize: 16,
         fontWeight: '500',
         textAlign: 'center',
@@ -786,21 +540,18 @@ const s = StyleSheet.create({
         paddingHorizontal: 10,
     },
     readyToVibeContainer: {
-        backgroundColor: 'rgba(255, 255, 255, 0.25)',
+        backgroundColor: 'rgba(204, 49, 232, 0.15)',
         paddingHorizontal: 28,
         paddingVertical: 12,
         borderRadius: 24,
         marginTop: 12,
-        borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.35)',
+        borderWidth: 2,
+        borderColor: 'rgba(204, 49, 232, 0.3)',
     },
     readyToVibeText: {
-        color: '#ffffff',
+        color: '#cc31e8',
         fontSize: 16,
         fontWeight: '700',
-        textShadowColor: 'rgba(0, 0, 0, 0.2)',
-        textShadowOffset: { width: 0, height: 1 },
-        textShadowRadius: 2,
     },
     loadingContainer: {
         flex: 1,
@@ -813,203 +564,66 @@ const s = StyleSheet.create({
         fontSize: 16,
         marginTop: 16,
     },
-    btn: { backgroundColor: '#9d60f8', padding: 12, borderRadius: 8 },
-    btnText: { color: '#fff', fontWeight: '600' },
-    rec: { backgroundColor: '#1a1a27', padding: 16, borderRadius: 8, marginVertical: 6 },
-    recName: { color: '#fff', fontWeight: '600', fontSize: 16 },
-    recMeta: { color: '#bbb', fontSize: 14, marginTop: 4 },
 
-    modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'center', alignItems: 'center' },
-    modal: { backgroundColor: '#1a1a27', padding: 25, paddingTop: 45, width: '85%', borderRadius: 8 },
-
-    close: { position: 'absolute', top: 15, right: 15, zIndex: 10 },
-    closeTxt: { fontSize: 18, color: '#bbb' },
-
-    label: { fontSize: 14, color: '#bbb', marginBottom: 4 },
-    input: { backgroundColor: '#262635', color: '#fff', padding: 8, borderRadius: 4, marginBottom: 12 },
-
-    smallBtn: { alignSelf: 'flex-start', padding: 6, borderRadius: 4, backgroundColor: '#444' },
-    smallBtnActive: { backgroundColor: '#9d60f8' },
-    smallBtnTxt: { color: '#fff' },
-
-    chip: {
-        borderWidth: 1, borderColor: '#9d60f8',
-        borderRadius: 16, paddingVertical: 6,
-        paddingHorizontal: 12, marginRight: 8,
+    // ── Modal Styles ────────────────────────────────────
+    modalBg: { 
+        flex: 1, 
+        backgroundColor: 'rgba(0,0,0,0.8)', 
+        justifyContent: 'center', 
+        alignItems: 'center' 
     },
-    chipSelected: { backgroundColor: '#9d60f8' },
-    chipText: { color: '#9d60f8', fontSize: 14 },
-    chipTextSelected: { color: '#fff' },
-
-    // ── Swipe Interface Styles ─────────────────────────
-
-    swipeContainer: {
-        flex: 1,
-        backgroundColor: '#0f0f14',
+    detailModal: {
+        backgroundColor: '#1a1a27',
+        width: '90%',
+        maxHeight: '80%',
+        borderRadius: 16,
+        padding: 24,
     },
-    
-    swipeHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: 20,
-        paddingVertical: 15,
-        borderBottomWidth: 1,
-        borderBottomColor: 'rgba(255, 255, 255, 0.1)',
-    },
-    
-    swipeHeaderTitle: {
-        color: '#fff',
-        fontSize: 22,
-        fontWeight: '700',
-        fontFamily: 'Montserrat_700Bold',
-    },
-    
-    closeButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
+    close: { 
+        position: 'absolute', 
+        top: 16, 
+        right: 16, 
+        zIndex: 10,
+        width: 32,
+        height: 32,
+        borderRadius: 16,
         backgroundColor: 'rgba(255, 255, 255, 0.1)',
         justifyContent: 'center',
         alignItems: 'center',
     },
-    
-    
-    swipeInstructions: {
-        flexDirection: 'row',
-        justifyContent: 'center',
-        paddingVertical: 16,
-        paddingHorizontal: 24,
-        gap: 32,
-        backgroundColor: 'rgba(255, 255, 255, 0.03)',
-        marginHorizontal: 24,
-        marginTop: 8,
-        borderRadius: 16,
-        marginBottom: 24,
+    closeTxt: { 
+        fontSize: 16, 
+        color: '#fff' 
     },
-    
-    instructionItem: {
-        alignItems: 'center',
-        gap: 8,
-    },
-    
-    swipeLeftDemo: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        backgroundColor: 'rgba(231, 76, 60, 0.2)',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    
-    swipeRightDemo: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        backgroundColor: 'rgba(40, 167, 69, 0.2)',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    
-    instructionText: {
-        color: 'rgba(255, 255, 255, 0.7)',
-        fontSize: 14,
-        fontWeight: '500',
-    },
-    
-    cardStack: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        paddingHorizontal: 20,
-    },
-    
-    swipeCard: {
-        width: screenWidth - 40,
-        height: 520,
-        borderRadius: 24,
-        position: 'absolute',
-        shadowColor: '#cc31e8',
-        shadowOffset: { width: 0, height: 12 },
-        shadowOpacity: 0.35,
-        shadowRadius: 20,
-        elevation: 12,
-        backgroundColor: '#3A2D44',
-    },
-    
-    nextCard: {
-        opacity: 0.6,
-        transform: [{ scale: 0.95 }],
-        zIndex: -1,
-    },
-    
-    cardGradient: {
-        flex: 1,
-        borderRadius: 24,
-        padding: 20,
-        overflow: 'hidden',
-    },
-    
-    cardHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'flex-start',
-        marginBottom: 20,
-        minHeight: 60,
-    },
-    
-    cardTitleContainer: {
-        flex: 1,
-        marginRight: 16,
-    },
-    
-    cardTitle: {
+    detailTitle: {
         color: '#fff',
-        fontSize: 26,
+        fontSize: 24,
         fontWeight: '700',
         fontFamily: 'Montserrat_700Bold',
-        lineHeight: 32,
+        marginBottom: 8,
+        marginTop: 8,
     },
-    
-    cardPriceCorner: {
-        color: '#D4AF37',
+    detailMeta: {
+        color: '#cc31e8',
         fontSize: 18,
-        fontWeight: '700',
-        fontFamily: 'Montserrat_700Bold',
-        backgroundColor: 'rgba(212, 175, 55, 0.15)',
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 12,
+        fontWeight: '600',
+        marginBottom: 20,
     },
-    
-    cardDetails: {
-        flex: 1,
-        justifyContent: 'space-between',
-    },
-    
-    cardScrollView: {
-        flex: 1,
-        marginBottom: 16,
-    },
-    
-    cardDescription: {
+    detailDescription: {
         color: 'rgba(255, 255, 255, 0.85)',
         fontSize: 16,
         lineHeight: 24,
-        marginBottom: 16,
-        fontWeight: '500',
+        marginBottom: 20,
     },
-    
-    cardReasonSection: {
-        backgroundColor: 'rgba(102, 126, 234, 0.1)',
-        borderRadius: 16,
+    detailReasonSection: {
+        backgroundColor: 'rgba(204, 49, 232, 0.1)',
+        borderRadius: 12,
         padding: 16,
-        marginTop: 16,
+        marginBottom: 20,
         borderWidth: 1,
-        borderColor: 'rgba(102, 126, 234, 0.2)',
+        borderColor: 'rgba(204, 49, 232, 0.2)',
     },
-    
-    cardReasonTitle: {
+    detailReasonTitle: {
         color: '#cc31e8',
         fontSize: 14,
         fontWeight: '700',
@@ -1018,498 +632,20 @@ const s = StyleSheet.create({
         textTransform: 'uppercase',
         letterSpacing: 0.5,
     },
-    
-    cardReasonText: {
+    detailReasonText: {
         color: 'rgba(255, 255, 255, 0.9)',
         fontSize: 15,
         lineHeight: 22,
-        fontWeight: '500',
     },
-    
-    cardFooter: {
-        borderTopWidth: 1,
-        borderTopColor: 'rgba(255, 255, 255, 0.1)',
-        paddingTop: 16,
-        gap: 12,
-    },
-    
-    cardDetailRow: {
+    detailInfoRow: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 8,
-    },
-    
-    cardDetailText: {
-        color: '#B8A5C4',
-        fontSize: 14,
-        fontWeight: '600',
-        flex: 1,
-    },
-    
-    swipeIndicator: {
-        position: 'absolute',
-        top: 50,
-        padding: 14,
-        borderRadius: 16,
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 10,
-        zIndex: 10,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.25,
-        shadowRadius: 8,
-        elevation: 6,
-    },
-    
-    likeIndicator: {
-        right: 24,
-        backgroundColor: 'rgba(40, 167, 69, 0.95)',
-    },
-    
-    passIndicator: {
-        left: 24,
-        backgroundColor: 'rgba(231, 76, 60, 0.95)',
-    },
-    
-    likeText: {
-        color: '#fff',
-        fontSize: 18,
-        fontWeight: '700',
-        fontFamily: 'Montserrat_700Bold',
-        letterSpacing: 0.5,
-    },
-    
-    passText: {
-        color: '#fff',
-        fontSize: 18,
-        fontWeight: '700',
-        fontFamily: 'Montserrat_700Bold',
-        letterSpacing: 0.5,
-    },
-    
-    swipeProgress: {
-        paddingVertical: 20,
-        alignItems: 'center',
-    },
-    
-    progressText: {
-        color: 'rgba(255, 255, 255, 0.7)',
-        fontSize: 16,
-        fontWeight: '500',
-    },
-    
-    nextCardTitle: {
-        color: 'rgba(255, 255, 255, 0.6)',
-        fontSize: 18,
-        fontWeight: '600',
-        textAlign: 'center',
-        marginTop: 20,
-    },
-
-    // ── Results Styles ─────────────────────────────────
-
-    resultsContainer: {
-        flex: 1,
-    },
-    
-    resultsHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: 20,
-        paddingVertical: 15,
-        borderBottomWidth: 1,
-        borderBottomColor: 'rgba(255, 255, 255, 0.1)',
-    },
-    
-    resultsTitle: {
-        color: '#fff',
-        fontSize: 20,
-        fontWeight: '700',
-        fontFamily: 'Montserrat_700Bold',
-    },
-    
-    resultsSection: {
-        padding: 20,
-    },
-    
-    resultsStats: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 20,
-        borderRadius: 16,
-        marginBottom: 24,
-        gap: 16,
-        borderWidth: 1,
-        borderColor: 'rgba(212, 175, 55, 0.2)',
-    },
-    
-    resultsStatsText: {
-        color: '#fff',
-        fontSize: 16,
-        fontWeight: '600',
-        flex: 1,
-    },
-    
-    resultItem: {
-        marginBottom: 16,
-        borderRadius: 16,
-        overflow: 'hidden',
-        shadowColor: '#cc31e8',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-        elevation: 3,
-    },
-    
-    resultGradient: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 16,
-        borderWidth: 1,
-        borderColor: 'rgba(102, 126, 234, 0.15)',
-    },
-    
-    resultContent: {
-        flex: 1,
-        marginRight: 12,
-    },
-    
-    resultName: {
-        color: '#fff',
-        fontSize: 16,
-        fontWeight: '600',
-        marginBottom: 4,
-    },
-    
-    resultMeta: {
-        color: '#B8A5C4',
-        fontSize: 14,
-        marginBottom: 4,
-    },
-    
-    resultDescription: {
-        color: 'rgba(255, 255, 255, 0.7)',
-        fontSize: 13,
-        lineHeight: 18,
-    },
-    
-    resultsActions: {
-        flexDirection: 'row',
-        gap: 12,
-        marginTop: 20,
-    },
-    
-    compactButton: {
-        flex: 1,
-        backgroundColor: 'rgba(255, 255, 255, 0.08)',
-        paddingVertical: 12,
-        paddingHorizontal: 16,
-        borderRadius: 8,
-        alignItems: 'center',
-        borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.15)',
-    },
-    
-    compactButtonText: {
-        color: '#fff',
-        fontSize: 14,
-        fontWeight: '600',
-    },
-    
-    compactSignupButton: {
-        flex: 1,
-        backgroundColor: '#cc31e8',
-        paddingVertical: 12,
-        paddingHorizontal: 16,
-        borderRadius: 8,
-        alignItems: 'center',
-        shadowColor: '#cc31e8',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.3,
-        shadowRadius: 4,
-        elevation: 3,
-    },
-    
-    compactSignupButtonText: {
-        color: '#fff',
-        fontSize: 14,
-        fontWeight: '700',
-    },
-    
-    noLikesContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        paddingHorizontal: 40,
-    },
-    
-    noLikesTitle: {
-        color: '#fff',
-        fontSize: 24,
-        fontWeight: '700',
-        fontFamily: 'Montserrat_700Bold',
-        marginBottom: 12,
-        textAlign: 'center',
-    },
-    
-    noLikesText: {
-        color: 'rgba(255, 255, 255, 0.7)',
-        fontSize: 16,
-        textAlign: 'center',
-        lineHeight: 24,
-        marginBottom: 32,
-    },
-
-    // ── Additional Main Screen Styles ──────────────────
-
-    
-    likedSection: {
-        marginTop: 32,
-        marginBottom: 24,
-    },
-    
-    sectionHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-        marginBottom: 16,
-    },
-    
-    likedTitle: {
-        color: '#fff',
-        fontSize: 20,
-        fontWeight: '700',
-        fontFamily: 'Montserrat_700Bold',
-    },
-    
-    likedCard: {
-        marginRight: 12,
-        borderRadius: 16,
-        overflow: 'hidden',
-        width: 160,
-    },
-    
-    likedCardGradient: {
-        padding: 16,
-        borderWidth: 1,
-        borderColor: 'rgba(212, 175, 55, 0.2)',
-        height: 80,
-        justifyContent: 'center',
-    },
-    
-    likedCardName: {
-        color: '#fff',
-        fontSize: 16,
-        fontWeight: '600',
-        marginBottom: 4,
-    },
-    
-    likedCardMeta: {
-        color: '#D4AF37',
-        fontSize: 14,
-        fontWeight: '600',
-    },
-    
-    fallbackSection: {
-        marginTop: 20,
-    },
-    
-    fallbackTitle: {
-        color: 'rgba(255, 255, 255, 0.7)',
-        fontSize: 16,
-        fontWeight: '600',
         marginBottom: 12,
     },
-
-    // ── Chat Modal Styles ──────────────────────────────
-
-    chatModal: {
-        backgroundColor: '#1a1a27',
-        height: '70%',
-        width: '90%',
-        borderRadius: 12,
-        padding: 16,
-        maxHeight: 500,
-    },
-
-    chatScroll: {
-        flex: 1,
-        marginBottom: 16,
-    },
-
-    chatContent: {
-        paddingBottom: 16,
-    },
-
-    message: {
-        backgroundColor: 'rgba(255, 255, 255, 0.1)',
-        padding: 12,
-        borderRadius: 12,
-        marginBottom: 8,
-        alignSelf: 'flex-start',
-        maxWidth: '80%',
-    },
-
-    messageMe: {
-        backgroundColor: '#9d60f8',
-        alignSelf: 'flex-end',
-    },
-
-    messageText: {
-        color: '#fff',
-        fontSize: 14,
-        lineHeight: 20,
-    },
-
-    messageTextMe: {
-        color: '#fff',
-    },
-
-    chatInput: {
-        flexDirection: 'row',
-        alignItems: 'flex-end',
-        gap: 12,
-        paddingTop: 12,
-        borderTopWidth: 1,
-        borderTopColor: 'rgba(255, 255, 255, 0.1)',
-    },
-
-    chatTextInput: {
-        flex: 1,
-        backgroundColor: 'rgba(255, 255, 255, 0.1)',
-        color: '#fff',
-        padding: 12,
-        borderRadius: 8,
-        maxHeight: 80,
-        fontSize: 14,
-    },
-
-    chatSendBtn: {
-        backgroundColor: '#9d60f8',
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        borderRadius: 8,
-    },
-
-    chatSendText: {
-        color: '#fff',
-        fontSize: 14,
-        fontWeight: '600',
-    },
-
-    loaderContainer: {
-        alignItems: 'center',
-        paddingVertical: 20,
-    },
-
-    loaderText: {
-        color: '#fff',
-        fontSize: 14,
-        marginTop: 12,
-    },
-
-    // ── Options Selection Styles ──────────────────────
-
-    optionsContainer: {
-        paddingTop: 12,
-        borderTopWidth: 1,
-        borderTopColor: 'rgba(255, 255, 255, 0.1)',
-    },
-
-    optionsTitle: {
-        color: 'rgba(255, 255, 255, 0.7)',
-        fontSize: 14,
-        marginBottom: 12,
-        textAlign: 'center',
-    },
-
-    optionsGrid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 8,
-        justifyContent: 'center',
-    },
-
-    optionButton: {
-        backgroundColor: 'rgba(255, 255, 255, 0.1)',
-        paddingHorizontal: 20,
-        paddingVertical: 12,
-        borderRadius: 20,
-        borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.2)',
-        marginBottom: 8,
-    },
-
-    optionButtonText: {
-        color: '#fff',
-        fontSize: 14,
-        fontWeight: '600',
-    },
-
-    debugText: {
-        color: '#ff0000',
-        fontSize: 12,
-        textAlign: 'center',
-        marginBottom: 8,
-    },
-
-    // ── Detail Modal Styles ────────────────────────────
-
-    detailModal: {
-        backgroundColor: '#1a1a27',
-        width: '90%',
-        maxHeight: '80%',
-        borderRadius: 12,
-        padding: 20,
-    },
-
-    detailTitle: {
-        color: '#fff',
-        fontSize: 22,
-        fontWeight: '700',
-        fontFamily: 'Montserrat_700Bold',
-        marginBottom: 8,
-    },
-
-    detailMeta: {
-        color: '#D4AF37',
-        fontSize: 16,
-        fontWeight: '600',
-        marginBottom: 16,
-    },
-
-    detailDescription: {
-        color: 'rgba(255, 255, 255, 0.8)',
-        fontSize: 15,
-        lineHeight: 22,
-        marginBottom: 16,
-    },
-
     detailInfo: {
         color: '#B8A5C4',
-        fontSize: 14,
-        marginBottom: 8,
-    },
-
-    // ── Signup Modal Styles ────────────────────────────
-
-    signupTitle: {
-        color: '#fff',
-        fontSize: 20,
-        fontWeight: '700',
-        fontFamily: 'Montserrat_700Bold',
-        textAlign: 'center',
-        marginBottom: 16,
-        paddingRight: 30, // Add padding to avoid X button
-    },
-
-    signupDescription: {
-        color: 'rgba(255, 255, 255, 0.8)',
         fontSize: 15,
-        lineHeight: 22,
-        textAlign: 'center',
-        marginBottom: 24,
+        flex: 1,
     },
 })
