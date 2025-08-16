@@ -14,6 +14,7 @@ import {
     Dimensions,
 } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
+import * as Haptics from 'expo-haptics'
 import {
     FormStyles,
     GradientButton,
@@ -241,6 +242,11 @@ export default function NightOutResponseForm({
 
     // Navigation
     const handleNext = () => {
+        try {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+        } catch (e) {
+            // Haptics not available
+        }
         const totalSteps = getTotalSteps()
         if (step < totalSteps) {
             fadeAnim.setValue(0)
@@ -251,6 +257,11 @@ export default function NightOutResponseForm({
     }
 
     const handleBack = () => {
+        try {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+        } catch (e) {
+            // Haptics not available
+        }
         if (step > 1) {
             fadeAnim.setValue(0)
             setStep(step - 1)
@@ -1078,14 +1089,16 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(255, 69, 69, 0.15)',
         borderWidth: 2,
         borderColor: 'rgba(255, 69, 69, 0.3)',
-        borderRadius: 8,
-        paddingVertical: 12,
-        paddingHorizontal: 16,
+        borderRadius: 12,
+        paddingVertical: 16,
+        paddingHorizontal: 20,
+        minHeight: 52,
+        justifyContent: 'center',
     },
 
     closeButtonText: {
         color: '#ff4545',
-        fontSize: 14,
+        fontSize: 16,
         fontWeight: '600',
         textAlign: 'center',
     },
@@ -1094,9 +1107,11 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(255, 255, 255, 0.1)',
         borderWidth: 2,
         borderColor: 'rgba(255, 255, 255, 0.2)',
-        borderRadius: 8,
-        paddingVertical: 12,
-        paddingHorizontal: 16,
+        borderRadius: 12,
+        paddingVertical: 16,
+        paddingHorizontal: 20,
+        minHeight: 52,
+        justifyContent: 'center',
     },
 
     backButtonDisabled: {
@@ -1105,7 +1120,7 @@ const styles = StyleSheet.create({
 
     backButtonText: {
         color: '#fff',
-        fontSize: 14,
+        fontSize: 16,
         fontWeight: '600',
         textAlign: 'center',
     },
@@ -1116,8 +1131,9 @@ const styles = StyleSheet.create({
 
     nextButton: {
         flex: 1,
-        borderRadius: 8,
+        borderRadius: 12,
         overflow: 'hidden',
+        minHeight: 52,
     },
 
     nextButtonDisabled: {
@@ -1125,9 +1141,11 @@ const styles = StyleSheet.create({
     },
 
     nextButtonGradient: {
-        paddingVertical: 12,
+        paddingVertical: 16,
         paddingHorizontal: 20,
         alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: 52,
     },
 
     nextButtonText: {

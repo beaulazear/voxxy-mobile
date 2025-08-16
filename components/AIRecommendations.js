@@ -1072,14 +1072,13 @@ export default function AIRecommendations({
                 { text: 'Cancel', style: 'cancel' },
                 { text: 'Save & Complete', onPress: async () => {
                     try {
-                        console.log('=== SAVING FAVORITES AS USER ACTIVITIES ===');
-                        console.log('Favorites to save:', favoriteRecommendations.map(f => ({ id: f.id, title: f.title })));
+                        // Saving favorites as user activities
                         
                         // Toggle favorite on pinned_activities to create user_activities
                         const saveFavoritePromises = favoriteRecommendations.map(async (favorite) => {
                             // Each favorite is a pinned_activity that needs to be marked as favorite
                             if (!favorite.id) {
-                                console.error('Favorite recommendation missing ID:', favorite);
+                                logger.error('Favorite recommendation missing ID:', favorite);
                                 return null;
                             }
 
@@ -1092,7 +1091,7 @@ export default function AIRecommendations({
                                 );
                                 return { ok: true, data: response };
                             } catch (error) {
-                                console.error('Failed to toggle favorite on pinned_activity:', {
+                                logger.error('Failed to toggle favorite on pinned_activity:', {
                                     error: error.message,
                                     pinnedActivityId: favorite.id,
                                     favoriteName: favorite.title
@@ -1105,7 +1104,7 @@ export default function AIRecommendations({
                         const saveFlaggedPromises = flaggedRecommendations.map(async (flagged) => {
                             // Each flagged is a pinned_activity that needs to be marked as flagged
                             if (!flagged.id) {
-                                console.error('Flagged recommendation missing ID:', flagged);
+                                logger.error('Flagged recommendation missing ID:', flagged);
                                 return null;
                             }
 
@@ -1118,7 +1117,7 @@ export default function AIRecommendations({
                                 );
                                 return { ok: true, data: response };
                             } catch (error) {
-                                console.error('Failed to toggle flag on pinned_activity:', {
+                                logger.error('Failed to toggle flag on pinned_activity:', {
                                     error: error.message,
                                     pinnedActivityId: flagged.id,
                                     flaggedName: flagged.title
@@ -1136,14 +1135,15 @@ export default function AIRecommendations({
                         const successfulFavorites = favoriteResults.filter(r => r && r.ok);
                         const successfulFlagged = flaggedResults.filter(r => r && r.ok);
                         
-                        console.log('Successfully marked as favorites:', successfulFavorites.length);
-                        console.log('Successfully marked as flagged:', successfulFlagged.length);
+                        // Track successful saves
+                        logger.debug('Successfully marked as favorites:', successfulFavorites.length);
+                        logger.debug('Successfully marked as flagged:', successfulFlagged.length);
                         
                         // Check for any failed saves
                         const allResults = [...favoriteResults, ...flaggedResults];
                         const failedSaves = allResults.filter(r => r && !r.ok);
                         if (failedSaves.length > 0) {
-                            console.error('Some saves failed:', failedSaves.length);
+                            logger.warn('Some saves failed:', failedSaves.length);
                         }
 
                         // Mark the activity as completed
@@ -1180,10 +1180,11 @@ export default function AIRecommendations({
                             Alert.alert('Success!', successMessage);
                         }, 500);
                     } catch (error) {
-                        console.error('=== FAVORITES SAVE ERROR ===');
-                        console.error('Error details:', error);
-                        console.error('Error message:', error.message);
-                        console.error('Error stack:', error.stack);
+                        logger.error('Favorites save error:', {
+                            details: error,
+                            message: error.message,
+                            stack: error.stack
+                        });
                         Alert.alert('Error', 'Failed to save and complete activity. Please try again.');
                     }
                 }}
@@ -1454,11 +1455,7 @@ export default function AIRecommendations({
 
     // VOTING PHASE (Swipeable Cards) - OWNER ONLY
     if (!collecting && !finalized && voting && pinnedActivities.length > 0) {
-        console.log('🔍 DEBUG: Voting phase check - isOwner:', isOwner, 'user.id:', user?.id, '(type:', typeof user?.id, ')');
-        console.log('🔍 DEBUG: activity.user_id:', activity?.user_id, '(type:', typeof activity?.user_id, ')');
-        console.log('🔍 DEBUG: activity.user?.id:', activity?.user?.id, '(type:', typeof activity?.user?.id, ')');
-        console.log('🔍 DEBUG: First check (user.id == activity.user_id):', user?.id == activity?.user_id);
-        console.log('🔍 DEBUG: Second check (user.id == activity.user?.id):', user?.id == activity?.user?.id);
+        // Check if user is the owner of the activity
         
         // Only the activity owner can swipe through recommendations
         if (!isOwner) {
@@ -1578,96 +1575,151 @@ export default function AIRecommendations({
             );
         }
 
-        // Show swipeable cards in full-screen modal
-        const currentCard = pinnedActivities[currentCardIndex];
-        const remainingCards = pinnedActivities.length - currentCardIndex;
-
+        // Show all recommendations as cards
         return (
-            <Modal
-                visible={true}
-                animationType="slide"
-                onRequestClose={() => setShowingResults(true)}
-            >
-                <SafeAreaView style={styles.swipeContainer}>
-                    <View style={styles.swipeHeader}>
-                        {/* Removed X button - using Skip to Results instead */}
-                        <View style={{ width: 40 }} />
-                        <View style={styles.swipeHeaderCenter}>
-                            <Text style={styles.swipeHeaderTitle}>AI Recommendations</Text>
-                        </View>
-                        <View style={styles.swipeHeaderRight} />
-                    </View>
+            <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+                <View style={styles.header}>
+                    <Text style={styles.heading}>AI Recommendations</Text>
+                    <Text style={styles.subheading}>
+                        Review and select your favorites
+                    </Text>
+                </View>
 
-                    <View style={styles.swipeInstructions}>
-                        <View style={styles.instructionItem}>
-                            <View style={styles.swipeLeftDemo}>
-                                <Icons.X color="#e74c3c" size={16} />
-                            </View>
-                            <Text style={styles.instructionText}>Swipe left to pass</Text>
-                        </View>
-                        <View style={styles.instructionItem}>
-                            <View style={styles.swipeRightDemo}>
-                                <Icons.CheckCircle color="#28a745" size={16} />
-                            </View>
-                            <Text style={styles.instructionText}>Swipe right to like</Text>
-                        </View>
-                    </View>
-
-                    <View style={styles.cardStack}>
-                        {currentCard && (
-                            <SwipeableCard
-                                key={currentCard.id}
-                                recommendation={currentCard}
-                                onSwipeLeft={handleSwipeLeft}
-                                onSwipeRight={handleSwipeRight}
-                                onFlag={handleFlag}
-                                onFavorite={handleFavorite}
-                                onViewDetails={openDetail}
-                                isGameNight={isGameNightActivity}
-                            />
-                        )}
+                {/* Display all recommendations */}
+                <View style={styles.recommendationsGrid}>
+                    {pinnedActivities.map((recommendation) => {
+                        const isFavorited = likedRecommendations.some(rec => rec.id === recommendation.id);
+                        const isFlagged = flaggedRecommendations.some(rec => rec.id === recommendation.id);
                         
-                        {/* Show next card in stack */}
-                        {pinnedActivities[currentCardIndex + 1] && (
-                            <View style={[styles.swipeCard, styles.nextCard]}>
+                        return (
+                            <TouchableOpacity 
+                                key={recommendation.id}
+                                style={[
+                                    styles.recommendationCard,
+                                    isFavorited && styles.recommendationCardFavorited
+                                ]}
+                                onPress={() => openDetail(recommendation)}
+                                activeOpacity={0.7}
+                            >
                                 <LinearGradient
-                                    colors={['#2C1E33', '#241730']}
-                                    style={styles.cardGradient}
+                                    colors={isFavorited ? ['rgba(212, 175, 55, 0.15)', 'rgba(212, 175, 55, 0.08)'] : ['rgba(204, 49, 232, 0.08)', 'rgba(155, 29, 189, 0.05)']}
+                                    style={styles.recCardGradient}
                                 >
-                                    <Text style={styles.nextCardTitle}>
-                                        {pinnedActivities[currentCardIndex + 1].title}
-                                    </Text>
+                                    <View style={styles.recCardContent}>
+                                        <Text style={styles.recCardTitle} numberOfLines={2}>
+                                            {recommendation.title}
+                                        </Text>
+                                        
+                                        {recommendation.price_range && (
+                                            <View style={styles.recCardInfo}>
+                                                <Icons.DollarSign size={14} />
+                                                <Text style={styles.recCardInfoText}>{recommendation.price_range}</Text>
+                                            </View>
+                                        )}
+                                        
+                                        {recommendation.address && !isGameNightActivity && (
+                                            <View style={styles.recCardInfo}>
+                                                <Icons.MapPin size={14} />
+                                                <Text style={styles.recCardInfoText} numberOfLines={1}>
+                                                    {recommendation.address}
+                                                </Text>
+                                            </View>
+                                        )}
+                                        
+                                        {recommendation.hours && (
+                                            <View style={styles.recCardInfo}>
+                                                <Icons.Clock size={14} />
+                                                <Text style={styles.recCardInfoText}>
+                                                    {isGameNightActivity ? `Play time: ${recommendation.hours}` : recommendation.hours}
+                                                </Text>
+                                            </View>
+                                        )}
+                                        
+                                        {recommendation.reason && (
+                                            <Text style={styles.recCardReason} numberOfLines={3}>
+                                                {recommendation.reason}
+                                            </Text>
+                                        )}
+                                    </View>
+                                    
+                                    {/* Action buttons */}
+                                    <View style={styles.recCardActions}>
+                                        <TouchableOpacity 
+                                            style={[
+                                                styles.recActionButton,
+                                                isFlagged && styles.recActionButtonActive
+                                            ]}
+                                            onPress={(e) => {
+                                                e.stopPropagation();
+                                                if (isFlagged) {
+                                                    // Remove from flagged
+                                                    setFlaggedRecommendations(prev => 
+                                                        prev.filter(item => item.id !== recommendation.id)
+                                                    );
+                                                } else {
+                                                    // Add to flagged
+                                                    setFlaggedRecommendations(prev => [...prev, recommendation]);
+                                                    Alert.alert('Flagged', 'This recommendation has been flagged.');
+                                                }
+                                            }}
+                                        >
+                                            <Icons.Flag color={isFlagged ? "#e74c3c" : "#999"} size={16} />
+                                        </TouchableOpacity>
+                                        
+                                        <TouchableOpacity 
+                                            style={[
+                                                styles.recActionButton,
+                                                isFavorited && styles.recActionButtonFavorited
+                                            ]}
+                                            onPress={(e) => {
+                                                e.stopPropagation();
+                                                if (isFavorited) {
+                                                    // Remove from liked
+                                                    setLikedRecommendations(prev => 
+                                                        prev.filter(item => item.id !== recommendation.id)
+                                                    );
+                                                } else {
+                                                    // Add to liked with favorite flag
+                                                    setLikedRecommendations(prev => [
+                                                        ...prev, 
+                                                        { ...recommendation, isFavorite: true }
+                                                    ]);
+                                                }
+                                            }}
+                                        >
+                                            <Icons.Star color={isFavorited ? "#D4AF37" : "#999"} size={16} />
+                                        </TouchableOpacity>
+                                    </View>
                                 </LinearGradient>
-                            </View>
-                        )}
-                    </View>
+                            </TouchableOpacity>
+                        );
+                    })}
+                </View>
 
-                    {/* Test buttons for debugging */}
-                    <View style={styles.testButtons}>
-                        <TouchableOpacity 
-                            style={styles.testButton} 
-                            onPress={() => currentCard && handleSwipeLeft(currentCard)}
-                        >
-                            <Icons.X color="#e74c3c" size={24} />
-                            <Text style={styles.testButtonText}>Pass</Text>
-                        </TouchableOpacity>
-                        
-                        <TouchableOpacity 
-                            style={styles.testButton} 
-                            onPress={() => currentCard && handleSwipeRight(currentCard)}
-                        >
-                            <Icons.CheckCircle color="#28a745" size={24} />
-                            <Text style={styles.testButtonText}>Like</Text>
-                        </TouchableOpacity>
-                    </View>
-
-                    {/* Skip button */}
-                    {remainingCards > 1 && (
-                        <TouchableOpacity style={styles.skipButton} onPress={() => setShowingResults(true)}>
-                            <Icons.FastForward />
-                            <Text style={styles.skipButtonText}>Skip to Results</Text>
-                        </TouchableOpacity>
-                    )}
+                {/* Bottom actions */}
+                <View style={styles.bottomActionsContainer}>
+                    <TouchableOpacity 
+                        style={[
+                            styles.saveFavoriteButton,
+                            likedRecommendations.length === 0 && styles.buttonDisabled
+                        ]} 
+                        onPress={handleSaveFavoriteAndComplete}
+                        disabled={likedRecommendations.length === 0}
+                    >
+                        <Icons.Star color="#fff" size={18} />
+                        <Text style={styles.saveFavoriteButtonText}>
+                            Save {likedRecommendations.length || 'No'} Favorites & Complete
+                        </Text>
+                    </TouchableOpacity>
+                    
+                    <TouchableOpacity 
+                        style={styles.finalizeActivityButton} 
+                        onPress={onEdit}
+                    >
+                        <Icons.Calendar color="#fff" size={18} />
+                        <Text style={styles.finalizeActivityButtonText}>Finalize Activity Plans</Text>
+                    </TouchableOpacity>
+                </View>
 
                     {/* Detail Modal - Same as before */}
                     <Modal
@@ -1777,17 +1829,7 @@ export default function AIRecommendations({
                             </ScrollView>
                         </SafeAreaView>
                     </Modal>
-                </SafeAreaView>
-            </Modal>
-        );
-
-        // If not showing results, return a simple placeholder to prevent showing other content
-        return (
-            <View style={styles.container}>
-                <View style={styles.votingPlaceholder}>
-                    <Text style={styles.votingPlaceholderText}>Loading recommendations...</Text>
-                </View>
-            </View>
+            </ScrollView>
         );
     }
 
@@ -2007,11 +2049,19 @@ const styles = StyleSheet.create({
         paddingBottom: 10,
     },
     heading: {
-        color: '#fff',
+        color: '#ffffff',
         fontSize: 24,
         fontWeight: '700',
         fontFamily: 'Montserrat_700Bold',
         textAlign: 'center',
+        letterSpacing: 0.5,
+    },
+    subheading: {
+        color: 'rgba(255, 255, 255, 0.8)',
+        fontSize: 16,
+        textAlign: 'center',
+        marginBottom: 20,
+        fontWeight: '500',
     },
     errorText: {
         color: '#e74c3c',
@@ -3702,5 +3752,96 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: '600',
         fontFamily: 'Montserrat_600SemiBold',
+    },
+    
+    // New card grid styles for voting phase
+    recommendationsGrid: {
+        paddingHorizontal: 12,
+        paddingBottom: 20,
+    },
+    recommendationCard: {
+        marginBottom: 12,
+        borderRadius: 12,
+        overflow: 'hidden',
+        marginHorizontal: 4,
+    },
+    recommendationCardFavorited: {
+        borderWidth: 2,
+        borderColor: '#D4AF37',
+    },
+    recCardGradient: {
+        padding: 1,
+        borderRadius: 12,
+    },
+    recCardContent: {
+        backgroundColor: 'rgba(30, 30, 35, 0.95)',
+        borderRadius: 11,
+        padding: 12,
+        paddingBottom: 8,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.08)',
+    },
+    recCardTitle: {
+        fontSize: 17,
+        fontWeight: '700',
+        color: '#ffffff',
+        marginBottom: 6,
+        letterSpacing: 0.3,
+    },
+    recCardInfo: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 4,
+        gap: 6,
+    },
+    recCardInfoText: {
+        color: 'rgba(255, 255, 255, 0.85)',
+        fontSize: 13,
+        flex: 1,
+        fontWeight: '500',
+    },
+    recCardReason: {
+        color: 'rgba(255, 255, 255, 0.75)',
+        fontSize: 13,
+        lineHeight: 18,
+        marginTop: 6,
+        fontWeight: '400',
+    },
+    recCardActions: {
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
+        backgroundColor: 'rgba(30, 30, 35, 0.95)',
+        paddingHorizontal: 12,
+        paddingBottom: 10,
+        paddingTop: 4,
+        gap: 10,
+        borderTopWidth: 1,
+        borderTopColor: 'rgba(255, 255, 255, 0.05)',
+    },
+    recActionButton: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: 'rgba(255, 255, 255, 0.08)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.15)',
+    },
+    recActionButtonActive: {
+        backgroundColor: 'rgba(231, 76, 60, 0.25)',
+        borderColor: '#e74c3c',
+    },
+    recActionButtonFavorited: {
+        backgroundColor: 'rgba(212, 175, 55, 0.25)',
+        borderColor: '#D4AF37',
+    },
+    bottomActionsContainer: {
+        paddingHorizontal: 16,
+        paddingBottom: 30,
+        gap: 12,
+    },
+    buttonDisabled: {
+        opacity: 0.5,
     },
 });
