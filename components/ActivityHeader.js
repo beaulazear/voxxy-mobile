@@ -273,14 +273,12 @@ export function ActivityStickyHeader({ activity, isOwner, onBack, onEdit, onDele
                             <ArrowLeft stroke="#fff" width={20} height={20} />
                         </TouchableOpacity>
 
-                        <Animated.View style={[styles.helpButtonContainer, { transform: [{ translateY: bounceAnim }] }]}>
-                            <TouchableOpacity
-                                style={styles.helpButton}
-                                onPress={() => setHelpVisible(true)}
-                            >
-                                <HelpCircle stroke="#fff" width={20} height={20} />
-                            </TouchableOpacity>
-                        </Animated.View>
+                        <TouchableOpacity
+                            style={styles.helpButton}
+                            onPress={() => setHelpVisible(true)}
+                        >
+                            <HelpCircle stroke="#fff" width={20} height={20} />
+                        </TouchableOpacity>
                     </View>
 
                     <View style={styles.centerContent}>
@@ -611,9 +609,9 @@ const styles = StyleSheet.create({
     },
 
     stickyContainer: {
-        paddingHorizontal: 16,
-        paddingTop: 8,
-        paddingBottom: 16,
+        paddingHorizontal: 12, // Reduced padding for more content space
+        paddingTop: 10,
+        paddingBottom: 14,
         borderBottomWidth: 1,
         borderBottomColor: 'rgba(64, 51, 71, 0.3)',
         backgroundColor: '#201925',
@@ -624,29 +622,29 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        gap: 8,
-        minHeight: 48, // Ensure minimum height
+        gap: 10,
+        minHeight: 52, // Increased for better mobile tap targets
     },
 
     leftActions: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 8,
-        flex: 0.8, // Slightly smaller flex to give more room to center
+        gap: 10,
+        flex: 0.3, // Much smaller to give more room to center
     },
 
     centerContent: {
-        flex: 1.4, // Give more space to the center content
+        flex: 1, // Main content area
         alignItems: 'center',
         justifyContent: 'center',
-        paddingHorizontal: 8, // Add some padding to prevent squishing
+        paddingHorizontal: 4,
     },
 
     rightActions: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 8,
-        flex: 0.8, // Slightly smaller flex to give more room to center
+        flex: 0.3, // Much smaller to give more room to center
         justifyContent: 'flex-end',
     },
 
@@ -701,9 +699,9 @@ const styles = StyleSheet.create({
     },
 
     editButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 12,
+        width: 44, // Increased touch target
+        height: 44,
+        borderRadius: 14,
         backgroundColor: 'rgba(139, 92, 246, 0.1)',
         borderWidth: 1,
         borderColor: '#8b5cf6',
@@ -718,9 +716,9 @@ const styles = StyleSheet.create({
     },
 
     deleteButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 12,
+        width: 44, // Increased touch target
+        height: 44,
+        borderRadius: 14,
         backgroundColor: 'rgba(239, 68, 68, 0.1)',
         borderWidth: 1,
         borderColor: '#ef4444',

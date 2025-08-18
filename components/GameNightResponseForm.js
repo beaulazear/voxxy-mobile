@@ -712,7 +712,7 @@ export default function GameNightResponseForm({
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#1a1a1a',
+        backgroundColor: '#201925',
     },
 
     progressContainer: {
@@ -725,16 +725,16 @@ const styles = StyleSheet.create({
 
     progressTrack: {
         flex: 1,
-        height: 6,
-        backgroundColor: 'rgba(255, 255, 255, 0.05)',
-        borderRadius: 3,
+        height: 4,
+        backgroundColor: 'rgba(255, 255, 255, 0.08)',
+        borderRadius: 2,
         overflow: 'hidden',
     },
 
     progressFill: {
         height: '100%',
         backgroundColor: '#cc31e8',
-        borderRadius: 3,
+        borderRadius: 2,
         shadowColor: '#cc31e8',
         shadowOffset: { width: 0, height: 0 },
         shadowOpacity: 0.5,
@@ -742,9 +742,12 @@ const styles = StyleSheet.create({
     },
 
     progressText: {
-        color: '#cc31e8',
-        fontSize: 12,
-        fontWeight: '600',
+        color: 'rgba(255, 255, 255, 0.5)',
+        fontSize: 11,
+        fontWeight: '500',
+        fontFamily: 'Montserrat_500Medium',
+        letterSpacing: 0.5,
+        textTransform: 'uppercase',
         minWidth: 40,
         textAlign: 'right',
     },
@@ -755,14 +758,16 @@ const styles = StyleSheet.create({
     },
 
     title: {
-        fontSize: 24,
+        fontSize: 32,
         fontWeight: '700',
+        fontFamily: 'Montserrat_700Bold',
         color: '#fff',
         marginBottom: 4,
     },
 
     subtitle: {
         fontSize: 16,
+        fontFamily: 'Montserrat_400Regular',
         color: '#999',
         lineHeight: 22,
     },
@@ -833,17 +838,18 @@ const styles = StyleSheet.create({
     },
 
     singleSelectCard: {
-        backgroundColor: 'rgba(255, 255, 255, 0.03)',
-        borderWidth: 2,
-        borderColor: 'rgba(255, 255, 255, 0.1)',
-        borderRadius: 12,
+        backgroundColor: 'rgba(255, 255, 255, 0.04)',
+        borderWidth: 1.5,
+        borderColor: 'rgba(255, 255, 255, 0.08)',
+        borderRadius: 16,
         padding: 16,
         alignItems: 'center',
     },
 
     singleSelectCardSelected: {
-        backgroundColor: 'rgba(204, 49, 232, 0.15)',
-        borderColor: '#cc31e8',
+        backgroundColor: 'rgba(204, 49, 232, 0.12)',
+        borderColor: 'rgba(204, 49, 232, 0.5)',
+        borderWidth: 2,
         shadowColor: '#cc31e8',
         shadowOffset: { width: 0, height: 0 },
         shadowOpacity: 0.3,
@@ -854,6 +860,7 @@ const styles = StyleSheet.create({
     singleSelectLabel: {
         fontSize: 16,
         fontWeight: '600',
+        fontFamily: 'Montserrat_600SemiBold',
         color: '#fff',
         marginBottom: 4,
         textAlign: 'center',
@@ -865,6 +872,7 @@ const styles = StyleSheet.create({
 
     singleSelectDesc: {
         fontSize: 12,
+        fontFamily: 'Montserrat_400Regular',
         color: '#999',
         textAlign: 'center',
     },
@@ -1073,6 +1081,7 @@ const styles = StyleSheet.create({
     sectionLabel: {
         fontSize: 14,
         fontWeight: '600',
+        fontFamily: 'Montserrat_600SemiBold',
         color: '#cc31e8',
         marginBottom: 8,
         textTransform: 'uppercase',
@@ -1080,14 +1089,15 @@ const styles = StyleSheet.create({
     },
 
     dateInput: {
-        backgroundColor: 'rgba(255, 255, 255, 0.03)',
-        borderWidth: 2,
-        borderColor: 'rgba(255, 255, 255, 0.1)',
-        borderRadius: 8,
+        backgroundColor: 'rgba(255, 255, 255, 0.04)',
+        borderWidth: 1.5,
+        borderColor: 'rgba(255, 255, 255, 0.08)',
+        borderRadius: 16,
         paddingHorizontal: 12,
         paddingVertical: 10,
         color: '#fff',
         fontSize: 14,
+        fontFamily: 'Montserrat_400Regular',
     },
 
     timeGrid: {
@@ -1098,10 +1108,10 @@ const styles = StyleSheet.create({
     },
 
     timeChip: {
-        backgroundColor: 'rgba(255, 255, 255, 0.03)',
-        borderWidth: 2,
-        borderColor: 'rgba(255, 255, 255, 0.1)',
-        borderRadius: 6,
+        backgroundColor: 'rgba(255, 255, 255, 0.04)',
+        borderWidth: 1.5,
+        borderColor: 'rgba(255, 255, 255, 0.08)',
+        borderRadius: 16,
         paddingHorizontal: 8,
         paddingVertical: 6,
     },
@@ -1127,10 +1137,10 @@ const styles = StyleSheet.create({
     },
 
     addTimeButton: {
-        backgroundColor: 'rgba(204, 49, 232, 0.15)',
-        borderWidth: 2,
-        borderColor: 'rgba(204, 49, 232, 0.3)',
-        borderRadius: 12,
+        backgroundColor: 'rgba(204, 49, 232, 0.12)',
+        borderWidth: 1.5,
+        borderColor: 'rgba(204, 49, 232, 0.5)',
+        borderRadius: 16,
         padding: 16,
         alignItems: 'center',
     },
@@ -1142,10 +1152,10 @@ const styles = StyleSheet.create({
     },
 
     availabilitySection: {
-        backgroundColor: 'rgba(255, 255, 255, 0.03)',
-        borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.1)',
-        borderRadius: 12,
+        backgroundColor: 'rgba(255, 255, 255, 0.04)',
+        borderWidth: 1.5,
+        borderColor: 'rgba(255, 255, 255, 0.08)',
+        borderRadius: 16,
         padding: 16,
     },
 
@@ -1153,10 +1163,10 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        backgroundColor: 'rgba(204, 49, 232, 0.15)',
-        borderWidth: 1,
-        borderColor: 'rgba(204, 49, 232, 0.3)',
-        borderRadius: 8,
+        backgroundColor: 'rgba(204, 49, 232, 0.12)',
+        borderWidth: 1.5,
+        borderColor: 'rgba(204, 49, 232, 0.5)',
+        borderRadius: 16,
         padding: 12,
         marginBottom: 6,
     },
@@ -1194,10 +1204,10 @@ const styles = StyleSheet.create({
     },
 
     closeButton: {
-        backgroundColor: 'rgba(255, 69, 69, 0.15)',
-        borderWidth: 2,
-        borderColor: 'rgba(255, 69, 69, 0.3)',
-        borderRadius: 12,
+        backgroundColor: 'rgba(255, 69, 69, 0.12)',
+        borderWidth: 1.5,
+        borderColor: 'rgba(255, 69, 69, 0.5)',
+        borderRadius: 16,
         paddingVertical: 16,
         paddingHorizontal: 20,
         minHeight: 52,
@@ -1208,14 +1218,15 @@ const styles = StyleSheet.create({
         color: '#ff4545',
         fontSize: 16,
         fontWeight: '600',
+        fontFamily: 'Montserrat_600SemiBold',
         textAlign: 'center',
     },
 
     backButton: {
-        backgroundColor: 'rgba(255, 255, 255, 0.1)',
-        borderWidth: 2,
-        borderColor: 'rgba(255, 255, 255, 0.2)',
-        borderRadius: 12,
+        backgroundColor: 'rgba(255, 255, 255, 0.04)',
+        borderWidth: 1.5,
+        borderColor: 'rgba(255, 255, 255, 0.08)',
+        borderRadius: 16,
         paddingVertical: 16,
         paddingHorizontal: 20,
         minHeight: 52,
@@ -1230,6 +1241,7 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 16,
         fontWeight: '600',
+        fontFamily: 'Montserrat_600SemiBold',
         textAlign: 'center',
     },
 
@@ -1239,7 +1251,7 @@ const styles = StyleSheet.create({
 
     nextButton: {
         flex: 1,
-        borderRadius: 12,
+        borderRadius: 16,
         overflow: 'hidden',
         minHeight: 52,
     },
@@ -1260,6 +1272,7 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 16,
         fontWeight: '700',
+        fontFamily: 'Montserrat_700Bold',
     },
 
     miniIcon: {
