@@ -27,6 +27,11 @@ import PushNotificationService from '../services/PushNotificationService';
 import { API_URL } from '../config';
 import { Alert } from 'react-native';
 import { safeAuthApiCall, handleApiError } from '../utils/safeApiCall';
+import StartNewAdventure from '../components/StartNewAdventure';
+import LetsEatChatNew from '../components/LetsEatChatNew';
+import CocktailsChatNew from '../components/CocktailsChatNew';
+import GameNightChatNew from '../components/GameNightChatNew';
+import { logger } from '../utils/logger';
 
 const { width: screenWidth } = Dimensions.get('window')
 
@@ -344,7 +349,7 @@ function CreateCard({ navigation, isLast, isInvitesEmpty = false }) {
           if (Haptics?.impactAsync) {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
           }
-          navigation.navigate('TripDashboardScreen')
+          setShowTripDashboardModal(true)
         }}
         activeOpacity={0.8}
       >
@@ -480,7 +485,7 @@ function AnimatedStartNewActivityButton({ navigation }) {
           if (Haptics?.impactAsync) {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
           }
-          navigation.navigate('TripDashboardScreen')
+          setShowTripDashboardModal(true)
         }}
         activeOpacity={0.8}
       >
@@ -579,11 +584,64 @@ export default function HomeScreen({ route }) {
   const [showFavoriteModal, setShowFavoriteModal] = useState(false)
   const [showAllFavoritesModal, setShowAllFavoritesModal] = useState(false)
   const [isListView, setIsListView] = useState(true)
+  const [showTripDashboardModal, setShowTripDashboardModal] = useState(false)
+  const [selectedTrip, setSelectedTrip] = useState(null)
   const scrollY = useRef(new Animated.Value(0)).current
   const scrollRef = useRef(null)
 
   const scrollToTop = () => {
     scrollRef.current?.scrollToOffset({ offset: 0, animated: true })
+  }
+
+  // Handle trip selection from modal
+  const handleTripSelect = (tripName) => {
+    logger.debug(`🎯 Selected trip: ${tripName}`)
+    
+    switch (tripName) {
+      case 'Food':
+        setShowTripDashboardModal(false) // Close the dashboard modal first
+        setTimeout(() => {
+          setSelectedTrip('Restaurant')
+        }, 300) // Small delay for smooth transition
+        break
+      case 'Drinks':
+        setShowTripDashboardModal(false)
+        setTimeout(() => {
+          setSelectedTrip('Night Out')
+        }, 300)
+        break
+      case 'Game Night':
+        setShowTripDashboardModal(false)
+        setTimeout(() => {
+          setSelectedTrip('Game Night')
+        }, 300)
+        break
+      case 'Destination':
+        Alert.alert(
+          'Coming Soon!',
+          'This feature is currently in development and will be available soon.',
+          [{ text: 'OK' }]
+        )
+        break
+      default:
+        Alert.alert('Feature Coming Soon', `${tripName} will be available soon!`)
+    }
+  }
+
+  // Handle form close and navigate to activity details
+  const handleFormClose = (newActivityId) => {
+    if (newActivityId) {
+      setSelectedTrip(null)
+      setShowTripDashboardModal(false)
+      navigation.navigate('ActivityDetails', { activityId: newActivityId })
+    } else {
+      setSelectedTrip(null)
+    }
+  }
+
+  // Handle modal back button
+  const handleModalBack = () => {
+    setShowTripDashboardModal(false)
   }
 
   // Fetch user favorites
@@ -1363,7 +1421,7 @@ export default function HomeScreen({ route }) {
                         if (Haptics?.impactAsync) {
                           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
                         }
-                        navigation.navigate('TripDashboardScreen')
+                        setShowTripDashboardModal(true)
                       }}
                       activeOpacity={0.7}
                     >
@@ -1489,7 +1547,7 @@ export default function HomeScreen({ route }) {
         contentContainerStyle={styles.grid}
         showsVerticalScrollIndicator={false}
       />
-      <VoxxyFooter />
+      <VoxxyFooter onPlusPress={() => setShowTripDashboardModal(true)} />
       
       {/* Favorite Details Modal */}
       <Modal
@@ -1717,6 +1775,37 @@ export default function HomeScreen({ route }) {
           />
         </SafeAreaView>
       </Modal>
+
+      {/* Trip Dashboard Modal */}
+      <Modal
+        visible={showTripDashboardModal}
+        animationType="slide"
+        transparent={false}
+        onRequestClose={handleModalBack}
+      >
+        <SafeAreaView style={{ flex: 1, backgroundColor: '#201925' }}>
+          <StartNewAdventure
+            onTripSelect={handleTripSelect}
+            onBack={handleModalBack}
+          />
+        </SafeAreaView>
+      </Modal>
+
+      {/* Activity Creation Chat Modals */}
+      <LetsEatChatNew
+        visible={selectedTrip === 'Restaurant'}
+        onClose={handleFormClose}
+      />
+
+      <CocktailsChatNew
+        visible={selectedTrip === 'Night Out'}
+        onClose={handleFormClose}
+      />
+
+      <GameNightChatNew
+        visible={selectedTrip === 'Game Night'}
+        onClose={handleFormClose}
+      />
     </SafeAreaView>
   )
 }

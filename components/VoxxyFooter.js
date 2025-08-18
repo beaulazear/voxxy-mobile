@@ -3,7 +3,7 @@ import { View, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 
-export default function VoxxyFooter() {
+export default function VoxxyFooter({ onPlusPress }) {
     const navigation = useNavigation();
 
     return (
@@ -15,7 +15,9 @@ export default function VoxxyFooter() {
                     <Ionicons name="help-circle-outline" size={26} color="#fff" />
                 </TouchableOpacity>
 
-                <TouchableOpacity style={styles.plusButton} onPress={() => navigation.navigate('TripDashboardScreen')}
+                <TouchableOpacity 
+                    style={styles.plusButton} 
+                    onPress={onPlusPress || (() => navigation.navigate('TripDashboardScreen'))}
                 >
                     <Ionicons name="add" size={28} color="#fff" />
                 </TouchableOpacity>

@@ -15,7 +15,7 @@ import FAQScreen from './screens/FAQScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import LandingScreen from './screens/LandingScreen';
 import ActivityDetailsScreen from './screens/ActivityDetailsScreen';
-import TripDashboardScreen from './screens/TripDashboardScreen';
+// TripDashboardScreen removed - now integrated as modal in HomeScreen
 import TryVoxxScreen from './screens/TryVoxxScreen';
 import NotificationsScreen from './screens/NotificationsScreen';
 
@@ -94,7 +94,7 @@ const AppNavigator = () => {
         }}
       />
       <Stack.Screen name="FAQ" component={FAQScreen} />
-      <Stack.Screen name="TripDashboardScreen" component={TripDashboardScreen} />
+      {/* TripDashboardScreen removed - now integrated as modal in HomeScreen */}
       <Stack.Screen name="Profile" component={ProfileScreen} />
       <Stack.Screen name="Notifications" component={NotificationsScreen} />
       <Stack.Screen name="AccountCreated" component={ProfileScreen} />
