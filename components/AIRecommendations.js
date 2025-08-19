@@ -1212,52 +1212,79 @@ export default function AIRecommendations({
     if (collecting) {
         return (
             <>
-                <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+                <ScrollView style={styles.transparentContainer} contentContainerStyle={styles.contentContainer}>
                     {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-                    {/* Combined Count and Preferences Card */}
-                    <View style={styles.combinedCard}>
-                        <Text style={styles.collectingTitle}>Collecting preferences</Text>
-                        <View style={styles.submissionCountContainer}>
-                            <Text style={styles.submissionCount}>{responses.length}</Text>
-                            <Text style={styles.submissionLabel}>
-                                {responses.length === 1 ? 'submission' : 'submissions'}
+                    {/* Compact Response Counter */}
+                    <View style={styles.compactCounterWrapper}>
+                        <Animated.View 
+                            style={[
+                                styles.compactCounter,
+                                {
+                                    transform: [{ scale: pulseValue.interpolate({
+                                        inputRange: [1, 1.2],
+                                        outputRange: [1, 1.03]
+                                    })}]
+                                }
+                            ]}
+                        >
+                            <Text style={styles.compactNumber}>{responses.length}</Text>
+                            <Text style={styles.compactLabel}>
+                                {responses.length === 1 ? 'Response Submitted' : 'Responses Submitted'}
                             </Text>
-                        </View>
-
-                        <ProgressBar percent={responseRate} />
-
-                        {user && !currentUserResponse ? (
-                            <View style={styles.preferencesSection}>
-                                <Text style={styles.preferencesTitle}>Submit Your Preferences!</Text>
-                                <Text style={styles.preferencesText}>
-                                    {activityText.submitDescription}
-                                    {activity.allow_participant_time_selection && ' and your availability'}.
-                                </Text>
-                                <TouchableOpacity style={styles.preferencesButton} onPress={handleStartChat}>
-                                    <Icons.HelpCircle />
-                                    <Text style={styles.preferencesButtonText}>
-                                        {activity.allow_participant_time_selection ? `${activityText.preferencesQuiz} & Availability` : activityText.preferencesQuiz}
-                                    </Text>
-                                </TouchableOpacity>
-                            </View>
-                        ) : user && currentUserResponse ? (
-                            <View style={styles.submittedSection}>
-                                <Icons.CheckCircle />
-                                <Text style={styles.submittedTitle}>Preferences submitted!</Text>
-                                <Text style={styles.submittedText}>
-                                    You can resubmit your preferences
-                                    {activity.allow_participant_time_selection && ' and availability'} if you'd like to make changes.
-                                </Text>
-                                <TouchableOpacity style={styles.resubmitButton} onPress={handleStartChat}>
-                                    <Icons.HelpCircle />
-                                    <Text style={styles.resubmitButtonText}>
-                                        {activity.allow_participant_time_selection ? `${activityText.resubmitPreferences} & Availability` : activityText.resubmitPreferences}
-                                    </Text>
-                                </TouchableOpacity>
-                            </View>
-                        ) : null}
+                        </Animated.View>
                     </View>
+
+                    {/* User Action Section */}
+                    {user && !currentUserResponse ? (
+                        <Animated.View 
+                            style={[
+                                styles.actionCard,
+                                {
+                                    transform: [{ translateY: showGenerateModal ? 5 : 0 }]
+                                }
+                            ]}
+                        >
+                            <LinearGradient
+                                colors={['#9333EA', '#7C3AED']}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 1 }}
+                                style={styles.actionGradient}
+                            >
+                                <View style={styles.actionIconBg}>
+                                    <Icon name="message-circle" size={24} color="#fff" />
+                                </View>
+                                <Text style={styles.actionTitle}>Your Input Matters!</Text>
+                                <Text style={styles.actionText}>
+                                    {activityText.submitDescription}
+                                    {activity.allow_participant_time_selection && ' and select your availability'}
+                                </Text>
+                                <TouchableOpacity style={styles.modernActionButton} onPress={handleStartChat}>
+                                    <Text style={styles.modernActionButtonText}>
+                                        {activity.allow_participant_time_selection ? 'Share Preferences & Times' : 'Share Your Preferences'}
+                                    </Text>
+                                    <Icon name="arrow-right" size={18} color="#9333EA" />
+                                </TouchableOpacity>
+                            </LinearGradient>
+                        </Animated.View>
+                    ) : user && currentUserResponse ? (
+                        <View style={styles.submittedCard}>
+                            <View style={styles.submittedHeader}>
+                                <View style={styles.checkCircle}>
+                                    <Icon name="check" size={20} color="#10B981" />
+                                </View>
+                                <Text style={styles.submittedTitle}>You're All Set!</Text>
+                            </View>
+                            <Text style={styles.submittedText}>
+                                Your preferences have been recorded
+                                {activity.allow_participant_time_selection && ' along with your availability'}.
+                            </Text>
+                            <TouchableOpacity style={styles.updateButton} onPress={handleStartChat}>
+                                <Icon name="refresh-cw" size={16} color="#A855F7" />
+                                <Text style={styles.updateButtonText}>Update Response</Text>
+                            </TouchableOpacity>
+                        </View>
+                    ) : null}
 
                     <AvailabilityDisplay responses={responses} activity={activity} />
 
@@ -1302,50 +1329,143 @@ export default function AIRecommendations({
                     <Modal
                         visible={showGenerateModal}
                         transparent
-                        animationType="slide"
+                        animationType="fade"
                         onRequestClose={() => setShowGenerateModal(false)}
                     >
                         <SafeAreaView style={styles.modalOverlay}>
-                            <View style={styles.votingModalContainer}>
-                                <TouchableOpacity
-                                    style={styles.votingModalCloseButton}
-                                    onPress={() => setShowGenerateModal(false)}
-                                >
-                                    <Icons.X />
-                                </TouchableOpacity>
-
-                                <View style={styles.votingModalContent}>
-                                    <Text style={styles.votingModalTitle}>Generate recommendations?</Text>
-                                    <Text style={styles.votingModalDescription}>
-                                        Create AI-powered recommendations based on group preferences
-                                    </Text>
-
-                                    <View style={styles.votingModalProgressSection}>
-                                        <ProgressBar percent={responseRate} />
-                                        <View style={styles.progressInfo}>
-                                            <View style={styles.progressLeft}>
-                                                <Icons.Users />
-                                                <Text style={styles.progressText}>{responses.length}/{totalParticipants} users submitted</Text>
+                            <Animated.View 
+                                style={[
+                                    styles.votingModalContainer,
+                                    {
+                                        transform: [
+                                            {
+                                                scale: showGenerateModal ? 1 : 0.95
+                                            }
+                                        ],
+                                        opacity: showGenerateModal ? 1 : 0
+                                    }
+                                ]}
+                            >
+                                {/* Gradient Background */}
+                                <LinearGradient
+                                    colors={['#9333EA', '#7C3AED', '#6B21A8']}
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 1 }}
+                                    style={styles.modalGradientBackground}
+                                />
+                                
+                                {/* Content Container */}
+                                <View style={styles.modalContentWrapper}>
+                                    {/* Close Button */}
+                                    <TouchableOpacity
+                                        style={styles.modernCloseBtn}
+                                        onPress={() => setShowGenerateModal(false)}
+                                    >
+                                        <View style={styles.closeBtnCircle}>
+                                            <Icons.X size={20} color="rgba(255,255,255,0.9)" />
+                                        </View>
+                                    </TouchableOpacity>
+                                    
+                                    {/* Icon Animation */}
+                                    <Animated.View 
+                                        style={[
+                                            styles.modalIconWrapper,
+                                            {
+                                                transform: [
+                                                    {
+                                                        rotate: pulseValue.interpolate({
+                                                            inputRange: [1, 1.2],
+                                                            outputRange: ['0deg', '5deg']
+                                                        })
+                                                    }
+                                                ]
+                                            }
+                                        ]}
+                                    >
+                                        <LinearGradient
+                                            colors={['#A855F7', '#9333EA']}
+                                            start={{ x: 0, y: 0 }}
+                                            end={{ x: 1, y: 1 }}
+                                            style={styles.iconCircle}
+                                        >
+                                            <Icons.Zap size={32} color="#fff" />
+                                        </LinearGradient>
+                                    </Animated.View>
+                                    
+                                    {/* Text Content */}
+                                    <View style={styles.votingModalContent}>
+                                        <Text style={styles.modernTitle}>Ready to Discover?</Text>
+                                        <Text style={styles.modernDescription}>
+                                            Let AI create personalized recommendations based on your group's preferences
+                                        </Text>
+                                        
+                                        {/* Progress Section */}
+                                        <View style={styles.modernProgressSection}>
+                                            <View style={styles.progressHeader}>
+                                                <View style={styles.usersIconWrapper}>
+                                                    <Icons.Users size={18} color="#A855F7" />
+                                                </View>
+                                                <Text style={styles.progressLabel}>Participation</Text>
                                             </View>
-                                            <Text style={styles.progressPercentage}>{Math.round(responseRate)}%</Text>
+                                            
+                                            <View style={styles.modernProgressBarBg}>
+                                                <LinearGradient
+                                                    colors={['#A855F7', '#7C3AED']}
+                                                    start={{ x: 0, y: 0 }}
+                                                    end={{ x: 1, y: 0 }}
+                                                    style={[styles.modernProgressFill, { width: `${responseRate}%` }]}
+                                                />
+                                            </View>
+                                            
+                                            <View style={styles.progressInfo}>
+                                                <Text style={styles.progressText}>
+                                                    {responses.length} of {totalParticipants} responses
+                                                </Text>
+                                                <View style={styles.percentageBadge}>
+                                                    <Text style={styles.percentageText}>{Math.round(responseRate)}%</Text>
+                                                </View>
+                                            </View>
+                                        </View>
+                                        
+                                        {/* Warning Section */}
+                                        {responseRate < 50 && (
+                                            <View style={styles.modernWarning}>
+                                                <View style={styles.warningIconCircle}>
+                                                    <Icon name="alert-triangle" size={16} color="#FBBF24" />
+                                                </View>
+                                                <Text style={styles.modernWarningText}>
+                                                    More responses = better recommendations
+                                                </Text>
+                                            </View>
+                                        )}
+                                        
+                                        {/* Action Buttons */}
+                                        <View style={styles.buttonContainer}>
+                                            <TouchableOpacity 
+                                                style={styles.secondaryButton}
+                                                onPress={() => setShowGenerateModal(false)}
+                                            >
+                                                <Text style={styles.secondaryButtonText}>Wait for More</Text>
+                                            </TouchableOpacity>
+                                            
+                                            <TouchableOpacity 
+                                                style={styles.primaryButton}
+                                                onPress={generateRecommendations}
+                                            >
+                                                <LinearGradient
+                                                    colors={['#9333EA', '#7C3AED']}
+                                                    start={{ x: 0, y: 0 }}
+                                                    end={{ x: 1, y: 0 }}
+                                                    style={styles.primaryButtonGradient}
+                                                >
+                                                    <Icons.Zap size={20} color="#fff" />
+                                                    <Text style={styles.primaryButtonText}>Generate Now</Text>
+                                                </LinearGradient>
+                                            </TouchableOpacity>
                                         </View>
                                     </View>
-
-                                    {responseRate < 50 && (
-                                        <View style={styles.warningBox}>
-                                            <Icon name="alert-triangle" size={16} color="#ffc107" style={styles.warningIcon} />
-                                            <Text style={styles.warningText}>
-                                                Less than 50% of participants have submitted their preferences. Consider waiting for more responses to get better recommendations.
-                                            </Text>
-                                        </View>
-                                    )}
-
-                                    <TouchableOpacity style={styles.votingModalButton} onPress={generateRecommendations}>
-                                        <Icons.Zap />
-                                        <Text style={styles.votingModalButtonText}>Generate Recommendations</Text>
-                                    </TouchableOpacity>
                                 </View>
-                            </View>
+                            </Animated.View>
                         </SafeAreaView>
                     </Modal>
 
@@ -2473,13 +2593,13 @@ const styles = StyleSheet.create({
         marginLeft: 8,
     },
     submittedCard: {
-        backgroundColor: 'rgba(40, 167, 69, 0.1)',
-        borderRadius: 16,
-        padding: 24,
-        margin: 16,
-        alignItems: 'center',
-        borderColor: 'rgba(40, 167, 69, 0.3)',
+        backgroundColor: 'rgba(16, 185, 129, 0.05)',
+        borderRadius: 20,
+        padding: 20,
+        marginBottom: 20,
+        marginHorizontal: 16,
         borderWidth: 1,
+        borderColor: 'rgba(16, 185, 129, 0.2)',
     },
     submittedTitle: {
         color: '#28a745',
@@ -2608,18 +2728,226 @@ const styles = StyleSheet.create({
     },
     modalOverlay: {
         flex: 1,
-        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        backgroundColor: 'rgba(0, 0, 0, 0.85)',
         justifyContent: 'center',
         alignItems: 'center',
-        padding: 40,
+        padding: 20,
     },
     votingModalContainer: {
-        backgroundColor: '#2C1E33',
-        borderRadius: 20,
-        width: '100%',
-        maxWidth: 400,
-        padding: 0,
+        width: '90%',
+        maxWidth: 380,
+        borderRadius: 24,
         overflow: 'hidden',
+        backgroundColor: '#1A1625',
+        shadowColor: '#000',
+        shadowOffset: {
+            width: 0,
+            height: 10,
+        },
+        shadowOpacity: 0.4,
+        shadowRadius: 20,
+        elevation: 15,
+        borderWidth: 1,
+        borderColor: 'rgba(147, 51, 234, 0.2)',
+    },
+    modalGradientBackground: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        height: 140,
+    },
+    modalContentWrapper: {
+        backgroundColor: 'transparent',
+    },
+    modernCloseBtn: {
+        position: 'absolute',
+        top: 16,
+        right: 16,
+        zIndex: 10,
+    },
+    closeBtnCircle: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: 'rgba(255, 255, 255, 0.2)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.3)',
+    },
+    modalIconWrapper: {
+        alignSelf: 'center',
+        marginTop: 60,
+        marginBottom: -35,
+        zIndex: 5,
+    },
+    iconCircle: {
+        width: 70,
+        height: 70,
+        borderRadius: 35,
+        justifyContent: 'center',
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: {
+            width: 0,
+            height: 4,
+        },
+        shadowOpacity: 0.15,
+        shadowRadius: 8,
+        elevation: 5,
+    },
+    votingModalContent: {
+        backgroundColor: '#1A1625',
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        padding: 24,
+        paddingTop: 50,
+        alignItems: 'center',
+    },
+    modernTitle: {
+        color: '#FFFFFF',
+        fontSize: 26,
+        fontWeight: '800',
+        textAlign: 'center',
+        marginBottom: 8,
+    },
+    modernDescription: {
+        color: 'rgba(255, 255, 255, 0.7)',
+        fontSize: 15,
+        textAlign: 'center',
+        lineHeight: 22,
+        marginBottom: 24,
+        paddingHorizontal: 16,
+    },
+    modernProgressSection: {
+        width: '100%',
+        backgroundColor: 'rgba(147, 51, 234, 0.1)',
+        borderRadius: 16,
+        padding: 16,
+        marginBottom: 16,
+        borderWidth: 1,
+        borderColor: 'rgba(147, 51, 234, 0.2)',
+    },
+    progressHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 12,
+    },
+    usersIconWrapper: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: 'rgba(168, 85, 247, 0.2)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 10,
+    },
+    progressLabel: {
+        color: 'rgba(255, 255, 255, 0.9)',
+        fontSize: 14,
+        fontWeight: '600',
+    },
+    modernProgressBarBg: {
+        width: '100%',
+        height: 8,
+        backgroundColor: 'rgba(147, 51, 234, 0.2)',
+        borderRadius: 4,
+        overflow: 'hidden',
+        marginBottom: 12,
+    },
+    modernProgressFill: {
+        height: '100%',
+        borderRadius: 4,
+    },
+    progressInfo: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    progressText: {
+        color: 'rgba(255, 255, 255, 0.6)',
+        fontSize: 13,
+    },
+    percentageBadge: {
+        backgroundColor: 'rgba(168, 85, 247, 0.2)',
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 12,
+    },
+    percentageText: {
+        color: '#A855F7',
+        fontSize: 14,
+        fontWeight: '700',
+    },
+    modernWarning: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(251, 191, 36, 0.1)',
+        borderRadius: 12,
+        padding: 12,
+        marginBottom: 20,
+        borderWidth: 1,
+        borderColor: 'rgba(251, 191, 36, 0.2)',
+    },
+    warningIconCircle: {
+        width: 28,
+        height: 28,
+        borderRadius: 14,
+        backgroundColor: 'rgba(251, 191, 36, 0.2)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 10,
+    },
+    modernWarningText: {
+        color: '#FBBF24',
+        fontSize: 13,
+        flex: 1,
+        fontWeight: '500',
+    },
+    buttonContainer: {
+        flexDirection: 'row',
+        width: '100%',
+        gap: 12,
+    },
+    secondaryButton: {
+        flex: 1,
+        paddingVertical: 14,
+        borderRadius: 12,
+        backgroundColor: 'rgba(147, 51, 234, 0.1)',
+        borderWidth: 1,
+        borderColor: 'rgba(147, 51, 234, 0.3)',
+    },
+    secondaryButtonText: {
+        color: 'rgba(255, 255, 255, 0.7)',
+        fontSize: 15,
+        fontWeight: '600',
+        textAlign: 'center',
+    },
+    primaryButton: {
+        flex: 1.5,
+        borderRadius: 12,
+        overflow: 'hidden',
+        shadowColor: '#8B5CF6',
+        shadowOffset: {
+            width: 0,
+            height: 4,
+        },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        elevation: 4,
+    },
+    primaryButtonGradient: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 14,
+        gap: 8,
+    },
+    primaryButtonText: {
+        color: '#fff',
+        fontSize: 15,
+        fontWeight: '700',
     },
     votingModalCloseButton: {
         position: 'absolute',
@@ -2629,11 +2957,6 @@ const styles = StyleSheet.create({
         zIndex: 10,
         alignItems: 'center',
         justifyContent: 'center',
-    },
-    votingModalContent: {
-        padding: 35,
-        paddingTop: 60,
-        alignItems: 'center',
     },
     votingModalTitle: {
         color: '#fff',
@@ -3616,6 +3939,220 @@ const styles = StyleSheet.create({
     },
     generateButtonDisabled: {
         opacity: 0.5,
+    },
+    modernHeader: {
+        alignItems: 'center',
+        marginTop: 16,
+        marginBottom: 16,
+    },
+    statusBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: 'rgba(16, 185, 129, 0.2)',
+        marginBottom: 12,
+    },
+    statusDot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: '#10B981',
+        marginRight: 6,
+    },
+    statusText: {
+        color: '#10B981',
+        fontSize: 12,
+        fontWeight: '600',
+    },
+    modernCollectingTitle: {
+        color: '#FFFFFF',
+        fontSize: 24,
+        fontWeight: '800',
+        textAlign: 'center',
+        marginBottom: 4,
+    },
+    modernSubtitle: {
+        color: 'rgba(255, 255, 255, 0.6)',
+        fontSize: 14,
+        textAlign: 'center',
+    },
+    statsCard: {
+        borderRadius: 20,
+        overflow: 'hidden',
+        marginBottom: 20,
+    },
+    statsGradient: {
+        padding: 20,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: 'rgba(147, 51, 234, 0.2)',
+    },
+    statsRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-around',
+        alignItems: 'center',
+        marginBottom: 20,
+    },
+    statItem: {
+        flex: 1,
+        alignItems: 'center',
+    },
+    bigNumber: {
+        color: '#A855F7',
+        fontSize: 36,
+        fontWeight: '800',
+        marginBottom: 4,
+    },
+    statLabel: {
+        color: 'rgba(255, 255, 255, 0.5)',
+        fontSize: 12,
+        fontWeight: '500',
+    },
+    divider: {
+        width: 1,
+        height: 40,
+        backgroundColor: 'rgba(147, 51, 234, 0.2)',
+    },
+    percentageCircle: {
+        width: 50,
+        height: 50,
+        borderRadius: 25,
+        backgroundColor: 'rgba(168, 85, 247, 0.2)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 2,
+        borderColor: '#A855F7',
+    },
+    percentageNumber: {
+        color: '#A855F7',
+        fontSize: 18,
+        fontWeight: '700',
+    },
+    modernProgressContainer: {
+        width: '100%',
+    },
+    modernProgressBg: {
+        width: '100%',
+        height: 6,
+        backgroundColor: 'rgba(147, 51, 234, 0.1)',
+        borderRadius: 3,
+        overflow: 'hidden',
+    },
+    modernProgressFill: {
+        height: '100%',
+        borderRadius: 3,
+    },
+    progressGradientFill: {
+        width: '100%',
+        height: '100%',
+    },
+    actionCard: {
+        borderRadius: 20,
+        overflow: 'hidden',
+        marginBottom: 20,
+        marginHorizontal: 16,
+    },
+    actionGradient: {
+        padding: 24,
+        alignItems: 'center',
+    },
+    actionIconBg: {
+        width: 56,
+        height: 56,
+        borderRadius: 28,
+        backgroundColor: 'rgba(255, 255, 255, 0.2)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 16,
+    },
+    actionTitle: {
+        color: '#FFFFFF',
+        fontSize: 20,
+        fontWeight: '700',
+        marginBottom: 8,
+    },
+    actionText: {
+        color: 'rgba(255, 255, 255, 0.8)',
+        fontSize: 14,
+        textAlign: 'center',
+        marginBottom: 20,
+        paddingHorizontal: 20,
+        lineHeight: 20,
+    },
+    modernActionButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#FFFFFF',
+        paddingVertical: 14,
+        paddingHorizontal: 24,
+        borderRadius: 14,
+        gap: 8,
+    },
+    modernActionButtonText: {
+        color: '#9333EA',
+        fontSize: 15,
+        fontWeight: '700',
+    },
+    checkCircle: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 12,
+    },
+    submittedHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 12,
+    },
+    updateButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: 'rgba(168, 85, 247, 0.1)',
+        paddingVertical: 10,
+        paddingHorizontal: 16,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: 'rgba(168, 85, 247, 0.3)',
+        gap: 8,
+    },
+    updateButtonText: {
+        color: '#A855F7',
+        fontSize: 14,
+        fontWeight: '600',
+    },
+    compactCounterWrapper: {
+        alignItems: 'center',
+        marginTop: 20,
+        marginBottom: 20,
+    },
+    compactCounter: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(147, 51, 234, 0.1)',
+        paddingHorizontal: 20,
+        paddingVertical: 10,
+        borderRadius: 25,
+        borderWidth: 1,
+        borderColor: 'rgba(147, 51, 234, 0.2)',
+        gap: 8,
+    },
+    compactNumber: {
+        color: '#A855F7',
+        fontSize: 20,
+        fontWeight: '700',
+    },
+    compactLabel: {
+        color: 'rgba(255, 255, 255, 0.6)',
+        fontSize: 14,
+        fontWeight: '500',
     },
     collectingPhaseTitle: {
         color: '#fff',

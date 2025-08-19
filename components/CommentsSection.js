@@ -346,22 +346,26 @@ const CommentsSection = ({ activity }) => {
 
     // Helpers to format
     const formatTime = (timestamp) => {
+        if (!timestamp) return '';
         const date = new Date(timestamp);
         return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     };
 
     const formatDate = (timestamp) => {
+        if (!timestamp) return 'Unknown Date';
         const date = new Date(timestamp);
         return date.toLocaleDateString([], { month: 'long', day: 'numeric', year: 'numeric' });
     };
 
-    // Group comments by date
-    const groupedComments = comments.reduce((acc, comment) => {
-        const date = formatDate(comment.created_at);
-        if (!acc[date]) acc[date] = [];
-        acc[date].push(comment);
-        return acc;
-    }, {});
+    // Group comments by date, filtering out invalid comments
+    const groupedComments = comments
+        .filter(comment => comment && comment.created_at)
+        .reduce((acc, comment) => {
+            const date = formatDate(comment.created_at);
+            if (!acc[date]) acc[date] = [];
+            acc[date].push(comment);
+            return acc;
+        }, {});
 
     const renderMessage = (comment) => {
         const isMe = comment.user.id === user?.id;

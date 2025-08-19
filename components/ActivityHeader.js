@@ -494,11 +494,43 @@ export default function ActivityHeader({
 }) {
     const { user, setUser } = useContext(UserContext)
     const navigation = useNavigation()
-
-
     const token = user?.token
-
-
+    
+    // Format date from YYYY-MM-DD to readable format
+    const formatActivityDate = (dateString) => {
+        if (!dateString) return null;
+        const [year, month, day] = dateString.split('-');
+        const date = new Date(year, month - 1, day);
+        return date.toLocaleDateString('en-US', { 
+            weekday: 'long',
+            month: 'long', 
+            day: 'numeric',
+            year: 'numeric'
+        });
+    };
+    
+    // Extract and format time from datetime string
+    const formatActivityTime = (timeString) => {
+        if (!timeString) return null;
+        // Extract time portion (assuming format like "2000-01-01T17:30:20.000Z")
+        const timePart = timeString.split('T')[1];
+        if (!timePart) return null;
+        
+        // Extract hours and minutes
+        const [hours, minutes] = timePart.split(':');
+        const hour = parseInt(hours, 10);
+        const minute = parseInt(minutes, 10);
+        
+        // Convert to 12-hour format
+        const period = hour >= 12 ? 'PM' : 'AM';
+        const hour12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+        
+        // Format with or without minutes
+        if (minute === 0) {
+            return `${hour12} ${period}`;
+        }
+        return `${hour12}:${minute.toString().padStart(2, '0')} ${period}`;
+    };
 
     // Updated getDisplayImage function with comprehensive avatar handling
     const getDisplayImage = (userObj) => {
@@ -552,22 +584,49 @@ export default function ActivityHeader({
             <View style={styles.container}>
                 <View style={styles.mainContent}>
                     {/* Title Section */}
-                    <View style={styles.titleSection}>
-                        {ACTIVITY_CONFIG[activity.activity_type] && (() => {
-                            const IconComponent = ACTIVITY_CONFIG[activity.activity_type].icon;
-                            return (
-                                <IconComponent
-                                    color={ACTIVITY_CONFIG[activity.activity_type].iconColor}
-                                    size={24}
-                                    strokeWidth={2}
-                                />
-                            );
-                        })()}
-                        <Text style={styles.activityTitle}>{activity.activity_name}</Text>
+                    <View style={styles.titleWrapper}>
+                        <View style={styles.titleSection}>
+                            {ACTIVITY_CONFIG[activity.activity_type] && (() => {
+                                const IconComponent = ACTIVITY_CONFIG[activity.activity_type].icon;
+                                return (
+                                    <IconComponent
+                                        color={ACTIVITY_CONFIG[activity.activity_type].iconColor}
+                                        size={24}
+                                        strokeWidth={2}
+                                    />
+                                );
+                            })()}
+                            <Text style={styles.activityTitle}>{activity.activity_name}</Text>
+                        </View>
+                        {/* Subtitle during collecting phase */}
+                        {activity.collecting && (
+                            <Text style={styles.collectingSubtitle}>
+                                Help us create the perfect recommendations for you & your group!
+                            </Text>
+                        )}
                     </View>
 
-                    {/* Host Section - only show to participants during collecting/voting phases */}
-                    {(!isOwner || activity.finalized) && (
+                    {/* Finalized Date/Time Section */}
+                    {activity.finalized && (activity.date_day || activity.date_time) && (
+                        <View style={styles.finalizedDateSection}>
+                            <View style={styles.dateTimeCard}>
+                                <View style={styles.dateTimeIcon}>
+                                    <Clock stroke="#A855F7" width={20} height={20} />
+                                </View>
+                                <View style={styles.dateTimeContent}>
+                                    {activity.date_day && (
+                                        <Text style={styles.finalizedDate}>{formatActivityDate(activity.date_day)}</Text>
+                                    )}
+                                    {activity.date_time && (
+                                        <Text style={styles.finalizedTime}>{formatActivityTime(activity.date_time)}</Text>
+                                    )}
+                                </View>
+                            </View>
+                        </View>
+                    )}
+
+                    {/* Host Section - show welcome message when not collecting */}
+                    {(!isOwner || activity.finalized) && !activity.collecting && (
                         <View style={styles.hostSection}>
                             <View style={styles.hostAvatarContainer}>
                                 <View style={styles.hostAvatar}>
@@ -753,6 +812,10 @@ const styles = StyleSheet.create({
         paddingVertical: 8,
     },
 
+    titleWrapper: {
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
     titleSection: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -766,6 +829,54 @@ const styles = StyleSheet.create({
         color: '#fff',
         textAlign: 'center',
         fontFamily: 'Montserrat_700Bold', // You might need to adjust this
+    },
+    collectingSubtitle: {
+        color: 'rgba(255, 255, 255, 0.7)',
+        fontSize: 14,
+        textAlign: 'center',
+        marginTop: 6,
+        paddingHorizontal: 20,
+        lineHeight: 20,
+    },
+
+    // Finalized Date/Time Styles
+    finalizedDateSection: {
+        alignItems: 'center',
+        marginTop: 16,
+        marginBottom: 8,
+    },
+    dateTimeCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(168, 85, 247, 0.1)',
+        paddingHorizontal: 20,
+        paddingVertical: 12,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: 'rgba(168, 85, 247, 0.2)',
+        gap: 12,
+    },
+    dateTimeIcon: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: 'rgba(168, 85, 247, 0.15)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    dateTimeContent: {
+        alignItems: 'flex-start',
+    },
+    finalizedDate: {
+        color: '#FFFFFF',
+        fontSize: 16,
+        fontWeight: '700',
+        marginBottom: 2,
+    },
+    finalizedTime: {
+        color: 'rgba(255, 255, 255, 0.7)',
+        fontSize: 14,
+        fontWeight: '500',
     },
 
     // Host Section Styles
