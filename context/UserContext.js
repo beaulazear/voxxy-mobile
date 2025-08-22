@@ -14,10 +14,24 @@ export const UserProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
+  const [rateLimitRetryCount, setRateLimitRetryCount] = useState(0);
 
   useEffect(() => {
     const loadUser = async () => {
       try {
+        // Check if we're in a rate limit backoff period
+        const lastRateLimit = await AsyncStorage.getItem('lastRateLimit');
+        if (lastRateLimit) {
+          const timeSinceRateLimit = Date.now() - parseInt(lastRateLimit);
+          const backoffTime = Math.min(30000, 1000 * Math.pow(2, rateLimitRetryCount)); // Max 30 seconds
+          
+          if (timeSinceRateLimit < backoffTime) {
+            logger.warn(`Rate limit backoff: waiting ${(backoffTime - timeSinceRateLimit) / 1000}s before retry`);
+            setLoading(false);
+            return;
+          }
+        }
+
         // Clear any existing badge count on app launch
         await PushNotificationService.clearBadge();
         
@@ -32,6 +46,10 @@ export const UserProvider = ({ children }) => {
 
         const userWithToken = { ...userData, token };
         setUser(userWithToken);
+
+        // Clear rate limit tracking on successful login
+        await AsyncStorage.removeItem('lastRateLimit');
+        setRateLimitRetryCount(0);
 
         // Set up push notifications after user is loaded
         setupPushNotificationsForUser(userWithToken);
@@ -52,9 +70,15 @@ export const UserProvider = ({ children }) => {
         }
       } catch (err) {
         logger.error('Failed to auto-login:', err);
-        // Remove invalid token
+        // Remove invalid token only for auth errors, not rate limits
         if (err.status === 401 || err.status === 403) {
           await AsyncStorage.removeItem('jwt');
+          await AsyncStorage.removeItem('lastRateLimit');
+        } else if (err.status === 429 || err.message?.includes('Rate limit')) {
+          // For rate limit errors, store timestamp and increment retry count
+          await AsyncStorage.setItem('lastRateLimit', Date.now().toString());
+          setRateLimitRetryCount(prev => prev + 1);
+          logger.warn('Rate limit hit during auto-login, implementing backoff');
         }
       } finally {
         setLoading(false);
@@ -125,6 +149,10 @@ export const UserProvider = ({ children }) => {
       const userWithToken = { ...userData, token };
       setUser(userWithToken);
 
+      // Clear rate limit tracking on successful login
+      await AsyncStorage.removeItem('lastRateLimit');
+      setRateLimitRetryCount(0);
+
       // Set up push notifications after login
       setupPushNotificationsForUser(userWithToken);
 
@@ -144,6 +172,9 @@ export const UserProvider = ({ children }) => {
 
       setUser(null);
       await AsyncStorage.removeItem('jwt');
+      // Also clear rate limit tracking on logout
+      await AsyncStorage.removeItem('lastRateLimit');
+      setRateLimitRetryCount(0);
     } catch (error) {
       logger.error('Error during logout:', error);
     }

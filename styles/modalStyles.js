@@ -39,7 +39,7 @@ export const modalStyles = StyleSheet.create({
         top: 0,
         left: 0,
         right: 0,
-        height: 140,
+        height: 110,
     },
 
     // Content wrapper
@@ -96,7 +96,7 @@ export const modalStyles = StyleSheet.create({
         borderTopLeftRadius: 24,
         borderTopRightRadius: 24,
         padding: 24,
-        paddingTop: 50,
+        paddingTop: 40,
         alignItems: 'center',
     },
 
@@ -278,6 +278,7 @@ export const modalColors = {
     purple700: '#6B21A8',
     purple500: '#A855F7',
     purple400: '#C084FC',
+    purple300: '#D8B4FE',  // Light purple for gradient
     
     // Background colors
     darkBg: '#1A1625',

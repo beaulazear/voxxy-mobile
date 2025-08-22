@@ -11,6 +11,8 @@ import {
     StyleSheet,
     Keyboard,
     Platform,
+    Animated,
+    Image,
 } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import DateTimePicker from '@react-native-community/datetimepicker'
@@ -22,13 +24,11 @@ import {
     MessageSquare,
     Users,
     Heart,
-    Calendar
+    Calendar,
+    Edit3
 } from 'react-native-feather'
-import {
-    FormStyles,
-    GradientButton,
-    gradientConfigs
-} from '../styles/FormStyles'
+import { modalStyles, modalColors } from '../styles/modalStyles'
+import VoxxyTriangle from '../assets/voxxy-triangle.png'
 import { UserContext } from '../context/UserContext'
 import { API_URL } from '../config'
 import { logger } from '../utils/logger';
@@ -341,10 +341,12 @@ export default function FinalizeActivityModal({
             })
 
         return (
-            <View style={styles.section}>
+            <View style={modalStyles.modernProgressSection}>
                 <View style={styles.sectionHeader}>
-                    <Users stroke="#cc31e8" width={20} height={20} />
-                    <Text style={styles.sectionTitle}>
+                    <View style={modalStyles.usersIconWrapper}>
+                        <Users stroke={modalColors.purple500} width={16} height={16} />
+                    </View>
+                    <Text style={modalStyles.progressLabel}>
                         {getSectionTitle()}
                     </Text>
                 </View>
@@ -394,10 +396,12 @@ export default function FinalizeActivityModal({
         if (!usesTimeSlots || !pinned?.length) return null
 
         return (
-            <View style={styles.section}>
+            <View style={modalStyles.modernProgressSection}>
                 <View style={styles.sectionHeader}>
-                    <Clock stroke="#cc31e8" width={20} height={20} />
-                    <Text style={styles.sectionTitle}>Time Slot Selection</Text>
+                    <View style={modalStyles.usersIconWrapper}>
+                        <Clock stroke={modalColors.purple500} width={16} height={16} />
+                    </View>
+                    <Text style={modalStyles.progressLabel}>Time Slot Selection</Text>
                 </View>
 
                 <ScrollView style={styles.optionList} showsVerticalScrollIndicator={false}>
@@ -468,259 +472,361 @@ export default function FinalizeActivityModal({
     return (
         <Modal
             visible={visible}
-            animationType="slide"
-            presentationStyle="pageSheet"
+            animationType="fade"
+            transparent={true}
             onRequestClose={onClose}
         >
-            <SafeAreaView style={FormStyles.modalContainer}>
-                {/* Header */}
-                <View style={FormStyles.modalHeader}>
-                    <Text style={FormStyles.title}>Review & Finalize</Text>
-                    <Text style={FormStyles.subtitle}>Complete your activity setup</Text>
+            <SafeAreaView style={modalStyles.modalOverlay}>
+                <Animated.View style={modalStyles.modalContainer}>
+                    {/* Gradient Background */}
+                    <LinearGradient
+                        colors={modalColors.headerGradient}
+                        style={modalStyles.modalGradientBackground}
+                    />
+                    
+                    {/* Close Button */}
                     <TouchableOpacity
-                        style={styles.closeButton}
+                        style={modalStyles.modernCloseBtn}
                         onPress={onClose}
                     >
-                        <X stroke="#fff" width={20} height={20} />
+                        <View style={modalStyles.closeBtnCircle}>
+                            <X stroke="#fff" width={18} height={18} />
+                        </View>
                     </TouchableOpacity>
-                </View>
 
-                {/* Content */}
-                <ScrollView
-                    style={FormStyles.stepContent}
-                    contentContainerStyle={FormStyles.scrollContent}
-                    showsVerticalScrollIndicator={false}
-                    keyboardShouldPersistTaps="handled"
-                    keyboardDismissMode="on-drag"
-                >
-                    {/* Error Display */}
-                    {errors.length > 0 && (
-                        <View style={styles.errorContainer}>
-                            {errors.map((error, index) => (
-                                <Text key={index} style={styles.errorText}>
-                                    • {error}
+                    {/* Logo */}
+                    <View style={styles.logoWrapper}>
+                        <View style={styles.logoCircle}>
+                            <Image 
+                                source={VoxxyTriangle} 
+                                style={styles.logo}
+                                resizeMode="contain"
+                            />
+                        </View>
+                    </View>
+
+                    {/* Content */}
+                    <View style={modalStyles.modalContent}>
+                        <Text style={modalStyles.modernTitle}>Review & Finalize</Text>
+                        <Text style={modalStyles.modernDescription}>Complete your activity setup</Text>
+
+                        {/* Scrollable Content */}
+                        <ScrollView
+                            style={styles.scrollView}
+                            contentContainerStyle={styles.scrollContent}
+                            showsVerticalScrollIndicator={false}
+                            keyboardShouldPersistTaps="handled"
+                            keyboardDismissMode="on-drag"
+                        >
+                            {/* Error Display */}
+                            {errors.length > 0 && (
+                                <View style={styles.errorContainer}>
+                                    {errors.map((error, index) => (
+                                        <Text key={index} style={styles.errorText}>
+                                            • {error}
+                                        </Text>
+                                    ))}
+                                </View>
+                            )}
+
+                            {/* Activity Name Input */}
+                            <View style={styles.inputSection}>
+                                <View style={styles.inputHeader}>
+                                    <View style={styles.iconWrapper}>
+                                        <Edit3 stroke={modalColors.purple500} width={16} height={16} />
+                                    </View>
+                                    <Text style={styles.inputLabel}>Activity Name</Text>
+                                </View>
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="Enter activity name..."
+                                    placeholderTextColor={modalColors.textDim}
+                                    value={formData.activity_name}
+                                    onChangeText={(value) => handleInputChange('activity_name', value)}
+                                />
+                            </View>
+
+                            {/* Welcome Message */}
+                            <View style={styles.inputSection}>
+                                <View style={styles.inputHeader}>
+                                    <View style={styles.iconWrapper}>
+                                        <MessageSquare stroke={modalColors.purple500} width={16} height={16} />
+                                    </View>
+                                    <Text style={styles.inputLabel}>Welcome Message</Text>
+                                </View>
+                                <TextInput
+                                    style={styles.textarea}
+                                    placeholder="Write a welcome message for participants..."
+                                    placeholderTextColor={modalColors.textDim}
+                                    value={formData.welcome_message}
+                                    onChangeText={(value) => handleInputChange('welcome_message', value)}
+                                    multiline
+                                    numberOfLines={4}
+                                    textAlignVertical="top"
+                                />
+                            </View>
+
+                            {/* Date Selection */}
+                            <View style={styles.inputSection}>
+                                <View style={styles.inputHeader}>
+                                    <View style={styles.iconWrapper}>
+                                        <Calendar stroke={modalColors.purple500} width={16} height={16} />
+                                    </View>
+                                    <Text style={styles.inputLabel}>Activity Date</Text>
+                                </View>
+                                <TouchableOpacity
+                                    style={styles.dateTimeButton}
+                                    onPress={() => {
+                                        setTempDate(formData.date_day)
+                                        setShowDatePicker(true)
+                                    }}
+                                >
+                                    <Text style={styles.dateTimeButtonText}>
+                                        {formatDate(formData.date_day)}
+                                    </Text>
+                                </TouchableOpacity>
+                                {showDatePicker && (
+                                    <View>
+                                        <DateTimePicker
+                                            value={tempDate || formData.date_day}
+                                            mode="date"
+                                            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                                            onChange={handleDateChange}
+                                            minimumDate={new Date()}
+                                        />
+                                        {Platform.OS === 'ios' && (
+                                            <View style={styles.pickerButtons}>
+                                                <TouchableOpacity 
+                                                    style={[styles.pickerButton, styles.cancelButton]} 
+                                                    onPress={cancelDateChange}
+                                                >
+                                                    <Text style={styles.cancelButtonText}>Cancel</Text>
+                                                </TouchableOpacity>
+                                                <TouchableOpacity 
+                                                    style={[styles.pickerButton, styles.confirmButton]} 
+                                                    onPress={confirmDateChange}
+                                                >
+                                                    <Text style={styles.confirmButtonText}>Done</Text>
+                                                </TouchableOpacity>
+                                            </View>
+                                        )}
+                                    </View>
+                                )}
+                            </View>
+
+                            {/* Time Selection */}
+                            <View style={styles.inputSection}>
+                                <View style={styles.inputHeader}>
+                                    <View style={styles.iconWrapper}>
+                                        <Clock stroke={modalColors.purple500} width={16} height={16} />
+                                    </View>
+                                    <Text style={styles.inputLabel}>Activity Time</Text>
+                                </View>
+                                <TouchableOpacity
+                                    style={styles.dateTimeButton}
+                                    onPress={() => {
+                                        setTempTime(formData.date_time)
+                                        setShowTimePicker(true)
+                                    }}
+                                >
+                                    <Text style={styles.dateTimeButtonText}>
+                                        {formatTo12h(formData.date_time)}
+                                    </Text>
+                                </TouchableOpacity>
+                                {showTimePicker && (
+                                    <View>
+                                        <DateTimePicker
+                                            value={tempTime || formData.date_time}
+                                            mode="time"
+                                            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                                            onChange={handleTimeChange}
+                                        />
+                                        {Platform.OS === 'ios' && (
+                                            <View style={styles.pickerButtons}>
+                                                <TouchableOpacity 
+                                                    style={[styles.pickerButton, styles.cancelButton]} 
+                                                    onPress={cancelTimeChange}
+                                                >
+                                                    <Text style={styles.cancelButtonText}>Cancel</Text>
+                                                </TouchableOpacity>
+                                                <TouchableOpacity 
+                                                    style={[styles.pickerButton, styles.confirmButton]} 
+                                                    onPress={confirmTimeChange}
+                                                >
+                                                    <Text style={styles.confirmButtonText}>Done</Text>
+                                                </TouchableOpacity>
+                                            </View>
+                                        )}
+                                    </View>
+                                )}
+                            </View>
+
+                            {/* Location Input */}
+                            <View style={styles.inputSection}>
+                                <View style={styles.inputHeader}>
+                                    <View style={styles.iconWrapper}>
+                                        <MapPin stroke={modalColors.purple500} width={16} height={16} />
+                                    </View>
+                                    <Text style={styles.inputLabel}>Activity Location</Text>
+                                </View>
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="Enter activity location..."
+                                    placeholderTextColor={modalColors.textDim}
+                                    value={formData.activity_location}
+                                    onChangeText={(value) => handleInputChange('activity_location', value)}
+                                />
+                            </View>
+
+                            {renderPinnedActivities()}
+                            {renderTimeSlots()}
+                            {renderEmptyState()}
+                        </ScrollView>
+
+                        {/* Footer Buttons */}
+                        <View style={modalStyles.buttonContainer}>
+                            <TouchableOpacity
+                                style={modalStyles.secondaryButton}
+                                onPress={onClose}
+                            >
+                                <Text style={modalStyles.secondaryButtonText}>
+                                    Cancel
                                 </Text>
-                            ))}
-                        </View>
-                    )}
+                            </TouchableOpacity>
 
-                    {/* Activity Name Input */}
-                    <View style={styles.section}>
-                        <View style={styles.sectionHeader}>
-                            <Text style={styles.sectionTitle}>Activity Name</Text>
+                            <TouchableOpacity
+                                style={modalStyles.primaryButton}
+                                onPress={handleSubmit}
+                                disabled={!canSubmit || isSubmitting}
+                            >
+                                <LinearGradient
+                                    colors={modalColors.buttonGradient}
+                                    style={modalStyles.primaryButtonGradient}
+                                >
+                                    <CheckCircle stroke="#fff" width={16} height={16} />
+                                    <Text style={modalStyles.primaryButtonText}>
+                                        {isSubmitting ? (loadingMessage || 'Finalizing...') : 'Finalize & Share'}
+                                    </Text>
+                                </LinearGradient>
+                            </TouchableOpacity>
                         </View>
-                        <TextInput
-                            style={FormStyles.input}
-                            placeholder="Enter activity name..."
-                            placeholderTextColor="#aaa"
-                            value={formData.activity_name}
-                            onChangeText={(value) => handleInputChange('activity_name', value)}
-                        />
                     </View>
-
-                    {/* Welcome Message */}
-                    <View style={styles.section}>
-                        <View style={styles.sectionHeader}>
-                            <MessageSquare stroke="#cc31e8" width={20} height={20} />
-                            <Text style={styles.sectionTitle}>Welcome Message</Text>
-                        </View>
-                        <TextInput
-                            style={FormStyles.textarea}
-                            placeholder="Write a welcome message for participants..."
-                            placeholderTextColor="#aaa"
-                            value={formData.welcome_message}
-                            onChangeText={(value) => handleInputChange('welcome_message', value)}
-                            multiline
-                            numberOfLines={4}
-                            textAlignVertical="top"
-                        />
-                    </View>
-
-                    {/* Date Selection */}
-                    <View style={styles.section}>
-                        <View style={styles.sectionHeader}>
-                            <Calendar stroke="#cc31e8" width={20} height={20} />
-                            <Text style={styles.sectionTitle}>Activity Date</Text>
-                        </View>
-                        <TouchableOpacity
-                            style={styles.dateTimeButton}
-                            onPress={() => {
-                                setTempDate(formData.date_day)
-                                setShowDatePicker(true)
-                            }}
-                        >
-                            <Text style={styles.dateTimeButtonText}>
-                                {formatDate(formData.date_day)}
-                            </Text>
-                        </TouchableOpacity>
-                        {showDatePicker && (
-                            <View>
-                                <DateTimePicker
-                                    value={tempDate || formData.date_day}
-                                    mode="date"
-                                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                                    onChange={handleDateChange}
-                                    minimumDate={new Date()}
-                                />
-                                {Platform.OS === 'ios' && (
-                                    <View style={styles.pickerButtons}>
-                                        <TouchableOpacity 
-                                            style={[styles.pickerButton, styles.cancelButton]} 
-                                            onPress={cancelDateChange}
-                                        >
-                                            <Text style={styles.cancelButtonText}>Cancel</Text>
-                                        </TouchableOpacity>
-                                        <TouchableOpacity 
-                                            style={[styles.pickerButton, styles.confirmButton]} 
-                                            onPress={confirmDateChange}
-                                        >
-                                            <Text style={styles.confirmButtonText}>Done</Text>
-                                        </TouchableOpacity>
-                                    </View>
-                                )}
-                            </View>
-                        )}
-                    </View>
-
-                    {/* Time Selection */}
-                    <View style={styles.section}>
-                        <View style={styles.sectionHeader}>
-                            <Clock stroke="#cc31e8" width={20} height={20} />
-                            <Text style={styles.sectionTitle}>Activity Time</Text>
-                        </View>
-                        <TouchableOpacity
-                            style={styles.dateTimeButton}
-                            onPress={() => {
-                                setTempTime(formData.date_time)
-                                setShowTimePicker(true)
-                            }}
-                        >
-                            <Text style={styles.dateTimeButtonText}>
-                                {formatTo12h(formData.date_time)}
-                            </Text>
-                        </TouchableOpacity>
-                        {showTimePicker && (
-                            <View>
-                                <DateTimePicker
-                                    value={tempTime || formData.date_time}
-                                    mode="time"
-                                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                                    onChange={handleTimeChange}
-                                />
-                                {Platform.OS === 'ios' && (
-                                    <View style={styles.pickerButtons}>
-                                        <TouchableOpacity 
-                                            style={[styles.pickerButton, styles.cancelButton]} 
-                                            onPress={cancelTimeChange}
-                                        >
-                                            <Text style={styles.cancelButtonText}>Cancel</Text>
-                                        </TouchableOpacity>
-                                        <TouchableOpacity 
-                                            style={[styles.pickerButton, styles.confirmButton]} 
-                                            onPress={confirmTimeChange}
-                                        >
-                                            <Text style={styles.confirmButtonText}>Done</Text>
-                                        </TouchableOpacity>
-                                    </View>
-                                )}
-                            </View>
-                        )}
-                    </View>
-
-                    {/* Location Input */}
-                    <View style={styles.section}>
-                        <View style={styles.sectionHeader}>
-                            <MapPin stroke="#cc31e8" width={20} height={20} />
-                            <Text style={styles.sectionTitle}>Activity Location</Text>
-                        </View>
-                        <TextInput
-                            style={FormStyles.input}
-                            placeholder="Enter activity location..."
-                            placeholderTextColor="#aaa"
-                            value={formData.activity_location}
-                            onChangeText={(value) => handleInputChange('activity_location', value)}
-                        />
-                    </View>
-
-                    {renderPinnedActivities()}
-                    {renderTimeSlots()}
-                    {renderEmptyState()}
-                </ScrollView>
-
-                {/* Footer Buttons */}
-                <View style={FormStyles.buttonRow}>
-                    <TouchableOpacity
-                        style={FormStyles.buttonSecondary}
-                        onPress={onClose}
-                    >
-                        <Text style={[FormStyles.buttonText, FormStyles.buttonTextSecondary]}>
-                            Cancel
-                        </Text>
-                    </TouchableOpacity>
-
-                    <GradientButton
-                        onPress={handleSubmit}
-                        disabled={!canSubmit || isSubmitting}
-                        style={[FormStyles.flex1, (!canSubmit || isSubmitting) && FormStyles.buttonDisabled]}
-                    >
-                        <View style={styles.buttonContent}>
-                            <CheckCircle stroke="#fff" width={16} height={16} />
-                            <Text style={[FormStyles.buttonText, FormStyles.buttonTextPrimary]}>
-                                {isSubmitting ? (loadingMessage || 'Finalizing...') : 'Finalize & Share'}
-                            </Text>
-                        </View>
-                    </GradientButton>
-                </View>
+                </Animated.View>
             </SafeAreaView>
         </Modal>
     )
 }
 
 const styles = StyleSheet.create({
-    closeButton: {
-        position: 'absolute',
-        top: 24,
-        right: 24,
-        padding: 8,
-        borderRadius: 20,
-        backgroundColor: 'rgba(255, 255, 255, 0.1)',
-        zIndex: 10,
+    logoWrapper: {
+        alignSelf: 'center',
+        marginTop: 35,
+        marginBottom: -35,
+        zIndex: 5,
     },
 
-    section: {
-        backgroundColor: 'rgba(255, 255, 255, 0.05)',
-        borderRadius: 16,
-        padding: 16,
-        marginBottom: 16,
+    logoCircle: {
+        width: 90,
+        height: 90,
+        borderRadius: 45,
+        backgroundColor: '#ffffff',
+        justifyContent: 'center',
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: {
+            width: 0,
+            height: 4,
+        },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        elevation: 10,
+    },
+
+    logo: {
+        width: 75,
+        height: 75,
+        shadowColor: '#000',
+        shadowOffset: {
+            width: 0,
+            height: 2,
+        },
+        shadowOpacity: 0.25,
+        shadowRadius: 4,
+    },
+
+    scrollView: {
+        width: '100%',
+        maxHeight: 400,
+    },
+
+    scrollContent: {
+        paddingBottom: 20,
+    },
+
+    inputSection: {
+        marginBottom: 20,
+    },
+
+    inputHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 10,
+    },
+
+    iconWrapper: {
+        width: 28,
+        height: 28,
+        borderRadius: 14,
+        backgroundColor: 'rgba(168, 85, 247, 0.15)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 10,
+    },
+
+    inputLabel: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: modalColors.textMuted,
+    },
+
+    input: {
+        backgroundColor: 'rgba(147, 51, 234, 0.1)',
+        borderRadius: 12,
+        paddingHorizontal: 16,
+        paddingVertical: 14,
+        fontSize: 15,
+        color: modalColors.textWhite,
         borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.1)',
+        borderColor: 'rgba(147, 51, 234, 0.2)',
     },
 
-    lastSection: {
-        marginBottom: 32,
+    textarea: {
+        backgroundColor: 'rgba(147, 51, 234, 0.1)',
+        borderRadius: 12,
+        paddingHorizontal: 16,
+        paddingVertical: 14,
+        fontSize: 15,
+        color: modalColors.textWhite,
+        borderWidth: 1,
+        borderColor: 'rgba(147, 51, 234, 0.2)',
+        minHeight: 100,
+        textAlignVertical: 'top',
     },
 
     sectionHeader: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 16,
-    },
-
-    sectionTitle: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: '#fff',
-        marginLeft: 12,
+        marginBottom: 12,
     },
 
     optionList: {
-        maxHeight: 300,
+        maxHeight: 200,
     },
 
     optionItem: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        backgroundColor: 'rgba(147, 51, 234, 0.05)',
         padding: 12,
         borderRadius: 12,
         marginBottom: 8,
@@ -729,8 +835,8 @@ const styles = StyleSheet.create({
     },
 
     optionItemSelected: {
-        borderColor: '#cc31e8',
-        backgroundColor: 'rgba(204, 49, 232, 0.1)',
+        borderColor: modalColors.purple500,
+        backgroundColor: 'rgba(168, 85, 247, 0.15)',
     },
 
     radioButton: {
@@ -738,7 +844,7 @@ const styles = StyleSheet.create({
         height: 18,
         borderRadius: 9,
         borderWidth: 2,
-        borderColor: '#ccc',
+        borderColor: modalColors.textDim,
         marginRight: 12,
         alignItems: 'center',
         justifyContent: 'center',
@@ -748,7 +854,7 @@ const styles = StyleSheet.create({
         width: 10,
         height: 10,
         borderRadius: 5,
-        backgroundColor: '#cc31e8',
+        backgroundColor: modalColors.purple500,
     },
 
     optionContent: {
@@ -761,12 +867,12 @@ const styles = StyleSheet.create({
     optionTitle: {
         fontSize: 15,
         fontWeight: '600',
-        color: '#fff',
+        color: modalColors.textWhite,
         flex: 1,
     },
 
     optionTitleSelected: {
-        color: '#cc31e8',
+        color: modalColors.purple500,
     },
 
     statusIndicators: {
@@ -799,49 +905,48 @@ const styles = StyleSheet.create({
         padding: 32,
         alignItems: 'center',
         justifyContent: 'center',
+        backgroundColor: 'rgba(251, 191, 36, 0.1)',
+        borderRadius: 12,
+        marginBottom: 16,
+        borderWidth: 1,
+        borderColor: 'rgba(251, 191, 36, 0.2)',
     },
 
     emptyStateText: {
-        color: '#ccc',
-        fontSize: 16,
+        color: modalColors.warningYellow,
+        fontSize: 14,
         textAlign: 'center',
         fontStyle: 'italic',
-        lineHeight: 24,
+        lineHeight: 22,
     },
 
     errorContainer: {
-        backgroundColor: 'rgba(220, 38, 127, 0.2)',
+        backgroundColor: 'rgba(239, 68, 68, 0.1)',
         borderWidth: 1,
-        borderColor: 'rgba(220, 38, 127, 0.3)',
+        borderColor: 'rgba(239, 68, 68, 0.3)',
         borderRadius: 12,
         padding: 16,
         marginBottom: 20,
     },
 
     errorText: {
-        color: '#dc267f',
+        color: '#ef4444',
         fontSize: 14,
         marginBottom: 4,
         lineHeight: 18,
     },
 
-    buttonContent: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-
     dateTimeButton: {
-        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+        backgroundColor: 'rgba(147, 51, 234, 0.1)',
         borderRadius: 12,
         paddingVertical: 14,
         paddingHorizontal: 16,
         borderWidth: 1,
-        borderColor: 'rgba(204, 49, 232, 0.3)',
+        borderColor: 'rgba(147, 51, 234, 0.2)',
     },
 
     dateTimeButtonText: {
-        color: '#fff',
+        color: modalColors.textWhite,
         fontSize: 16,
         fontWeight: '600',
         textAlign: 'center',
@@ -852,7 +957,7 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         paddingHorizontal: 20,
         paddingVertical: 10,
-        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        backgroundColor: 'rgba(147, 51, 234, 0.05)',
         borderRadius: 12,
         marginTop: 10,
     },
@@ -866,21 +971,21 @@ const styles = StyleSheet.create({
     },
 
     cancelButton: {
-        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+        backgroundColor: 'rgba(147, 51, 234, 0.1)',
     },
 
     confirmButton: {
-        backgroundColor: '#cc31e8',
+        backgroundColor: modalColors.purple700,
     },
 
     cancelButtonText: {
-        color: '#fff',
+        color: modalColors.textMuted,
         fontSize: 16,
         fontWeight: '600',
     },
 
     confirmButtonText: {
-        color: '#fff',
+        color: modalColors.textWhite,
         fontSize: 16,
         fontWeight: '600',
     },

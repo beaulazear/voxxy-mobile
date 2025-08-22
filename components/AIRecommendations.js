@@ -5,7 +5,6 @@ import {
     ScrollView,
     TouchableOpacity,
     Modal,
-    StyleSheet,
     Alert,
     Dimensions,
     Image,
@@ -13,6 +12,7 @@ import {
     Animated,
     ActivityIndicator,
     Linking,
+    Platform,
     SafeAreaView,
     PanResponder,
 } from 'react-native';
@@ -21,6 +21,7 @@ import Icon from 'react-native-vector-icons/Feather';
 import { UserContext } from '../context/UserContext';
 import { API_URL } from '../config';
 import { useNavigation } from '@react-navigation/native';
+import styles from '../styles/AIRecommendationsStyles';
 
 // Updated Icons object using Feather icons
 const Icons = {
@@ -387,68 +388,35 @@ const SwipeableCard = ({ recommendation, onSwipeLeft, onSwipeRight, onFlag, onFa
                 <Text style={styles.dislikeText}>PASS</Text>
             </Animated.View>
 
-            {/* Card Content */}
+            {/* Card Content - Simplified like Try Voxxy */}
             <LinearGradient
-                colors={['#3A2D44', '#2C1E33']}
+                colors={['rgba(204, 49, 232, 0.08)', 'rgba(144, 81, 225, 0.04)']}
                 style={styles.cardGradient}
             >
+                {/* Header with Title and Price */}
                 <View style={styles.cardHeader}>
                     <TouchableOpacity onPress={() => onViewDetails(recommendation)} activeOpacity={0.7} style={styles.cardTitleContainer}>
                         <Text style={styles.cardTitle}>{recommendation.title}</Text>
                     </TouchableOpacity>
-                    <Text style={styles.cardPriceCorner}>{recommendation.price_range || '$'}</Text>
+                    <Text style={styles.cardPrice}>{recommendation.price_range || '$'}</Text>
                 </View>
 
-                <View style={styles.cardDetails}>
-                    {isGameNight ? (
-                        <>
-                            <View style={styles.cardDetailRow}>
-                                <Icons.Users color="#cc31e8" size={16} />
-                                <Text style={styles.cardDetailText}>Players: {recommendation.address || 'N/A'}</Text>
-                            </View>
-                            <View style={styles.cardDetailRow}>
-                                <Icons.Clock color="#cc31e8" size={16} />
-                                <Text style={styles.cardDetailText}>Play Time: {recommendation.hours || 'N/A'}</Text>
-                            </View>
-                        </>
-                    ) : (
-                        <>
-                            <View style={styles.cardDetailRow}>
-                                <Icons.Clock color="#cc31e8" size={16} />
-                                <Text style={styles.cardDetailText}>{recommendation.hours || 'N/A'}</Text>
-                            </View>
-                            <View style={styles.cardDetailRow}>
-                                <Icons.MapPin color="#cc31e8" size={16} />
-                                <Text style={styles.cardDetailText}>{recommendation.address || 'N/A'}</Text>
-                            </View>
-                        </>
-                    )}
-                </View>
-
+                {/* Description */}
                 {recommendation.description && (
-                    <Text style={styles.cardDescription} numberOfLines={3}>
+                    <Text style={styles.cardDescription} numberOfLines={2}>
                         {recommendation.description}
                     </Text>
                 )}
 
-                {recommendation.reason && (
-                    <View style={styles.cardReason}>
-                        <Text style={styles.cardReasonTitle}>Why this choice?</Text>
-                        <Text style={styles.cardReasonText} numberOfLines={4}>
-                            {recommendation.reason}
+                {/* Address */}
+                {recommendation.address && (
+                    <View style={styles.cardAddressRow}>
+                        <Icons.MapPin color="#B8A5C4" size={14} />
+                        <Text style={styles.cardAddressText} numberOfLines={1}>
+                            {recommendation.address}
                         </Text>
                     </View>
                 )}
-
-                {/* View Full Details Button */}
-                <TouchableOpacity 
-                    style={styles.viewDetailsButton} 
-                    onPress={() => onViewDetails(recommendation)}
-                    activeOpacity={0.7}
-                >
-                    <Text style={styles.viewDetailsButtonText}>View details</Text>
-                    <Icons.ExternalLink color="rgba(255, 255, 255, 0.7)" size={14} />
-                </TouchableOpacity>
 
                 {/* Action Buttons */}
                 <View style={styles.cardActions} pointerEvents="box-none">
@@ -1001,6 +969,26 @@ export default function AIRecommendations({
         nextCard(); // Move to next card after favoriting
     };
 
+    const openMapWithAddress = (address) => {
+        if (!address) return;
+        
+        // Encode the address for URL
+        const encodedAddress = encodeURIComponent(address);
+        
+        // Try to open in default map app (Apple Maps on iOS, Google Maps on Android)
+        const mapUrl = Platform.OS === 'ios' 
+            ? `maps:0,0?q=${encodedAddress}`
+            : `geo:0,0?q=${encodedAddress}`;
+        
+        Linking.openURL(mapUrl).catch(() => {
+            // Fallback to Google Maps in browser if native map app fails
+            const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodedAddress}`;
+            Linking.openURL(googleMapsUrl).catch(() => {
+                Alert.alert('Error', 'Unable to open map application');
+            });
+        });
+    };
+
     const nextCard = () => {
         setCurrentCardIndex(prev => {
             const nextIndex = prev + 1;
@@ -1245,14 +1233,9 @@ export default function AIRecommendations({
                                 }
                             ]}
                         >
-                            <LinearGradient
-                                colors={['#9333EA', '#7C3AED']}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 1 }}
-                                style={styles.actionGradient}
-                            >
+                            <View style={styles.actionGradient}>
                                 <View style={styles.actionIconBg}>
-                                    <Icon name="message-circle" size={24} color="#fff" />
+                                    <Icon name="message-circle" size={24} color="#9333EA" />
                                 </View>
                                 <Text style={styles.actionTitle}>Your Input Matters!</Text>
                                 <Text style={styles.actionText}>
@@ -1263,9 +1246,9 @@ export default function AIRecommendations({
                                     <Text style={styles.modernActionButtonText}>
                                         {activity.allow_participant_time_selection ? 'Share Preferences & Times' : 'Share Your Preferences'}
                                     </Text>
-                                    <Icon name="arrow-right" size={18} color="#9333EA" />
+                                    <Icon name="arrow-right" size={18} color="#FFFFFF" />
                                 </TouchableOpacity>
-                            </LinearGradient>
+                            </View>
                         </Animated.View>
                     ) : user && currentUserResponse ? (
                         <View style={styles.submittedCard}>
@@ -1549,9 +1532,6 @@ export default function AIRecommendations({
     if (!collecting && !finalized && voting && pinnedActivities.length === 0) {
         return (
             <View style={styles.container}>
-                <View style={styles.header}>
-                    <Text style={styles.heading}>AI Recommendations</Text>
-                </View>
                 <View style={styles.noRecommendationsContainer}>
                     <Icons.HelpCircle color="#ccc" size={48} />
                     <Text style={styles.noRecommendationsTitle}>No Recommendations</Text>
@@ -1577,9 +1557,191 @@ export default function AIRecommendations({
     if (!collecting && !finalized && voting && pinnedActivities.length > 0) {
         // Check if user is the owner of the activity
         
-        // Only the activity owner can swipe through recommendations
+        // If not the owner, show recommendations in read-only mode
         if (!isOwner) {
-            return null;
+            // Show all recommendations as cards (view-only for participants)
+            return (
+                <>
+                <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+                    <View style={styles.participantViewHeader}>
+                        <Text style={styles.participantViewTitle}>
+                            The organizer is reviewing your picks ✨
+                        </Text>
+                    </View>
+                    
+                    {/* Display all recommendations */}
+                    <View style={styles.recommendationsGrid}>
+                        {pinnedActivities.map((recommendation) => {
+                            return (
+                                <TouchableOpacity
+                                    key={recommendation.id}
+                                    style={styles.recommendationCard}
+                                    onPress={() => openDetail(recommendation)}
+                                    activeOpacity={0.7}
+                                >
+                                    <LinearGradient
+                                        colors={['rgba(204, 49, 232, 0.08)', 'rgba(155, 29, 189, 0.05)']}
+                                        style={styles.recCardGradient}
+                                    >
+                                        <View style={styles.recCardContent}>
+                                            {/* Header with Title and Price */}
+                                            <View style={styles.recCardHeader}>
+                                                <Text style={styles.recCardTitle} numberOfLines={1}>
+                                                    {recommendation.title}
+                                                </Text>
+                                                <Text style={styles.recCardPrice}>
+                                                    {recommendation.price_range || '$'}
+                                                </Text>
+                                            </View>
+                                            
+                                            {/* Description */}
+                                            {(recommendation.description || recommendation.reason) && (
+                                                <Text style={styles.recCardDescription} numberOfLines={2}>
+                                                    {recommendation.description || recommendation.reason}
+                                                </Text>
+                                            )}
+                                            
+                                            {/* Address */}
+                                            {recommendation.address && (
+                                                <View style={styles.recCardAddressRow}>
+                                                    <Icons.MapPin color="#B8A5C4" size={14} />
+                                                    <Text style={styles.recCardAddressText} numberOfLines={1}>
+                                                        {recommendation.address}
+                                                    </Text>
+                                                </View>
+                                            )}
+                                        </View>
+                                        
+                                        {/* Chevron indicator */}
+                                        <View style={styles.recCardChevron}>
+                                            <Icons.ChevronRight color="#B8A5C4" size={20} />
+                                        </View>
+                                    </LinearGradient>
+                                </TouchableOpacity>
+                            );
+                        })}
+                    </View>
+                    
+                    {/* Note for participants */}
+                    <View style={styles.participantNote}>
+                        <Icons.HelpCircle color="#B8A5C4" size={16} />
+                        <Text style={styles.participantNoteText}>
+                            Only the host can finalize the activity selection
+                        </Text>
+                    </View>
+                </ScrollView>
+
+                {/* Detail Modal for participants */}
+                <Modal
+                    visible={showDetailModal}
+                    animationType="slide"
+                    onRequestClose={() => setShowDetailModal(false)}
+                >
+                    <SafeAreaView style={styles.detailModal}>
+                        <View style={styles.detailModalHeader}>
+                            <Text style={styles.detailModalTitle}>{selectedRec?.title || selectedRec?.name}</Text>
+                            <TouchableOpacity style={styles.detailCloseButton} onPress={() => setShowDetailModal(false)}>
+                                <Icons.X />
+                            </TouchableOpacity>
+                        </View>
+
+                        <ScrollView style={styles.detailModalBody}>
+                            {(() => {
+                                const activityType = activity.activity_type || 'Meeting';
+                                const isGameNightActivity = activityType === 'Game Night';
+                                const activityText = {
+                                    reasonTitle: isGameNightActivity ? 'Why this game?' : 'Why this place?'
+                                };
+
+                                return (
+                                    <>
+                                        <View style={styles.detailGrid}>
+                                            {isGameNightActivity ? (
+                                                <>
+                                                    <View style={styles.detailItem}>
+                                                        <Icons.Users />
+                                                        <Text style={styles.detailLabel}>Players:</Text>
+                                                        <Text style={styles.detailValue}>{selectedRec?.address || 'N/A'}</Text>
+                                                    </View>
+                                                    <View style={styles.detailItem}>
+                                                        <Icons.Clock />
+                                                        <Text style={styles.detailLabel}>Play Time:</Text>
+                                                        <Text style={styles.detailValue}>{selectedRec?.hours || 'N/A'}</Text>
+                                                    </View>
+                                                    <View style={styles.detailItem}>
+                                                        <Icons.DollarSign />
+                                                        <Text style={styles.detailLabel}>Price:</Text>
+                                                        <Text style={styles.detailValue}>{selectedRec?.price_range || 'N/A'}</Text>
+                                                    </View>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <View style={styles.detailItem}>
+                                                        <Icons.DollarSign />
+                                                        <Text style={styles.detailLabel}>Price:</Text>
+                                                        <Text style={styles.detailValue}>{selectedRec?.price_range || 'N/A'}</Text>
+                                                    </View>
+                                                    <View style={styles.detailItem}>
+                                                        <Icons.Clock />
+                                                        <Text style={styles.detailLabel}>Hours:</Text>
+                                                        <Text style={styles.detailValue}>{selectedRec?.hours || 'N/A'}</Text>
+                                                    </View>
+                                                </>
+                                            )}
+                                        </View>
+
+                                        {selectedRec?.description && (
+                                            <View style={styles.section}>
+                                                <View style={styles.sectionHeader}>
+                                                    <Icons.HelpCircle />
+                                                    <Text style={styles.sectionTitle}>About</Text>
+                                                </View>
+                                                <Text style={styles.description}>{selectedRec.description}</Text>
+                                                {selectedRec.website && (
+                                                    <TouchableOpacity
+                                                        style={styles.websiteLink}
+                                                        onPress={() => Linking.openURL(selectedRec.website)}
+                                                    >
+                                                        <Icons.Globe />
+                                                        <Text style={styles.websiteLinkText}>Visit Website</Text>
+                                                        <Icons.ExternalLink />
+                                                    </TouchableOpacity>
+                                                )}
+                                            </View>
+                                        )}
+
+                                        {selectedRec?.reason && (
+                                            <View style={styles.reason}>
+                                                <Text style={styles.reasonTitle}>{activityText.reasonTitle}</Text>
+                                                <Text style={styles.reasonText}>{selectedRec.reason}</Text>
+                                            </View>
+                                        )}
+
+                                        {!isGameNightActivity && selectedRec?.address && (
+                                            <View style={styles.section}>
+                                                <View style={styles.sectionHeader}>
+                                                    <Icons.MapPin />
+                                                    <Text style={styles.sectionTitle}>Location</Text>
+                                                </View>
+                                                <TouchableOpacity onPress={() => openMapWithAddress(selectedRec.address)}>
+                                                    <Text style={[styles.description, styles.addressLink]}>
+                                                        {selectedRec.address}
+                                                    </Text>
+                                                </TouchableOpacity>
+                                            </View>
+                                        )}
+
+                                        {!isGameNightActivity && selectedRec?.photos && (
+                                            <PhotoGallery photos={safeJsonParse(selectedRec.photos, [])} />
+                                        )}
+                                    </>
+                                );
+                            })()}
+                        </ScrollView>
+                    </SafeAreaView>
+                </Modal>
+                </>
+            );
         }
         // Show results if all cards have been swiped through
         if (showingResults) {
@@ -1698,13 +1860,6 @@ export default function AIRecommendations({
         // Show all recommendations as cards
         return (
             <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-                <View style={styles.header}>
-                    <Text style={styles.heading}>AI Recommendations</Text>
-                    <Text style={styles.subheading}>
-                        Review and select your favorites
-                    </Text>
-                </View>
-
                 {/* Display all recommendations */}
                 <View style={styles.recommendationsGrid}>
                     {pinnedActivities.map((recommendation) => {
@@ -1726,89 +1881,37 @@ export default function AIRecommendations({
                                     style={styles.recCardGradient}
                                 >
                                     <View style={styles.recCardContent}>
-                                        <Text style={styles.recCardTitle} numberOfLines={2}>
-                                            {recommendation.title}
-                                        </Text>
+                                        {/* Header with Title and Price */}
+                                        <View style={styles.recCardHeader}>
+                                            <Text style={styles.recCardTitle} numberOfLines={1}>
+                                                {recommendation.title}
+                                            </Text>
+                                            <Text style={styles.recCardPrice}>
+                                                {recommendation.price_range || '$'}
+                                            </Text>
+                                        </View>
                                         
-                                        {recommendation.price_range && (
-                                            <View style={styles.recCardInfo}>
-                                                <Icons.DollarSign size={14} />
-                                                <Text style={styles.recCardInfoText}>{recommendation.price_range}</Text>
-                                            </View>
+                                        {/* Description */}
+                                        {(recommendation.description || recommendation.reason) && (
+                                            <Text style={styles.recCardDescription} numberOfLines={2}>
+                                                {recommendation.description || recommendation.reason}
+                                            </Text>
                                         )}
                                         
-                                        {recommendation.address && !isGameNightActivity && (
-                                            <View style={styles.recCardInfo}>
-                                                <Icons.MapPin size={14} />
-                                                <Text style={styles.recCardInfoText} numberOfLines={1}>
+                                        {/* Address */}
+                                        {recommendation.address && (
+                                            <View style={styles.recCardAddressRow}>
+                                                <Icons.MapPin color="#B8A5C4" size={14} />
+                                                <Text style={styles.recCardAddressText} numberOfLines={1}>
                                                     {recommendation.address}
                                                 </Text>
                                             </View>
                                         )}
-                                        
-                                        {recommendation.hours && (
-                                            <View style={styles.recCardInfo}>
-                                                <Icons.Clock size={14} />
-                                                <Text style={styles.recCardInfoText}>
-                                                    {isGameNightActivity ? `Play time: ${recommendation.hours}` : recommendation.hours}
-                                                </Text>
-                                            </View>
-                                        )}
-                                        
-                                        {recommendation.reason && (
-                                            <Text style={styles.recCardReason} numberOfLines={3}>
-                                                {recommendation.reason}
-                                            </Text>
-                                        )}
                                     </View>
                                     
-                                    {/* Action buttons */}
-                                    <View style={styles.recCardActions}>
-                                        <TouchableOpacity 
-                                            style={[
-                                                styles.recActionButton,
-                                                isFlagged && styles.recActionButtonActive
-                                            ]}
-                                            onPress={(e) => {
-                                                e.stopPropagation();
-                                                if (isFlagged) {
-                                                    // Remove from flagged
-                                                    setFlaggedRecommendations(prev => 
-                                                        prev.filter(item => item.id !== recommendation.id)
-                                                    );
-                                                } else {
-                                                    // Add to flagged
-                                                    setFlaggedRecommendations(prev => [...prev, recommendation]);
-                                                    Alert.alert('Flagged', 'This recommendation has been flagged.');
-                                                }
-                                            }}
-                                        >
-                                            <Icons.Flag color={isFlagged ? "#e74c3c" : "#999"} size={16} />
-                                        </TouchableOpacity>
-                                        
-                                        <TouchableOpacity 
-                                            style={[
-                                                styles.recActionButton,
-                                                isFavorited && styles.recActionButtonFavorited
-                                            ]}
-                                            onPress={(e) => {
-                                                e.stopPropagation();
-                                                if (isFavorited) {
-                                                    // Remove from liked
-                                                    setLikedRecommendations(prev => 
-                                                        prev.filter(item => item.id !== recommendation.id)
-                                                    );
-                                                } else {
-                                                    // Add to liked with favorite flag
-                                                    setLikedRecommendations(prev => [
-                                                        ...prev, 
-                                                        { ...recommendation, isFavorite: true }
-                                                    ]);
-                                                }
-                                            }}
-                                        >
-                                            <Icons.Star color={isFavorited ? "#D4AF37" : "#999"} size={16} />
-                                        </TouchableOpacity>
+                                    {/* Chevron indicator */}
+                                    <View style={styles.recCardChevron}>
+                                        <Icons.ChevronRight color="#B8A5C4" size={20} />
                                     </View>
                                 </LinearGradient>
                             </TouchableOpacity>
@@ -1816,30 +1919,32 @@ export default function AIRecommendations({
                     })}
                 </View>
 
-                {/* Bottom actions */}
-                <View style={styles.bottomActionsContainer}>
-                    <TouchableOpacity 
-                        style={[
-                            styles.saveFavoriteButton,
-                            likedRecommendations.length === 0 && styles.buttonDisabled
-                        ]} 
-                        onPress={handleSaveFavoriteAndComplete}
-                        disabled={likedRecommendations.length === 0}
-                    >
-                        <Icons.Star color="#fff" size={18} />
-                        <Text style={styles.saveFavoriteButtonText}>
-                            Save {likedRecommendations.length || 'No'} Favorites & Complete
-                        </Text>
-                    </TouchableOpacity>
-                    
-                    <TouchableOpacity 
-                        style={styles.finalizeActivityButton} 
-                        onPress={onEdit}
-                    >
-                        <Icons.Calendar color="#fff" size={18} />
-                        <Text style={styles.finalizeActivityButtonText}>Finalize Activity Plans</Text>
-                    </TouchableOpacity>
-                </View>
+                {/* Bottom actions - Only for host */}
+                {isOwner && (
+                    <View style={styles.bottomActionsContainer}>
+                        <TouchableOpacity 
+                            style={[
+                                styles.saveFavoriteButton,
+                                likedRecommendations.length === 0 && styles.buttonDisabled
+                            ]} 
+                            onPress={handleSaveFavoriteAndComplete}
+                            disabled={likedRecommendations.length === 0}
+                        >
+                            <Icons.Star color="#fff" size={18} />
+                            <Text style={styles.saveFavoriteButtonText}>
+                                Save {likedRecommendations.length || 'No'} Favorites & Complete
+                            </Text>
+                        </TouchableOpacity>
+                        
+                        <TouchableOpacity 
+                            style={styles.finalizeActivityButton} 
+                            onPress={onEdit}
+                        >
+                            <Icons.Calendar color="#fff" size={18} />
+                            <Text style={styles.finalizeActivityButtonText}>Finalize Activity Plans</Text>
+                        </TouchableOpacity>
+                    </View>
+                )}
 
                     {/* Detail Modal - Same as before */}
                     <Modal
@@ -1924,7 +2029,11 @@ export default function AIRecommendations({
                                             <Icons.MapPin />
                                             <Text style={styles.sectionTitle}>Location</Text>
                                         </View>
-                                        <Text style={styles.description}>{selectedRec.address}</Text>
+                                        <TouchableOpacity onPress={() => openMapWithAddress(selectedRec.address)}>
+                                            <Text style={[styles.description, styles.addressLink]}>
+                                                {selectedRec.address}
+                                            </Text>
+                                        </TouchableOpacity>
                                     </View>
                                 )}
 
@@ -1947,6 +2056,65 @@ export default function AIRecommendations({
                                     );
                                 })()}
                             </ScrollView>
+                            
+                            {/* Modal Action Buttons */}
+                            <View style={styles.modalActionButtons}>
+                                <TouchableOpacity 
+                                    style={[
+                                        styles.modalActionButton,
+                                        flaggedRecommendations.some(r => r.id === selectedRec?.id) && styles.modalActionButtonActive
+                                    ]}
+                                    onPress={() => {
+                                        const isFlagged = flaggedRecommendations.some(r => r.id === selectedRec?.id);
+                                        if (isFlagged) {
+                                            setFlaggedRecommendations(prev => 
+                                                prev.filter(item => item.id !== selectedRec?.id)
+                                            );
+                                        } else {
+                                            setFlaggedRecommendations(prev => [...prev, selectedRec]);
+                                            Alert.alert('Flagged', 'This recommendation has been flagged.');
+                                        }
+                                    }}
+                                >
+                                    <Icons.Flag color={flaggedRecommendations.some(r => r.id === selectedRec?.id) ? "#e74c3c" : "#999"} size={20} />
+                                    <Text style={[
+                                        styles.modalActionButtonText,
+                                        flaggedRecommendations.some(r => r.id === selectedRec?.id) && styles.modalActionButtonTextActive
+                                    ]}>
+                                        {flaggedRecommendations.some(r => r.id === selectedRec?.id) ? 'Flagged' : 'Flag'}
+                                    </Text>
+                                </TouchableOpacity>
+                                
+                                <TouchableOpacity 
+                                    style={[
+                                        styles.modalActionButton,
+                                        styles.modalFavoriteButton,
+                                        likedRecommendations.some(r => r.id === selectedRec?.id) && styles.modalFavoriteButtonActive
+                                    ]}
+                                    onPress={() => {
+                                        const isFavorited = likedRecommendations.some(r => r.id === selectedRec?.id);
+                                        if (isFavorited) {
+                                            setLikedRecommendations(prev => 
+                                                prev.filter(item => item.id !== selectedRec?.id)
+                                            );
+                                        } else {
+                                            setLikedRecommendations(prev => [
+                                                ...prev, 
+                                                { ...selectedRec, isFavorite: true }
+                                            ]);
+                                        }
+                                        closeDetail();
+                                    }}
+                                >
+                                    <Icons.Star color={likedRecommendations.some(r => r.id === selectedRec?.id) ? "#D4AF37" : "#fff"} size={20} />
+                                    <Text style={[
+                                        styles.modalFavoriteButtonText,
+                                        likedRecommendations.some(r => r.id === selectedRec?.id) && styles.modalFavoriteButtonTextActive
+                                    ]}>
+                                        {likedRecommendations.some(r => r.id === selectedRec?.id) ? 'Favorited' : 'Add to Favorites'}
+                                    </Text>
+                                </TouchableOpacity>
+                            </View>
                         </SafeAreaView>
                     </Modal>
             </ScrollView>
@@ -2097,7 +2265,11 @@ export default function AIRecommendations({
                                         <Icons.MapPin />
                                         <Text style={styles.sectionTitle}>Location</Text>
                                     </View>
-                                    <Text style={styles.description}>{selectedRec.address}</Text>
+                                    <TouchableOpacity onPress={() => openMapWithAddress(selectedRec.address)}>
+                                        <Text style={[styles.description, styles.addressLink]}>
+                                            {selectedRec.address}
+                                        </Text>
+                                    </TouchableOpacity>
                                 </View>
                             )}
 
@@ -2120,6 +2292,65 @@ export default function AIRecommendations({
                                 );
                             })()}
                         </ScrollView>
+                        
+                        {/* Modal Action Buttons for FINALIZED phase */}
+                        <View style={styles.modalActionButtons}>
+                            <TouchableOpacity 
+                                style={[
+                                    styles.modalActionButton,
+                                    flaggedRecommendations.some(r => r.id === selectedRec?.id) && styles.modalActionButtonActive
+                                ]}
+                                onPress={() => {
+                                    const isFlagged = flaggedRecommendations.some(r => r.id === selectedRec?.id);
+                                    if (isFlagged) {
+                                        setFlaggedRecommendations(prev => 
+                                            prev.filter(item => item.id !== selectedRec?.id)
+                                        );
+                                    } else {
+                                        setFlaggedRecommendations(prev => [...prev, selectedRec]);
+                                        Alert.alert('Flagged', 'This recommendation has been flagged.');
+                                    }
+                                }}
+                            >
+                                <Icons.Flag color={flaggedRecommendations.some(r => r.id === selectedRec?.id) ? "#e74c3c" : "#999"} size={20} />
+                                <Text style={[
+                                    styles.modalActionButtonText,
+                                    flaggedRecommendations.some(r => r.id === selectedRec?.id) && styles.modalActionButtonTextActive
+                                ]}>
+                                    {flaggedRecommendations.some(r => r.id === selectedRec?.id) ? 'Flagged' : 'Flag'}
+                                </Text>
+                            </TouchableOpacity>
+                            
+                            <TouchableOpacity 
+                                style={[
+                                    styles.modalActionButton,
+                                    styles.modalFavoriteButton,
+                                    likedRecommendations.some(r => r.id === selectedRec?.id) && styles.modalFavoriteButtonActive
+                                ]}
+                                onPress={() => {
+                                    const isFavorited = likedRecommendations.some(r => r.id === selectedRec?.id);
+                                    if (isFavorited) {
+                                        setLikedRecommendations(prev => 
+                                            prev.filter(item => item.id !== selectedRec?.id)
+                                        );
+                                    } else {
+                                        setLikedRecommendations(prev => [
+                                            ...prev, 
+                                            { ...selectedRec, isFavorite: true }
+                                        ]);
+                                    }
+                                    closeDetail();
+                                }}
+                            >
+                                <Icons.Star color={likedRecommendations.some(r => r.id === selectedRec?.id) ? "#D4AF37" : "#fff"} size={20} />
+                                <Text style={[
+                                    styles.modalFavoriteButtonText,
+                                    likedRecommendations.some(r => r.id === selectedRec?.id) && styles.modalFavoriteButtonTextActive
+                                ]}>
+                                    {likedRecommendations.some(r => r.id === selectedRec?.id) ? 'Favorited' : 'Add to Favorites'}
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
                     </SafeAreaView>
                 </Modal>
             </ScrollView>
@@ -2146,2239 +2377,3 @@ export default function AIRecommendations({
         </View>
     );
 }
-
-const styles = StyleSheet.create({
-    container: {
-        marginHorizontal: 16,
-    },
-    contentContainer: {
-    },
-    loadingContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: '#201925',
-    },
-    loadingText: {
-        color: '#fff',
-        fontSize: 16,
-        marginTop: 10,
-    },
-    header: {
-        padding: 20,
-        paddingBottom: 10,
-    },
-    heading: {
-        color: '#ffffff',
-        fontSize: 24,
-        fontWeight: '700',
-        fontFamily: 'Montserrat_700Bold',
-        textAlign: 'center',
-        letterSpacing: 0.5,
-    },
-    subheading: {
-        color: 'rgba(255, 255, 255, 0.8)',
-        fontSize: 16,
-        textAlign: 'center',
-        marginBottom: 20,
-        fontWeight: '500',
-    },
-    errorText: {
-        color: '#e74c3c',
-        fontSize: 14,
-        textAlign: 'center',
-        margin: 16,
-        padding: 10,
-        backgroundColor: 'rgba(231, 76, 60, 0.1)',
-        borderRadius: 8,
-    },
-    phaseIndicator: {
-        flexDirection: 'column',
-        alignItems: 'center',
-        backgroundColor: 'rgba(255, 255, 255, 0.03)',
-        borderColor: 'rgba(64, 51, 71, 0.3)',
-        borderWidth: 1,
-        borderRadius: 16,
-        padding: 16,
-    },
-    combinedCard: {
-        flexDirection: 'column',
-        alignItems: 'center',
-        backgroundColor: 'rgba(255, 255, 255, 0.03)',
-        borderColor: 'rgba(64, 51, 71, 0.3)',
-        borderWidth: 1,
-        borderRadius: 16,
-        padding: 16,
-        marginTop: 24,
-    },
-    collectingTitle: {
-        color: '#fff',
-        fontSize: 18,
-        fontWeight: '700',
-        fontFamily: 'Montserrat_700Bold',
-        textAlign: 'center',
-        marginBottom: 16,
-        opacity: 1,
-    },
-    cardTitle: {
-        color: '#fff',
-        fontSize: 24,
-        fontWeight: '700',
-        fontFamily: 'Montserrat_700Bold',
-        textAlign: 'center',
-        marginBottom: 20,
-    },
-    submissionCountContainer: {
-        alignItems: 'center',
-    },
-    submissionCount: {
-        color: '#cc31e8',
-        fontSize: 48,
-        fontWeight: '700',
-        fontFamily: 'Montserrat_700Bold',
-        lineHeight: 52,
-    },
-    submissionLabel: {
-        color: 'rgba(255, 255, 255, 0.9)',
-        fontSize: 16,
-        fontFamily: 'Montserrat_400Regular',
-        marginTop: 4,
-    },
-    phaseContent: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 12,
-    },
-    phaseTitle: {
-        color: '#fff',
-        fontSize: 16,
-        fontWeight: '600',
-        marginLeft: 8,
-    },
-    subtleActionButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: 'rgba(103, 115, 234, 0.15)',
-        borderColor: 'rgba(103, 115, 234, 0.3)',
-        borderWidth: 1,
-        borderRadius: 8,
-        paddingHorizontal: 16,
-        paddingVertical: 10,
-        alignSelf: 'flex-start',
-        marginBottom: 12,
-    },
-    subtleActionButtonText: {
-        color: '#cc31e8',
-        fontSize: 13,
-        fontWeight: '600',
-        marginLeft: 8,
-    },
-    shareButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#201925',
-        borderRadius: 8,
-        borderWidth: 1.5,
-        borderColor: '#cc31e8',
-        paddingHorizontal: 12,
-        paddingVertical: 8,
-        marginHorizontal: 16,
-        marginBottom: 20,
-        alignSelf: 'flex-start',
-        flexShrink: 1,
-    },
-    shareButtonText: {
-        color: '#cc31e8',
-        fontSize: 14,
-        fontWeight: '600',
-        marginLeft: 8,
-    },
-    phaseSubtitle: {
-        color: 'rgba(255, 255, 255, 0.9)',
-        fontSize: 14,
-        textAlign: 'center',
-        marginBottom: 16,
-        lineHeight: 20,
-    },
-    phaseActionButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#cc31e8',
-        paddingHorizontal: 24,
-        paddingVertical: 12,
-        borderRadius: 12,
-        width: '100%',
-    },
-    phaseActionButtonText: {
-        color: '#fff',
-        fontWeight: '600',
-        marginLeft: 8,
-    },
-    progressBarContainer: {
-        height: 6,
-        backgroundColor: 'rgba(255, 255, 255, 0.1)',
-        borderRadius: 3,
-        marginHorizontal: 16,
-        marginBottom: 16,
-        overflow: 'hidden',
-    },
-    progressBar: {
-        height: '100%',
-        backgroundColor: '#cc31e8',
-        borderRadius: 3,
-    },
-    availabilitySection: {
-        backgroundColor: 'rgba(255, 255, 255, 0.03)',
-        borderRadius: 16,
-        borderWidth: 1,
-        borderColor: 'rgba(64, 51, 71, 0.3)',
-        marginBottom: 16,
-        padding: 16,
-    },
-    availabilityHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 12,
-    },
-    availabilityTitle: {
-        color: '#fff',
-        fontSize: 16,
-        fontWeight: '600',
-        marginLeft: 8,
-    },
-    availabilityEmptyText: {
-        color: '#ccc',
-        fontSize: 14,
-    },
-    participantAvailability: {
-        marginBottom: 16,
-    },
-    participantName: {
-        color: '#fff',
-        fontSize: 14,
-        fontWeight: '600',
-        marginBottom: 8,
-    },
-    availabilityGrid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 8,
-    },
-    dateCard: {
-        backgroundColor: 'rgba(255, 255, 255, 0.03)',
-        borderRadius: 8,
-        padding: 12,
-        minWidth: 120,
-        marginBottom: 8,
-    },
-    dateHeader: {
-        color: '#cc31e8',
-        fontSize: 12,
-        fontWeight: '600',
-        marginBottom: 8,
-    },
-    timeSlots: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 4,
-    },
-    timeSlot: {
-        backgroundColor: 'rgba(102, 126, 234, 0.2)',
-        borderRadius: 4,
-        paddingHorizontal: 6,
-        paddingVertical: 2,
-    },
-    timeSlotText: {
-        color: '#cc31e8',
-        fontSize: 11,
-    },
-    overlapAnalysis: {
-        marginTop: 16,
-        paddingTop: 16,
-        borderTopColor: 'rgba(255, 255, 255, 0.1)',
-        borderTopWidth: 1,
-    },
-    overlapTitleContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 12,
-    },
-    overlapTitle: {
-        color: '#fff',
-        fontSize: 16,
-        fontWeight: '600',
-        marginLeft: 8,
-    },
-    bestTimeCard: {
-        backgroundColor: 'rgba(40, 167, 69, 0.1)',
-        borderRadius: 8,
-        padding: 12,
-        marginBottom: 12,
-    },
-    bestTimeDateHeader: {
-        color: '#28a745',
-        fontSize: 14,
-        fontWeight: '600',
-        marginBottom: 8,
-    },
-    participantCountText: {
-        fontWeight: 'normal',
-        color: 'rgba(40, 167, 69, 0.8)',
-    },
-    timeOverlapItem: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 4,
-    },
-    timeText: {
-        color: '#fff',
-        fontSize: 13,
-    },
-    availabilityBadge: {
-        paddingHorizontal: 8,
-        paddingVertical: 2,
-        borderRadius: 12,
-    },
-    availabilityBadgeText: {
-        color: '#fff',
-        fontSize: 11,
-        fontWeight: '600',
-    },
-    preferencesCard: {
-        backgroundColor: 'rgba(255, 255, 255, 0.03)',
-        borderRadius: 16,
-        padding: 16,
-        marginBottom: 16,
-        alignItems: 'center',
-        borderColor: 'rgba(64, 51, 71, 0.3)',
-        borderWidth: 1,
-    },
-    preferencesSection: {
-        alignItems: 'center',
-        marginTop: 16,
-        paddingTop: 16,
-        borderTopColor: 'rgba(255, 255, 255, 0.1)',
-        borderTopWidth: 1,
-        width: '100%',
-    },
-    submittedSection: {
-        alignItems: 'center',
-        marginTop: 16,
-        paddingTop: 16,
-        borderTopColor: 'rgba(255, 255, 255, 0.1)',
-        borderTopWidth: 1,
-        width: '100%',
-    },
-    generateButtonContainer: {
-        marginHorizontal: 24,
-        marginTop: 20,
-        marginBottom: 20,
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingHorizontal: 12,
-        paddingVertical: 12,
-    },
-    pulseRing: {
-        position: 'absolute',
-        width: '100%',
-        height: '100%',
-        borderRadius: 30,
-        borderWidth: 2,
-        borderColor: '#6B73FF',
-        backgroundColor: 'transparent',
-    },
-    generateButtonTouchable: {
-        borderRadius: 30,
-        overflow: 'hidden',
-        elevation: 8,
-        shadowColor: '#6B73FF',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 12,
-    },
-    generateButtonGradient: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingHorizontal: 32,
-        paddingVertical: 16,
-        borderRadius: 30,
-        position: 'relative',
-    },
-    buttonInnerGlow: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        borderRadius: 30,
-        backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    },
-    buttonIcon: {
-        marginRight: 2,
-    },
-    generateButtonText: {
-        color: '#fff',
-        fontWeight: '700',
-        fontSize: 14,
-        marginLeft: 8,
-        letterSpacing: 0.3,
-    },
-    actionButtonsContainer: {
-        flexDirection: 'row',
-        gap: 8,
-        width: '100%',
-        marginTop: 16,
-    },
-    saveButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#28a745',
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        borderRadius: 12,
-        flex: 1,
-    },
-    saveButtonText: {
-        color: '#fff',
-        fontWeight: '600',
-        marginLeft: 6,
-        fontSize: 14,
-    },
-    finalizeButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#cc31e8',
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        borderRadius: 12,
-        flex: 1,
-    },
-    finalizeButtonText: {
-        color: '#fff',
-        fontWeight: '600',
-        marginLeft: 6,
-        fontSize: 14,
-    },
-    preferencesTitle: {
-        color: '#fff',
-        fontSize: 18,
-        fontWeight: '700',
-        marginTop: 12,
-        marginBottom: 8,
-        textAlign: 'center',
-    },
-    preferencesText: {
-        color: 'rgba(255, 255, 255, 0.95)',
-        fontSize: 14,
-        textAlign: 'center',
-        lineHeight: 20,
-        marginBottom: 20,
-    },
-    preferencesButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#cc31e8',
-        paddingHorizontal: 20,
-        paddingVertical: 12,
-        borderRadius: 12,
-    },
-    preferencesButtonText: {
-        color: '#fff',
-        fontWeight: '600',
-        marginLeft: 8,
-    },
-    submittedCard: {
-        backgroundColor: 'rgba(16, 185, 129, 0.05)',
-        borderRadius: 20,
-        padding: 20,
-        marginBottom: 20,
-        marginHorizontal: 16,
-        borderWidth: 1,
-        borderColor: 'rgba(16, 185, 129, 0.2)',
-    },
-    submittedTitle: {
-        color: '#28a745',
-        fontSize: 18,
-        fontWeight: '700',
-        marginTop: 12,
-        marginBottom: 8,
-        textAlign: 'center',
-    },
-    submittedText: {
-        color: 'rgba(255, 255, 255, 0.95)',
-        fontSize: 14,
-        textAlign: 'center',
-        lineHeight: 20,
-        marginBottom: 20,
-    },
-    resubmitButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: 'transparent',
-        borderColor: '#cc31e8',
-        borderWidth: 1,
-        paddingHorizontal: 20,
-        paddingVertical: 12,
-        borderRadius: 12,
-    },
-    resubmitButtonText: {
-        color: '#cc31e8',
-        fontWeight: '600',
-        marginLeft: 8,
-    },
-    recommendationsList: {
-        marginTop: 32,
-        marginBottom: 16,
-    },
-    listItem: {
-        backgroundColor: 'rgba(255, 255, 255, 0.03)',
-        borderRadius: 12,
-        marginBottom: 12,
-        borderColor: 'rgba(64, 51, 71, 0.3)',
-        borderWidth: 1,
-        overflow: 'hidden',
-    },
-    selectedListItem: {
-        borderColor: '#28a745',
-        borderWidth: 2,
-    },
-    selectedBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#28a745',
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        justifyContent: 'center',
-    },
-    selectedBadgeText: {
-        color: '#fff',
-        fontWeight: '700',
-        fontSize: 12,
-        marginLeft: 6,
-    },
-    listContent: {
-        padding: 16,
-    },
-    listTop: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'flex-start',
-        marginBottom: 8,
-    },
-    listName: {
-        color: '#fff',
-        fontSize: 16,
-        fontWeight: '600',
-        flex: 1,
-        marginRight: 12,
-    },
-    listMeta: {
-        color: '#D4AF37',
-        fontSize: 14,
-        fontWeight: '600',
-    },
-    listBottom: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'flex-end',
-    },
-    listDetail: {
-        color: 'rgba(255, 255, 255, 0.9)',
-        fontSize: 13,
-        marginBottom: 2,
-    },
-    voteSection: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    likeButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: 'rgba(255, 255, 255, 0.1)',
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 20,
-        borderColor: 'rgba(255, 255, 255, 0.2)',
-        borderWidth: 1,
-    },
-    likedButton: {
-        backgroundColor: 'rgba(231, 76, 60, 0.2)',
-        borderColor: '#e74c3c',
-    },
-    likeButtonText: {
-        color: '#fff',
-        fontSize: 13,
-        fontWeight: '600',
-        marginLeft: 6,
-    },
-    voteCount: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    voteCountText: {
-        color: 'rgba(255, 255, 255, 0.7)',
-        fontSize: 13,
-        fontWeight: '600',
-        marginLeft: 4,
-    },
-    modalOverlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0, 0, 0, 0.85)',
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: 20,
-    },
-    votingModalContainer: {
-        width: '90%',
-        maxWidth: 380,
-        borderRadius: 24,
-        overflow: 'hidden',
-        backgroundColor: '#1A1625',
-        shadowColor: '#000',
-        shadowOffset: {
-            width: 0,
-            height: 10,
-        },
-        shadowOpacity: 0.4,
-        shadowRadius: 20,
-        elevation: 15,
-        borderWidth: 1,
-        borderColor: 'rgba(147, 51, 234, 0.2)',
-    },
-    modalGradientBackground: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        height: 140,
-    },
-    modalContentWrapper: {
-        backgroundColor: 'transparent',
-    },
-    modernCloseBtn: {
-        position: 'absolute',
-        top: 16,
-        right: 16,
-        zIndex: 10,
-    },
-    closeBtnCircle: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-        backgroundColor: 'rgba(255, 255, 255, 0.2)',
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.3)',
-    },
-    modalIconWrapper: {
-        alignSelf: 'center',
-        marginTop: 60,
-        marginBottom: -35,
-        zIndex: 5,
-    },
-    iconCircle: {
-        width: 70,
-        height: 70,
-        borderRadius: 35,
-        justifyContent: 'center',
-        alignItems: 'center',
-        shadowColor: '#000',
-        shadowOffset: {
-            width: 0,
-            height: 4,
-        },
-        shadowOpacity: 0.15,
-        shadowRadius: 8,
-        elevation: 5,
-    },
-    votingModalContent: {
-        backgroundColor: '#1A1625',
-        borderTopLeftRadius: 24,
-        borderTopRightRadius: 24,
-        padding: 24,
-        paddingTop: 50,
-        alignItems: 'center',
-    },
-    modernTitle: {
-        color: '#FFFFFF',
-        fontSize: 26,
-        fontWeight: '800',
-        textAlign: 'center',
-        marginBottom: 8,
-    },
-    modernDescription: {
-        color: 'rgba(255, 255, 255, 0.7)',
-        fontSize: 15,
-        textAlign: 'center',
-        lineHeight: 22,
-        marginBottom: 24,
-        paddingHorizontal: 16,
-    },
-    modernProgressSection: {
-        width: '100%',
-        backgroundColor: 'rgba(147, 51, 234, 0.1)',
-        borderRadius: 16,
-        padding: 16,
-        marginBottom: 16,
-        borderWidth: 1,
-        borderColor: 'rgba(147, 51, 234, 0.2)',
-    },
-    progressHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 12,
-    },
-    usersIconWrapper: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        backgroundColor: 'rgba(168, 85, 247, 0.2)',
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginRight: 10,
-    },
-    progressLabel: {
-        color: 'rgba(255, 255, 255, 0.9)',
-        fontSize: 14,
-        fontWeight: '600',
-    },
-    modernProgressBarBg: {
-        width: '100%',
-        height: 8,
-        backgroundColor: 'rgba(147, 51, 234, 0.2)',
-        borderRadius: 4,
-        overflow: 'hidden',
-        marginBottom: 12,
-    },
-    modernProgressFill: {
-        height: '100%',
-        borderRadius: 4,
-    },
-    progressInfo: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-    },
-    progressText: {
-        color: 'rgba(255, 255, 255, 0.6)',
-        fontSize: 13,
-    },
-    percentageBadge: {
-        backgroundColor: 'rgba(168, 85, 247, 0.2)',
-        paddingHorizontal: 10,
-        paddingVertical: 4,
-        borderRadius: 12,
-    },
-    percentageText: {
-        color: '#A855F7',
-        fontSize: 14,
-        fontWeight: '700',
-    },
-    modernWarning: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: 'rgba(251, 191, 36, 0.1)',
-        borderRadius: 12,
-        padding: 12,
-        marginBottom: 20,
-        borderWidth: 1,
-        borderColor: 'rgba(251, 191, 36, 0.2)',
-    },
-    warningIconCircle: {
-        width: 28,
-        height: 28,
-        borderRadius: 14,
-        backgroundColor: 'rgba(251, 191, 36, 0.2)',
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginRight: 10,
-    },
-    modernWarningText: {
-        color: '#FBBF24',
-        fontSize: 13,
-        flex: 1,
-        fontWeight: '500',
-    },
-    buttonContainer: {
-        flexDirection: 'row',
-        width: '100%',
-        gap: 12,
-    },
-    secondaryButton: {
-        flex: 1,
-        paddingVertical: 14,
-        borderRadius: 12,
-        backgroundColor: 'rgba(147, 51, 234, 0.1)',
-        borderWidth: 1,
-        borderColor: 'rgba(147, 51, 234, 0.3)',
-    },
-    secondaryButtonText: {
-        color: 'rgba(255, 255, 255, 0.7)',
-        fontSize: 15,
-        fontWeight: '600',
-        textAlign: 'center',
-    },
-    primaryButton: {
-        flex: 1.5,
-        borderRadius: 12,
-        overflow: 'hidden',
-        shadowColor: '#8B5CF6',
-        shadowOffset: {
-            width: 0,
-            height: 4,
-        },
-        shadowOpacity: 0.2,
-        shadowRadius: 8,
-        elevation: 4,
-    },
-    primaryButtonGradient: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: 14,
-        gap: 8,
-    },
-    primaryButtonText: {
-        color: '#fff',
-        fontSize: 15,
-        fontWeight: '700',
-    },
-    votingModalCloseButton: {
-        position: 'absolute',
-        top: 20,
-        right: 20,
-        padding: 12,
-        zIndex: 10,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    votingModalTitle: {
-        color: '#fff',
-        fontSize: 22,
-        fontWeight: '700',
-        textAlign: 'center',
-        marginBottom: 12,
-    },
-    votingModalDescription: {
-        color: 'rgba(255, 255, 255, 0.7)',
-        fontSize: 16,
-        textAlign: 'center',
-        lineHeight: 22,
-        marginBottom: 24,
-    },
-    votingModalProgressSection: {
-        width: '100%',
-        marginBottom: 20,
-    },
-    votingModalButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#cc31e8',
-        paddingVertical: 16,
-        paddingHorizontal: 32,
-        borderRadius: 12,
-        width: '100%',
-        marginTop: 10,
-    },
-    votingModalButtonText: {
-        color: '#fff',
-        fontWeight: '600',
-        fontSize: 16,
-        marginLeft: 8,
-    },
-    modalContainer: {
-        backgroundColor: '#2C1E33',
-        borderRadius: 16,
-        width: '100%',
-        maxWidth: 400,
-        maxHeight: '80%',
-    },
-    modalHeader: {
-        padding: 20,
-        borderBottomColor: 'rgba(255, 255, 255, 0.1)',
-        borderBottomWidth: 1,
-    },
-    modalTitle: {
-        color: '#fff',
-        fontSize: 18,
-        fontWeight: '700',
-        textAlign: 'center',
-    },
-    modalSubtitle: {
-        color: 'rgba(255, 255, 255, 0.7)',
-        fontSize: 14,
-        textAlign: 'center',
-        marginTop: 4,
-    },
-    modalCloseButton: {
-        position: 'absolute',
-        top: 15,
-        right: 15,
-        padding: 15,
-        backgroundColor: 'rgba(255, 255, 255, 0.2)',
-        borderRadius: 20,
-        zIndex: 10,
-    },
-    modalBody: {
-        padding: 20,
-    },
-    modalProgressContainer: {
-        marginBottom: 16,
-    },
-    progressInfo: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginTop: 8,
-    },
-    progressLeft: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    progressText: {
-        color: '#ccc',
-        fontSize: 14,
-        marginLeft: 6,
-    },
-    progressPercentage: {
-        color: '#cc31e8',
-        fontSize: 14,
-        fontWeight: '600',
-    },
-    warningBox: {
-        flexDirection: 'row',
-        alignItems: 'flex-start',
-        backgroundColor: 'rgba(255, 193, 7, 0.1)',
-        borderColor: 'rgba(255, 193, 7, 0.3)',
-        borderWidth: 1,
-        borderRadius: 8,
-        padding: 12,
-        marginBottom: 16,
-        width: '100%',
-    },
-    warningIcon: {
-        marginRight: 8,
-        marginTop: 2,
-    },
-    warningText: {
-        color: '#ffc107',
-        fontSize: 13,
-        flex: 1,
-        lineHeight: 18,
-    },
-    detailModal: {
-        flex: 1,
-        backgroundColor: '#201925',
-    },
-    detailModalHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: 20,
-        borderBottomColor: 'rgba(255, 255, 255, 0.1)',
-        borderBottomWidth: 1,
-    },
-    detailModalTitle: {
-        color: '#fff',
-        fontSize: 18,
-        fontWeight: '700',
-        flex: 1,
-        textAlign: 'center',
-        paddingRight: 40,
-    },
-    detailCloseButton: {
-        position: 'absolute',
-        top: 10,
-        right: 15,
-        padding: 15,
-        backgroundColor: 'rgba(255, 255, 255, 0.2)',
-        borderRadius: 20,
-        zIndex: 10,
-    },
-    detailModalBody: {
-        flex: 1,
-        padding: 20,
-    },
-    detailGrid: {
-        marginBottom: 20,
-    },
-    detailItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 12,
-    },
-    detailLabel: {
-        color: 'rgba(255, 255, 255, 0.7)',
-        fontSize: 14,
-        marginLeft: 8,
-        marginRight: 8,
-    },
-    detailValue: {
-        color: '#fff',
-        fontSize: 14,
-        fontWeight: '600',
-    },
-    section: {
-        marginBottom: 20,
-    },
-    sectionHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 12,
-    },
-    sectionHeaderText: {
-        color: '#fff',
-        fontSize: 16,
-        fontWeight: '600',
-        marginLeft: 8,
-    },
-    sectionTitle: {
-        color: '#fff',
-        fontSize: 16,
-        fontWeight: '600',
-        marginLeft: 8,
-    },
-    description: {
-        color: 'rgba(255, 255, 255, 0.95)',
-        fontSize: 14,
-        lineHeight: 20,
-    },
-    websiteLink: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginTop: 12,
-        paddingVertical: 8,
-    },
-    websiteLinkText: {
-        color: '#cc31e8',
-        fontSize: 14,
-        fontWeight: '600',
-        marginHorizontal: 6,
-    },
-    reason: {
-        backgroundColor: 'rgba(102, 126, 234, 0.1)',
-        borderRadius: 12,
-        padding: 16,
-        marginBottom: 20,
-    },
-    reasonTitle: {
-        color: '#cc31e8',
-        fontSize: 16,
-        fontWeight: '600',
-        marginBottom: 8,
-    },
-    reasonText: {
-        color: 'rgba(255, 255, 255, 0.95)',
-        fontSize: 14,
-        lineHeight: 20,
-    },
-    photoSection: {
-        marginBottom: 20,
-    },
-    photo: {
-        width: 120,
-        height: 120,
-        borderRadius: 8,
-        marginRight: 12,
-    },
-    reviewItem: {
-        backgroundColor: 'rgba(255, 255, 255, 0.03)',
-        borderRadius: 8,
-        padding: 12,
-        marginBottom: 8,
-    },
-    reviewHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 8,
-    },
-    reviewAuthor: {
-        color: '#fff',
-        fontSize: 14,
-        fontWeight: '600',
-    },
-    reviewRating: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    reviewRatingText: {
-        color: '#D4AF37',
-        fontSize: 12,
-        marginLeft: 4,
-    },
-    reviewText: {
-        color: 'rgba(255, 255, 255, 0.95)',
-        fontSize: 13,
-        lineHeight: 18,
-    },
-    reviewToggleButton: {
-        color: '#cc31e8',
-        fontWeight: '600',
-        textDecorationLine: 'underline',
-    },
-    fallbackText: {
-        color: 'rgba(255, 255, 255, 0.7)',
-        fontSize: 16,
-        textAlign: 'center',
-        margin: 20,
-    },
-
-    // Exciting Loading Modal Styles
-    loadingModalOverlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0, 0, 0, 0.9)',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    loadingModalContainer: {
-        backgroundColor: '#2C1E33',
-        borderRadius: 30,
-        padding: 50,
-        alignItems: 'center',
-        maxWidth: 350,
-        margin: 20,
-        shadowColor: '#6B73FF',
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.5,
-        shadowRadius: 20,
-        elevation: 10,
-        borderWidth: 1,
-        borderColor: 'rgba(107, 115, 255, 0.3)',
-    },
-    loadingAnimation: {
-        position: 'relative',
-        width: 80,
-        height: 80,
-        marginBottom: 30,
-    },
-    loadingCircle: {
-        position: 'absolute',
-        borderWidth: 3,
-        borderRadius: 40,
-        borderColor: 'transparent',
-    },
-    loadingCircle1: {
-        width: 80,
-        height: 80,
-        borderTopColor: '#6B73FF',
-        borderRightColor: '#6B73FF',
-    },
-    loadingCircle2: {
-        width: 60,
-        height: 60,
-        top: 10,
-        left: 10,
-        borderTopColor: '#9D50BB',
-        borderRightColor: '#9D50BB',
-    },
-    loadingCircle3: {
-        width: 40,
-        height: 40,
-        top: 20,
-        left: 20,
-        borderTopColor: '#CF38DD',
-        borderRightColor: '#CF38DD',
-    },
-    voxxyTriangleContainer: {
-        width: 100,
-        height: 100,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    voxxyTriangle: {
-        width: 80,
-        height: 80,
-        tintColor: undefined, // Let the image use its natural colors
-    },
-    loadingModalTitle: {
-        color: '#fff',
-        fontSize: 24,
-        fontWeight: '700',
-        textAlign: 'center',
-        marginBottom: 15,
-        letterSpacing: 0.5,
-    },
-    loadingModalSubtitle: {
-        color: 'rgba(255, 255, 255, 0.8)',
-        fontSize: 16,
-        textAlign: 'center',
-        lineHeight: 24,
-        marginBottom: 30,
-        paddingHorizontal: 10,
-    },
-    loadingDots: {
-        flexDirection: 'row',
-        justifyContent: 'center',
-        alignItems: 'center',
-        gap: 8,
-    },
-    loadingDot: {
-        width: 8,
-        height: 8,
-        borderRadius: 4,
-        backgroundColor: '#6B73FF',
-    },
-    loadingDot1: {
-        backgroundColor: '#6B73FF',
-    },
-    loadingDot2: {
-        backgroundColor: '#9D50BB',
-    },
-    loadingDot3: {
-        backgroundColor: '#CF38DD',
-    },
-
-    // Swipeable Card Styles
-    swipeContainer: {
-        flex: 1,
-        backgroundColor: '#201925',
-    },
-    swipeHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: 16,
-        paddingBottom: 8,
-    },
-    swipeBackButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: 'rgba(255, 255, 255, 0.1)',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    swipeHeaderCenter: {
-        flex: 1,
-        alignItems: 'center',
-    },
-    swipeHeaderRight: {
-        width: 40, // Balance the back button
-    },
-    swipeHeaderTitle: {
-        color: '#fff',
-        fontSize: 24,
-        fontWeight: '700',
-        fontFamily: 'Montserrat_700Bold',
-        marginBottom: 0,
-    },
-    cardCounter: {
-        backgroundColor: 'rgba(255, 255, 255, 0.1)',
-        paddingHorizontal: 12,
-        paddingVertical: 4,
-        borderRadius: 12,
-    },
-    cardCounterText: {
-        color: 'rgba(255, 255, 255, 0.9)',
-        fontSize: 14,
-        fontWeight: '600',
-    },
-    swipeInstructions: {
-        flexDirection: 'row',
-        justifyContent: 'space-around',
-        paddingHorizontal: 40,
-        paddingVertical: 8,
-        marginBottom: -8,
-    },
-    instructionItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    swipeLeftDemo: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        backgroundColor: 'rgba(231, 76, 60, 0.2)',
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginRight: 8,
-    },
-    swipeRightDemo: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        backgroundColor: 'rgba(40, 167, 69, 0.2)',
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginRight: 8,
-    },
-    instructionText: {
-        color: 'rgba(255, 255, 255, 0.8)',
-        fontSize: 13,
-        fontWeight: '500',
-    },
-    cardStack: {
-        flex: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingHorizontal: 20,
-        paddingVertical: 20,
-    },
-    swipeCard: {
-        width: screenWidth - 40,
-        height: 450,
-        borderRadius: 20,
-        elevation: 5,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-    },
-    activeCard: {
-        position: 'absolute',
-        zIndex: 1,
-    },
-    nextCard: {
-        position: 'absolute',
-        zIndex: -1,
-        transform: [{ scale: 0.95 }],
-        opacity: 0.6,
-    },
-    cardGradient: {
-        flex: 1,
-        borderRadius: 20,
-        padding: 20,
-        justifyContent: 'space-between',
-    },
-    swipeIndicator: {
-        position: 'absolute',
-        top: 30,
-        zIndex: 10,
-        alignItems: 'center',
-        justifyContent: 'center',
-        width: 90,
-        height: 90,
-        borderRadius: 45,
-        borderWidth: 4,
-    },
-    likeIndicator: {
-        right: 25,
-        borderColor: '#28a745',
-        backgroundColor: 'rgba(40, 167, 69, 0.25)',
-    },
-    dislikeIndicator: {
-        left: 25,
-        borderColor: '#e74c3c',
-        backgroundColor: 'rgba(231, 76, 60, 0.25)',
-    },
-    likeText: {
-        color: '#28a745',
-        fontSize: 14,
-        fontWeight: '800',
-        marginTop: 4,
-        textShadowColor: 'rgba(0, 0, 0, 0.3)',
-        textShadowOffset: { width: 1, height: 1 },
-        textShadowRadius: 2,
-    },
-    dislikeText: {
-        color: '#e74c3c',
-        fontSize: 14,
-        fontWeight: '800',
-        marginTop: 4,
-        textShadowColor: 'rgba(0, 0, 0, 0.3)',
-        textShadowOffset: { width: 1, height: 1 },
-        textShadowRadius: 2,
-    },
-    cardHeader: {
-        marginBottom: 16,
-    },
-    cardTitle: {
-        color: '#fff',
-        fontSize: 22,
-        fontWeight: '700',
-        fontFamily: 'Montserrat_700Bold',
-        marginBottom: 4,
-    },
-    cardPrice: {
-        color: '#D4AF37',
-        fontSize: 16,
-        fontWeight: '600',
-    },
-    cardDetails: {
-        marginBottom: 16,
-    },
-    cardDetailRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 8,
-    },
-    cardDetailText: {
-        color: 'rgba(255, 255, 255, 0.9)',
-        fontSize: 14,
-        marginLeft: 8,
-    },
-    cardDescription: {
-        color: 'rgba(255, 255, 255, 0.8)',
-        fontSize: 14,
-        lineHeight: 20,
-        marginBottom: 16,
-    },
-    cardReason: {
-        backgroundColor: 'rgba(102, 126, 234, 0.15)',
-        borderRadius: 12,
-        padding: 12,
-        marginBottom: 16,
-    },
-    cardReasonTitle: {
-        color: '#cc31e8',
-        fontSize: 14,
-        fontWeight: '600',
-        marginBottom: 4,
-    },
-    cardReasonText: {
-        color: 'rgba(255, 255, 255, 0.9)',
-        fontSize: 13,
-        lineHeight: 18,
-    },
-    cardActions: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginTop: 'auto',
-    },
-    cardActionButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 16,
-        paddingVertical: 10,
-        borderRadius: 20,
-        borderWidth: 1,
-    },
-    flagButton: {
-        borderColor: '#ffc107',
-        backgroundColor: 'rgba(255, 193, 7, 0.1)',
-    },
-    flagButtonText: {
-        color: '#ffc107',
-        fontSize: 13,
-        fontWeight: '600',
-        marginLeft: 6,
-    },
-    favoriteButton: {
-        borderColor: '#D4AF37',
-        backgroundColor: 'rgba(212, 175, 55, 0.1)',
-    },
-    favoriteButtonText: {
-        color: '#D4AF37',
-        fontSize: 13,
-        fontWeight: '600',
-        marginLeft: 6,
-    },
-    nextCardTitle: {
-        color: 'rgba(255, 255, 255, 0.6)',
-        fontSize: 18,
-        fontWeight: '600',
-        textAlign: 'center',
-        marginTop: 20,
-    },
-    skipButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: 'rgba(255, 255, 255, 0.1)',
-        paddingHorizontal: 20,
-        paddingVertical: 12,
-        borderRadius: 25,
-        marginHorizontal: 20,
-        marginBottom: 20,
-    },
-    skipButtonText: {
-        color: '#cc31e8',
-        fontSize: 14,
-        fontWeight: '600',
-        marginLeft: 8,
-    },
-
-    // Results View Styles
-    resultsHeader: {
-        padding: 16,
-        marginBottom: 16,
-    },
-    resultsStats: {
-        flexDirection: 'row',
-        justifyContent: 'space-around',
-        backgroundColor: 'rgba(255, 255, 255, 0.03)',
-        borderRadius: 16,
-        padding: 16,
-        borderWidth: 1,
-        borderColor: 'rgba(64, 51, 71, 0.3)',
-    },
-    statItem: {
-        alignItems: 'center',
-    },
-    statNumber: {
-        color: '#fff',
-        fontSize: 20,
-        fontWeight: '700',
-        fontFamily: 'Montserrat_700Bold',
-        marginTop: 6,
-    },
-    statLabel: {
-        color: 'rgba(255, 255, 255, 0.7)',
-        fontSize: 11,
-        marginTop: 2,
-    },
-    favoriteListItem: {
-        borderColor: '#D4AF37',
-        borderWidth: 2,
-    },
-    favoriteIndicator: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#D4AF37',
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        justifyContent: 'center',
-    },
-    favoriteIndicatorText: {
-        color: '#fff',
-        fontWeight: '700',
-        fontSize: 12,
-        marginLeft: 6,
-    },
-    finalActionsContainer: {
-        flexDirection: 'row',
-        gap: 12,
-        marginHorizontal: 16,
-        marginBottom: 16,
-    },
-    shareButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#201925',
-        borderWidth: 1.5,
-        borderColor: '#cc31e8',
-        paddingHorizontal: 12,
-        paddingVertical: 8,
-        borderRadius: 8,
-        alignSelf: 'center',
-        marginHorizontal: 16,
-        marginBottom: 20,
-    },
-    shareButtonText: {
-        color: '#cc31e8',
-        fontWeight: '600',
-        fontSize: 14,
-        marginLeft: 8,
-    },
-    finalizeFromResultsButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#28a745',
-        paddingHorizontal: 20,
-        paddingVertical: 14,
-        borderRadius: 12,
-        flex: 1,
-    },
-    finalizeFromResultsButtonText: {
-        color: '#fff',
-        fontWeight: '600',
-        fontSize: 14,
-        marginLeft: 8,
-    },
-    resetButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: 'transparent',
-        borderColor: '#cc31e8',
-        borderWidth: 1,
-        paddingHorizontal: 20,
-        paddingVertical: 12,
-        borderRadius: 12,
-        marginHorizontal: 16,
-        marginBottom: 20,
-    },
-    resetButtonText: {
-        color: '#cc31e8',
-        fontSize: 14,
-        fontWeight: '600',
-        marginLeft: 8,
-    },
-    noLikesContainer: {
-        alignItems: 'center',
-        padding: 40,
-        marginHorizontal: 16,
-    },
-    noLikesTitle: {
-        color: '#fff',
-        fontSize: 20,
-        fontWeight: '700',
-        fontFamily: 'Montserrat_700Bold',
-        marginTop: 16,
-        marginBottom: 8,
-    },
-    noLikesText: {
-        color: 'rgba(255, 255, 255, 0.7)',
-        fontSize: 14,
-        textAlign: 'center',
-        lineHeight: 20,
-        marginBottom: 24,
-    },
-    tryAgainButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#cc31e8',
-        paddingHorizontal: 24,
-        paddingVertical: 12,
-        borderRadius: 12,
-    },
-    tryAgainButtonText: {
-        color: '#fff',
-        fontSize: 14,
-        fontWeight: '600',
-        marginLeft: 8,
-    },
-
-    // No recommendations styles
-    noRecommendationsContainer: {
-        alignItems: 'center',
-        padding: 40,
-        marginHorizontal: 16,
-    },
-    noRecommendationsTitle: {
-        color: '#fff',
-        fontSize: 20,
-        fontWeight: '700',
-        fontFamily: 'Montserrat_700Bold',
-        marginTop: 16,
-        marginBottom: 8,
-    },
-    noRecommendationsText: {
-        color: 'rgba(255, 255, 255, 0.7)',
-        fontSize: 14,
-        textAlign: 'center',
-        lineHeight: 20,
-        marginBottom: 24,
-    },
-    generateButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#cc31e8',
-        paddingHorizontal: 24,
-        paddingVertical: 12,
-        borderRadius: 12,
-    },
-    generateButtonText: {
-        color: '#fff',
-        fontSize: 14,
-        fontWeight: '600',
-        marginLeft: 8,
-    },
-
-    // Voting placeholder styles
-    votingPlaceholder: {
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 40,
-        marginHorizontal: 16,
-    },
-    votingPlaceholderText: {
-        color: 'rgba(255, 255, 255, 0.7)',
-        fontSize: 16,
-        textAlign: 'center',
-    },
-
-    // Test button styles
-    testButtons: {
-        flexDirection: 'row',
-        justifyContent: 'space-around',
-        paddingHorizontal: 40,
-        paddingVertical: 20,
-    },
-    testButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: 'rgba(255, 255, 255, 0.1)',
-        paddingHorizontal: 20,
-        paddingVertical: 12,
-        borderRadius: 25,
-        borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.2)',
-    },
-    testButtonText: {
-        color: '#fff',
-        fontSize: 14,
-        fontWeight: '600',
-        marginLeft: 8,
-    },
-
-    // Phase-specific button styles
-    activateButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#cc31e8',
-        paddingHorizontal: 24,
-        paddingVertical: 14,
-        borderRadius: 12,
-        marginTop: 16,
-    },
-    activateButtonText: {
-        color: '#fff',
-        fontWeight: '600',
-        fontSize: 16,
-        marginLeft: 8,
-    },
-    startCollectingButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#28a745',
-        paddingHorizontal: 24,
-        paddingVertical: 14,
-        borderRadius: 12,
-        marginTop: 16,
-    },
-    startCollectingButtonText: {
-        color: '#fff',
-        fontWeight: '600',
-        fontSize: 16,
-        marginLeft: 8,
-    },
-
-    // Debug styles
-    debugInfo: {
-        marginTop: 20,
-        padding: 12,
-        backgroundColor: 'rgba(255, 255, 255, 0.05)',
-        borderRadius: 8,
-    },
-    debugText: {
-        color: 'rgba(255, 255, 255, 0.6)',
-        fontSize: 12,
-        fontFamily: 'monospace',
-    },
-
-    // Combined results card styles
-    combinedResultsCard: {
-        marginHorizontal: 16,
-        marginBottom: 20,
-        padding: 24,
-        backgroundColor: 'rgba(255, 255, 255, 0.05)',
-        borderRadius: 16,
-        borderWidth: 1,
-        borderColor: 'rgba(64, 51, 71, 0.3)',
-    },
-    resultsHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginBottom: 8,
-    },
-    resultsTitle: {
-        color: '#fff',
-        fontSize: 20,
-        fontWeight: '700',
-        fontFamily: 'Montserrat_700Bold',
-        marginLeft: 8,
-    },
-    resultsSubtitle: {
-        color: 'rgba(255, 255, 255, 0.8)',
-        fontSize: 14,
-        textAlign: 'center',
-        marginBottom: 20,
-    },
-    actionButtons: {
-        gap: 12,
-    },
-    statsCard: {
-        marginHorizontal: 8,
-        paddingVertical: 12,
-        paddingHorizontal: 16,
-        backgroundColor: 'rgba(255, 255, 255, 0.03)',
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: 'rgba(64, 51, 71, 0.2)',
-    },
-    saveFavoriteButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#D4AF37',
-        paddingVertical: 14,
-        borderRadius: 12,
-        elevation: 3,
-        shadowColor: '#D4AF37',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.3,
-        shadowRadius: 4,
-    },
-    finalizeActivityButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#cc31e8',
-        paddingVertical: 14,
-        borderRadius: 12,
-        elevation: 3,
-        shadowColor: '#cc31e8',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.3,
-        shadowRadius: 4,
-    },
-    saveFavoriteButtonText: {
-        color: '#fff',
-        fontSize: 16,
-        fontWeight: '700',
-        marginLeft: 8,
-    },
-    finalizeActivityButtonText: {
-        color: '#fff',
-        fontSize: 16,
-        fontWeight: '700',
-        marginLeft: 8,
-    },
-    generateButtonDisabled: {
-        opacity: 0.5,
-    },
-    modernHeader: {
-        alignItems: 'center',
-        marginTop: 16,
-        marginBottom: 16,
-    },
-    statusBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: 'rgba(16, 185, 129, 0.1)',
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 20,
-        borderWidth: 1,
-        borderColor: 'rgba(16, 185, 129, 0.2)',
-        marginBottom: 12,
-    },
-    statusDot: {
-        width: 8,
-        height: 8,
-        borderRadius: 4,
-        backgroundColor: '#10B981',
-        marginRight: 6,
-    },
-    statusText: {
-        color: '#10B981',
-        fontSize: 12,
-        fontWeight: '600',
-    },
-    modernCollectingTitle: {
-        color: '#FFFFFF',
-        fontSize: 24,
-        fontWeight: '800',
-        textAlign: 'center',
-        marginBottom: 4,
-    },
-    modernSubtitle: {
-        color: 'rgba(255, 255, 255, 0.6)',
-        fontSize: 14,
-        textAlign: 'center',
-    },
-    statsCard: {
-        borderRadius: 20,
-        overflow: 'hidden',
-        marginBottom: 20,
-    },
-    statsGradient: {
-        padding: 20,
-        borderRadius: 20,
-        borderWidth: 1,
-        borderColor: 'rgba(147, 51, 234, 0.2)',
-    },
-    statsRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-around',
-        alignItems: 'center',
-        marginBottom: 20,
-    },
-    statItem: {
-        flex: 1,
-        alignItems: 'center',
-    },
-    bigNumber: {
-        color: '#A855F7',
-        fontSize: 36,
-        fontWeight: '800',
-        marginBottom: 4,
-    },
-    statLabel: {
-        color: 'rgba(255, 255, 255, 0.5)',
-        fontSize: 12,
-        fontWeight: '500',
-    },
-    divider: {
-        width: 1,
-        height: 40,
-        backgroundColor: 'rgba(147, 51, 234, 0.2)',
-    },
-    percentageCircle: {
-        width: 50,
-        height: 50,
-        borderRadius: 25,
-        backgroundColor: 'rgba(168, 85, 247, 0.2)',
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderWidth: 2,
-        borderColor: '#A855F7',
-    },
-    percentageNumber: {
-        color: '#A855F7',
-        fontSize: 18,
-        fontWeight: '700',
-    },
-    modernProgressContainer: {
-        width: '100%',
-    },
-    modernProgressBg: {
-        width: '100%',
-        height: 6,
-        backgroundColor: 'rgba(147, 51, 234, 0.1)',
-        borderRadius: 3,
-        overflow: 'hidden',
-    },
-    modernProgressFill: {
-        height: '100%',
-        borderRadius: 3,
-    },
-    progressGradientFill: {
-        width: '100%',
-        height: '100%',
-    },
-    actionCard: {
-        borderRadius: 20,
-        overflow: 'hidden',
-        marginBottom: 20,
-        marginHorizontal: 16,
-    },
-    actionGradient: {
-        padding: 24,
-        alignItems: 'center',
-    },
-    actionIconBg: {
-        width: 56,
-        height: 56,
-        borderRadius: 28,
-        backgroundColor: 'rgba(255, 255, 255, 0.2)',
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: 16,
-    },
-    actionTitle: {
-        color: '#FFFFFF',
-        fontSize: 20,
-        fontWeight: '700',
-        marginBottom: 8,
-    },
-    actionText: {
-        color: 'rgba(255, 255, 255, 0.8)',
-        fontSize: 14,
-        textAlign: 'center',
-        marginBottom: 20,
-        paddingHorizontal: 20,
-        lineHeight: 20,
-    },
-    modernActionButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#FFFFFF',
-        paddingVertical: 14,
-        paddingHorizontal: 24,
-        borderRadius: 14,
-        gap: 8,
-    },
-    modernActionButtonText: {
-        color: '#9333EA',
-        fontSize: 15,
-        fontWeight: '700',
-    },
-    checkCircle: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        backgroundColor: 'rgba(16, 185, 129, 0.1)',
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginRight: 12,
-    },
-    submittedHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 12,
-    },
-    updateButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: 'rgba(168, 85, 247, 0.1)',
-        paddingVertical: 10,
-        paddingHorizontal: 16,
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: 'rgba(168, 85, 247, 0.3)',
-        gap: 8,
-    },
-    updateButtonText: {
-        color: '#A855F7',
-        fontSize: 14,
-        fontWeight: '600',
-    },
-    compactCounterWrapper: {
-        alignItems: 'center',
-        marginTop: 20,
-        marginBottom: 20,
-    },
-    compactCounter: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: 'rgba(147, 51, 234, 0.1)',
-        paddingHorizontal: 20,
-        paddingVertical: 10,
-        borderRadius: 25,
-        borderWidth: 1,
-        borderColor: 'rgba(147, 51, 234, 0.2)',
-        gap: 8,
-    },
-    compactNumber: {
-        color: '#A855F7',
-        fontSize: 20,
-        fontWeight: '700',
-    },
-    compactLabel: {
-        color: 'rgba(255, 255, 255, 0.6)',
-        fontSize: 14,
-        fontWeight: '500',
-    },
-    collectingPhaseTitle: {
-        color: '#fff',
-        fontSize: 24,
-        fontWeight: '700',
-        fontFamily: 'Montserrat_700Bold',
-        marginBottom: 16,
-        textAlign: 'center',
-    },
-    viewDetailsButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: 'rgba(255, 255, 255, 0.08)',
-        paddingHorizontal: 16,
-        paddingVertical: 8,
-        borderRadius: 20,
-        marginTop: 10,
-        marginBottom: 6,
-        borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.1)',
-    },
-    viewDetailsButtonText: {
-        color: 'rgba(255, 255, 255, 0.9)',
-        fontSize: 13,
-        fontWeight: '500',
-        marginRight: 6,
-    },
-    cardPriceCorner: {
-        position: 'absolute',
-        top: 0,
-        right: 0,
-        color: '#D4AF37',
-        fontSize: 16,
-        fontWeight: '600',
-    },
-    cardTitleContainer: {
-        flex: 1,
-        paddingRight: 60, // Make room for price
-    },
-    cardHeader: {
-        flexDirection: 'row',
-        alignItems: 'flex-start',
-        marginBottom: 12,
-        position: 'relative',
-    },
-
-    // Finalized Plan Card Styles
-    finalizedPlanCard: {
-        backgroundColor: 'rgba(255, 255, 255, 0.05)',
-        borderRadius: 16,
-        marginHorizontal: 16,
-        marginBottom: 20,
-        borderWidth: 1,
-        borderColor: 'rgba(64, 51, 71, 0.3)',
-        overflow: 'hidden',
-    },
-
-    finalizedHeader: {
-        backgroundColor: '#28a745',
-        paddingVertical: 12,
-        paddingHorizontal: 16,
-        alignItems: 'center',
-    },
-
-    finalizedStatusBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-    },
-
-    finalizedStatusText: {
-        color: '#fff',
-        fontSize: 16,
-        fontWeight: '700',
-        fontFamily: 'Montserrat_700Bold',
-    },
-
-    selectedPlaceSection: {
-        padding: 20,
-        borderBottomWidth: 1,
-        borderBottomColor: 'rgba(64, 51, 71, 0.3)',
-    },
-
-    selectedPlaceHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 12,
-    },
-
-    selectedPlaceName: {
-        color: '#fff',
-        fontSize: 20,
-        fontWeight: '700',
-        fontFamily: 'Montserrat_700Bold',
-        flex: 1,
-        marginRight: 12,
-    },
-
-    selectedPlaceDetails: {
-        gap: 8,
-    },
-
-    selectedPlaceDetail: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-    },
-
-    selectedPlaceDetailText: {
-        color: '#B8A5C4',
-        fontSize: 14,
-        fontWeight: '500',
-    },
-
-    finalizedActionSection: {
-        padding: 20,
-    },
-
-    finalizedShareButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#cc31e8',
-        borderRadius: 12,
-        paddingVertical: 14,
-        paddingHorizontal: 20,
-        gap: 8,
-    },
-
-    finalizedShareButtonText: {
-        color: '#fff',
-        fontSize: 16,
-        fontWeight: '600',
-        fontFamily: 'Montserrat_600SemiBold',
-    },
-    
-    // New card grid styles for voting phase
-    recommendationsGrid: {
-        paddingHorizontal: 12,
-        paddingBottom: 20,
-    },
-    recommendationCard: {
-        marginBottom: 12,
-        borderRadius: 12,
-        overflow: 'hidden',
-        marginHorizontal: 4,
-    },
-    recommendationCardFavorited: {
-        borderWidth: 2,
-        borderColor: '#D4AF37',
-    },
-    recCardGradient: {
-        padding: 1,
-        borderRadius: 12,
-    },
-    recCardContent: {
-        backgroundColor: 'rgba(30, 30, 35, 0.95)',
-        borderRadius: 11,
-        padding: 12,
-        paddingBottom: 8,
-        borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.08)',
-    },
-    recCardTitle: {
-        fontSize: 17,
-        fontWeight: '700',
-        color: '#ffffff',
-        marginBottom: 6,
-        letterSpacing: 0.3,
-    },
-    recCardInfo: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 4,
-        gap: 6,
-    },
-    recCardInfoText: {
-        color: 'rgba(255, 255, 255, 0.85)',
-        fontSize: 13,
-        flex: 1,
-        fontWeight: '500',
-    },
-    recCardReason: {
-        color: 'rgba(255, 255, 255, 0.75)',
-        fontSize: 13,
-        lineHeight: 18,
-        marginTop: 6,
-        fontWeight: '400',
-    },
-    recCardActions: {
-        flexDirection: 'row',
-        justifyContent: 'flex-end',
-        backgroundColor: 'rgba(30, 30, 35, 0.95)',
-        paddingHorizontal: 12,
-        paddingBottom: 10,
-        paddingTop: 4,
-        gap: 10,
-        borderTopWidth: 1,
-        borderTopColor: 'rgba(255, 255, 255, 0.05)',
-    },
-    recActionButton: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        backgroundColor: 'rgba(255, 255, 255, 0.08)',
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.15)',
-    },
-    recActionButtonActive: {
-        backgroundColor: 'rgba(231, 76, 60, 0.25)',
-        borderColor: '#e74c3c',
-    },
-    recActionButtonFavorited: {
-        backgroundColor: 'rgba(212, 175, 55, 0.25)',
-        borderColor: '#D4AF37',
-    },
-    bottomActionsContainer: {
-        paddingHorizontal: 16,
-        paddingBottom: 30,
-        gap: 12,
-    },
-    buttonDisabled: {
-        opacity: 0.5,
-    },
-});

@@ -291,7 +291,7 @@ export default function VerificationCodeScreen() {
 
                     {isVerifying && (
                         <View style={styles.loadingContainer}>
-                            <ActivityIndicator size="small" color="#cc31e8" />
+                            <ActivityIndicator size="small" color="#9333EA" />
                             <Text style={styles.loadingText}>Verifying...</Text>
                         </View>
                     )}
@@ -358,12 +358,12 @@ const styles = StyleSheet.create({
     iconWrapper: {
         width: 70,
         height: 70,
-        backgroundColor: '#cc31e8',
+        backgroundColor: '#9333EA',
         borderRadius: 20,
         justifyContent: 'center',
         alignItems: 'center',
         marginBottom: 24,
-        shadowColor: '#cc31e8',
+        shadowColor: '#9333EA',
         shadowOffset: {
             width: 0,
             height: 4,
@@ -410,8 +410,8 @@ const styles = StyleSheet.create({
         textAlign: 'center',
     },
     codeInputFilled: {
-        borderColor: '#cc31e8',
-        backgroundColor: 'rgba(204, 49, 232, 0.1)',
+        borderColor: '#9333EA',
+        backgroundColor: 'rgba(147, 51, 234, 0.1)',
     },
     codeInputError: {
         borderColor: '#dc3545',
@@ -435,7 +435,7 @@ const styles = StyleSheet.create({
         marginBottom: 20,
     },
     loadingText: {
-        color: '#cc31e8',
+        color: '#9333EA',
         fontSize: 16,
         marginLeft: 8,
         fontWeight: '500',
@@ -453,7 +453,7 @@ const styles = StyleSheet.create({
         opacity: 0.5,
     },
     resendText: {
-        color: '#cc31e8',
+        color: '#9333EA',
         fontSize: 16,
         fontWeight: '600',
     },

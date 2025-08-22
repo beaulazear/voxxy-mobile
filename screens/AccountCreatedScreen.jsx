@@ -150,13 +150,13 @@ const styles = StyleSheet.create({
         marginBottom: 24,
     },
     verifyButton: {
-        backgroundColor: '#cc31e8',
+        backgroundColor: '#9333EA',
         paddingVertical: 16,
         paddingHorizontal: 32,
         borderRadius: 50,
         alignItems: 'center',
         marginBottom: 16,
-        shadowColor: '#cc31e8',
+        shadowColor: '#9333EA',
         shadowOffset: {
             width: 0,
             height: 2,
@@ -181,14 +181,14 @@ const styles = StyleSheet.create({
     logoutButton: {
         backgroundColor: 'transparent',
         borderWidth: 1,
-        borderColor: '#cc31e8',
+        borderColor: '#9333EA',
         paddingVertical: 14,
         borderRadius: 50,
         alignItems: 'center',
         width: 150,
     },
     logoutButtonText: {
-        color: '#cc31e8',
+        color: '#9333EA',
         fontSize: 16,
         fontWeight: '600',
     },

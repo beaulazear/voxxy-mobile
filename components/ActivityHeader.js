@@ -84,11 +84,19 @@ function getActivityDisplayInfo(activityType) {
 // Helper function to get activity status info
 function getActivityStatusInfo(activity) {
     const { active, collecting, voting, finalized, completed } = activity;
+    const activityInfo = getActivityDisplayInfo(activity.activity_type);
+    
+    // Always use the activity type's icon and display text
+    const baseInfo = {
+        text: activityInfo.displayText,
+        icon: activityInfo.icon,
+        color: activityInfo.iconColor,
+        bgColor: `rgba(${parseInt(activityInfo.iconColor.slice(1,3), 16)}, ${parseInt(activityInfo.iconColor.slice(3,5), 16)}, ${parseInt(activityInfo.iconColor.slice(5,7), 16)}, 0.15)`
+    };
     
     if (completed) {
         return {
-            text: 'Completed',
-            icon: CheckCircle,
+            ...baseInfo,
             color: '#28a745',
             bgColor: 'rgba(40, 167, 69, 0.15)'
         };
@@ -96,8 +104,7 @@ function getActivityStatusInfo(activity) {
     
     if (finalized) {
         return {
-            text: 'Finalized',
-            icon: Flag,
+            ...baseInfo,
             color: '#f39c12',
             bgColor: 'rgba(243, 156, 18, 0.15)'
         };
@@ -105,8 +112,7 @@ function getActivityStatusInfo(activity) {
     
     if (voting) {
         return {
-            text: 'Voting',
-            icon: CheckCircle,
+            ...baseInfo,
             color: '#cc31e8',
             bgColor: 'rgba(204, 49, 232, 0.15)'
         };
@@ -114,20 +120,14 @@ function getActivityStatusInfo(activity) {
     
     if (collecting) {
         return {
-            text: 'Collecting',
-            icon: Users,
+            ...baseInfo,
             color: '#4ECDC4',
             bgColor: 'rgba(78, 205, 196, 0.15)'
         };
     }
     
     // Default/draft state
-    return {
-        text: 'Draft',
-        icon: Clock,
-        color: '#6c757d',
-        bgColor: 'rgba(108, 117, 125, 0.15)'
-    };
+    return baseInfo;
 }
 
 // Helper function to safely get avatar (copied from ParticipantsSection)
@@ -183,21 +183,21 @@ export function ActivityStickyHeader({ activity, isOwner, onBack, onEdit, onDele
             step: "1",
             icon: "✨",
             title: "Share Your Preferences",
-            desc: "Everyone shares their preferences through a quick, fun quiz. Tell us what you like and the AI will use these inputs to create personalized recommendations for your group.",
+            desc: "Invite your friends to gather multiple preferences through a quick, fun quiz, or submit your own preferences and share the activity later. The AI will use these inputs to create personalized recommendations.",
             status: getStepStatus(0)
         },
         {
             step: "2",
             icon: "🤖",
             title: "Generate Recommendations",
-            desc: "Based on everyone's preferences, our AI curates perfect options tailored to your group. The host can swipe through recommendations, save favorites, and regenerate if needed.",
+            desc: "Based on everyone's preferences, our AI curates perfect options tailored to your group. The host can swipe through recommendations and save favorites.",
             status: getStepStatus(1)
         },
         {
             step: "3",
             icon: "🎯",
-            title: "Finalize Your Choice",
-            desc: "The host selects the winning option from the AI recommendations. Once finalized, everyone can see the chosen plan with all its details.",
+            title: "Finalize or Save",
+            desc: "Save your favorite recommendations for future reference or finalize the activity by selecting the winning option. Once finalized, everyone can see the chosen plan with all its details.",
             status: getStepStatus(2)
         },
         {
@@ -420,23 +420,6 @@ export function ActivityStickyHeader({ activity, isOwner, onBack, onEdit, onDele
                                 <Text style={styles.stepDescription}>{steps[helpStep].desc}</Text>
                             </View>
 
-                            {/* All Steps Overview */}
-                            <View style={styles.allStepsContainer}>
-                                <Text style={styles.allStepsTitle}>Quick Overview</Text>
-                                {steps.map((step, index) => (
-                                    <TouchableOpacity
-                                        key={index}
-                                        style={[
-                                            styles.overviewStep,
-                                            index === helpStep && styles.overviewStepActive
-                                        ]}
-                                        onPress={() => setHelpStep(index)}
-                                    >
-                                        <Text style={styles.overviewStepIcon}>{step.icon}</Text>
-                                        <Text style={styles.overviewStepTitle}>{step.title}</Text>
-                                    </TouchableOpacity>
-                                ))}
-                            </View>
                         </ScrollView>
 
                         <View style={styles.helpNavigation}>
@@ -596,12 +579,22 @@ export default function ActivityHeader({
                                     />
                                 );
                             })()}
-                            <Text style={styles.activityTitle}>{activity.activity_name}</Text>
+                            <Text style={styles.activityTitle}>
+                                {activity.voting ? 'Voxxy Picks' : 
+                                 activity.collecting ? 'Collecting' : 
+                                 activity.activity_name}
+                            </Text>
                         </View>
                         {/* Subtitle during collecting phase */}
                         {activity.collecting && (
                             <Text style={styles.collectingSubtitle}>
                                 Help us create the perfect recommendations for you & your group!
+                            </Text>
+                        )}
+                        {/* Subtitle during voting phase */}
+                        {activity.voting && (
+                            <Text style={styles.collectingSubtitle}>
+                                Review and select - tap cards to see more, favorite, or flag
                             </Text>
                         )}
                     </View>

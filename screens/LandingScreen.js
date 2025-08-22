@@ -37,9 +37,8 @@ export default function LandingScreen() {
                 transform: [{ translateY: slideAnim }]
             }]}>
                 <HeaderSvg width={280} height={65} />
-                <Text style={styles.tagline}>Plan Your Next Activity</Text>
                 <Text style={styles.subtitle}>
-                    Find spots everyone will love
+                    Less chaos, more memories ✨
                 </Text>
             </Animated.View>
 
@@ -84,16 +83,8 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginBottom: 40,
     },
-    tagline: {
-        marginTop: 25,
-        fontSize: 28,
-        fontWeight: '800',
-        color: '#fff',
-        textAlign: 'center',
-        marginBottom: 8,
-    },
     subtitle: {
-        marginTop: 4,
+        marginTop: 25,
         fontSize: 18,
         color: 'rgba(255, 255, 255, 0.7)',
         textAlign: 'center',
@@ -109,14 +100,14 @@ const styles = StyleSheet.create({
     },
     primaryButton: {
         width: '100%',
-        backgroundColor: '#cc31e8',
+        backgroundColor: '#9333EA',
         minHeight: TOUCH_TARGETS.LARGE_SIZE,
         paddingVertical: 18,
         borderRadius: 50,
         alignItems: 'center',
         justifyContent: 'center',
         marginVertical: 8,
-        shadowColor: '#cc31e8',
+        shadowColor: '#9333EA',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
         shadowRadius: 8,
@@ -138,7 +129,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         marginVertical: 8,
         borderWidth: 1.5,
-        borderColor: 'rgba(204, 49, 232, 0.3)',
+        borderColor: 'rgba(147, 51, 234, 0.3)',
     },
     secondaryButtonText: {
         color: '#fff',

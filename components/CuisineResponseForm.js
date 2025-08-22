@@ -77,6 +77,7 @@ export default function CuisineResponseForm({
     const [selectedAtmosphere, setSelectedAtmosphere] = useState('')
     const [selectedBudget, setSelectedBudget] = useState('')
     const [dietary, setDietary] = useState(guestMode ? '' : (user?.preferences || ''))
+    const [useSavedPreferences, setUseSavedPreferences] = useState(true)
     const [availability, setAvailability] = useState({})
     const [selectedDate, setSelectedDate] = useState('')
     const [selectedTimes, setSelectedTimes] = useState([])
@@ -274,11 +275,14 @@ export default function CuisineResponseForm({
 
     // Submission
     const handleSubmit = async () => {
+        // Use saved preferences if the user hasn't changed them
+        const finalDietary = useSavedPreferences && user?.preferences ? user.preferences : dietary
+        
         const notes = `Dining Preferences:
 🍽️ Cuisine: ${selectedCuisine}
 🏠 Atmosphere: ${selectedAtmosphere}
 💰 Budget: ${selectedBudget}
-🥗 Dietary Needs: ${dietary || 'None'}`.trim()
+🥗 Dietary Needs: ${finalDietary || 'None'}`.trim()
 
         try {
             let endpoint, requestOptions
@@ -423,7 +427,7 @@ export default function CuisineResponseForm({
                                     ]}
                                     onPress={() => handleCuisineSelect(option.label)}
                                 >
-                                    <option.icon color="#fff" size={24} style={{ marginBottom: 8 }} />
+                                    <option.icon color="#fff" size={20} style={{ marginBottom: 8 }} />
                                     <Text style={[
                                         styles.singleSelectLabel,
                                         selectedCuisine === option.label && styles.singleSelectLabelSelected
@@ -450,7 +454,7 @@ export default function CuisineResponseForm({
                                     ]}
                                     onPress={() => handleAtmosphereSelect(option.label)}
                                 >
-                                    <option.icon color="#fff" size={24} style={{ marginBottom: 8 }} />
+                                    <option.icon color="#fff" size={20} style={{ marginBottom: 8 }} />
                                     <Text style={[
                                         styles.singleSelectLabel,
                                         selectedAtmosphere === option.label && styles.singleSelectLabelSelected
@@ -477,7 +481,7 @@ export default function CuisineResponseForm({
                                     ]}
                                     onPress={() => setSelectedBudget(option.label)}
                                 >
-                                    <option.icon color="#fff" size={24} style={{ marginBottom: 8 }} />
+                                    <option.icon color="#fff" size={20} style={{ marginBottom: 8 }} />
                                     <Text style={[
                                         styles.singleSelectLabel,
                                         selectedBudget === option.label && styles.singleSelectLabelSelected
@@ -494,18 +498,49 @@ export default function CuisineResponseForm({
             case 4:
                 return (
                     <Animated.View style={[styles.stepContainer, { opacity: fadeAnim }]}>
-                        <TextInput
-                            style={styles.notesInput}
-                            placeholder="e.g., Vegetarian, No nuts, Gluten-free, Keto..."
-                            placeholderTextColor="#999"
-                            value={dietary}
-                            onChangeText={setDietary}
-                            multiline
-                            numberOfLines={4}
-                            textAlignVertical="top"
-                            returnKeyType="done"
-                            onSubmitEditing={() => Keyboard.dismiss()}
-                        />
+                        {user?.preferences && !guestMode && useSavedPreferences ? (
+                            <View style={styles.savedPreferencesContainer}>
+                                <View style={styles.savedPreferencesHeader}>
+                                    <Text style={styles.savedPreferencesTitle}>Using saved preferences</Text>
+                                </View>
+                                <View style={styles.savedPreferencesContent}>
+                                    <Text style={styles.savedPreferencesText}>{user.preferences}</Text>
+                                </View>
+                                <View style={styles.preferencesActions}>
+                                    <TouchableOpacity 
+                                        style={styles.changePreferencesButton}
+                                        onPress={() => {
+                                            setUseSavedPreferences(false)
+                                            setDietary('')
+                                        }}
+                                    >
+                                        <Text style={styles.changePreferencesText}>Change preferences</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity 
+                                        style={styles.noPreferencesButton}
+                                        onPress={() => {
+                                            setUseSavedPreferences(false)
+                                            setDietary('No dietary restrictions')
+                                        }}
+                                    >
+                                        <Text style={styles.noPreferencesText}>No preferences</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
+                        ) : (
+                            <TextInput
+                                style={styles.notesInput}
+                                placeholder="e.g., Vegetarian, No nuts, Gluten-free, Keto..."
+                                placeholderTextColor="#999"
+                                value={dietary}
+                                onChangeText={setDietary}
+                                multiline
+                                numberOfLines={4}
+                                textAlignVertical="top"
+                                returnKeyType="done"
+                                onSubmitEditing={() => Keyboard.dismiss()}
+                            />
+                        )}
                     </Animated.View>
                 )
 
@@ -783,6 +818,9 @@ const styles = StyleSheet.create({
     },
 
     singleSelectGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        justifyContent: 'space-between',
         gap: 12,
     },
 
@@ -793,6 +831,7 @@ const styles = StyleSheet.create({
         borderRadius: 16,
         padding: 16,
         alignItems: 'center',
+        width: (screenWidth - 48 - 12) / 2, // Calculate width for 2 columns with gap
     },
 
     singleSelectCardSelected: {
@@ -806,7 +845,7 @@ const styles = StyleSheet.create({
     },
 
     singleSelectLabel: {
-        fontSize: 16,
+        fontSize: 14,
         fontWeight: '600',
         fontFamily: 'Montserrat_600SemiBold',
         color: '#fff',
@@ -965,6 +1004,77 @@ const styles = StyleSheet.create({
         fontFamily: 'Montserrat_400Regular',
         minHeight: 120,
         textAlignVertical: 'top',
+    },
+
+    savedPreferencesContainer: {
+        backgroundColor: 'rgba(147, 51, 234, 0.05)',
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: 'rgba(147, 51, 234, 0.2)',
+        padding: 16,
+    },
+
+    savedPreferencesHeader: {
+        marginBottom: 12,
+    },
+
+    savedPreferencesTitle: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#A855F7',
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+    },
+
+    savedPreferencesContent: {
+        backgroundColor: 'rgba(255, 255, 255, 0.03)',
+        borderRadius: 12,
+        padding: 12,
+        marginBottom: 16,
+    },
+
+    savedPreferencesText: {
+        color: '#fff',
+        fontSize: 14,
+        lineHeight: 20,
+        fontFamily: 'Montserrat_400Regular',
+    },
+
+    preferencesActions: {
+        flexDirection: 'row',
+        gap: 12,
+    },
+
+    changePreferencesButton: {
+        flex: 1,
+        backgroundColor: 'rgba(147, 51, 234, 0.1)',
+        borderWidth: 1,
+        borderColor: 'rgba(147, 51, 234, 0.3)',
+        borderRadius: 12,
+        paddingVertical: 12,
+        alignItems: 'center',
+    },
+
+    changePreferencesText: {
+        color: '#A855F7',
+        fontSize: 14,
+        fontWeight: '600',
+    },
+
+    noPreferencesButton: {
+        flex: 1,
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+        borderRadius: 12,
+        paddingVertical: 12,
+        alignItems: 'center',
+    },
+
+    noPreferencesText: {
+        color: 'rgba(255, 255, 255, 0.7)',
+        fontSize: 14,
+        fontWeight: '600',
     },
 
     dateSection: {

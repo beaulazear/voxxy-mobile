@@ -10,14 +10,13 @@ import {
     Alert,
     StyleSheet,
     Keyboard,
+    Animated,
+    Image,
 } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { X, Save, Edit3, MapPin, MessageSquare } from 'react-native-feather'
-import {
-    FormStyles,
-    GradientButton,
-    gradientConfigs
-} from '../styles/FormStyles'
+import { modalStyles, modalColors } from '../styles/modalStyles'
+import VoxxyTriangle from '../assets/voxxy-triangle.png'
 import { UserContext } from '../context/UserContext'
 import { API_URL } from '../config'
 import { logger } from '../utils/logger';
@@ -142,192 +141,290 @@ export default function UpdateDetailsModal({ activity, visible, onClose, onUpdat
     return (
         <Modal
             visible={visible}
-            animationType="slide"
-            presentationStyle="pageSheet"
+            animationType="fade"
+            transparent={true}
             onRequestClose={onClose}
         >
-            <SafeAreaView style={FormStyles.modalContainer}>
-                {/* Header */}
-                <View style={FormStyles.modalHeader}>
-                    <Text style={FormStyles.title}>Edit Activity Details</Text>
-                    <Text style={FormStyles.subtitle}>Update your activity information</Text>
+            <SafeAreaView style={modalStyles.modalOverlay}>
+                <Animated.View style={modalStyles.modalContainer}>
+                    {/* Gradient Background */}
+                    <LinearGradient
+                        colors={modalColors.headerGradient}
+                        style={modalStyles.modalGradientBackground}
+                    />
+                    
+                    {/* Close Button */}
                     <TouchableOpacity
-                        style={styles.closeButton}
+                        style={modalStyles.modernCloseBtn}
                         onPress={onClose}
                     >
-                        <X stroke="#fff" width={20} height={20} />
+                        <View style={modalStyles.closeBtnCircle}>
+                            <X stroke="#fff" width={18} height={18} />
+                        </View>
                     </TouchableOpacity>
-                </View>
 
-                {/* Content */}
-                <ScrollView
-                    style={FormStyles.stepContent}
-                    contentContainerStyle={FormStyles.scrollContent}
-                    showsVerticalScrollIndicator={false}
-                    keyboardShouldPersistTaps="handled"
-                    keyboardDismissMode="on-drag"
-                >
-                    {/* Debug Info */}
-                    {logger.debug('Rendering modal content, activity type:', activity.activity_type)}
-                    {logger.debug('Editable fields:', editableFields)}
-                    {logger.debug('FormStyles available:', !!FormStyles)}
-                    {logger.debug('GradientButton available:', !!GradientButton)}
-
-                    {/* Error Display */}
-                    {errors.length > 0 && (
-                        <View style={styles.errorContainer}>
-                            {errors.map((error, index) => (
-                                <Text key={index} style={styles.errorText}>
-                                    • {error}
-                                </Text>
-                            ))}
+                    {/* Logo */}
+                    <View style={styles.logoWrapper}>
+                        <View style={styles.logoCircle}>
+                            <Image 
+                                source={VoxxyTriangle} 
+                                style={styles.logo}
+                                resizeMode="contain"
+                            />
                         </View>
-                    )}
-
-                    {/* Activity Name */}
-                    <View style={FormStyles.section}>
-                        <View style={styles.iconRow}>
-                            <Edit3 stroke="#cc31e8" width={16} height={16} />
-                            <Text style={styles.sectionTitle}>Activity Name</Text>
-                        </View>
-                        <TextInput
-                            style={FormStyles.input}
-                            placeholder="Activity Name"
-                            placeholderTextColor="#aaa"
-                            value={name}
-                            onChangeText={setName}
-                            autoCapitalize="words"
-                            returnKeyType="done"
-                            onSubmitEditing={() => Keyboard.dismiss()}
-                            blurOnSubmit={true}
-                        />
                     </View>
 
-                    <View style={FormStyles.section}>
-                        <View style={styles.iconRow}>
-                            <MessageSquare stroke="#cc31e8" width={16} height={16} />
-                            <Text style={styles.sectionTitle}>Welcome Message</Text>
-                        </View>
-                        <TextInput
-                            style={FormStyles.textarea}
-                            placeholder="Welcome message..."
-                            placeholderTextColor="#aaa"
-                            value={welcomeMessage}
-                            onChangeText={setWelcomeMessage}
-                            multiline
-                            numberOfLines={4}
-                            textAlignVertical="top"
-                            autoCapitalize="sentences"
-                            returnKeyType="done"
-                            onSubmitEditing={() => Keyboard.dismiss()}
-                            blurOnSubmit={true}
-                        />
-                    </View>
+                    {/* Content */}
+                    <View style={modalStyles.modalContent}>
+                        <Text style={modalStyles.modernTitle}>Edit Activity Details</Text>
+                        <Text style={modalStyles.modernDescription}>Update your activity information</Text>
 
-                    {/* Location (for Restaurant & Cocktails) */}
-                    {editableFields.location && (
-                        <View style={[FormStyles.section, FormStyles.lastSection]}>
-                            <View style={styles.iconRow}>
-                                <MapPin stroke="#cc31e8" width={16} height={16} />
-                                <Text style={styles.sectionTitle}>Location</Text>
-                            </View>
+                        {/* Scrollable Content */}
+                        <ScrollView
+                            style={styles.scrollView}
+                            contentContainerStyle={styles.scrollContent}
+                            showsVerticalScrollIndicator={false}
+                            keyboardShouldPersistTaps="handled"
+                            keyboardDismissMode="on-drag"
+                        >
+                            {/* Debug Info */}
+                            {logger.debug('Rendering modal content, activity type:', activity.activity_type)}
+                            {logger.debug('Editable fields:', editableFields)}
 
-                            {usingCurrentLocation ? (
-                                <View style={styles.currentLocationContainer}>
-                                    <View style={styles.currentLocationInfo}>
-                                        <MapPin stroke="#10b981" width={16} height={16} />
-                                        <Text style={styles.currentLocationText}>
-                                            Using current location
+                            {/* Error Display */}
+                            {errors.length > 0 && (
+                                <View style={styles.errorContainer}>
+                                    {errors.map((error, index) => (
+                                        <Text key={index} style={styles.errorText}>
+                                            • {error}
                                         </Text>
-                                    </View>
-                                    <TouchableOpacity
-                                        style={styles.clearLocationButton}
-                                        onPress={handleClearLocation}
-                                    >
-                                        <X stroke="#ef4444" width={16} height={16} />
-                                        <Text style={styles.clearLocationText}>Clear</Text>
-                                    </TouchableOpacity>
+                                    ))}
                                 </View>
-                            ) : (
+                            )}
+
+                            {/* Activity Name */}
+                            <View style={styles.inputSection}>
+                                <View style={styles.inputHeader}>
+                                    <View style={styles.iconWrapper}>
+                                        <Edit3 stroke={modalColors.purple500} width={16} height={16} />
+                                    </View>
+                                    <Text style={styles.inputLabel}>Activity Name</Text>
+                                </View>
                                 <TextInput
-                                    style={FormStyles.input}
-                                    placeholder="Enter location"
-                                    placeholderTextColor="#aaa"
-                                    value={location}
-                                    onChangeText={setLocation}
+                                    style={styles.input}
+                                    placeholder="Activity Name"
+                                    placeholderTextColor={modalColors.textDim}
+                                    value={name}
+                                    onChangeText={setName}
                                     autoCapitalize="words"
                                     returnKeyType="done"
                                     onSubmitEditing={() => Keyboard.dismiss()}
                                     blurOnSubmit={true}
                                 />
-                            )}
-                        </View>
-                    )}
-                </ScrollView>
+                            </View>
 
-                {/* Footer Buttons */}
-                <View style={FormStyles.buttonRow}>
-                    <TouchableOpacity
-                        style={FormStyles.buttonSecondary}
-                        onPress={onClose}
-                    >
-                        <Text style={[FormStyles.buttonText, FormStyles.buttonTextSecondary]}>
-                            Cancel
-                        </Text>
-                    </TouchableOpacity>
+                            <View style={styles.inputSection}>
+                                <View style={styles.inputHeader}>
+                                    <View style={styles.iconWrapper}>
+                                        <MessageSquare stroke={modalColors.purple500} width={16} height={16} />
+                                    </View>
+                                    <Text style={styles.inputLabel}>Welcome Message</Text>
+                                </View>
+                                <TextInput
+                                    style={styles.textarea}
+                                    placeholder="Welcome message..."
+                                    placeholderTextColor={modalColors.textDim}
+                                    value={welcomeMessage}
+                                    onChangeText={setWelcomeMessage}
+                                    multiline
+                                    numberOfLines={4}
+                                    textAlignVertical="top"
+                                    autoCapitalize="sentences"
+                                    returnKeyType="done"
+                                    onSubmitEditing={() => Keyboard.dismiss()}
+                                    blurOnSubmit={true}
+                                />
+                            </View>
 
-                    <GradientButton
-                        onPress={handleSubmit}
-                        disabled={!canSave() || isSubmitting}
-                        style={[FormStyles.flex1, !canSave() && FormStyles.buttonDisabled]}
-                    >
-                        <View style={styles.buttonContent}>
-                            {isSubmitting ? (
-                                <>
-                                    <Text style={[FormStyles.buttonText, FormStyles.buttonTextPrimary]}>
-                                        {loadingMessage || 'Saving...'}
-                                    </Text>
-                                </>
-                            ) : (
-                                <>
-                                    <Save stroke="#fff" width={16} height={16} />
-                                    <Text style={[FormStyles.buttonText, FormStyles.buttonTextPrimary]}>
-                                        Save
-                                    </Text>
-                                </>
+                            {/* Location (for Restaurant & Cocktails) */}
+                            {editableFields.location && (
+                                <View style={styles.inputSection}>
+                                    <View style={styles.inputHeader}>
+                                        <View style={styles.iconWrapper}>
+                                            <MapPin stroke={modalColors.purple500} width={16} height={16} />
+                                        </View>
+                                        <Text style={styles.inputLabel}>Location</Text>
+                                    </View>
+
+                                    {usingCurrentLocation ? (
+                                        <View style={styles.currentLocationContainer}>
+                                            <View style={styles.currentLocationInfo}>
+                                                <MapPin stroke="#10b981" width={16} height={16} />
+                                                <Text style={styles.currentLocationText}>
+                                                    Using current location
+                                                </Text>
+                                            </View>
+                                            <TouchableOpacity
+                                                style={styles.clearLocationButton}
+                                                onPress={handleClearLocation}
+                                            >
+                                                <X stroke="#ef4444" width={16} height={16} />
+                                                <Text style={styles.clearLocationText}>Clear</Text>
+                                            </TouchableOpacity>
+                                        </View>
+                                    ) : (
+                                        <TextInput
+                                            style={styles.input}
+                                            placeholder="Enter location"
+                                            placeholderTextColor={modalColors.textDim}
+                                            value={location}
+                                            onChangeText={setLocation}
+                                            autoCapitalize="words"
+                                            returnKeyType="done"
+                                            onSubmitEditing={() => Keyboard.dismiss()}
+                                            blurOnSubmit={true}
+                                        />
+                                    )}
+                                </View>
                             )}
+                        </ScrollView>
+
+                        {/* Footer Buttons */}
+                        <View style={modalStyles.buttonContainer}>
+                            <TouchableOpacity
+                                style={modalStyles.secondaryButton}
+                                onPress={onClose}
+                            >
+                                <Text style={modalStyles.secondaryButtonText}>
+                                    Cancel
+                                </Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={modalStyles.primaryButton}
+                                onPress={handleSubmit}
+                                disabled={!canSave() || isSubmitting}
+                            >
+                                <LinearGradient
+                                    colors={modalColors.buttonGradient}
+                                    style={modalStyles.primaryButtonGradient}
+                                >
+                                    {isSubmitting ? (
+                                        <Text style={modalStyles.primaryButtonText}>
+                                            {loadingMessage || 'Saving...'}
+                                        </Text>
+                                    ) : (
+                                        <>
+                                            <Save stroke="#fff" width={16} height={16} />
+                                            <Text style={modalStyles.primaryButtonText}>
+                                                Save
+                                            </Text>
+                                        </>
+                                    )}
+                                </LinearGradient>
+                            </TouchableOpacity>
                         </View>
-                    </GradientButton>
-                </View>
+                    </View>
+                </Animated.View>
             </SafeAreaView>
-        </Modal >
+        </Modal>
     )
 }
 
 const styles = StyleSheet.create({
-    closeButton: {
-        position: 'absolute',
-        top: 24,
-        right: 24,
-        padding: 8,
-        borderRadius: 20,
-        backgroundColor: 'rgba(255, 255, 255, 0.1)',
-        zIndex: 10,
+    logoWrapper: {
+        alignSelf: 'center',
+        marginTop: 35,
+        marginBottom: -35,
+        zIndex: 5,
     },
 
-    iconRow: {
+    logoCircle: {
+        width: 90,
+        height: 90,
+        borderRadius: 45,
+        backgroundColor: '#ffffff',
+        justifyContent: 'center',
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: {
+            width: 0,
+            height: 4,
+        },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        elevation: 10,
+    },
+
+    logo: {
+        width: 75,
+        height: 75,
+        shadowColor: '#000',
+        shadowOffset: {
+            width: 0,
+            height: 2,
+        },
+        shadowOpacity: 0.25,
+        shadowRadius: 4,
+    },
+
+    scrollView: {
+        width: '100%',
+        maxHeight: 400,
+    },
+
+    scrollContent: {
+        paddingBottom: 20,
+    },
+
+    inputSection: {
+        marginBottom: 20,
+    },
+
+    inputHeader: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 12,
+        marginBottom: 10,
     },
 
-    sectionTitle: {
+    iconWrapper: {
+        width: 28,
+        height: 28,
+        borderRadius: 14,
+        backgroundColor: 'rgba(168, 85, 247, 0.15)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 10,
+    },
+
+    inputLabel: {
         fontSize: 14,
         fontWeight: '600',
-        color: '#fff',
-        textTransform: 'uppercase',
-        letterSpacing: 0.5,
-        marginLeft: 8,
+        color: modalColors.textMuted,
+    },
+
+    input: {
+        backgroundColor: 'rgba(147, 51, 234, 0.1)',
+        borderRadius: 12,
+        paddingHorizontal: 16,
+        paddingVertical: 14,
+        fontSize: 15,
+        color: modalColors.textWhite,
+        borderWidth: 1,
+        borderColor: 'rgba(147, 51, 234, 0.2)',
+    },
+
+    textarea: {
+        backgroundColor: 'rgba(147, 51, 234, 0.1)',
+        borderRadius: 12,
+        paddingHorizontal: 16,
+        paddingVertical: 14,
+        fontSize: 15,
+        color: modalColors.textWhite,
+        borderWidth: 1,
+        borderColor: 'rgba(147, 51, 234, 0.2)',
+        minHeight: 100,
+        textAlignVertical: 'top',
     },
 
     errorContainer: {
@@ -390,9 +487,4 @@ const styles = StyleSheet.create({
         marginLeft: 6,
     },
 
-    buttonContent: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
 })

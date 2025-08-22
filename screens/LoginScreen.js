@@ -289,7 +289,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   submitButton: {
-    backgroundColor: '#cc31e8',
+    backgroundColor: '#9333EA',
     minHeight: TOUCH_TARGETS.LARGE_SIZE,
     paddingVertical: 16,
     borderRadius: 50,
@@ -297,7 +297,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: 20,
     marginBottom: 20,
-    shadowColor: '#cc31e8',
+    shadowColor: '#9333EA',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -333,7 +333,7 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
   linkAction: {
-    color: '#cc31e8',
+    color: '#9333EA',
     fontWeight: '700',
     fontSize: 18,
   },

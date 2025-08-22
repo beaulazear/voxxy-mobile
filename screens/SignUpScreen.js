@@ -524,14 +524,14 @@ const styles = StyleSheet.create({
         color: '#28a745',
     },
     nextButton: {
-        backgroundColor: '#cc31e8',
+        backgroundColor: '#9333EA',
         minHeight: TOUCH_TARGETS.LARGE_SIZE,
         paddingVertical: 16,
         borderRadius: 50,
         alignItems: 'center',
         marginBottom: SPACING.COMFORTABLE_GAP,
         marginTop: SPACING.MIN_GAP,
-        shadowColor: '#cc31e8',
+        shadowColor: '#9333EA',
         shadowOffset: {
             width: 0,
             height: 2,
@@ -589,7 +589,7 @@ const styles = StyleSheet.create({
         lineHeight: 24,
     },
     textLinkAction: { 
-        color: '#cc31e8', 
+        color: '#9333EA', 
         fontWeight: '700',
         fontSize: 18,
     },
@@ -607,7 +607,7 @@ const styles = StyleSheet.create({
         marginTop: 8,
     },
     skipText: {
-        color: '#cc31e8',
+        color: '#9333EA',
         fontSize: 16,
         fontWeight: '500',
     },
