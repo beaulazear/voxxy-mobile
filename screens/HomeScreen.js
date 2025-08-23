@@ -602,11 +602,11 @@ export default function HomeScreen({ route }) {
   // Fetch user favorites
   const fetchUserFavorites = async () => {
     if (!user?.token) {
-      console.log('No user token available for fetching favorites')
+      logger.debug('No user token available for fetching favorites')
       return
     }
     
-    console.log('Fetching favorites from:', `${API_URL}/user_activities/favorited`)
+    logger.debug('Fetching favorites from:', `${API_URL}/user_activities/favorited`)
     setLoadingFavorites(true)
     try {
       const favorites = await safeAuthApiCall(
@@ -619,14 +619,14 @@ export default function HomeScreen({ route }) {
       const validFavorites = (favorites || []).filter(fav => {
         const hasActivity = fav.activity || fav.pinned_activity?.activity
         if (!hasActivity) {
-          console.log('Filtering out favorite with missing activity:', fav.id)
+          logger.debug('Filtering out favorite with missing activity:', fav.id)
         }
         return hasActivity
       })
       
       setUserFavorites(validFavorites)
     } catch (error) {
-      console.error('Error fetching favorites:', error)
+      logger.error('Error fetching favorites:', error)
       const userMessage = handleApiError(error, 'Failed to load favorites. Please try again.');
       // Only show alert for non-network errors to avoid spam
       if (!error.message.includes('Network connection failed')) {
@@ -639,10 +639,10 @@ export default function HomeScreen({ route }) {
 
   // Fetch favorites when user changes or when Favorites tab is selected
   useEffect(() => {
-    console.log('Filter changed to:', filter)
-    console.log('User token exists:', !!user?.token)
+    logger.debug('Filter changed to:', filter)
+    logger.debug('User token exists:', !!user?.token)
     if (filter === 'Favorites' && user?.token) {
-      console.log('Triggering favorites fetch...')
+      logger.debug('Triggering favorites fetch...')
       fetchUserFavorites()
     }
   }, [filter, user?.token])
@@ -650,7 +650,7 @@ export default function HomeScreen({ route }) {
   // Fetch favorites on component mount to always have the count available
   useEffect(() => {
     if (user?.token) {
-      console.log('Fetching favorites on component mount...')
+      logger.debug('Fetching favorites on component mount...')
       fetchUserFavorites()
     }
   }, [user?.token])
@@ -680,10 +680,10 @@ export default function HomeScreen({ route }) {
         prevFavorites.filter(fav => fav.id !== favoriteId)
       )
       
-      console.log(`Favorite with ID ${favoriteId} deleted successfully`)
+      logger.debug(`Favorite with ID ${favoriteId} deleted successfully`)
       Alert.alert('Success', 'Favorite removed successfully!')
     } catch (error) {
-      console.error('Error deleting favorite:', error)
+      logger.error('Error deleting favorite:', error)
       const userMessage = handleApiError(error, 'Failed to remove favorite. Please try again.')
       Alert.alert('Error', userMessage)
     }
@@ -754,8 +754,8 @@ export default function HomeScreen({ route }) {
     const data = dataMap[filter] || []
     
     if (filter === 'Favorites') {
-      console.log('Filtering favorites, userFavorites:', userFavorites)
-      console.log('Data for favorites:', data)
+      logger.debug('Filtering favorites, userFavorites:', userFavorites)
+      logger.debug('Data for favorites:', data)
     }
 
     const sortedData = data.sort((a, b) => {
@@ -838,19 +838,19 @@ export default function HomeScreen({ route }) {
 
   function renderFavoriteCard({ item, index }) {
     // Debug logging
-    console.log('Rendering favorite card for item:', item)
-    console.log('Item keys:', Object.keys(item))
+    logger.debug('Rendering favorite card for item:', item)
+    logger.debug('Item keys:', Object.keys(item))
     
     // For favorites, item is a user_activity with nested pinned_activity and activity
     const pinnedActivity = item.pinned_activity || item
     const activity = item.activity || pinnedActivity?.activity
     
-    console.log('pinnedActivity:', pinnedActivity)
-    console.log('activity:', activity)
+    logger.debug('pinnedActivity:', pinnedActivity)
+    logger.debug('activity:', activity)
     
     // Skip rendering if activity is missing (shouldn't happen with filtering, but extra safety)
     if (!activity) {
-      console.warn('Skipping favorite card with missing activity:', item.id)
+      logger.warn('Skipping favorite card with missing activity:', item.id)
       return null
     }
     
@@ -953,7 +953,7 @@ export default function HomeScreen({ route }) {
     
     // Debug logging for first list item
     if (index === 0) {
-      console.log('DEBUG - First list item:', {
+      logger.debug('DEBUG - First list item:', {
         itemUserId: item.user?.id,
         currentUserId: user?.id,
         userName: user?.name,
@@ -1157,7 +1157,7 @@ export default function HomeScreen({ route }) {
     
     // Debug logging for first grid card  
     if (index === 0) {
-      console.log('DEBUG - First grid card:', {
+      logger.debug('DEBUG - First grid card:', {
         itemUserId: item.user?.id,
         currentUserId: user?.id,
         userName: user?.name,
@@ -2919,7 +2919,7 @@ const styles = StyleSheet.create({
   },
 
   modalWebsiteButton: {
-    backgroundColor: '#cc31e8',
+    backgroundColor: '#9333EA',
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: 'center',

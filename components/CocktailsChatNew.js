@@ -121,7 +121,7 @@ export default function CocktailsChatNew({ visible, onClose }) {
     // Pre-select saved location if available
     useEffect(() => {
         if (hasSavedLocation && savedLocationText && !location) {
-            console.log('Pre-selecting saved location:', savedLocationText)
+            logger.debug('Pre-selecting saved location:', savedLocationText)
             setSavedLocationUsed(true)
             setLocation(savedLocationText)
             if (user?.latitude && user?.longitude) {

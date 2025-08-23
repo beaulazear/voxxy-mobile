@@ -135,7 +135,7 @@ export default function UnifiedActivityChat({ visible, onClose }) {
     // Adjust total steps based on activity
     useEffect(() => {
         if (selectedActivity === 'Game Night') {
-            setTotalSteps(3) // Activity, Location, Group Size
+            setTotalSteps(2) // Activity, Group Size (no location)
         } else if (selectedActivity === 'Cocktails') {
             setTotalSteps(3) // Activity, Location, Time
         } else if (selectedActivity === 'Restaurant') {
@@ -318,7 +318,7 @@ export default function UnifiedActivityChat({ visible, onClose }) {
                     </View>
                 )}
 
-                {step === 2 && (
+                {step === 2 && selectedActivity !== 'Game Night' && (
                     <View style={styles.locationContainer}>
                         {savedLocationUsed ? (
                             <View style={styles.savedLocationCard}>
@@ -557,7 +557,12 @@ export default function UnifiedActivityChat({ visible, onClose }) {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
         if (step < totalSteps) {
             fadeAnim.setValue(0)
-            setStep(step + 1)
+            // Skip location step (step 2) for Game Night
+            if (step === 1 && selectedActivity === 'Game Night') {
+                setStep(3) // Jump to step 3 (group size)
+            } else {
+                setStep(step + 1)
+            }
         } else {
             handleSubmit()
         }
@@ -567,7 +572,12 @@ export default function UnifiedActivityChat({ visible, onClose }) {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
         if (step > 1) {
             fadeAnim.setValue(0)
-            setStep(step - 1)
+            // Skip location step (step 2) for Game Night when going back
+            if (step === 3 && selectedActivity === 'Game Night') {
+                setStep(1) // Jump back to step 1 (activity selection)
+            } else {
+                setStep(step - 1)
+            }
         }
     }
 
@@ -578,12 +588,15 @@ export default function UnifiedActivityChat({ visible, onClose }) {
         try {
             setIsSubmitting(true)
             
-            // Format location
-            let activityLocation = location.trim()
-            if (currentLocationUsed && coords) {
-                activityLocation = `${coords.lat.toFixed(6)}, ${coords.lng.toFixed(6)}`
-            } else if (savedLocationUsed && user?.latitude && user?.longitude) {
-                activityLocation = `${user.latitude.toFixed(6)}, ${user.longitude.toFixed(6)}`
+            // Format location (TBD for Game Night)
+            let activityLocation = 'TBD'
+            if (selectedActivity !== 'Game Night') {
+                activityLocation = location.trim()
+                if (currentLocationUsed && coords) {
+                    activityLocation = `${coords.lat.toFixed(6)}, ${coords.lng.toFixed(6)}`
+                } else if (savedLocationUsed && user?.latitude && user?.longitude) {
+                    activityLocation = `${user.latitude.toFixed(6)}, ${user.longitude.toFixed(6)}`
+                }
             }
 
             // Build payload based on activity type

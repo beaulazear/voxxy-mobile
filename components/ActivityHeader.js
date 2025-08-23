@@ -580,23 +580,26 @@ export default function ActivityHeader({
                                 );
                             })()}
                             <Text style={styles.activityTitle}>
-                                {activity.voting ? 'Voxxy Picks' : 
+                                {activity.finalized ? 'Activity Finalized' :
+                                 activity.voting ? 'Voxxy Picks' : 
                                  activity.collecting ? 'Collecting' : 
                                  activity.activity_name}
                             </Text>
                         </View>
-                        {/* Subtitle during collecting phase */}
-                        {activity.collecting && (
+                        {/* Subtitle based on activity state */}
+                        {activity.finalized ? (
                             <Text style={styles.collectingSubtitle}>
-                                Help us create the perfect recommendations for you & your group!
+                                We hope you have a great time! 🎉
                             </Text>
-                        )}
-                        {/* Subtitle during voting phase */}
-                        {activity.voting && (
+                        ) : activity.voting ? (
                             <Text style={styles.collectingSubtitle}>
                                 Review and select - tap cards to see more, favorite, or flag
                             </Text>
-                        )}
+                        ) : activity.collecting ? (
+                            <Text style={styles.collectingSubtitle}>
+                                Help us create the perfect recommendations for you & your group!
+                            </Text>
+                        ) : null}
                     </View>
 
                     {/* Finalized Date/Time Section */}

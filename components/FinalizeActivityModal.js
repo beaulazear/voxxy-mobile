@@ -62,6 +62,9 @@ export default function FinalizeActivityModal({
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [loadingMessage, setLoadingMessage] = useState('')
     const [selectedPinnedId, setSelectedPinnedId] = useState(null)
+    
+    // Animation for logo
+    const pulseValue = React.useRef(new Animated.Value(1)).current
     const [selectedTimeSlotId, setSelectedTimeSlotId] = useState(null)
     const [showDatePicker, setShowDatePicker] = useState(false)
     const [showTimePicker, setShowTimePicker] = useState(false)
@@ -114,6 +117,26 @@ export default function FinalizeActivityModal({
             handleTimeSlotChange(pinned[0].id)
         }
     }, [pinned])
+
+    // Logo pulse animation
+    useEffect(() => {
+        const animation = Animated.loop(
+            Animated.sequence([
+                Animated.timing(pulseValue, {
+                    toValue: 1.1,
+                    duration: 1000,
+                    useNativeDriver: true,
+                }),
+                Animated.timing(pulseValue, {
+                    toValue: 1,
+                    duration: 1000,
+                    useNativeDriver: true,
+                }),
+            ])
+        )
+        animation.start()
+        return () => animation.stop()
+    }, [])
 
     const handleTimeSlotChange = (timeSlotId) => {
         setSelectedTimeSlotId(timeSlotId)
@@ -495,7 +518,24 @@ export default function FinalizeActivityModal({
                     </TouchableOpacity>
 
                     {/* Logo */}
-                    <View style={styles.logoWrapper}>
+                    <Animated.View 
+                        style={[
+                            styles.logoWrapper,
+                            {
+                                transform: [
+                                    {
+                                        scale: pulseValue
+                                    },
+                                    {
+                                        rotate: pulseValue.interpolate({
+                                            inputRange: [1, 1.1],
+                                            outputRange: ['0deg', '5deg']
+                                        })
+                                    }
+                                ]
+                            }
+                        ]}
+                    >
                         <View style={styles.logoCircle}>
                             <Image 
                                 source={VoxxyTriangle} 
@@ -503,7 +543,7 @@ export default function FinalizeActivityModal({
                                 resizeMode="contain"
                             />
                         </View>
-                    </View>
+                    </Animated.View>
 
                     {/* Content */}
                     <View style={modalStyles.modalContent}>

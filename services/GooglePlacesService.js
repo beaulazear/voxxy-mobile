@@ -8,7 +8,7 @@ import { logger } from '../utils/logger';
 
 class GooglePlacesService {
     constructor() {
-        console.log('GooglePlacesService constructor - Using Rails API at:', API_URL);
+        logger.debug('GooglePlacesService constructor - Using Rails API at:', API_URL);
     }
 
     /**
@@ -19,14 +19,14 @@ class GooglePlacesService {
      * @returns {Promise<Array>} Array of place predictions
      */
     async searchPlaces(input, types = 'geocode', language = 'en') {
-        console.log('GooglePlacesService.searchPlaces called with:', input);
+        logger.debug('GooglePlacesService.searchPlaces called with:', input);
         if (!input || input.length < 2) {
             return [];
         }
 
         try {
             const url = `${API_URL}/api/places/search?query=${encodeURIComponent(input)}&types=${encodeURIComponent(types)}`;
-            console.log('Calling Rails API:', url);
+            logger.debug('Calling Rails API:', url);
             
             const response = await fetch(url, {
                 method: 'GET',
@@ -37,20 +37,20 @@ class GooglePlacesService {
             });
 
             const data = await response.json();
-            console.log('Rails API response:', data);
+            logger.debug('Rails API response:', data);
 
             if (response.ok && data.results) {
                 return data.results;
             } else {
                 logger.error('Rails Places API error:', data.error || 'Unknown error');
                 // Fallback to mock data if Rails API fails
-                console.log('Falling back to mock data');
+                logger.debug('Falling back to mock data');
                 return this.getMockResults(input);
             }
         } catch (error) {
             logger.error('Rails Places API network error:', error);
             // Fallback to mock data if network fails
-            console.log('Network error, falling back to mock data');
+            logger.debug('Network error, falling back to mock data');
             return this.getMockResults(input);
         }
     }
@@ -64,7 +64,7 @@ class GooglePlacesService {
     async getPlaceDetails(placeId, fields = 'geometry,address_components,formatted_address') {
         try {
             const url = `${API_URL}/api/places/details?place_id=${encodeURIComponent(placeId)}`;
-            console.log('Calling Rails API for place details:', url);
+            logger.debug('Calling Rails API for place details:', url);
             
             const response = await fetch(url, {
                 method: 'GET',
@@ -75,7 +75,7 @@ class GooglePlacesService {
             });
 
             const data = await response.json();
-            console.log('Rails API place details response:', data);
+            logger.debug('Rails API place details response:', data);
 
             if (response.ok && data.details) {
                 return data.details;
@@ -165,7 +165,7 @@ class GooglePlacesService {
      * Get mock results for development when API key isn't available
      */
     getMockResults(input) {
-        console.log('getMockResults called with:', input);
+        logger.debug('getMockResults called with:', input);
         const mockData = [
             {
                 place_id: 'mock_nyc',
@@ -245,7 +245,7 @@ class GooglePlacesService {
             item.description.toLowerCase().includes(input.toLowerCase())
         );
         
-        console.log('Mock results filtered:', filtered);
+        logger.debug('Mock results filtered:', filtered);
         return filtered;
     }
 }

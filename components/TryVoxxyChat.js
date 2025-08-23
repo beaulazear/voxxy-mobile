@@ -531,7 +531,7 @@ export default function TryVoxxyChat({ visible, onClose, onChatComplete }) {
                             onPress={() => setShowLocationSearch(true)}
                             disabled={currentLocationUsed}
                         >
-                            <Search color="#cc31e8" size={20} />
+                            <Search color="#9333EA" size={20} />
                             <Text style={styles.searchLocationText}>
                                 {location && !currentLocationUsed
                                     ? location
@@ -552,7 +552,7 @@ export default function TryVoxxyChat({ visible, onClose, onChatComplete }) {
                             onPress={useCurrentLocation}
                             disabled={isLocating || currentLocationUsed}
                         >
-                            <MapPin color="#cc31e8" size={16} />
+                            <MapPin color="#9333EA" size={16} />
                             <Text style={styles.locationButtonText}>
                                 {currentLocationUsed
                                     ? 'Using current location'
@@ -566,7 +566,7 @@ export default function TryVoxxyChat({ visible, onClose, onChatComplete }) {
                             visible={showLocationSearch}
                             onClose={() => setShowLocationSearch(false)}
                             onLocationSelect={(selectedLocation) => {
-                                console.log('TryVoxxyChat onLocationSelect:', selectedLocation)
+                                logger.debug('TryVoxxyChat onLocationSelect:', selectedLocation)
                                 const locationText = selectedLocation.formatted || selectedLocation.description || selectedLocation.formatted_address || ''
                                 setLocation(locationText)
                                 setCurrentLocationUsed(false)
@@ -597,7 +597,7 @@ export default function TryVoxxyChat({ visible, onClose, onChatComplete }) {
                                         setSelectedOutingType(option.label)
                                     }}
                                 >
-                                    <option.icon color="#fff" size={24} style={{ marginBottom: 8 }} />
+                                    <option.icon color="#fff" size={20} style={{ marginBottom: 8 }} />
                                     <Text style={[
                                         styles.singleSelectLabel,
                                         selectedOutingType === option.label && styles.singleSelectLabelSelected
@@ -646,7 +646,7 @@ export default function TryVoxxyChat({ visible, onClose, onChatComplete }) {
                                                 style={styles.compactPillRemove}
                                                 onPress={() => toggleCuisine(cuisine)}
                                             >
-                                                <X color="#cc31e8" size={10} />
+                                                <X color="#9333EA" size={10} />
                                             </TouchableOpacity>
                                         </View>
                                     ))}
@@ -691,7 +691,7 @@ export default function TryVoxxyChat({ visible, onClose, onChatComplete }) {
                                                 style={styles.compactPillRemove}
                                                 onPress={() => toggleVibe(vibe)}
                                             >
-                                                <X color="#cc31e8" size={10} />
+                                                <X color="#9333EA" size={10} />
                                             </TouchableOpacity>
                                         </View>
                                     ))}
@@ -721,7 +721,7 @@ export default function TryVoxxyChat({ visible, onClose, onChatComplete }) {
                                         setSelectedBudget(option.label)
                                     }}
                                 >
-                                    <option.icon color="#fff" size={24} style={{ marginBottom: 8 }} />
+                                    <option.icon color="#fff" size={20} style={{ marginBottom: 8 }} />
                                     <Text style={[
                                         styles.singleSelectLabel,
                                         selectedBudget === option.label && styles.singleSelectLabelSelected
@@ -785,7 +785,7 @@ export default function TryVoxxyChat({ visible, onClose, onChatComplete }) {
                             {!showSuccess ? (
                                 <Animated.View style={[styles.loadingContent, { transform: [{ scale: pulseAnim }] }]}>
                                     <View style={styles.loadingIconLarge}>
-                                        <ActivityIndicator size="large" color="#cc31e8" />
+                                        <ActivityIndicator size="large" color="#9333EA" />
                                     </View>
                                     <Text style={styles.loadingTitleLarge}>{loadingMessage}</Text>
                                     <Text style={styles.loadingSubtitleLarge}>Finding the perfect spots for you...</Text>
@@ -841,7 +841,7 @@ export default function TryVoxxyChat({ visible, onClose, onChatComplete }) {
                         disabled={isNextDisabled()}
                     >
                         <LinearGradient
-                            colors={['#cc31e8', '#9b1dbd']}
+                            colors={['#9333EA', '#9b1dbd']}
                             style={styles.nextButtonGradient}
                         >
                             <Text style={styles.nextButtonText}>
@@ -858,7 +858,7 @@ export default function TryVoxxyChat({ visible, onClose, onChatComplete }) {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#1a1a1a',
+        backgroundColor: '#201925',
     },
 
     progressContainer: {
@@ -871,24 +871,24 @@ const styles = StyleSheet.create({
 
     progressTrack: {
         flex: 1,
-        height: 6,
+        height: 4,
         backgroundColor: 'rgba(255, 255, 255, 0.05)',
-        borderRadius: 3,
+        borderRadius: 2,
         overflow: 'hidden',
     },
 
     progressFill: {
         height: '100%',
-        backgroundColor: '#cc31e8',
-        borderRadius: 3,
-        shadowColor: '#cc31e8',
+        backgroundColor: '#9333EA',
+        borderRadius: 2,
+        shadowColor: '#9333EA',
         shadowOffset: { width: 0, height: 0 },
         shadowOpacity: 0.5,
         shadowRadius: 4,
     },
 
     progressText: {
-        color: '#cc31e8',
+        color: '#9333EA',
         fontSize: 12,
         fontWeight: '600',
         minWidth: 40,
@@ -929,18 +929,18 @@ const styles = StyleSheet.create({
     compactGrid: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        gap: 10,
+        gap: 12,
         marginBottom: 20,
         justifyContent: 'space-between',
     },
 
     compactCard: {
-        backgroundColor: 'rgba(255, 255, 255, 0.03)',
-        borderWidth: 2,
-        borderColor: 'rgba(255, 255, 255, 0.1)',
-        borderRadius: 14,
+        backgroundColor: 'rgba(255, 255, 255, 0.04)',
+        borderWidth: 1.5,
+        borderColor: 'rgba(255, 255, 255, 0.08)',
+        borderRadius: 16,
         padding: 16,
-        width: (screenWidth - 58) / 2 - 5,
+        width: (screenWidth - 48 - 12) / 2, // 2 columns with gap - matching response forms
         alignItems: 'center',
         justifyContent: 'center',
         minHeight: 90,
@@ -948,8 +948,8 @@ const styles = StyleSheet.create({
 
     compactCardSelected: {
         backgroundColor: 'rgba(204, 49, 232, 0.15)',
-        borderColor: '#cc31e8',
-        shadowColor: '#cc31e8',
+        borderColor: '#9333EA',
+        shadowColor: '#9333EA',
         shadowOffset: { width: 0, height: 0 },
         shadowOpacity: 0.3,
         shadowRadius: 8,
@@ -965,26 +965,30 @@ const styles = StyleSheet.create({
     },
 
     compactLabelSelected: {
-        color: '#cc31e8',
+        color: '#9333EA',
     },
 
     singleSelectGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        justifyContent: 'space-between',
         gap: 12,
     },
 
     singleSelectCard: {
-        backgroundColor: 'rgba(255, 255, 255, 0.03)',
-        borderWidth: 2,
-        borderColor: 'rgba(255, 255, 255, 0.1)',
-        borderRadius: 12,
+        backgroundColor: 'rgba(255, 255, 255, 0.04)',
+        borderWidth: 1.5,
+        borderColor: 'rgba(255, 255, 255, 0.08)',
+        borderRadius: 16,
         padding: 16,
+        width: (screenWidth - 48 - 12) / 2, // 2 columns with gap - matching response forms
         alignItems: 'center',
     },
 
     singleSelectCardSelected: {
         backgroundColor: 'rgba(204, 49, 232, 0.15)',
-        borderColor: '#cc31e8',
-        shadowColor: '#cc31e8',
+        borderColor: '#9333EA',
+        shadowColor: '#9333EA',
         shadowOffset: { width: 0, height: 0 },
         shadowOpacity: 0.3,
         shadowRadius: 8,
@@ -999,7 +1003,7 @@ const styles = StyleSheet.create({
     },
 
     singleSelectLabelSelected: {
-        color: '#cc31e8',
+        color: '#9333EA',
     },
 
     singleSelectDesc: {
@@ -1019,7 +1023,7 @@ const styles = StyleSheet.create({
     selectedTitle: {
         fontSize: 12,
         fontWeight: '600',
-        color: '#cc31e8',
+        color: '#9333EA',
         marginBottom: 8,
         textTransform: 'uppercase',
         letterSpacing: 0.5,
@@ -1044,7 +1048,7 @@ const styles = StyleSheet.create({
     },
 
     compactPillText: {
-        color: '#cc31e8',
+        color: '#9333EA',
         fontSize: 12,
         fontWeight: '500',
     },
@@ -1083,7 +1087,7 @@ const styles = StyleSheet.create({
     },
 
     locationButtonText: {
-        color: '#cc31e8',
+        color: '#9333EA',
         fontSize: 14,
         fontWeight: '600',
     },

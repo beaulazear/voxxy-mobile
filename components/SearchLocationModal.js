@@ -14,6 +14,7 @@ import {
 import { MapPin, Search, X } from 'lucide-react-native';
 import colors from '../styles/Colors';
 import GooglePlacesService from '../services/GooglePlacesService';
+import { logger } from '../utils/logger';
 
 const SearchLocationModal = ({ visible, onClose, onLocationSelect }) => {
     const [searchText, setSearchText] = useState('');
@@ -37,7 +38,7 @@ const SearchLocationModal = ({ visible, onClose, onLocationSelect }) => {
 
     // Search places using Google Places API
     const searchPlaces = async (query) => {
-        console.log('searchPlaces called with:', query);
+        logger.debug('searchPlaces called with:', query);
         if (!query || query.length < 2) {
             setSuggestions([]);
             return;
@@ -48,10 +49,10 @@ const SearchLocationModal = ({ visible, onClose, onLocationSelect }) => {
             
             // Pass 'geocode' to get all location types including neighborhoods
             const results = await GooglePlacesService.searchPlaces(query, 'geocode');
-            console.log('Search results:', results);
+            logger.debug('Search results:', results);
             setSuggestions(results);
         } catch (error) {
-            console.error('Places search error:', error);
+            logger.error('Places search error:', error);
             setSuggestions([]);
         } finally {
             setIsLoading(false);
@@ -60,7 +61,7 @@ const SearchLocationModal = ({ visible, onClose, onLocationSelect }) => {
 
     // Handle search input changes with debouncing
     const handleSearchChange = (text) => {
-        console.log('Search text changed:', text);
+        logger.debug('Search text changed:', text);
         setSearchText(text);
         
         // Clear previous timeout
@@ -70,7 +71,7 @@ const SearchLocationModal = ({ visible, onClose, onLocationSelect }) => {
 
         // Set new timeout for search debouncing
         searchTimeout.current = setTimeout(() => {
-            console.log('Searching for:', text);
+            logger.debug('Searching for:', text);
             searchPlaces(text);
         }, 300);
     };
@@ -84,12 +85,12 @@ const SearchLocationModal = ({ visible, onClose, onLocationSelect }) => {
             const placeDetails = await GooglePlacesService.getPlaceDetails(place.place_id);
             const locationData = GooglePlacesService.parseLocationData(place, placeDetails);
             
-            console.log('Selected location:', locationData);
+            logger.debug('Selected location:', locationData);
             
             onLocationSelect(locationData);
             onClose();
         } catch (error) {
-            console.error('Error getting place details:', error);
+            logger.error('Error getting place details:', error);
             // Fallback to basic parsing without coordinates
             const locationData = GooglePlacesService.parseLocationData(place);
             onLocationSelect(locationData);

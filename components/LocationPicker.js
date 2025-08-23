@@ -11,6 +11,7 @@ import * as Location from 'expo-location';
 import { MapPin, Search, ChevronRight } from 'lucide-react-native';
 import colors from '../styles/Colors';
 import SearchLocationModal from './SearchLocationModal';
+import { logger } from '../utils/logger';
 
 const LocationPicker = ({ onLocationSelect, currentLocation }) => {
     const [isLoading, setIsLoading] = useState(false);
@@ -57,7 +58,7 @@ const LocationPicker = ({ onLocationSelect, currentLocation }) => {
                 onLocationSelect(locationData);
             }
         } catch (error) {
-            console.error('Location error:', error);
+            logger.error('Location error:', error);
             Alert.alert(
                 'Location Error',
                 'Unable to get your location. Please try searching manually.',

@@ -18,6 +18,7 @@ import { API_URL } from '../config'
 import { useNavigation } from '@react-navigation/native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import TryVoxxyChat from './TryVoxxyChat'
+import { logger } from '../utils/logger';
 
 export default function TryVoxxy() {
     const navigation = useNavigation()
@@ -61,7 +62,7 @@ export default function TryVoxxy() {
                 });
                 
                 if (!response.ok) {
-                    console.warn('Failed to load cached recommendations:', response.status);
+                    logger.warn('Failed to load cached recommendations:', response.status);
                     return;
                 }
                 
@@ -78,7 +79,7 @@ export default function TryVoxxy() {
                     }
                 }
             } catch (error) {
-                console.error('Failed to load cached recommendations:', error);
+                logger.error('Failed to load cached recommendations:', error);
             } finally {
                 if (isMounted) {
                     setLoadingRecs(false);

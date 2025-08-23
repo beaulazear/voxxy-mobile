@@ -33,6 +33,9 @@ export default function UpdateDetailsModal({ activity, visible, onClose, onUpdat
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [loadingMessage, setLoadingMessage] = useState('')
 
+    // Animation for logo
+    const pulseValue = React.useRef(new Animated.Value(1)).current
+
     // Location state
     const [usingCurrentLocation, setUsingCurrentLocation] = useState(false)
 
@@ -46,6 +49,26 @@ export default function UpdateDetailsModal({ activity, visible, onClose, onUpdat
             }
         }
     }, [activity.activity_location])
+
+    // Logo pulse animation
+    React.useEffect(() => {
+        const animation = Animated.loop(
+            Animated.sequence([
+                Animated.timing(pulseValue, {
+                    toValue: 1.1,
+                    duration: 1000,
+                    useNativeDriver: true,
+                }),
+                Animated.timing(pulseValue, {
+                    toValue: 1,
+                    duration: 1000,
+                    useNativeDriver: true,
+                }),
+            ])
+        )
+        animation.start()
+        return () => animation.stop()
+    }, [])
 
     const token = user?.token
 
@@ -164,7 +187,24 @@ export default function UpdateDetailsModal({ activity, visible, onClose, onUpdat
                     </TouchableOpacity>
 
                     {/* Logo */}
-                    <View style={styles.logoWrapper}>
+                    <Animated.View 
+                        style={[
+                            styles.logoWrapper,
+                            {
+                                transform: [
+                                    {
+                                        scale: pulseValue
+                                    },
+                                    {
+                                        rotate: pulseValue.interpolate({
+                                            inputRange: [1, 1.1],
+                                            outputRange: ['0deg', '5deg']
+                                        })
+                                    }
+                                ]
+                            }
+                        ]}
+                    >
                         <View style={styles.logoCircle}>
                             <Image 
                                 source={VoxxyTriangle} 
@@ -172,7 +212,7 @@ export default function UpdateDetailsModal({ activity, visible, onClose, onUpdat
                                 resizeMode="contain"
                             />
                         </View>
-                    </View>
+                    </Animated.View>
 
                     {/* Content */}
                     <View style={modalStyles.modalContent}>

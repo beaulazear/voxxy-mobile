@@ -20,6 +20,7 @@ import { API_URL } from '../config';
 import { getUserDisplayImage, avatarMap } from '../utils/avatarManager';
 import { safeAuthApiCall } from '../utils/safeApiCall';
 import PushNotificationService from '../services/PushNotificationService';
+import { logger } from '../utils/logger';
 
 const { width: screenWidth } = Dimensions.get('window');
 const NAVBAR_HEIGHT = 90;
@@ -119,7 +120,7 @@ export default function ProfileSnippet({ scrollY = new Animated.Value(0), onScro
         // Sync system badge with actual unread count
         await PushNotificationService.setBadgeCount(unreadCount);
       } catch (error) {
-        console.log('Could not fetch notification count:', error.message);
+        logger.debug('Could not fetch notification count:', error.message);
         setLocalUnreadCount(0);
         // Clear badge on error
         await PushNotificationService.clearBadge();
@@ -154,7 +155,7 @@ export default function ProfileSnippet({ scrollY = new Animated.Value(0), onScro
           // Sync system badge with actual unread count
           await PushNotificationService.setBadgeCount(unreadCount);
         } catch (error) {
-          console.log('Could not refresh notification count:', error.message);
+          logger.debug('Could not refresh notification count:', error.message);
         }
       };
 

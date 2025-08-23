@@ -22,6 +22,7 @@ import { UserContext } from '../context/UserContext';
 import { API_URL } from '../config';
 import { useNavigation } from '@react-navigation/native';
 import styles from '../styles/AIRecommendationsStyles';
+import { modalStyles, modalColors } from '../styles/modalStyles';
 
 // Updated Icons object using Feather icons
 const Icons = {
@@ -1315,10 +1316,10 @@ export default function AIRecommendations({
                         animationType="fade"
                         onRequestClose={() => setShowGenerateModal(false)}
                     >
-                        <SafeAreaView style={styles.modalOverlay}>
+                        <SafeAreaView style={modalStyles.modalOverlay}>
                             <Animated.View 
                                 style={[
-                                    styles.votingModalContainer,
+                                    modalStyles.modalContainer,
                                     {
                                         transform: [
                                             {
@@ -1331,28 +1332,28 @@ export default function AIRecommendations({
                             >
                                 {/* Gradient Background */}
                                 <LinearGradient
-                                    colors={['#9333EA', '#7C3AED', '#6B21A8']}
+                                    colors={modalColors.headerGradient}
                                     start={{ x: 0, y: 0 }}
                                     end={{ x: 1, y: 1 }}
-                                    style={styles.modalGradientBackground}
+                                    style={modalStyles.modalGradientBackground}
                                 />
                                 
                                 {/* Content Container */}
-                                <View style={styles.modalContentWrapper}>
+                                <View style={modalStyles.modalContentWrapper}>
                                     {/* Close Button */}
                                     <TouchableOpacity
-                                        style={styles.modernCloseBtn}
+                                        style={modalStyles.modernCloseBtn}
                                         onPress={() => setShowGenerateModal(false)}
                                     >
-                                        <View style={styles.closeBtnCircle}>
-                                            <Icons.X size={20} color="rgba(255,255,255,0.9)" />
+                                        <View style={modalStyles.closeBtnCircle}>
+                                            <Icons.X size={18} color="rgba(255,255,255,0.9)" />
                                         </View>
                                     </TouchableOpacity>
                                     
-                                    {/* Icon Animation */}
+                                    {/* Voxxy Logo */}
                                     <Animated.View 
                                         style={[
-                                            styles.modalIconWrapper,
+                                            styles.logoWrapper,
                                             {
                                                 transform: [
                                                     {
@@ -1365,33 +1366,32 @@ export default function AIRecommendations({
                                             }
                                         ]}
                                     >
-                                        <LinearGradient
-                                            colors={['#A855F7', '#9333EA']}
-                                            start={{ x: 0, y: 0 }}
-                                            end={{ x: 1, y: 1 }}
-                                            style={styles.iconCircle}
-                                        >
-                                            <Icons.Zap size={32} color="#fff" />
-                                        </LinearGradient>
+                                        <View style={styles.logoCircle}>
+                                            <Image 
+                                                source={require('../assets/voxxy-triangle.png')}
+                                                style={styles.logoImage}
+                                                resizeMode="contain"
+                                            />
+                                        </View>
                                     </Animated.View>
                                     
                                     {/* Text Content */}
-                                    <View style={styles.votingModalContent}>
-                                        <Text style={styles.modernTitle}>Ready to Discover?</Text>
-                                        <Text style={styles.modernDescription}>
-                                            Let AI create personalized recommendations based on your group's preferences
+                                    <View style={modalStyles.modalContent}>
+                                        <Text style={modalStyles.modernTitle}>Ready to Discover?</Text>
+                                        <Text style={modalStyles.modernDescription}>
+                                            Let Voxxy create personalized recommendations based on your group's preferences
                                         </Text>
                                         
                                         {/* Progress Section */}
-                                        <View style={styles.modernProgressSection}>
-                                            <View style={styles.progressHeader}>
-                                                <View style={styles.usersIconWrapper}>
+                                        <View style={modalStyles.modernProgressSection}>
+                                            <View style={modalStyles.progressHeader}>
+                                                <View style={modalStyles.usersIconWrapper}>
                                                     <Icons.Users size={18} color="#A855F7" />
                                                 </View>
-                                                <Text style={styles.progressLabel}>Participation</Text>
+                                                <Text style={modalStyles.progressLabel}>Participation</Text>
                                             </View>
                                             
-                                            <View style={styles.modernProgressBarBg}>
+                                            <View style={modalStyles.modernProgressBarBg}>
                                                 <LinearGradient
                                                     colors={['#A855F7', '#7C3AED']}
                                                     start={{ x: 0, y: 0 }}
@@ -1423,26 +1423,26 @@ export default function AIRecommendations({
                                         )}
                                         
                                         {/* Action Buttons */}
-                                        <View style={styles.buttonContainer}>
+                                        <View style={modalStyles.buttonContainer}>
                                             <TouchableOpacity 
-                                                style={styles.secondaryButton}
+                                                style={modalStyles.secondaryButton}
                                                 onPress={() => setShowGenerateModal(false)}
                                             >
-                                                <Text style={styles.secondaryButtonText}>Wait for More</Text>
+                                                <Text style={modalStyles.secondaryButtonText}>Wait for More</Text>
                                             </TouchableOpacity>
                                             
                                             <TouchableOpacity 
-                                                style={styles.primaryButton}
+                                                style={modalStyles.primaryButton}
                                                 onPress={generateRecommendations}
                                             >
                                                 <LinearGradient
-                                                    colors={['#9333EA', '#7C3AED']}
+                                                    colors={modalColors.buttonGradient}
                                                     start={{ x: 0, y: 0 }}
                                                     end={{ x: 1, y: 0 }}
-                                                    style={styles.primaryButtonGradient}
+                                                    style={modalStyles.primaryButtonGradient}
                                                 >
                                                     <Icons.Zap size={20} color="#fff" />
-                                                    <Text style={styles.primaryButtonText}>Generate Now</Text>
+                                                    <Text style={modalStyles.primaryButtonText}>Generate Now</Text>
                                                 </LinearGradient>
                                             </TouchableOpacity>
                                         </View>
@@ -1492,7 +1492,7 @@ export default function AIRecommendations({
                                 </View>
                                 <Text style={styles.loadingModalTitle}>Crafting Your Perfect Experience</Text>
                                 <Text style={styles.loadingModalSubtitle}>
-                                    Voxxy's AI is curating the perfect recommendations for your group...
+                                    Voxxy is curating the perfect recommendations for your group...
                                 </Text>
                                 <View style={styles.loadingDots}>
                                     <Animated.View 

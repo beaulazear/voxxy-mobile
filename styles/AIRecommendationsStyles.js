@@ -612,6 +612,32 @@ const styles = StyleSheet.create({
         right: 0,
         height: 140,
     },
+    logoWrapper: {
+        alignSelf: 'center',
+        marginTop: 60,
+        marginBottom: -35,
+        zIndex: 5,
+    },
+    logoCircle: {
+        width: 90,
+        height: 90,
+        borderRadius: 45,
+        backgroundColor: '#ffffff',
+        justifyContent: 'center',
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: {
+            width: 0,
+            height: 4,
+        },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        elevation: 10,
+    },
+    logoImage: {
+        width: 75,
+        height: 75,
+    },
     modalContentWrapper: {
         backgroundColor: 'transparent',
     },

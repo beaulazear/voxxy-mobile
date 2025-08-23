@@ -435,7 +435,7 @@ export default function GameNightResponseForm({
                                     ]}
                                     onPress={() => setGameType(option.label)}
                                 >
-                                    <option.icon color="#fff" size={24} style={{ marginBottom: 8 }} />
+                                    <option.icon color="#fff" size={20} style={{ marginBottom: 8 }} />
                                     <Text style={[
                                         styles.singleSelectLabel,
                                         gameType === option.label && styles.singleSelectLabelSelected
@@ -462,7 +462,7 @@ export default function GameNightResponseForm({
                                     ]}
                                     onPress={() => setCompetitiveness(option.label)}
                                 >
-                                    <option.icon color="#fff" size={24} style={{ marginBottom: 8 }} />
+                                    <option.icon color="#fff" size={20} style={{ marginBottom: 8 }} />
                                     <Text style={[
                                         styles.singleSelectLabel,
                                         competitiveness === option.label && styles.singleSelectLabelSelected
@@ -489,7 +489,7 @@ export default function GameNightResponseForm({
                                     ]}
                                     onPress={() => setComplexity(option.label)}
                                 >
-                                    <option.icon color="#fff" size={24} style={{ marginBottom: 8 }} />
+                                    <option.icon color="#fff" size={20} style={{ marginBottom: 8 }} />
                                     <Text style={[
                                         styles.singleSelectLabel,
                                         complexity === option.label && styles.singleSelectLabelSelected
@@ -516,7 +516,7 @@ export default function GameNightResponseForm({
                                     ]}
                                     onPress={() => setDuration(option.label)}
                                 >
-                                    <option.icon color="#fff" size={24} style={{ marginBottom: 8 }} />
+                                    <option.icon color="#fff" size={20} style={{ marginBottom: 8 }} />
                                     <Text style={[
                                         styles.singleSelectLabel,
                                         duration === option.label && styles.singleSelectLabelSelected
@@ -543,7 +543,7 @@ export default function GameNightResponseForm({
                                     ]}
                                     onPress={() => setSetup(option.label)}
                                 >
-                                    <option.icon color="#fff" size={24} style={{ marginBottom: 8 }} />
+                                    <option.icon color="#fff" size={20} style={{ marginBottom: 8 }} />
                                     <Text style={[
                                         styles.singleSelectLabel,
                                         setup === option.label && styles.singleSelectLabelSelected
@@ -834,6 +834,9 @@ const styles = StyleSheet.create({
     },
 
     singleSelectGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        justifyContent: 'space-between',
         gap: 12,
     },
 
@@ -844,6 +847,7 @@ const styles = StyleSheet.create({
         borderRadius: 16,
         padding: 16,
         alignItems: 'center',
+        width: (screenWidth - 48 - 12) / 2, // 2 columns with gap
     },
 
     singleSelectCardSelected: {

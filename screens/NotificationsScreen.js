@@ -19,6 +19,7 @@ import { API_URL } from '../config';
 import { safeAuthApiCall, handleApiError } from '../utils/safeApiCall';
 import PushNotificationService from '../services/PushNotificationService';
 import { TOUCH_TARGETS, SPACING } from '../styles/AccessibilityStyles';
+import { logger } from '../utils/logger';
 
 const NOTIFICATION_TYPES = {
     'activity_invite': {
@@ -55,7 +56,7 @@ const NOTIFICATION_TYPES = {
 
 const formatTime = (dateString) => {
     if (!dateString) {
-        console.log('⚠️ No timestamp provided for notification');
+        logger.debug('⚠️ No timestamp provided for notification');
         return 'Recently';
     }
     
@@ -142,13 +143,13 @@ const NotificationItem = ({ notification, onPress, onMarkAsRead, onDelete }) => 
 export default function NotificationsScreen() {
     const navigation = useNavigation();
     const userContext = useContext(UserContext);
-    console.log('🔍 DEBUG: userContext keys:', userContext ? Object.keys(userContext) : 'null');
-    console.log('🔍 DEBUG: setUnreadNotificationCount type:', typeof userContext?.setUnreadNotificationCount);
+    logger.debug('🔍 DEBUG: userContext keys:', userContext ? Object.keys(userContext) : 'null');
+    logger.debug('🔍 DEBUG: setUnreadNotificationCount type:', typeof userContext?.setUnreadNotificationCount);
     
     const { user } = userContext;
     const unreadNotificationCount = userContext.unreadNotificationCount || 0;
     const setUnreadNotificationCount = userContext.setUnreadNotificationCount || (() => {
-        console.warn('setUnreadNotificationCount function not available');
+        logger.warn('setUnreadNotificationCount function not available');
     });
     const [notifications, setNotifications] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -170,7 +171,7 @@ export default function NotificationsScreen() {
             
             // Debug: Check if timestamps are present
             if (data && data.length > 0) {
-                console.log('🕒 Sample notification timestamp:', {
+                logger.debug('🕒 Sample notification timestamp:', {
                     created_at: data[0].created_at,
                     createdAt: data[0].createdAt,
                     title: data[0].title
@@ -190,7 +191,7 @@ export default function NotificationsScreen() {
                 }, 500); // Small delay to let the UI render first
             }
         } catch (error) {
-            console.error('Error fetching notifications:', error);
+            logger.error('Error fetching notifications:', error);
             const userMessage = handleApiError(error, 'Failed to load notifications');
             if (!isRefresh) {
                 Alert.alert('Error', userMessage);
@@ -214,7 +215,7 @@ export default function NotificationsScreen() {
             );
             setUnreadNotificationCount(prev => Math.max(0, prev - 1));
         } catch (error) {
-            console.error('Error marking notification as read:', error);
+            logger.error('Error marking notification as read:', error);
             Alert.alert('Error', 'Failed to mark notification as read');
         }
     };
@@ -230,7 +231,7 @@ export default function NotificationsScreen() {
                 setUnreadNotificationCount(prev => Math.max(0, prev - 1));
             }
         } catch (error) {
-            console.error('Error deleting notification:', error);
+            logger.error('Error deleting notification:', error);
             Alert.alert('Error', 'Failed to delete notification');
         }
     };
@@ -246,7 +247,7 @@ export default function NotificationsScreen() {
             );
             setUnreadNotificationCount(0);
         } catch (error) {
-            console.error('Error marking all as read:', error);
+            logger.error('Error marking all as read:', error);
             Alert.alert('Error', 'Failed to mark all notifications as read');
         }
     };
@@ -261,12 +262,12 @@ export default function NotificationsScreen() {
             );
             setUnreadNotificationCount(0);
         } catch (error) {
-            console.log('Could not auto-mark notifications as read:', error.message);
+            logger.debug('Could not auto-mark notifications as read:', error.message);
         }
     };
 
     const handleNotificationPress = (notification) => {
-        console.log('🔍 DEBUG Notification pressed:', {
+        logger.debug('🔍 DEBUG Notification pressed:', {
             title: notification.title,
             body: notification.body,
             type: notification.type,
@@ -286,7 +287,7 @@ export default function NotificationsScreen() {
                 forceRefresh: true // Force refresh to get latest data
             });
         } else {
-            console.warn('Cannot navigate - notification missing activityId:', notification);
+            logger.warn('Cannot navigate - notification missing activityId:', notification);
         }
     };
 
