@@ -51,8 +51,9 @@ export const UserProvider = ({ children }) => {
         await AsyncStorage.removeItem('lastRateLimit');
         setRateLimitRetryCount(0);
 
-        // Set up push notifications after user is loaded
-        setupPushNotificationsForUser(userWithToken);
+        // PRIVACY FIX: Don't auto-register for push notifications
+        // Only set up listeners, actual registration happens when user enables in settings
+        PushNotificationService.setupNotificationListeners();
         
         // Fetch and set the actual unread count
         try {
@@ -153,8 +154,9 @@ export const UserProvider = ({ children }) => {
       await AsyncStorage.removeItem('lastRateLimit');
       setRateLimitRetryCount(0);
 
-      // Set up push notifications after login
-      setupPushNotificationsForUser(userWithToken);
+      // PRIVACY FIX: Don't auto-register for push notifications
+      // Only set up listeners, actual registration happens when user enables in settings
+      PushNotificationService.setupNotificationListeners();
 
       return userWithToken;
     } catch (error) {

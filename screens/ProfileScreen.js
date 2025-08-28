@@ -26,6 +26,7 @@ import { logger } from '../utils/logger';
 import { getUserDisplayImage } from '../utils/avatarManager';
 import * as ImagePicker from 'expo-image-picker';
 import LocationPicker from '../components/LocationPicker';
+import colors from '../styles/Colors';
 
 // Activity configuration matching ProfileSnippet
 const ACTIVITY_CONFIG = {
@@ -601,6 +602,18 @@ export default function ProfileScreen() {
         <View>
             <NotificationSettings />
 
+            {/* Legal & Privacy */}
+            <View style={styles.section}>
+                <Text style={styles.headerSubtitle}>Legal & Privacy</Text>
+                <TouchableOpacity 
+                    style={styles.privacyButton}
+                    onPress={() => navigation.navigate('PrivacyPolicy')}
+                >
+                    <Text style={styles.privacyButtonText}>Privacy Policy</Text>
+                    <ChevronRight stroke="#9261E5" width={20} height={20} />
+                </TouchableOpacity>
+            </View>
+
             {/* Account Actions */}
             <View style={styles.section}>
                 <Text style={styles.headerSubtitle}>Account Actions</Text>
@@ -1157,6 +1170,23 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         fontSize: 14,
         textAlign: 'center',
+    },
+    privacyButton: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        backgroundColor: colors.cardBackground,
+        paddingVertical: 15,
+        paddingHorizontal: 20,
+        borderRadius: 10,
+        marginTop: 10,
+        borderWidth: 1,
+        borderColor: colors.purple3,
+    },
+    privacyButtonText: {
+        color: colors.textPrimary,
+        fontSize: 16,
+        fontWeight: '500',
     },
 
     // Modal Styles

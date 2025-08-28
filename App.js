@@ -18,6 +18,7 @@ import ActivityDetailsScreen from './screens/ActivityDetailsScreen';
 // TripDashboardScreen removed - now integrated as modal in HomeScreen
 import TryVoxxScreen from './screens/TryVoxxScreen';
 import NotificationsScreen from './screens/NotificationsScreen';
+import PrivacyPolicyScreen from './screens/PrivacyPolicyScreen';
 
 import { InvitationNotificationProvider } from './services/InvitationNotificationService';
 
@@ -99,6 +100,7 @@ const AppNavigator = () => {
       {/* TripDashboardScreen removed - now integrated as modal in HomeScreen */}
       <Stack.Screen name="Profile" component={ProfileScreen} />
       <Stack.Screen name="Notifications" component={NotificationsScreen} />
+      <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
       <Stack.Screen name="AccountCreated" component={ProfileScreen} />
     </Stack.Navigator>
   );

@@ -6,7 +6,7 @@ module.exports = {
     name: IS_DEV ? "Voxxy (Dev)" : "Voxxy",
     slug: "voxxy-mobile",
     description: "Connect with friends through shared activities. Organize dinners, meetings, and events with AI-powered recommendations and real-time coordination.",
-    version: "1.2.10",
+    version: "1.2.11",
     orientation: "portrait",
     icon: "./assets/icon.png",
     userInterfaceStyle: "light",
@@ -22,15 +22,16 @@ module.exports = {
     ios: {
       supportsTablet: true,
       bundleIdentifier: "com.beaulazear.voxxymobile",
-      buildNumber: "11",
+      buildNumber: "12",
       config: {
         usesNonExemptEncryption: false
       },
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
-        NSContactsUsageDescription: "This app needs access to contacts to help you find friends who are already using Voxxy.",
-        NSPhotoLibraryUsageDescription: "This app needs access to your photo library to let you choose a profile picture.",
-        NSCameraUsageDescription: "This app needs access to your camera to let you take a profile picture.",
+        NSContactsUsageDescription: "Voxxy needs access to your contacts to help you find and invite friends to activities. Contact information is only used for sending invitations and is not stored on our servers. You can manage this permission in your device's Settings app.",
+        NSPhotoLibraryUsageDescription: "Voxxy needs access to your photo library to let you choose a profile picture. Photos are only used for your profile and are not shared without your permission. You can change or remove your photo anytime.",
+        NSCameraUsageDescription: "Voxxy needs access to your camera to let you take a profile picture. Photos are only used for your profile and are not shared without your permission. You can change or remove your photo anytime.",
+        NSLocationWhenInUseUsageDescription: "Voxxy uses your location to recommend nearby restaurants, bars, and activities. Location data is shared with our AI recommendation service (OpenAI) to provide personalized suggestions based on your area. You can manage this permission in your device's Settings app.",
         UIBackgroundModes: ["remote-notification"]
       }
     },
@@ -64,7 +65,8 @@ module.exports = {
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUseUsageDescription": "Allow $(PRODUCT_NAME) to use your location to find nearby restaurants."
+          "locationAlwaysAndWhenInUseUsageDescription": "Voxxy uses your location to recommend nearby restaurants, bars, and activities. Location data is shared with our AI recommendation service (OpenAI) to provide personalized suggestions. You can disable this anytime in Settings.",
+          "locationWhenInUseUsageDescription": "Voxxy uses your location to recommend nearby restaurants, bars, and activities. Location data is shared with our AI recommendation service (OpenAI) to provide personalized suggestions. You can disable this anytime in Settings."
         }
       ],
       [

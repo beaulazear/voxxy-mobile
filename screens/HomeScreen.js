@@ -29,6 +29,8 @@ import { Alert } from 'react-native';
 import { safeAuthApiCall, handleApiError } from '../utils/safeApiCall';
 import UnifiedActivityChat from '../components/UnifiedActivityChat';
 import { logger } from '../utils/logger';
+import PrivacyConsentModal from '../components/PrivacyConsentModal';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width: screenWidth } = Dimensions.get('window')
 
@@ -582,6 +584,7 @@ export default function HomeScreen({ route }) {
   const [showAllFavoritesModal, setShowAllFavoritesModal] = useState(false)
   const [isListView, setIsListView] = useState(true)
   const [showActivityCreation, setShowActivityCreation] = useState(false)
+  const [showPrivacyConsent, setShowPrivacyConsent] = useState(false)
   const scrollY = useRef(new Animated.Value(0)).current
   const scrollRef = useRef(null)
 
@@ -598,6 +601,36 @@ export default function HomeScreen({ route }) {
       setShowActivityCreation(false)
     }
   }
+
+  // Check privacy consent on mount
+  useEffect(() => {
+    const checkPrivacyConsent = async () => {
+      const consentDate = await AsyncStorage.getItem('privacyConsentDate');
+      if (!consentDate && user) {
+        // User hasn't consented to privacy policy yet
+        setShowPrivacyConsent(true);
+      }
+    };
+    
+    if (user) {
+      checkPrivacyConsent();
+    }
+  }, [user]);
+
+  const handlePrivacyAccept = async () => {
+    setShowPrivacyConsent(false);
+    // After accepting privacy, they can enable notifications if they want
+  };
+
+  const handlePrivacyDecline = () => {
+    // User declined - they can still use the app but with limited features
+    setShowPrivacyConsent(false);
+    Alert.alert(
+      'Privacy Notice',
+      'You can review and accept our privacy policy anytime from Settings.',
+      [{ text: 'OK' }]
+    );
+  };
 
   // Fetch user favorites
   const fetchUserFavorites = async () => {
@@ -1738,6 +1771,14 @@ export default function HomeScreen({ route }) {
       <UnifiedActivityChat
         visible={showActivityCreation}
         onClose={handleActivityCreated}
+      />
+
+      {/* Privacy Consent Modal */}
+      <PrivacyConsentModal
+        visible={showPrivacyConsent}
+        onAccept={handlePrivacyAccept}
+        onDecline={handlePrivacyDecline}
+        navigation={navigation}
       />
     </SafeAreaView>
   )
