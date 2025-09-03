@@ -17,11 +17,14 @@ import {
     Keyboard,
 } from 'react-native';
 import * as Feather from 'react-native-feather';
+import { Flag, MoreVertical } from 'lucide-react-native';
 import { UserContext } from '../context/UserContext';
 import { API_URL } from '../config';
 import { logger } from '../utils/logger';
 import { safeAuthApiCall, handleApiError } from '../utils/safeApiCall';
 import { TOUCH_TARGETS, SPACING } from '../styles/AccessibilityStyles';
+import BlockedUsersService from '../services/BlockedUsersService';
+import ContentFilterService from '../services/ContentFilterService';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -72,10 +75,26 @@ const CommentsSection = ({ activity }) => {
     const [isMounted, setIsMounted] = useState(true);
     const [showAllCommentsModal, setShowAllCommentsModal] = useState(false);
     const [modalNewComment, setModalNewComment] = useState('');
+    const [reportModalVisible, setReportModalVisible] = useState(false);
+    const [selectedComment, setSelectedComment] = useState(null);
+    const [reportReason, setReportReason] = useState('');
+    const [customReportReason, setCustomReportReason] = useState('');
+    const [blockedUsers, setBlockedUsers] = useState([]);
+    const [showBlockConfirm, setShowBlockConfirm] = useState(false);
+    const [userToBlock, setUserToBlock] = useState(null);
     
     // Refs
     const modalScrollViewRef = useRef(null);
     const modalInputRef = useRef(null);
+
+    // Load blocked users on mount
+    useEffect(() => {
+        const loadBlockedUsers = async () => {
+            const blocked = await BlockedUsersService.getBlockedUsers();
+            setBlockedUsers(blocked);
+        };
+        loadBlockedUsers();
+    }, []);
 
     // Initialize lastUpdateTime based on existing comments or a past time
     const [lastUpdateTime, setLastUpdateTime] = useState(() => {
@@ -302,6 +321,13 @@ const CommentsSection = ({ activity }) => {
         const textToSubmit = commentText || newComment.trim();
         if (!textToSubmit || !user?.token) return;
 
+        // Validate comment for profanity and spam
+        const validation = ContentFilterService.validateComment(textToSubmit);
+        if (!validation.isValid) {
+            Alert.alert('Cannot Post Comment', validation.reason);
+            return;
+        }
+
         if (!commentText) {
             setNewComment(''); // Clear input immediately for better UX only if using main input
         }
@@ -313,7 +339,7 @@ const CommentsSection = ({ activity }) => {
                 user.token,
                 {
                     method: 'POST',
-                    body: JSON.stringify({ comment: { content: textToSubmit } }),
+                    body: JSON.stringify({ comment: { content: validation.cleanedText || textToSubmit } }),
                 }
             );
 
@@ -357,15 +383,83 @@ const CommentsSection = ({ activity }) => {
         return date.toLocaleDateString([], { month: 'long', day: 'numeric', year: 'numeric' });
     };
 
-    // Group comments by date, filtering out invalid comments
+    // Group comments by date, filtering out invalid comments and blocked users
     const groupedComments = comments
-        .filter(comment => comment && comment.created_at)
+        .filter(comment => comment && comment.created_at && !blockedUsers.includes(comment.user.id))
         .reduce((acc, comment) => {
             const date = formatDate(comment.created_at);
             if (!acc[date]) acc[date] = [];
             acc[date].push(comment);
             return acc;
         }, {});
+
+    const handleReportComment = (comment) => {
+        setSelectedComment(comment);
+        setReportModalVisible(true);
+        setReportReason('');
+        setCustomReportReason('');
+    };
+
+    const handleBlockUser = async (userId, userName) => {
+        setUserToBlock({ id: userId, name: userName });
+        setShowBlockConfirm(true);
+    };
+
+    const confirmBlockUser = async () => {
+        if (!userToBlock) return;
+        
+        await BlockedUsersService.blockUser(userToBlock.id);
+        const blocked = await BlockedUsersService.getBlockedUsers();
+        setBlockedUsers(blocked);
+        
+        Alert.alert(
+            'User Blocked',
+            `${userToBlock.name} has been blocked. Their comments will no longer be visible to you.`,
+            [{ text: 'OK' }]
+        );
+        
+        setShowBlockConfirm(false);
+        setUserToBlock(null);
+        setReportModalVisible(false);
+    };
+
+    const submitReport = async () => {
+        if (!reportReason && !customReportReason.trim()) {
+            Alert.alert('Error', 'Please select or enter a reason for reporting');
+            return;
+        }
+
+        const reason = reportReason === 'other' ? customReportReason : reportReason;
+
+        try {
+            await safeAuthApiCall(
+                `${API_URL}/reports`,
+                user.token,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        report: {
+                            reportable_type: 'comment',
+                            reportable_id: selectedComment.id,
+                            reason: reason,
+                            reporter_id: user.id,
+                            activity_id: activity.id
+                        }
+                    })
+                }
+            );
+
+            Alert.alert(
+                'Report Submitted',
+                'Thank you for helping keep our community safe. We will review this report within 24 hours.',
+                [{ text: 'OK' }]
+            );
+            setReportModalVisible(false);
+        } catch (error) {
+            logger.error('Error submitting report:', error);
+            Alert.alert('Error', 'Failed to submit report. Please try again.');
+        }
+    };
 
     const renderMessage = (comment) => {
         const isMe = comment.user.id === user?.id;
@@ -402,6 +496,15 @@ const CommentsSection = ({ activity }) => {
                     isMe ? styles.bubbleMe : styles.bubbleOther,
                     isNewMessage && styles.newMessageBubble
                 ]}>
+                    {!isMe && (
+                        <TouchableOpacity
+                            style={styles.reportButton}
+                            onPress={() => handleReportComment(comment)}
+                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        >
+                            <MoreVertical size={16} color="rgba(255, 255, 255, 0.5)" />
+                        </TouchableOpacity>
+                    )}
                     <Text style={styles.messageText}>{comment.content}</Text>
                     <Text style={[styles.timestamp, isMe ? styles.timestampMe : styles.timestampOther]}>
                         {formatTime(comment.created_at)}
@@ -638,6 +741,137 @@ const CommentsSection = ({ activity }) => {
                             </TouchableOpacity>
                         </View>
                     </KeyboardAvoidingView>
+                </View>
+            </Modal>
+
+            {/* Report Modal */}
+            <Modal
+                visible={reportModalVisible}
+                animationType="slide"
+                transparent={true}
+                onRequestClose={() => setReportModalVisible(false)}
+            >
+                <View style={styles.reportModalOverlay}>
+                    <View style={styles.reportModalContainer}>
+                        <View style={styles.reportModalHeader}>
+                            <Text style={styles.reportModalTitle}>Report Comment</Text>
+                            <TouchableOpacity 
+                                onPress={() => setReportModalVisible(false)}
+                                style={styles.reportModalClose}
+                            >
+                                <Icons.X size={24} color="#fff" />
+                            </TouchableOpacity>
+                        </View>
+
+                        <Text style={styles.reportModalSubtitle}>
+                            Why are you reporting this comment?
+                        </Text>
+
+                        <ScrollView style={styles.reportReasonsContainer}>
+                            {selectedComment && selectedComment.user.id !== user?.id && (
+                                <TouchableOpacity
+                                    style={styles.blockUserButton}
+                                    onPress={() => handleBlockUser(selectedComment.user.id, selectedComment.user.name)}
+                                >
+                                    <Text style={styles.blockUserButtonText}>
+                                        🚫 Block {selectedComment.user.name?.split(' ')[0] || 'User'}
+                                    </Text>
+                                </TouchableOpacity>
+                            )}
+
+                            {[
+                                { value: 'spam', label: 'Spam or misleading' },
+                                { value: 'harassment', label: 'Harassment or bullying' },
+                                { value: 'hate', label: 'Hate speech or discrimination' },
+                                { value: 'inappropriate', label: 'Inappropriate or offensive' },
+                                { value: 'violence', label: 'Violence or dangerous content' },
+                                { value: 'other', label: 'Other' }
+                            ].map(reason => (
+                                <TouchableOpacity
+                                    key={reason.value}
+                                    style={[
+                                        styles.reportReasonItem,
+                                        reportReason === reason.value && styles.reportReasonSelected
+                                    ]}
+                                    onPress={() => setReportReason(reason.value)}
+                                >
+                                    <View style={[
+                                        styles.reportRadio,
+                                        reportReason === reason.value && styles.reportRadioSelected
+                                    ]}>
+                                        {reportReason === reason.value && (
+                                            <View style={styles.reportRadioInner} />
+                                        )}
+                                    </View>
+                                    <Text style={styles.reportReasonText}>{reason.label}</Text>
+                                </TouchableOpacity>
+                            ))}
+
+                            {reportReason === 'other' && (
+                                <TextInput
+                                    style={styles.reportCustomInput}
+                                    placeholder="Please describe the issue..."
+                                    placeholderTextColor="#cbd5e1"
+                                    value={customReportReason}
+                                    onChangeText={setCustomReportReason}
+                                    multiline
+                                    maxLength={200}
+                                />
+                            )}
+                        </ScrollView>
+
+                        <View style={styles.reportModalButtons}>
+                            <TouchableOpacity
+                                style={styles.reportCancelButton}
+                                onPress={() => setReportModalVisible(false)}
+                            >
+                                <Text style={styles.reportCancelText}>Cancel</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[
+                                    styles.reportSubmitButton,
+                                    (!reportReason || (reportReason === 'other' && !customReportReason.trim())) 
+                                        && styles.reportSubmitDisabled
+                                ]}
+                                onPress={submitReport}
+                                disabled={!reportReason || (reportReason === 'other' && !customReportReason.trim())}
+                            >
+                                <Text style={styles.reportSubmitText}>Submit Report</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
+
+            {/* Block User Confirmation Modal */}
+            <Modal
+                visible={showBlockConfirm}
+                animationType="fade"
+                transparent={true}
+                onRequestClose={() => setShowBlockConfirm(false)}
+            >
+                <View style={styles.blockModalOverlay}>
+                    <View style={styles.blockModalContainer}>
+                        <Text style={styles.blockModalTitle}>Block User?</Text>
+                        <Text style={styles.blockModalText}>
+                            Are you sure you want to block {userToBlock?.name}?{'\n\n'}
+                            You will no longer see their comments or activities.
+                        </Text>
+                        <View style={styles.blockModalButtons}>
+                            <TouchableOpacity
+                                style={styles.blockCancelButton}
+                                onPress={() => setShowBlockConfirm(false)}
+                            >
+                                <Text style={styles.blockCancelText}>Cancel</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={styles.blockConfirmButton}
+                                onPress={confirmBlockUser}
+                            >
+                                <Text style={styles.blockConfirmText}>Block</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
                 </View>
             </Modal>
         </Animated.View>
@@ -1110,6 +1344,217 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(255, 255, 255, 0.05)',
         borderWidth: 1,
         borderColor: 'rgba(64, 51, 71, 0.3)',
+    },
+    // Report button styles
+    reportButton: {
+        position: 'absolute',
+        top: 8,
+        right: 8,
+        padding: 4,
+        zIndex: 1,
+    },
+    // Report modal styles
+    reportModalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.7)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    reportModalContainer: {
+        backgroundColor: '#201925',
+        borderRadius: 16,
+        width: '90%',
+        maxWidth: 400,
+        maxHeight: '80%',
+        borderWidth: 1,
+        borderColor: 'rgba(64, 51, 71, 0.3)',
+    },
+    reportModalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: 20,
+        borderBottomWidth: 1,
+        borderBottomColor: 'rgba(64, 51, 71, 0.3)',
+    },
+    reportModalTitle: {
+        fontSize: 20,
+        fontWeight: '600',
+        color: '#fff',
+    },
+    reportModalClose: {
+        padding: 4,
+    },
+    reportModalSubtitle: {
+        fontSize: 16,
+        color: '#e2e8f0',
+        padding: 20,
+        paddingBottom: 10,
+    },
+    reportReasonsContainer: {
+        maxHeight: 300,
+        paddingHorizontal: 20,
+    },
+    reportReasonItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 12,
+        paddingHorizontal: 12,
+        marginBottom: 8,
+        borderRadius: 8,
+        backgroundColor: 'rgba(255, 255, 255, 0.03)',
+        borderWidth: 1,
+        borderColor: 'rgba(64, 51, 71, 0.3)',
+    },
+    reportReasonSelected: {
+        backgroundColor: 'rgba(204, 49, 232, 0.1)',
+        borderColor: '#cc31e8',
+    },
+    reportRadio: {
+        width: 20,
+        height: 20,
+        borderRadius: 10,
+        borderWidth: 2,
+        borderColor: 'rgba(255, 255, 255, 0.5)',
+        marginRight: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    reportRadioSelected: {
+        borderColor: '#cc31e8',
+    },
+    reportRadioInner: {
+        width: 10,
+        height: 10,
+        borderRadius: 5,
+        backgroundColor: '#cc31e8',
+    },
+    reportReasonText: {
+        fontSize: 15,
+        color: '#fff',
+        flex: 1,
+    },
+    reportCustomInput: {
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        borderRadius: 8,
+        padding: 12,
+        marginTop: 8,
+        marginBottom: 12,
+        fontSize: 15,
+        color: '#fff',
+        minHeight: 80,
+        textAlignVertical: 'top',
+        borderWidth: 1,
+        borderColor: 'rgba(64, 51, 71, 0.3)',
+    },
+    reportModalButtons: {
+        flexDirection: 'row',
+        padding: 20,
+        borderTopWidth: 1,
+        borderTopColor: 'rgba(64, 51, 71, 0.3)',
+        gap: 12,
+    },
+    reportCancelButton: {
+        flex: 1,
+        paddingVertical: 12,
+        borderRadius: 8,
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(64, 51, 71, 0.3)',
+    },
+    reportCancelText: {
+        fontSize: 16,
+        color: '#e2e8f0',
+        fontWeight: '500',
+    },
+    reportSubmitButton: {
+        flex: 1,
+        paddingVertical: 12,
+        borderRadius: 8,
+        alignItems: 'center',
+        backgroundColor: '#cc31e8',
+    },
+    reportSubmitDisabled: {
+        opacity: 0.5,
+    },
+    reportSubmitText: {
+        fontSize: 16,
+        color: '#fff',
+        fontWeight: '600',
+    },
+    // Block user button
+    blockUserButton: {
+        backgroundColor: 'rgba(255, 107, 107, 0.1)',
+        borderWidth: 1,
+        borderColor: 'rgba(255, 107, 107, 0.3)',
+        borderRadius: 8,
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        marginBottom: 16,
+        marginHorizontal: 20,
+        alignItems: 'center',
+    },
+    blockUserButtonText: {
+        color: '#FF6B6B',
+        fontSize: 15,
+        fontWeight: '600',
+    },
+    // Block confirmation modal
+    blockModalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.7)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    blockModalContainer: {
+        backgroundColor: '#201925',
+        borderRadius: 16,
+        padding: 24,
+        width: '85%',
+        maxWidth: 350,
+        borderWidth: 1,
+        borderColor: 'rgba(64, 51, 71, 0.3)',
+    },
+    blockModalTitle: {
+        fontSize: 20,
+        fontWeight: '600',
+        color: '#fff',
+        marginBottom: 12,
+    },
+    blockModalText: {
+        fontSize: 15,
+        color: '#e2e8f0',
+        lineHeight: 22,
+        marginBottom: 24,
+    },
+    blockModalButtons: {
+        flexDirection: 'row',
+        gap: 12,
+    },
+    blockCancelButton: {
+        flex: 1,
+        paddingVertical: 12,
+        borderRadius: 8,
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(64, 51, 71, 0.3)',
+    },
+    blockCancelText: {
+        fontSize: 16,
+        color: '#e2e8f0',
+        fontWeight: '500',
+    },
+    blockConfirmButton: {
+        flex: 1,
+        paddingVertical: 12,
+        borderRadius: 8,
+        alignItems: 'center',
+        backgroundColor: '#FF6B6B',
+    },
+    blockConfirmText: {
+        fontSize: 16,
+        color: '#fff',
+        fontWeight: '600',
     },
 });
 
