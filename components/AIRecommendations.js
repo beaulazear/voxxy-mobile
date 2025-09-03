@@ -20,9 +20,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Icon from 'react-native-vector-icons/Feather';
 import { UserContext } from '../context/UserContext';
 import { API_URL } from '../config';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import styles from '../styles/AIRecommendationsStyles';
 import { modalStyles, modalColors } from '../styles/modalStyles';
+import NativeMapView from './NativeMapView';
+import TestMap from './TestMap'; // Temporary test
 
 // Updated Icons object using Feather icons
 const Icons = {
@@ -45,6 +47,8 @@ const Icons = {
     RotateCcw: (props) => <Icon name="rotate-ccw" size={16} color="#cc31e8" {...props} />,
     FastForward: (props) => <Icon name="fast-forward" size={16} color="#cc31e8" {...props} />,
     ChevronRight: (props) => <Icon name="chevron-right" size={16} color="#cc31e8" {...props} />,
+    Map: (props) => <Icon name="map" size={16} color="#cc31e8" {...props} />,
+    Grid: (props) => <Icon name="grid" size={16} color="#cc31e8" {...props} />,
 };
 
 import CuisineResponseForm from './CuisineResponseForm';
@@ -462,12 +466,70 @@ export default function AIRecommendations({
     const [showDetailModal, setShowDetailModal] = useState(false);
     const [showGenerateModal, setShowGenerateModal] = useState(false);
     
-    // New swipeable card states
-    const [currentCardIndex, setCurrentCardIndex] = useState(0);
-    const [likedRecommendations, setLikedRecommendations] = useState([]);
-    const [dislikedRecommendations, setDislikedRecommendations] = useState([]);
+    // Favoriting states
+    const [userFavorites, setUserFavorites] = useState([]);
+    const [loadingFavorites, setLoadingFavorites] = useState(false);
     const [flaggedRecommendations, setFlaggedRecommendations] = useState([]);
-    const [showingResults, setShowingResults] = useState(false);
+    const [favoriteLoading, setFavoriteLoading] = useState({});
+    
+    // View mode toggle (map vs cards) - default to cards for Game Night
+    const [viewMode, setViewMode] = useState(
+        activity?.activity_type === 'Game Night' ? 'cards' : 'map'
+    ); // 'map' or 'cards'
+    
+    // Fetch user favorites from API
+    const fetchUserFavorites = async () => {
+        if (!user?.token) {
+            logger.debug('No user token available for fetching favorites');
+            return;
+        }
+        
+        logger.debug('Fetching favorites from:', `${API_URL}/user_activities/favorited`);
+        setLoadingFavorites(true);
+        try {
+            const favorites = await safeAuthApiCall(
+                `${API_URL}/user_activities/favorited`,
+                user.token,
+                { method: 'GET' }
+            );
+            
+            // Filter out favorites where the activity has been deleted
+            const validFavorites = (favorites || []).filter(fav => {
+                const hasActivity = fav.activity || fav.pinned_activity?.activity;
+                if (!hasActivity) {
+                    logger.debug('Filtering out favorite with no activity:', fav);
+                }
+                return hasActivity;
+            });
+            
+            setUserFavorites(validFavorites);
+        } catch (error) {
+            logger.error('Error fetching favorites:', error);
+            const userMessage = handleApiError(error, 'Failed to load favorites. Please try again.');
+            // Only show alert for non-network errors to avoid spam
+            if (!error.message.includes('Network connection failed')) {
+                Alert.alert('Error', userMessage);
+            }
+        } finally {
+            setLoadingFavorites(false);
+        }
+    };
+    
+    // Fetch favorites when component mounts or user changes
+    useEffect(() => {
+        if (user?.token) {
+            fetchUserFavorites();
+        }
+    }, [user?.token]);
+    
+    // Refresh favorites when screen is focused (user might have favorited something elsewhere)
+    useFocusEffect(
+        React.useCallback(() => {
+            if (user?.token) {
+                fetchUserFavorites();
+            }
+        }, [user?.token])
+    );
 
     // Loading animations
     const spinValue1 = React.useRef(new Animated.Value(0)).current;
@@ -933,41 +995,66 @@ export default function AIRecommendations({
         Linking.openURL(shareUrl);
     };
 
-    // Swipeable card handlers
-    const handleSwipeLeft = (recommendation) => {
-        setDislikedRecommendations(prev => [...prev, recommendation]);
-        nextCard();
-    };
-
-    const handleSwipeRight = (recommendation) => {
-        setLikedRecommendations(prev => [...prev, recommendation]);
-        nextCard();
-    };
-
+    // Flag handler for marking recommendations to exclude  
     const handleFlag = (recommendation) => {
         setFlaggedRecommendations(prev => [...prev, recommendation]);
-        // Also add to disliked to remove from deck
-        setDislikedRecommendations(prev => [...prev, recommendation]);
-        Alert.alert('Flagged', 'This recommendation has been flagged and removed from your deck.');
-        nextCard();
+        Alert.alert('Flagged', 'This recommendation has been flagged for exclusion.');
     };
 
-    const handleFavorite = (recommendation) => {
-        // Add to liked recommendations and mark as favorite (favoriting automatically likes it)
-        setLikedRecommendations(prev => {
-            const isAlreadyLiked = prev.some(item => item.id === recommendation.id);
-            if (!isAlreadyLiked) {
-                return [...prev, { ...recommendation, isFavorite: true }];
-            }
-            return prev.map(item => 
-                item.id === recommendation.id 
-                    ? { ...item, isFavorite: true }
-                    : item
-            );
+    // Helper function to check if a recommendation is favorited
+    const isRecommendationFavorited = (recommendationId) => {
+        if (!recommendationId || !userFavorites || userFavorites.length === 0) return false;
+        return userFavorites.some(fav => {
+            const pinnedActivityId = fav.pinned_activity?.id || fav.pinned_activity_id;
+            return pinnedActivityId === recommendationId;
+        });
+    };
+
+    // Get count of favorited recommendations from current pinned activities
+    const getFavoritedRecommendationsFromCurrent = () => {
+        if (!pinnedActivities || pinnedActivities.length === 0) return [];
+        return pinnedActivities.filter(rec => isRecommendationFavorited(rec.id));
+    };
+
+    const handleFavorite = async (recommendation) => {
+        if (!recommendation.id) {
+            Alert.alert('Error', 'Unable to favorite this recommendation');
+            return;
+        }
+
+        // Check if already favorited by looking through user's actual favorites
+        const isAlreadyFavorited = userFavorites.some(fav => {
+            const pinnedActivityId = fav.pinned_activity?.id || fav.pinned_activity_id;
+            return pinnedActivityId === recommendation.id;
         });
         
-        Alert.alert('Favorited & Liked', 'Added to your favorites and liked recommendations!');
-        nextCard(); // Move to next card after favoriting
+        if (isAlreadyFavorited) {
+            // For now, we don't handle unfavoriting
+            Alert.alert('Already Favorited', 'This recommendation is already in your favorites.');
+            return;
+        }
+
+        // Set loading state for this specific recommendation
+        setFavoriteLoading(prev => ({ ...prev, [recommendation.id]: true }));
+
+        try {
+            // Make immediate API call to toggle favorite
+            await safeAuthApiCall(
+                `${API_URL}/pinned_activities/${recommendation.id}/toggle_favorite`,
+                user.token,
+                { method: 'POST' }
+            );
+
+            // Refresh favorites from server to ensure consistency
+            await fetchUserFavorites();
+            
+            Alert.alert('Success', `${recommendation.title} has been added to your favorites!`);
+        } catch (error) {
+            logger.error('Failed to favorite recommendation:', error);
+            Alert.alert('Error', 'Failed to add to favorites. Please try again.');
+        } finally {
+            setFavoriteLoading(prev => ({ ...prev, [recommendation.id]: false }));
+        }
     };
 
     const openMapWithAddress = (address) => {
@@ -990,24 +1077,6 @@ export default function AIRecommendations({
         });
     };
 
-    const nextCard = () => {
-        setCurrentCardIndex(prev => {
-            const nextIndex = prev + 1;
-            if (nextIndex >= pinnedActivities.length) {
-                // All cards reviewed, show results
-                setShowingResults(true);
-            }
-            return nextIndex;
-        });
-    };
-
-    const resetCards = () => {
-        setCurrentCardIndex(0);
-        setLikedRecommendations([]);
-        setDislikedRecommendations([]);
-        setFlaggedRecommendations([]);
-        setShowingResults(false);
-    };
 
     const handleFinalizeActivity = async (selectedPinnedActivity) => {
         Alert.alert(
@@ -1038,104 +1107,23 @@ export default function AIRecommendations({
         );
     };
 
-    const handleSaveFavoriteAndComplete = async () => {
-        const favoriteRecommendations = likedRecommendations.filter(rec => rec.isFavorite);
+    const handleCompleteActivity = async () => {
+        const currentFavorites = getFavoritedRecommendationsFromCurrent();
+        const favoritesCount = currentFavorites.length;
         
-        if (favoriteRecommendations.length === 0) {
-            Alert.alert(
-                'No Favorites Selected', 
-                'Please mark at least one recommendation as a favorite before saving.',
-                [{ text: 'OK' }]
-            );
-            return;
-        }
-
-        const favoritesText = favoriteRecommendations.length === 1 
-            ? `"${favoriteRecommendations[0].title}"`
-            : `${favoriteRecommendations.length} favorites`;
+        const message = favoritesCount > 0 
+            ? `You have ${favoritesCount} favorite${favoritesCount !== 1 ? 's' : ''} selected. Complete this activity?`
+            : 'Complete this activity without selecting any favorites?';
         
         Alert.alert(
-            'Save Favorites & Complete Activity',
-            `Save ${favoritesText} for future reference and mark this activity as completed?`,
+            'Complete Activity',
+            message,
             [
                 { text: 'Cancel', style: 'cancel' },
-                { text: 'Save & Complete', onPress: async () => {
+                { text: 'Complete', onPress: async () => {
                     try {
-                        // Saving favorites as user activities
-                        
-                        // Toggle favorite on pinned_activities to create user_activities
-                        const saveFavoritePromises = favoriteRecommendations.map(async (favorite) => {
-                            // Each favorite is a pinned_activity that needs to be marked as favorite
-                            if (!favorite.id) {
-                                logger.error('Favorite recommendation missing ID:', favorite);
-                                return null;
-                            }
-
-                            // Toggle favorite on the pinned_activity (this creates a user_activity)
-                            try {
-                                const response = await safeAuthApiCall(
-                                    `${API_URL}/pinned_activities/${favorite.id}/toggle_favorite`,
-                                    user.token,
-                                    { method: 'POST' }
-                                );
-                                return { ok: true, data: response };
-                            } catch (error) {
-                                logger.error('Failed to toggle favorite on pinned_activity:', {
-                                    error: error.message,
-                                    pinnedActivityId: favorite.id,
-                                    favoriteName: favorite.title
-                                });
-                                return { ok: false, error };
-                            }
-                        });
-
-                        // Step 3: Save flagged recommendations as user_activities
-                        const saveFlaggedPromises = flaggedRecommendations.map(async (flagged) => {
-                            // Each flagged is a pinned_activity that needs to be marked as flagged
-                            if (!flagged.id) {
-                                logger.error('Flagged recommendation missing ID:', flagged);
-                                return null;
-                            }
-
-                            // Toggle flag on the pinned_activity (this creates a user_activity)
-                            try {
-                                const response = await safeAuthApiCall(
-                                    `${API_URL}/pinned_activities/${flagged.id}/toggle_flag`,
-                                    user.token,
-                                    { method: 'POST' }
-                                );
-                                return { ok: true, data: response };
-                            } catch (error) {
-                                logger.error('Failed to toggle flag on pinned_activity:', {
-                                    error: error.message,
-                                    pinnedActivityId: flagged.id,
-                                    flaggedName: flagged.title
-                                });
-                                return { ok: false, error };
-                            }
-                        });
-                        
-                        // Wait for both favorite and flagged saves to complete
-                        const [favoriteResults, flaggedResults] = await Promise.all([
-                            Promise.all(saveFavoritePromises),
-                            Promise.all(saveFlaggedPromises)
-                        ]);
-                        
-                        const successfulFavorites = favoriteResults.filter(r => r && r.ok);
-                        const successfulFlagged = flaggedResults.filter(r => r && r.ok);
-                        
-                        // Track successful saves
-                        logger.debug('Successfully marked as favorites:', successfulFavorites.length);
-                        logger.debug('Successfully marked as flagged:', successfulFlagged.length);
-                        
-                        // Check for any failed saves
-                        const allResults = [...favoriteResults, ...flaggedResults];
-                        const failedSaves = allResults.filter(r => r && !r.ok);
-                        if (failedSaves.length > 0) {
-                            logger.warn('Some saves failed:', failedSaves.length);
-                        }
-
-                        // Mark the activity as completed
+                        // Favorites are already saved individually when clicked
+                        // Just mark the activity as completed
                         await safeAuthApiCall(`${API_URL}/activities/${id}`, user.token, {
                             method: 'PATCH',
                             body: JSON.stringify({
@@ -1156,13 +1144,13 @@ export default function AIRecommendations({
                             }));
                         }
 
-                        const successMessage = favoriteRecommendations.length === 1
-                            ? 'Your favorite has been saved for future reference and the activity is completed.'
-                            : `Your ${favoriteRecommendations.length} favorites have been saved for future reference and the activity is completed.`;
+                        const successMessage = favoritesCount > 0
+                            ? `Activity completed with ${favoritesCount} favorite${favoritesCount !== 1 ? 's' : ''}!`
+                            : 'Activity completed successfully!';
                         
-                        // Navigate to home and show favorites modal
+                        // Navigate to home
                         setRefreshTrigger(f => !f);
-                        navigation.navigate('/', { showFavorites: true });
+                        navigation.navigate('/');
                         
                         // Show success message after a brief delay
                         setTimeout(() => {
@@ -1174,7 +1162,7 @@ export default function AIRecommendations({
                             message: error.message,
                             stack: error.stack
                         });
-                        Alert.alert('Error', 'Failed to save and complete activity. Please try again.');
+                        Alert.alert('Error', 'Failed to complete activity. Please try again.');
                     }
                 }}
             ]
@@ -1743,11 +1731,11 @@ export default function AIRecommendations({
                 </>
             );
         }
-        // Show results if all cards have been swiped through
-        if (showingResults) {
+        // Removed swipe results view - we're not using swipe functionality
+        if (false) { // Keep for reference but never execute
             return (
                 <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-                    {likedRecommendations.length > 0 ? (
+                    {getFavoritedRecommendationsFromCurrent().length > 0 ? (
                         <>
                             {/* Combined results and actions card */}
                             <View style={styles.combinedResultsCard}>
@@ -1756,17 +1744,17 @@ export default function AIRecommendations({
                                     <Text style={styles.resultsTitle}>Great choices!</Text>
                                 </View>
                                 <Text style={styles.resultsSubtitle}>
-                                    You've selected {likedRecommendations.length} recommendation{likedRecommendations.length > 1 ? 's' : ''}.
+                                    You've selected {getFavoritedRecommendationsFromCurrent().length} recommendation{getFavoritedRecommendationsFromCurrent().length > 1 ? 's' : ''}.
                                 </Text>
 
                                 {isOwner && (
                                     <View style={styles.actionButtons}>
                                         <TouchableOpacity 
                                             style={styles.saveFavoriteButton} 
-                                            onPress={handleSaveFavoriteAndComplete}
+                                            onPress={handleCompleteActivity}
                                         >
-                                            <Icons.Star color="#fff" size={18} />
-                                            <Text style={styles.saveFavoriteButtonText}>Save Favorites & Complete</Text>
+                                            <Icons.CheckCircle color="#fff" size={18} />
+                                            <Text style={styles.saveFavoriteButtonText}>Complete Activity</Text>
                                         </TouchableOpacity>
                                         
                                         <TouchableOpacity 
@@ -1784,14 +1772,9 @@ export default function AIRecommendations({
                             <View style={styles.statsCard}>
                                 <View style={styles.resultsStats}>
                                     <View style={styles.statItem}>
-                                        <Icons.CheckCircle color="#28a745" size={18} />
-                                        <Text style={styles.statNumber}>{likedRecommendations.length}</Text>
-                                        <Text style={styles.statLabel}>Liked</Text>
-                                    </View>
-                                    <View style={styles.statItem}>
-                                        <Icons.X color="#e74c3c" size={18} />
-                                        <Text style={styles.statNumber}>{dislikedRecommendations.length}</Text>
-                                        <Text style={styles.statLabel}>Passed</Text>
+                                        <Icons.Star color="#D4AF37" size={18} />
+                                        <Text style={styles.statNumber}>{getFavoritedRecommendationsFromCurrent().length}</Text>
+                                        <Text style={styles.statLabel}>Favorited</Text>
                                     </View>
                                     <View style={styles.statItem}>
                                         <Icons.Flag color="#ffc107" size={18} />
@@ -1802,7 +1785,7 @@ export default function AIRecommendations({
                             </View>
 
                             <View style={styles.recommendationsList}>
-                                {likedRecommendations.map((p) => (
+                                {getFavoritedRecommendationsFromCurrent().map((p) => (
                                     <View key={p.id} style={[styles.listItem, p.isFavorite && styles.favoriteListItem]}>
                                         {p.isFavorite && (
                                             <View style={styles.favoriteIndicator}>
@@ -1857,13 +1840,79 @@ export default function AIRecommendations({
             );
         }
 
-        // Show all recommendations as cards
+        // Show all recommendations as cards or map
         return (
-            <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-                {/* Display all recommendations */}
-                <View style={styles.recommendationsGrid}>
-                    {pinnedActivities.map((recommendation) => {
-                        const isFavorited = likedRecommendations.some(rec => rec.id === recommendation.id);
+            <View style={styles.container}>
+                {/* View Mode Toggle - only show for non-Game Night activities */}
+                {!isGameNightActivity && (
+                    <View style={styles.viewModeToggle}>
+                        <TouchableOpacity
+                            style={[styles.viewModeButton, viewMode === 'map' && styles.viewModeButtonActive]}
+                            onPress={() => setViewMode('map')}
+                        >
+                            <Icons.Map color={viewMode === 'map' ? '#fff' : '#666'} size={18} />
+                            <Text style={[styles.viewModeButtonText, viewMode === 'map' && styles.viewModeButtonTextActive]}>
+                                Map View
+                            </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[styles.viewModeButton, viewMode === 'cards' && styles.viewModeButtonActive]}
+                            onPress={() => setViewMode('cards')}
+                        >
+                            <Icons.Grid color={viewMode === 'cards' ? '#fff' : '#666'} size={18} />
+                            <Text style={[styles.viewModeButtonText, viewMode === 'cards' && styles.viewModeButtonTextActive]}>
+                                Card View
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
+                )}
+
+                {/* Map or Cards View - force cards for Game Night */}
+                {viewMode === 'map' && !isGameNightActivity ? (
+                    /* Map View with fixed height */
+                    <View style={styles.mapViewContainer}>
+                        <NativeMapView
+                            recommendations={pinnedActivities.map(rec => ({
+                                ...rec,
+                                name: rec.title || rec.name,
+                                id: rec.id || `${rec.title}-${rec.address}`
+                            }))}
+                            activityType={activity?.activity_type || 'Restaurant'}
+                            onRecommendationSelect={(rec) => {
+                                setSelectedRec(rec);
+                                setShowDetailModal(true);
+                            }}
+                        />
+                        
+                        {/* Bottom actions for map view */}
+                        {isOwner && (
+                            <View style={styles.bottomActionsContainer}>
+                                <TouchableOpacity 
+                                    style={styles.saveFavoriteButton} 
+                                    onPress={handleCompleteActivity}
+                                >
+                                    <Icons.CheckCircle color="#fff" size={18} />
+                                    <Text style={styles.saveFavoriteButtonText}>
+                                        Complete Activity {getFavoritedRecommendationsFromCurrent().length > 0 ? `(${getFavoritedRecommendationsFromCurrent().length} favorites)` : ''}
+                                    </Text>
+                                </TouchableOpacity>
+                                
+                                <TouchableOpacity 
+                                    style={styles.finalizeActivityButton} 
+                                    onPress={onEdit}
+                                >
+                                    <Icons.Calendar color="#fff" size={18} />
+                                    <Text style={styles.finalizeActivityButtonText}>Finalize Activity Plans</Text>
+                                </TouchableOpacity>
+                            </View>
+                        )}
+                    </View>
+                ) : (
+                    /* Card View */
+                    <View style={styles.cardsContainer}>
+                        <View style={styles.recommendationsGrid}>
+                            {pinnedActivities.map((recommendation) => {
+                        const isFavorited = isRecommendationFavorited(recommendation.id);
                         const isFlagged = flaggedRecommendations.some(rec => rec.id === recommendation.id);
                         
                         return (
@@ -1918,21 +1967,17 @@ export default function AIRecommendations({
                         );
                     })}
                 </View>
-
-                {/* Bottom actions - Only for host */}
-                {isOwner && (
+                        
+                        {/* Bottom actions for card view - Inside ScrollView */}
+                        {isOwner && (
                     <View style={styles.bottomActionsContainer}>
                         <TouchableOpacity 
-                            style={[
-                                styles.saveFavoriteButton,
-                                likedRecommendations.length === 0 && styles.buttonDisabled
-                            ]} 
-                            onPress={handleSaveFavoriteAndComplete}
-                            disabled={likedRecommendations.length === 0}
+                            style={styles.saveFavoriteButton} 
+                            onPress={handleCompleteActivity}
                         >
-                            <Icons.Star color="#fff" size={18} />
+                            <Icons.CheckCircle color="#fff" size={18} />
                             <Text style={styles.saveFavoriteButtonText}>
-                                Save {likedRecommendations.length || 'No'} Favorites & Complete
+                                Complete Activity {getFavoritedRecommendationsFromCurrent().length > 0 ? `(${getFavoritedRecommendationsFromCurrent().length} favorites)` : ''}
                             </Text>
                         </TouchableOpacity>
                         
@@ -1943,10 +1988,12 @@ export default function AIRecommendations({
                             <Icons.Calendar color="#fff" size={18} />
                             <Text style={styles.finalizeActivityButtonText}>Finalize Activity Plans</Text>
                         </TouchableOpacity>
+                            </View>
+                        )}
                     </View>
                 )}
 
-                    {/* Detail Modal - Same as before */}
+                {/* Detail Modal - Same as before */}
                     <Modal
                         visible={showDetailModal}
                         animationType="slide"
@@ -2089,35 +2136,32 @@ export default function AIRecommendations({
                                     style={[
                                         styles.modalActionButton,
                                         styles.modalFavoriteButton,
-                                        likedRecommendations.some(r => r.id === selectedRec?.id) && styles.modalFavoriteButtonActive
+                                        isRecommendationFavorited(selectedRec?.id) && styles.modalFavoriteButtonActive
                                     ]}
-                                    onPress={() => {
-                                        const isFavorited = likedRecommendations.some(r => r.id === selectedRec?.id);
-                                        if (isFavorited) {
-                                            setLikedRecommendations(prev => 
-                                                prev.filter(item => item.id !== selectedRec?.id)
-                                            );
-                                        } else {
-                                            setLikedRecommendations(prev => [
-                                                ...prev, 
-                                                { ...selectedRec, isFavorite: true }
-                                            ]);
-                                        }
+                                    onPress={async () => {
+                                        await handleFavorite(selectedRec);
                                         closeDetail();
                                     }}
+                                    disabled={favoriteLoading[selectedRec?.id]}
                                 >
-                                    <Icons.Star color={likedRecommendations.some(r => r.id === selectedRec?.id) ? "#D4AF37" : "#fff"} size={20} />
-                                    <Text style={[
-                                        styles.modalFavoriteButtonText,
-                                        likedRecommendations.some(r => r.id === selectedRec?.id) && styles.modalFavoriteButtonTextActive
-                                    ]}>
-                                        {likedRecommendations.some(r => r.id === selectedRec?.id) ? 'Favorited' : 'Add to Favorites'}
-                                    </Text>
+                                    {favoriteLoading[selectedRec?.id] ? (
+                                        <ActivityIndicator size="small" color="#D4AF37" />
+                                    ) : (
+                                        <>
+                                            <Icons.Star color={isRecommendationFavorited(selectedRec?.id) ? "#D4AF37" : "#fff"} size={20} />
+                                            <Text style={[
+                                                styles.modalFavoriteButtonText,
+                                                isRecommendationFavorited(selectedRec?.id) && styles.modalFavoriteButtonTextActive
+                                            ]}>
+                                                {isRecommendationFavorited(selectedRec?.id) ? 'Favorited' : 'Add to Favorites'}
+                                            </Text>
+                                        </>
+                                    )}
                                 </TouchableOpacity>
                             </View>
                         </SafeAreaView>
                     </Modal>
-            </ScrollView>
+            </View>
         );
     }
 
@@ -2325,30 +2369,27 @@ export default function AIRecommendations({
                                 style={[
                                     styles.modalActionButton,
                                     styles.modalFavoriteButton,
-                                    likedRecommendations.some(r => r.id === selectedRec?.id) && styles.modalFavoriteButtonActive
+                                    isRecommendationFavorited(selectedRec?.id) && styles.modalFavoriteButtonActive
                                 ]}
-                                onPress={() => {
-                                    const isFavorited = likedRecommendations.some(r => r.id === selectedRec?.id);
-                                    if (isFavorited) {
-                                        setLikedRecommendations(prev => 
-                                            prev.filter(item => item.id !== selectedRec?.id)
-                                        );
-                                    } else {
-                                        setLikedRecommendations(prev => [
-                                            ...prev, 
-                                            { ...selectedRec, isFavorite: true }
-                                        ]);
-                                    }
+                                onPress={async () => {
+                                    await handleFavorite(selectedRec);
                                     closeDetail();
                                 }}
+                                disabled={favoriteLoading[selectedRec?.id]}
                             >
-                                <Icons.Star color={likedRecommendations.some(r => r.id === selectedRec?.id) ? "#D4AF37" : "#fff"} size={20} />
-                                <Text style={[
-                                    styles.modalFavoriteButtonText,
-                                    likedRecommendations.some(r => r.id === selectedRec?.id) && styles.modalFavoriteButtonTextActive
-                                ]}>
-                                    {likedRecommendations.some(r => r.id === selectedRec?.id) ? 'Favorited' : 'Add to Favorites'}
-                                </Text>
+                                {favoriteLoading[selectedRec?.id] ? (
+                                    <ActivityIndicator size="small" color="#D4AF37" />
+                                ) : (
+                                    <>
+                                        <Icons.Star color={isRecommendationFavorited(selectedRec?.id) ? "#D4AF37" : "#fff"} size={20} />
+                                        <Text style={[
+                                            styles.modalFavoriteButtonText,
+                                            isRecommendationFavorited(selectedRec?.id) && styles.modalFavoriteButtonTextActive
+                                        ]}>
+                                            {isRecommendationFavorited(selectedRec?.id) ? 'Favorited' : 'Add to Favorites'}
+                                        </Text>
+                                    </>
+                                )}
                             </TouchableOpacity>
                         </View>
                     </SafeAreaView>

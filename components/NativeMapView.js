@@ -1,0 +1,735 @@
+import React, { useState, useEffect, useRef } from 'react';
+import {
+    View,
+    Text,
+    TouchableOpacity,
+    ScrollView,
+    ActivityIndicator,
+    Alert,
+    Linking,
+    Platform,
+    Dimensions,
+    Image
+} from 'react-native';
+import MapView, { Marker } from 'react-native-maps';
+import Icon from 'react-native-vector-icons/Feather';
+import * as Location from 'expo-location';
+
+const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+
+const ACTIVITY_COLORS = {
+    Restaurant: '#FF6B6B',
+    Bar: '#4ECDC4',
+    Cafe: '#FFD93D',
+    Activity: '#6BCF7F',
+    Shopping: '#95E1D3',
+    Entertainment: '#A8E6CF',
+    GameNight: '#BB86FC',
+    Cocktail: '#FF8B94',
+    default: '#748FFC'
+};
+
+const ACTIVITY_ICONS = {
+    Restaurant: '🍽️',
+    Bar: '🍷',
+    Cafe: '☕',
+    Activity: '🎯',
+    Shopping: '🛍️',
+    Entertainment: '🎭',
+    GameNight: '🎮',
+    Cocktail: '🍸',
+    default: '📍'
+};
+
+export default function NativeMapView({ 
+    recommendations = [], 
+    activityType = 'Restaurant',
+    onRecommendationSelect 
+}) {
+    const mapRef = useRef(null);
+    const [selectedMarker, setSelectedMarker] = useState(null);
+    const [mapRegion, setMapRegion] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [geocodedRecommendations, setGeocodedRecommendations] = useState([]);
+    const [selectedCategory, setSelectedCategory] = useState(null);
+    const [userLocation, setUserLocation] = useState(null);
+
+    const color = ACTIVITY_COLORS[activityType] || ACTIVITY_COLORS.default;
+    const icon = ACTIVITY_ICONS[activityType] || ACTIVITY_ICONS.default;
+
+    // Get user location
+    useEffect(() => {
+        (async () => {
+            let { status } = await Location.requestForegroundPermissionsAsync();
+            if (status !== 'granted') {
+                console.log('Location permission denied');
+                return;
+            }
+
+            let location = await Location.getCurrentPositionAsync({});
+            setUserLocation({
+                latitude: location.coords.latitude,
+                longitude: location.coords.longitude
+            });
+        })();
+    }, []);
+
+    // Geocode addresses to coordinates
+    useEffect(() => {
+        const geocodeAddresses = async () => {
+            console.log('Starting geocoding for', recommendations.length, 'recommendations');
+            setLoading(true);
+            const geocoded = [];
+            
+            for (const rec of recommendations) {
+                if (rec.address) {
+                    try {
+                        // Try to geocode using Expo Location
+                        const geocodeResult = await Location.geocodeAsync(rec.address);
+                        
+                        if (geocodeResult && geocodeResult.length > 0) {
+                            geocoded.push({
+                                ...rec,
+                                coordinate: {
+                                    latitude: geocodeResult[0].latitude,
+                                    longitude: geocodeResult[0].longitude
+                                }
+                            });
+                        } else {
+                            // Fallback: generate demo coordinates for testing
+                            const latOffset = (Math.random() - 0.5) * 0.1;
+                            const lonOffset = (Math.random() - 0.5) * 0.1;
+                            
+                            geocoded.push({
+                                ...rec,
+                                coordinate: {
+                                    latitude: 37.7749 + latOffset,
+                                    longitude: -122.4194 + lonOffset
+                                }
+                            });
+                        }
+                    } catch (error) {
+                        console.log('Geocoding error for:', rec.address);
+                        // Fallback coordinates
+                        const latOffset = (Math.random() - 0.5) * 0.1;
+                        const lonOffset = (Math.random() - 0.5) * 0.1;
+                        
+                        geocoded.push({
+                            ...rec,
+                            coordinate: {
+                                latitude: 37.7749 + latOffset,
+                                longitude: -122.4194 + lonOffset
+                            }
+                        });
+                    }
+                }
+            }
+            
+            console.log('Geocoded', geocoded.length, 'locations');
+            setGeocodedRecommendations(geocoded);
+            
+            // Set initial map region based on geocoded locations
+            if (geocoded.length > 0) {
+                const latitudes = geocoded.map(r => r.coordinate.latitude);
+                const longitudes = geocoded.map(r => r.coordinate.longitude);
+                
+                const minLat = Math.min(...latitudes);
+                const maxLat = Math.max(...latitudes);
+                const minLon = Math.min(...longitudes);
+                const maxLon = Math.max(...longitudes);
+                
+                const region = {
+                    latitude: (minLat + maxLat) / 2,
+                    longitude: (minLon + maxLon) / 2,
+                    latitudeDelta: Math.max(0.01, (maxLat - minLat) * 1.2),
+                    longitudeDelta: Math.max(0.01, (maxLon - minLon) * 1.2)
+                };
+                
+                setMapRegion(region);
+                
+                // Animate to region after map loads
+                setTimeout(() => {
+                    if (mapRef.current) {
+                        mapRef.current.animateToRegion(region, 1000);
+                    }
+                }, 500);
+            } else if (userLocation) {
+                // Fallback to user location
+                setMapRegion({
+                    latitude: userLocation.latitude,
+                    longitude: userLocation.longitude,
+                    latitudeDelta: 0.0922,
+                    longitudeDelta: 0.0421
+                });
+            } else {
+                // Default location (San Francisco)
+                setMapRegion({
+                    latitude: 37.7749,
+                    longitude: -122.4194,
+                    latitudeDelta: 0.0922,
+                    longitudeDelta: 0.0421
+                });
+            }
+            
+            setLoading(false);
+        };
+
+        if (recommendations.length > 0) {
+            geocodeAddresses();
+        } else {
+            setLoading(false);
+        }
+    }, [recommendations]);
+
+    // Categories for filtering
+    const categories = [...new Set(recommendations.map(r => r.category).filter(Boolean))];
+
+    // Filter recommendations based on selected category
+    const filteredRecommendations = !selectedCategory 
+        ? geocodedRecommendations 
+        : geocodedRecommendations.filter(rec => rec.category === selectedCategory);
+
+    const handleMarkerPress = (recommendation) => {
+        setSelectedMarker(recommendation);
+        
+        // Animate to selected marker
+        if (mapRef.current && recommendation.coordinate) {
+            mapRef.current.animateToRegion({
+                ...recommendation.coordinate,
+                latitudeDelta: 0.01,
+                longitudeDelta: 0.01
+            }, 1000);
+        }
+    };
+
+    const handleGetDirections = (recommendation) => {
+        if (!recommendation.coordinate) return;
+        
+        const scheme = Platform.select({ 
+            ios: 'maps:', 
+            android: 'geo:' 
+        });
+        
+        const url = Platform.select({
+            ios: `${scheme}${recommendation.coordinate.latitude},${recommendation.coordinate.longitude}?q=${encodeURIComponent(recommendation.address || recommendation.title)}`,
+            android: `${scheme}${recommendation.coordinate.latitude},${recommendation.coordinate.longitude}?q=${encodeURIComponent(recommendation.address || recommendation.title)}`
+        });
+        
+        Linking.openURL(url).catch(err => {
+            Alert.alert('Error', 'Unable to open maps');
+        });
+    };
+
+    const handleViewDetails = (recommendation) => {
+        if (onRecommendationSelect) {
+            onRecommendationSelect(recommendation);
+        }
+    };
+
+    if (loading) {
+        return (
+            <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color={color} />
+                <Text style={styles.loadingText}>Loading map...</Text>
+                <Text style={styles.debugText}>Recommendations: {recommendations.length}</Text>
+            </View>
+        );
+    }
+
+    if (!mapRegion) {
+        return (
+            <View style={styles.errorContainer}>
+                <Icon name="alert-triangle" size={48} color="#FF6B6B" />
+                <Text style={styles.errorText}>Unable to load map</Text>
+                <Text style={styles.debugText}>
+                    Region: null | Geocoded: {geocodedRecommendations.length}
+                </Text>
+            </View>
+        );
+    }
+
+    // Log for debugging
+    console.log('Rendering map with region:', mapRegion);
+    console.log('Filtered recommendations:', filteredRecommendations.length);
+
+    return (
+        <View style={styles.container}>
+            {/* Category Filter - Only show if there are categories */}
+            {categories.length > 0 && (
+                <View style={styles.categoryContainer}>
+                    <ScrollView 
+                        horizontal 
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={styles.categoryScroll}
+                    >
+                        {/* Show All button if a category is selected */}
+                        {selectedCategory && (
+                            <TouchableOpacity
+                                style={styles.categoryChip}
+                                onPress={() => setSelectedCategory(null)}
+                            >
+                                <Text style={styles.categoryChipText}>
+                                    Show All
+                                </Text>
+                            </TouchableOpacity>
+                        )}
+                        
+                        {categories.map(cat => (
+                            <TouchableOpacity
+                                key={cat}
+                                style={[
+                                    styles.categoryChip,
+                                    selectedCategory === cat && styles.categoryChipActive
+                                ]}
+                                onPress={() => setSelectedCategory(cat)}
+                            >
+                                <Text style={[
+                                    styles.categoryChipText,
+                                    selectedCategory === cat && styles.categoryChipTextActive
+                                ]}>
+                                    {cat}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
+                    </ScrollView>
+                </View>
+            )}
+
+            {/* Native Map View */}
+            <MapView
+                ref={mapRef}
+                style={styles.map}
+                initialRegion={mapRegion || {
+                    latitude: 37.78825,
+                    longitude: -122.4324,
+                    latitudeDelta: 0.0922,
+                    longitudeDelta: 0.0421,
+                }}
+                onMapReady={() => {
+                    console.log('Map ready - animating to show all markers');
+                    // Fit to show all markers after map loads
+                    if (mapRef.current && filteredRecommendations.length > 0) {
+                        setTimeout(() => {
+                            mapRef.current.fitToCoordinates(
+                                filteredRecommendations.map(r => r.coordinate),
+                                {
+                                    edgePadding: { top: 100, right: 50, bottom: 50, left: 50 },
+                                    animated: true,
+                                }
+                            );
+                        }, 500);
+                    }
+                }}
+                mapType="standard"
+                showsUserLocation={true}
+                showsMyLocationButton={true}
+                showsCompass={true}
+                zoomEnabled={true}
+                scrollEnabled={true}
+                rotateEnabled={false}
+                pitchEnabled={false}
+                showsPointsOfInterest={false}
+                showsBuildings={false}
+            >
+                {filteredRecommendations.map((recommendation, index) => (
+                    <Marker
+                        key={recommendation.id || index}
+                        coordinate={recommendation.coordinate}
+                        onPress={() => handleMarkerPress(recommendation)}
+                        tracksViewChanges={false}
+                        stopPropagation={true}
+                    >
+                        <View style={styles.vLogoMarkerContainer}>
+                            <View style={styles.vLogoMarkerOuter}>
+                                <View style={styles.vLogoMarkerInner}>
+                                    <Image 
+                                        source={require('../assets/voxxy-triangle.png')} 
+                                        style={styles.vLogoImage}
+                                        resizeMode="contain"
+                                    />
+                                </View>
+                            </View>
+                            <View style={styles.vLogoMarkerPointer} />
+                        </View>
+                    </Marker>
+                ))}
+            </MapView>
+
+            {/* Selected Place Card */}
+            {selectedMarker && (
+                <View style={styles.selectedCard}>
+                    <TouchableOpacity
+                        style={styles.selectedCardClose}
+                        onPress={() => setSelectedMarker(null)}
+                    >
+                        <Icon name="x" size={24} color="#666" />
+                    </TouchableOpacity>
+                    
+                    <Text style={styles.selectedCardTitle}>
+                        {selectedMarker.title || selectedMarker.name}
+                    </Text>
+                    
+                    {selectedMarker.address && (
+                        <View style={styles.selectedCardRow}>
+                            <Icon name="map-pin" size={14} color="#666" />
+                            <Text style={styles.selectedCardText} numberOfLines={2}>
+                                {selectedMarker.address}
+                            </Text>
+                        </View>
+                    )}
+                    
+                    {selectedMarker.price_range && (
+                        <View style={styles.selectedCardRow}>
+                            <Icon name="dollar-sign" size={14} color="#666" />
+                            <Text style={styles.selectedCardText}>
+                                {selectedMarker.price_range}
+                            </Text>
+                        </View>
+                    )}
+                    
+                    <View style={styles.selectedCardActions}>
+                        <TouchableOpacity
+                            style={[styles.selectedCardButton, { backgroundColor: color }]}
+                            onPress={() => handleGetDirections(selectedMarker)}
+                        >
+                            <Icon name="navigation" size={16} color="#FFF" />
+                            <Text style={styles.selectedCardButtonText}>Directions</Text>
+                        </TouchableOpacity>
+                        
+                        <TouchableOpacity
+                            style={[styles.selectedCardButton, styles.selectedCardButtonSecondary]}
+                            onPress={() => handleViewDetails(selectedMarker)}
+                        >
+                            <Icon name="info" size={16} color={color} />
+                            <Text style={[styles.selectedCardButtonText, { color }]}>Details</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            )}
+
+            {/* Map Controls */}
+            <View style={styles.mapControls}>
+                {/* Center on all markers button */}
+                <TouchableOpacity
+                    style={styles.mapControlButton}
+                    onPress={() => {
+                        if (mapRef.current && filteredRecommendations.length > 0) {
+                            mapRef.current.fitToCoordinates(
+                                filteredRecommendations.map(r => r.coordinate),
+                                {
+                                    edgePadding: { top: 150, right: 50, bottom: 100, left: 50 },
+                                    animated: true,
+                                }
+                            );
+                        }
+                    }}
+                >
+                    <Icon name="maximize-2" size={20} color="#cc31e8" />
+                </TouchableOpacity>
+
+                {/* Center on user location */}
+                {userLocation && (
+                    <TouchableOpacity
+                        style={styles.mapControlButton}
+                        onPress={() => {
+                            if (mapRef.current && userLocation) {
+                                mapRef.current.animateToRegion({
+                                    ...userLocation,
+                                    latitudeDelta: 0.01,
+                                    longitudeDelta: 0.01
+                                }, 1000);
+                            }
+                        }}
+                    >
+                        <Icon name="navigation" size={20} color="#cc31e8" />
+                    </TouchableOpacity>
+                )}
+            </View>
+        </View>
+    );
+}
+
+const styles = {
+    container: {
+        flex: 1
+    },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#201925'
+    },
+    loadingText: {
+        marginTop: 16,
+        fontSize: 16,
+        color: '#999',
+        fontWeight: '500'
+    },
+    debugText: {
+        marginTop: 8,
+        fontSize: 12,
+        color: '#666'
+    },
+    errorContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#201925'
+    },
+    errorText: {
+        marginTop: 16,
+        fontSize: 16,
+        color: '#FF6B6B',
+        fontWeight: '500'
+    },
+    categoryContainer: {
+        position: 'absolute',
+        top: 50,
+        left: 0,
+        right: 0,
+        zIndex: 10,
+        paddingHorizontal: 15
+    },
+    categoryScroll: {
+        paddingVertical: 10
+    },
+    categoryChip: {
+        paddingHorizontal: 18,
+        paddingVertical: 10,
+        borderRadius: 25,
+        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+        marginRight: 10,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 8,
+        elevation: 5,
+        borderWidth: 1,
+        borderColor: 'rgba(0,0,0,0.05)'
+    },
+    categoryChipActive: {
+        backgroundColor: '#cc31e8',
+        borderColor: '#cc31e8',
+        shadowOpacity: 0.25,
+    },
+    categoryChipText: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#333'
+    },
+    categoryChipTextActive: {
+        color: '#FFF'
+    },
+    map: {
+        flex: 1,
+        width: '100%',
+        height: '100%'
+    },
+    markerContainer: {
+        width: 50,
+        height: 50,
+        borderRadius: 25,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#cc31e8',
+        borderWidth: 4,
+        borderColor: 'white',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 5 },
+        shadowOpacity: 0.3,
+        shadowRadius: 10,
+        elevation: 8
+    },
+    markerEmoji: {
+        fontSize: 24
+    },
+    vLogoMarkerContainer: {
+        alignItems: 'center',
+        justifyContent: 'center'
+    },
+    vLogoMarkerOuter: {
+        width: 56,
+        height: 56,
+        borderRadius: 28,
+        backgroundColor: 'white',
+        justifyContent: 'center',
+        alignItems: 'center',
+        shadowColor: '#7B3FF2',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.4,
+        shadowRadius: 12,
+        elevation: 12,
+        borderWidth: 2,
+        borderColor: 'rgba(123, 63, 242, 0.1)'
+    },
+    vLogoMarkerInner: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: 'rgba(139, 92, 246, 0.05)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(139, 92, 246, 0.1)'
+    },
+    vLogoImage: {
+        width: 28,
+        height: 28,
+        tintColor: '#7B3FF2'
+    },
+    vLogoMarkerPointer: {
+        width: 0,
+        height: 0,
+        borderLeftWidth: 10,
+        borderRightWidth: 10,
+        borderTopWidth: 14,
+        borderStyle: 'solid',
+        backgroundColor: 'transparent',
+        borderLeftColor: 'transparent',
+        borderRightColor: 'transparent',
+        borderTopColor: 'white',
+        marginTop: -2,
+        shadowColor: '#7B3FF2',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+        elevation: 4
+    },
+    calloutContainer: {
+        width: 200,
+        padding: 10
+    },
+    calloutTitle: {
+        fontSize: 14,
+        fontWeight: '600',
+        marginBottom: 4
+    },
+    calloutPrice: {
+        fontSize: 12,
+        color: '#748FFC',
+        marginBottom: 4
+    },
+    calloutAddress: {
+        fontSize: 11,
+        color: '#666',
+        marginBottom: 8
+    },
+    calloutButton: {
+        backgroundColor: '#748FFC',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 12,
+        alignItems: 'center'
+    },
+    calloutButtonText: {
+        color: 'white',
+        fontSize: 12,
+        fontWeight: '600'
+    },
+    selectedCard: {
+        position: 'absolute',
+        bottom: 25,
+        left: 20,
+        right: 20,
+        backgroundColor: 'white',
+        borderRadius: 20,
+        padding: 20,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.2,
+        shadowRadius: 20,
+        elevation: 15,
+        borderWidth: 1,
+        borderColor: 'rgba(0,0,0,0.05)'
+    },
+    selectedCardClose: {
+        position: 'absolute',
+        top: 12,
+        right: 12,
+        zIndex: 1
+    },
+    selectedCardTitle: {
+        fontSize: 18,
+        fontWeight: '600',
+        color: '#1A1A1A',
+        marginBottom: 12,
+        paddingRight: 30
+    },
+    selectedCardRow: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        marginBottom: 8,
+        gap: 8
+    },
+    selectedCardText: {
+        flex: 1,
+        fontSize: 14,
+        color: '#666',
+        lineHeight: 20
+    },
+    selectedCardActions: {
+        flexDirection: 'row',
+        gap: 8,
+        marginTop: 12
+    },
+    selectedCardButton: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 12,
+        borderRadius: 12,
+        gap: 6
+    },
+    selectedCardButtonSecondary: {
+        backgroundColor: '#F0F2F5',
+        borderWidth: 1,
+        borderColor: '#E0E0E0'
+    },
+    selectedCardButtonText: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#FFF'
+    },
+    resultsCount: {
+        position: 'absolute',
+        top: 120,
+        alignSelf: 'center',
+        backgroundColor: 'rgba(204, 49, 232, 0.9)',
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 20,
+        shadowColor: '#cc31e8',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 5
+    },
+    resultsCountText: {
+        fontSize: 13,
+        fontWeight: '600',
+        color: '#FFF'
+    },
+    mapControls: {
+        position: 'absolute',
+        right: 20,
+        top: 25,
+        gap: 12
+    },
+    mapControlButton: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        backgroundColor: 'white',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 12,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 8,
+        elevation: 5,
+        borderWidth: 1,
+        borderColor: 'rgba(0,0,0,0.05)'
+    }
+};

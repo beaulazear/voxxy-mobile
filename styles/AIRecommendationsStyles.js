@@ -4,7 +4,7 @@ const screenWidth = Dimensions.get('window').width;
 
 const styles = StyleSheet.create({
     container: {
-        marginHorizontal: 16,
+        flex: 1,
     },
     contentContainer: {
     },
@@ -2347,11 +2347,79 @@ const styles = StyleSheet.create({
     },
     bottomActionsContainer: {
         paddingHorizontal: 16,
+        marginTop: 16,
         paddingBottom: 30,
         gap: 12,
     },
     buttonDisabled: {
         opacity: 0.5,
+    },
+    
+    // View Mode Toggle Styles
+    viewModeToggle: {
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        gap: 8,
+        borderBottomWidth: 1,
+        borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+    },
+    cardsContainer: {
+        flex: 1,
+        paddingTop: 16,
+    },
+    viewModeButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 20,
+        backgroundColor: 'rgba(255, 255, 255, 0.08)',
+        gap: 6,
+    },
+    viewModeButtonActive: {
+        backgroundColor: '#cc31e8',
+    },
+    viewModeButtonText: {
+        fontSize: 14,
+        fontWeight: '500',
+        color: '#999',
+    },
+    viewModeButtonTextActive: {
+        color: '#fff',
+    },
+    scrollContainer: {
+        flex: 1,
+    },
+    
+    // Full screen container for fixed map view
+    fullScreenContainer: {
+        flex: 1,
+        backgroundColor: '#201925',
+    },
+    mapContainer: {
+        flex: 1,
+    },
+    mapViewContainer: {
+        height: 650,
+        width: '100%',
+        backgroundColor: '#201925',
+        marginVertical: 10,
+    },
+    fixedBottomActions: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        paddingHorizontal: 16,
+        paddingBottom: 30,
+        paddingTop: 16,
+        backgroundColor: 'rgba(32, 25, 37, 0.95)',
+        borderTopWidth: 1,
+        borderTopColor: 'rgba(255, 255, 255, 0.1)',
+        gap: 12,
     },
 });
 
