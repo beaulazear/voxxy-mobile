@@ -153,8 +153,21 @@ export default function VerificationCodeScreen() {
             const data = await response.json();
 
             if (response.ok) {
-                // Update user context with verified status
-                setUser({ ...user, confirmed_at: new Date().toISOString() });
+                // Update user context with verified status and response data
+                const updatedUser = data.user || { ...user, confirmed_at: new Date().toISOString() };
+                
+                // Preserve the existing token or use the new one if provided
+                if (data.token) {
+                    updatedUser.token = data.token;
+                } else if (user.token) {
+                    // Make sure we preserve the existing token
+                    updatedUser.token = user.token;
+                }
+                
+                // Mark as newly verified to trigger policy modals
+                updatedUser.isNewlyVerified = true;
+                
+                setUser(updatedUser);
                 
                 // Success animation then navigate
                 Animated.timing(fadeAnim, {

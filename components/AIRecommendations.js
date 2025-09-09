@@ -15,6 +15,7 @@ import {
     Platform,
     SafeAreaView,
     PanResponder,
+    Share,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Icon from 'react-native-vector-icons/Feather';
@@ -24,12 +25,22 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import styles from '../styles/AIRecommendationsStyles';
 import { modalStyles, modalColors } from '../styles/modalStyles';
 import NativeMapView from './NativeMapView';
-import TestMap from './TestMap'; // Temporary test
+
+// Activity configuration for emoji display
+const ACTIVITY_CONFIG = {
+    'Restaurant': { emoji: '🍜' },
+    'Cocktails': { emoji: '🍸' },
+    'Brunch': { emoji: '🥐' },
+    'Game Night': { emoji: '🎮' },
+};
 
 // Updated Icons object using Feather icons
 const Icons = {
     Users: (props) => <Icon name="users" size={16} color="#cc31e8" {...props} />,
     Share: (props) => <Icon name="share" size={16} color="#cc31e8" {...props} />,
+    MoreHorizontal: (props) => <Icon name="more-horizontal" size={16} color="#cc31e8" {...props} />,
+    ChevronRight: (props) => <Icon name="chevron-right" size={16} color="#cc31e8" {...props} />,
+    ArrowRight: (props) => <Icon name="arrow-right" size={16} color="#cc31e8" {...props} />,
     HelpCircle: (props) => <Icon name="help-circle" size={16} color="#cc31e8" {...props} />,
     CheckCircle: (props) => <Icon name="check-circle" size={16} color="#cc31e8" {...props} />,
     Clock: (props) => <Icon name="clock" size={16} color="#cc31e8" {...props} />,
@@ -49,11 +60,14 @@ const Icons = {
     ChevronRight: (props) => <Icon name="chevron-right" size={16} color="#cc31e8" {...props} />,
     Map: (props) => <Icon name="map" size={16} color="#cc31e8" {...props} />,
     Grid: (props) => <Icon name="grid" size={16} color="#cc31e8" {...props} />,
+    Crown: (props) => <Icon name="award" size={16} color="#cc31e8" {...props} />,
+    Check: (props) => <Icon name="check" size={16} color="#cc31e8" {...props} />,
+    MessageCircle: (props) => <Icon name="message-circle" size={16} color="#cc31e8" {...props} />,
+    Navigation: (props) => <Icon name="navigation" size={16} color="#cc31e8" {...props} />,
 };
 
 import CuisineResponseForm from './CuisineResponseForm';
 import NightOutResponseForm from './NightOutResponseForm';
-import GameNightResponseForm from './GameNightResponseForm';
 import LetsMeetScheduler from './LetsMeetScheduler';
 import { logger } from '../utils/logger';
 import { safeAuthApiCall, handleApiError } from '../utils/safeApiCall';
@@ -675,9 +689,10 @@ export default function AIRecommendations({
     const activityType = activity.activity_type || 'Restaurant';
 
     const isNightOutActivity = activityType === 'Cocktails';
-    const isLetsEatActivity = activityType === 'Restaurant';
-    const isGameNightActivity = activityType === 'Game Night';
+    const isLetsEatActivity = activityType === 'Restaurant' || activityType === 'Brunch'; // Treat Brunch as Restaurant
+    const isBrunchActivity = activityType === 'Brunch'; // Legacy support
     const isMeetingActivity = activityType === 'Meeting';
+    const isGameNightActivity = activityType === 'Game Night'; // Legacy support
 
     const getActivityText = () => {
         if (isNightOutActivity) {
@@ -692,15 +707,15 @@ export default function AIRecommendations({
             };
         }
 
-        if (isGameNightActivity) {
+        if (isBrunchActivity) {
             return {
                 submitTitle: 'Collecting Preferences',
-                submitDescription: 'Help us find the perfect games by sharing your game preferences and group dynamics',
-                finalizedTitle: 'Game Night Finalized',
-                preferencesQuiz: 'Take Game Preferences Quiz',
-                resubmitPreferences: 'Resubmit Game Preferences',
-                reasonTitle: 'Why This Game?',
-                apiEndpoint: '/api/openai/game_recommendations'
+                submitDescription: 'Help us find the perfect brunch spot by sharing your food and atmosphere preferences',
+                finalizedTitle: 'Brunch Spot Selected',
+                preferencesQuiz: 'Take Brunch Preferences Quiz',
+                resubmitPreferences: 'Resubmit Brunch Preferences',
+                reasonTitle: 'Why This Spot?',
+                apiEndpoint: '/api/openai/restaurant_recommendations'
             };
         }
 
@@ -783,9 +798,22 @@ export default function AIRecommendations({
                     />
                 );
 
+            // Legacy support for Brunch - treat as Restaurant
+            case 'Brunch':
+                return (
+                    <CuisineResponseForm
+                        visible={showChat}
+                        onClose={handleChatClose}
+                        activityId={id}
+                        onResponseComplete={handleChatComplete}
+                        guestMode={false}
+                    />
+                );
+            
+            // Legacy support for Game Night - treat as Restaurant
             case 'Game Night':
                 return (
-                    <GameNightResponseForm
+                    <CuisineResponseForm
                         visible={showChat}
                         onClose={handleChatClose}
                         activityId={id}
@@ -990,9 +1018,17 @@ export default function AIRecommendations({
         setSelectedRec(null);
     };
 
-    const sharePlanUrlClick = () => {
+    const sharePlanUrlClick = async () => {
         const shareUrl = `${API_URL}/activities/${activity.id}/share`;
-        Linking.openURL(shareUrl);
+        try {
+            await Share.share({
+                message: `Check out our plan: ${activity.activity_name}\n\n${shareUrl}`,
+                url: shareUrl,
+                title: activity.activity_name
+            });
+        } catch (error) {
+            Alert.alert('Error', 'Could not share link');
+        }
     };
 
     // Flag handler for marking recommendations to exclude  
@@ -1191,26 +1227,6 @@ export default function AIRecommendations({
             <>
                 <ScrollView style={styles.transparentContainer} contentContainerStyle={styles.contentContainer}>
                     {error ? <Text style={styles.errorText}>{error}</Text> : null}
-
-                    {/* Compact Response Counter */}
-                    <View style={styles.compactCounterWrapper}>
-                        <Animated.View 
-                            style={[
-                                styles.compactCounter,
-                                {
-                                    transform: [{ scale: pulseValue.interpolate({
-                                        inputRange: [1, 1.2],
-                                        outputRange: [1, 1.03]
-                                    })}]
-                                }
-                            ]}
-                        >
-                            <Text style={styles.compactNumber}>{responses.length}</Text>
-                            <Text style={styles.compactLabel}>
-                                {responses.length === 1 ? 'Response Submitted' : 'Responses Submitted'}
-                            </Text>
-                        </Animated.View>
-                    </View>
 
                     {/* User Action Section */}
                     {user && !currentUserResponse ? (
@@ -1636,7 +1652,7 @@ export default function AIRecommendations({
                         <ScrollView style={styles.detailModalBody}>
                             {(() => {
                                 const activityType = activity.activity_type || 'Meeting';
-                                const isGameNightActivity = activityType === 'Game Night';
+                                const isGameNightActivity = false; // Game Night removed - keeping for legacy code
                                 const activityText = {
                                     reasonTitle: isGameNightActivity ? 'Why this game?' : 'Why this place?'
                                 };
@@ -1750,19 +1766,32 @@ export default function AIRecommendations({
                                 {isOwner && (
                                     <View style={styles.actionButtons}>
                                         <TouchableOpacity 
-                                            style={styles.saveFavoriteButton} 
-                                            onPress={handleCompleteActivity}
+                                            style={styles.primaryActionButton} 
+                                            onPress={() => {
+                                                Alert.alert(
+                                                    'What would you like to do?',
+                                                    '',
+                                                    [
+                                                        {
+                                                            text: "I'm done here",
+                                                            onPress: handleCompleteActivity,
+                                                            style: 'default'
+                                                        },
+                                                        {
+                                                            text: 'Share plan with friends',
+                                                            onPress: onEdit,
+                                                            style: 'default'
+                                                        },
+                                                        {
+                                                            text: 'Cancel',
+                                                            style: 'cancel'
+                                                        }
+                                                    ]
+                                                );
+                                            }}
                                         >
-                                            <Icons.CheckCircle color="#fff" size={18} />
-                                            <Text style={styles.saveFavoriteButtonText}>Complete Activity</Text>
-                                        </TouchableOpacity>
-                                        
-                                        <TouchableOpacity 
-                                            style={styles.finalizeActivityButton} 
-                                            onPress={onEdit}
-                                        >
-                                            <Icons.Calendar color="#fff" size={18} />
-                                            <Text style={styles.finalizeActivityButtonText}>Finalize Activity Plans</Text>
+                                            <Text style={styles.primaryActionButtonText}>Continue Planning</Text>
+                                            <Icons.ChevronRight color="#fff" size={20} />
                                         </TouchableOpacity>
                                     </View>
                                 )}
@@ -1817,23 +1846,14 @@ export default function AIRecommendations({
                                     </View>
                                 ))}
                             </View>
-
-                            <TouchableOpacity style={styles.resetButton} onPress={resetCards}>
-                                <Icons.RotateCcw color="#cc31e8" size={16} />
-                                <Text style={styles.resetButtonText}>Review Again</Text>
-                            </TouchableOpacity>
                         </>
                     ) : (
                         <View style={styles.noLikesContainer}>
                             <Icons.HelpCircle color="#ccc" size={48} />
                             <Text style={styles.noLikesTitle}>No matches found</Text>
                             <Text style={styles.noLikesText}>
-                                You didn't like any of the recommendations. Try reviewing them again or generate new ones.
+                                You didn't like any of the recommendations. Try generating new ones.
                             </Text>
-                            <TouchableOpacity style={styles.tryAgainButton} onPress={resetCards}>
-                                <Icons.RotateCcw />
-                                <Text style={styles.tryAgainButtonText}>Try Again</Text>
-                            </TouchableOpacity>
                         </View>
                     )}
                 </ScrollView>
@@ -1843,39 +1863,16 @@ export default function AIRecommendations({
         // Show all recommendations as cards or map
         return (
             <View style={styles.container}>
-                {/* View Mode Toggle - only show for non-Game Night activities */}
-                {!isGameNightActivity && (
-                    <View style={styles.viewModeToggle}>
-                        <TouchableOpacity
-                            style={[styles.viewModeButton, viewMode === 'map' && styles.viewModeButtonActive]}
-                            onPress={() => setViewMode('map')}
-                        >
-                            <Icons.Map color={viewMode === 'map' ? '#fff' : '#666'} size={18} />
-                            <Text style={[styles.viewModeButtonText, viewMode === 'map' && styles.viewModeButtonTextActive]}>
-                                Map View
-                            </Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            style={[styles.viewModeButton, viewMode === 'cards' && styles.viewModeButtonActive]}
-                            onPress={() => setViewMode('cards')}
-                        >
-                            <Icons.Grid color={viewMode === 'cards' ? '#fff' : '#666'} size={18} />
-                            <Text style={[styles.viewModeButtonText, viewMode === 'cards' && styles.viewModeButtonTextActive]}>
-                                Card View
-                            </Text>
-                        </TouchableOpacity>
-                    </View>
-                )}
-
                 {/* Map or Cards View - force cards for Game Night */}
                 {viewMode === 'map' && !isGameNightActivity ? (
-                    /* Map View with fixed height */
+                    /* Map View - takes up most of screen */
                     <View style={styles.mapViewContainer}>
                         <NativeMapView
                             recommendations={pinnedActivities.map(rec => ({
                                 ...rec,
                                 name: rec.title || rec.name,
-                                id: rec.id || `${rec.title}-${rec.address}`
+                                id: rec.id || `${rec.title}-${rec.address}`,
+                                isFavorite: isRecommendationFavorited(rec.id)
                             }))}
                             activityType={activity?.activity_type || 'Restaurant'}
                             onRecommendationSelect={(rec) => {
@@ -1884,25 +1881,60 @@ export default function AIRecommendations({
                             }}
                         />
                         
+                        {/* View Mode Toggle overlay - only show for non-Game Night activities */}
+                        {!isGameNightActivity && (
+                            <View style={styles.viewModeToggleOverlay}>
+                                <TouchableOpacity
+                                    style={[styles.viewModeButton, viewMode === 'map' && styles.viewModeButtonActive]}
+                                    onPress={() => setViewMode('map')}
+                                >
+                                    <Icons.Map color={viewMode === 'map' ? '#fff' : '#666'} size={18} />
+                                    <Text style={[styles.viewModeButtonText, viewMode === 'map' && styles.viewModeButtonTextActive]}>
+                                        Map
+                                    </Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={[styles.viewModeButton, viewMode === 'cards' && styles.viewModeButtonActive]}
+                                    onPress={() => setViewMode('cards')}
+                                >
+                                    <Icons.Grid color={viewMode === 'cards' ? '#fff' : '#666'} size={18} />
+                                    <Text style={[styles.viewModeButtonText, viewMode === 'cards' && styles.viewModeButtonTextActive]}>
+                                        List
+                                    </Text>
+                                </TouchableOpacity>
+                            </View>
+                        )}
+                        
                         {/* Bottom actions for map view */}
                         {isOwner && (
                             <View style={styles.bottomActionsContainer}>
                                 <TouchableOpacity 
-                                    style={styles.saveFavoriteButton} 
-                                    onPress={handleCompleteActivity}
+                                    style={styles.primaryActionButton} 
+                                    onPress={() => {
+                                        Alert.alert(
+                                            'What would you like to do?',
+                                            '',
+                                            [
+                                                {
+                                                    text: "I'm done here",
+                                                    onPress: handleCompleteActivity,
+                                                    style: 'default'
+                                                },
+                                                {
+                                                    text: 'Share plan with friends',
+                                                    onPress: onEdit,
+                                                    style: 'default'
+                                                },
+                                                {
+                                                    text: 'Cancel',
+                                                    style: 'cancel'
+                                                }
+                                            ]
+                                        );
+                                    }}
                                 >
-                                    <Icons.CheckCircle color="#fff" size={18} />
-                                    <Text style={styles.saveFavoriteButtonText}>
-                                        Complete Activity {getFavoritedRecommendationsFromCurrent().length > 0 ? `(${getFavoritedRecommendationsFromCurrent().length} favorites)` : ''}
-                                    </Text>
-                                </TouchableOpacity>
-                                
-                                <TouchableOpacity 
-                                    style={styles.finalizeActivityButton} 
-                                    onPress={onEdit}
-                                >
-                                    <Icons.Calendar color="#fff" size={18} />
-                                    <Text style={styles.finalizeActivityButtonText}>Finalize Activity Plans</Text>
+                                    <Text style={styles.primaryActionButtonText}>Continue Planning</Text>
+                                    <Icons.ChevronRight color="#fff" size={20} />
                                 </TouchableOpacity>
                             </View>
                         )}
@@ -1910,7 +1942,33 @@ export default function AIRecommendations({
                 ) : (
                     /* Card View */
                     <View style={styles.cardsContainer}>
-                        <View style={styles.recommendationsGrid}>
+                        {/* View Mode Toggle overlay - only show for non-Game Night activities */}
+                        {!isGameNightActivity && (
+                            <View style={styles.viewModeToggleOverlay}>
+                                <TouchableOpacity
+                                    style={[styles.viewModeButton, viewMode === 'map' && styles.viewModeButtonActive]}
+                                    onPress={() => setViewMode('map')}
+                                >
+                                    <Icons.Map color={viewMode === 'map' ? '#fff' : '#666'} size={18} />
+                                    <Text style={[styles.viewModeButtonText, viewMode === 'map' && styles.viewModeButtonTextActive]}>
+                                        Map
+                                    </Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={[styles.viewModeButton, viewMode === 'cards' && styles.viewModeButtonActive]}
+                                    onPress={() => setViewMode('cards')}
+                                >
+                                    <Icons.Grid color={viewMode === 'cards' ? '#fff' : '#666'} size={18} />
+                                    <Text style={[styles.viewModeButtonText, viewMode === 'cards' && styles.viewModeButtonTextActive]}>
+                                        List
+                                    </Text>
+                                </TouchableOpacity>
+                            </View>
+                        )}
+                        <View style={[
+                            styles.recommendationsGrid,
+                            isGameNightActivity && styles.recommendationsGridNoToggle
+                        ]}>
                             {pinnedActivities.map((recommendation) => {
                         const isFavorited = isRecommendationFavorited(recommendation.id);
                         const isFlagged = flaggedRecommendations.some(rec => rec.id === recommendation.id);
@@ -1972,21 +2030,32 @@ export default function AIRecommendations({
                         {isOwner && (
                     <View style={styles.bottomActionsContainer}>
                         <TouchableOpacity 
-                            style={styles.saveFavoriteButton} 
-                            onPress={handleCompleteActivity}
+                            style={styles.primaryActionButton} 
+                            onPress={() => {
+                                Alert.alert(
+                                    'What would you like to do?',
+                                    '',
+                                    [
+                                        {
+                                            text: "I'm done here",
+                                            onPress: handleCompleteActivity,
+                                            style: 'default'
+                                        },
+                                        {
+                                            text: 'Share plan with friends',
+                                            onPress: onEdit,
+                                            style: 'default'
+                                        },
+                                        {
+                                            text: 'Cancel',
+                                            style: 'cancel'
+                                        }
+                                    ]
+                                );
+                            }}
                         >
-                            <Icons.CheckCircle color="#fff" size={18} />
-                            <Text style={styles.saveFavoriteButtonText}>
-                                Complete Activity {getFavoritedRecommendationsFromCurrent().length > 0 ? `(${getFavoritedRecommendationsFromCurrent().length} favorites)` : ''}
-                            </Text>
-                        </TouchableOpacity>
-                        
-                        <TouchableOpacity 
-                            style={styles.finalizeActivityButton} 
-                            onPress={onEdit}
-                        >
-                            <Icons.Calendar color="#fff" size={18} />
-                            <Text style={styles.finalizeActivityButtonText}>Finalize Activity Plans</Text>
+                            <Text style={styles.primaryActionButtonText}>Continue Planning</Text>
+                            <Icons.ChevronRight color="#fff" size={20} />
                         </TouchableOpacity>
                             </View>
                         )}
@@ -2175,53 +2244,136 @@ export default function AIRecommendations({
             <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
                 {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-                {/* Combined Finalized Plan Card */}
+                {/* Main Activity Card */}
                 <View style={styles.finalizedPlanCard}>
-                    {/* Header with status */}
-                    <View style={styles.finalizedHeader}>
-                        <View style={styles.finalizedStatusBadge}>
-                            <Icons.CheckCircle color="#fff" size={16} />
-                            <Text style={styles.finalizedStatusText}>{activityText.finalizedTitle}</Text>
+                    <View style={styles.finalizedIconContainer}>
+                        <View style={styles.finalizedIconCircle}>
+                            <Icons.CheckCircle color="#fff" size={32} />
                         </View>
                     </View>
-
-                    {/* Selected Place Details */}
-                    {selectedPlace && (
-                        <TouchableOpacity 
-                            style={styles.selectedPlaceSection} 
-                            onPress={() => openDetail(selectedPlace)}
-                            activeOpacity={0.7}
-                        >
-                            <View style={styles.selectedPlaceHeader}>
-                                <Text style={styles.selectedPlaceName}>{selectedPlace.title}</Text>
-                                <Icons.ChevronRight color="rgba(255, 255, 255, 0.6)" size={20} />
-                            </View>
-                            
-                            <View style={styles.selectedPlaceDetails}>
-                                <View style={styles.selectedPlaceDetail}>
-                                    <Icons.DollarSign color="#B8A5C4" size={16} />
-                                    <Text style={styles.selectedPlaceDetailText}>{selectedPlace.price_range || 'N/A'}</Text>
-                                </View>
-                                <View style={styles.selectedPlaceDetail}>
-                                    <Icons.Clock color="#B8A5C4" size={16} />
-                                    <Text style={styles.selectedPlaceDetailText}>{selectedPlace.hours || 'N/A'}</Text>
-                                </View>
-                                {selectedPlace.address && (
-                                    <View style={styles.selectedPlaceDetail}>
-                                        <Icons.MapPin color="#B8A5C4" size={16} />
-                                        <Text style={styles.selectedPlaceDetailText}>{selectedPlace.address}</Text>
-                                    </View>
+                    <Text style={styles.finalizedActivityTitle}>
+                        {activity.activity_name}
+                    </Text>
+                    <Text style={styles.finalizedStatusSubtext}>Plan Finalized</Text>
+                    
+                    {/* Date and Time if available */}
+                    {(activity.date_day || activity.date_time) && (
+                        <View style={styles.eventDateBanner}>
+                            <Icons.Calendar color="#9333ea" size={22} />
+                            <View style={styles.eventDateTextContainer}>
+                                {activity.date_day && (
+                                    <Text style={styles.eventDateText}>
+                                        {new Date(activity.date_day).toLocaleDateString('en-US', {
+                                            weekday: 'long',
+                                            month: 'long',
+                                            day: 'numeric',
+                                            year: 'numeric'
+                                        })}
+                                    </Text>
+                                )}
+                                {activity.date_time && (
+                                    <Text style={styles.eventTimeText}>
+                                        {new Date(activity.date_time).toLocaleTimeString('en-US', {
+                                            hour: 'numeric',
+                                            minute: '2-digit',
+                                            hour12: true
+                                        })}
+                                    </Text>
                                 )}
                             </View>
-                        </TouchableOpacity>
+                        </View>
                     )}
-
-                    {/* Share Action */}
-                    <View style={styles.finalizedActionSection}>
-                        <TouchableOpacity style={styles.finalizedShareButton} onPress={sharePlanUrlClick}>
-                            <Icons.Share size={18} color="#fff" />
-                            <Text style={styles.finalizedShareButtonText}>Share Final Plan Details</Text>
+                    
+                    {/* Action Buttons */}
+                    <View style={styles.actionButtons}>
+                        <TouchableOpacity style={styles.primaryButton} onPress={sharePlanUrlClick}>
+                            <Icons.Share color="#fff" size={18} />
+                            <Text style={styles.primaryButtonText}>Share Plan</Text>
                         </TouchableOpacity>
+                    </View>
+                </View>
+
+                {/* Location Details Card */}
+                {selectedPlace && (
+                    <View style={styles.finalizedPlanCard}>
+                        <View style={styles.sectionHeader}>
+                            <Icons.MapPin color="#9333ea" size={20} />
+                            <Text style={styles.sectionTitle}>Location Details</Text>
+                        </View>
+                        <Text style={styles.placeName}>{selectedPlace.title}</Text>
+                        
+                        {selectedPlace.description && (
+                            <Text style={styles.placeDescription}>{selectedPlace.description}</Text>
+                        )}
+                        
+                        <View style={styles.placeDetailRow}>
+                            <Icons.Navigation color="rgba(255, 255, 255, 0.6)" size={16} />
+                            <Text style={styles.placeAddress}>{selectedPlace.address}</Text>
+                        </View>
+                        
+                        {selectedPlace.price_range && (
+                            <View style={styles.placeDetailRow}>
+                                <Icons.DollarSign color="#fbbf24" size={16} />
+                                <Text style={styles.placePrice}>{selectedPlace.price_range}</Text>
+                            </View>
+                        )}
+                        
+                        <View style={styles.actionButtons}>
+                            {selectedPlace.website && (
+                                <TouchableOpacity 
+                                    style={styles.secondaryButton}
+                                    onPress={() => Linking.openURL(selectedPlace.website)}
+                                >
+                                    <Icons.Globe color="#9333ea" size={18} />
+                                    <Text style={styles.secondaryButtonText}>Website</Text>
+                                </TouchableOpacity>
+                            )}
+                            {selectedPlace.address && (
+                                <TouchableOpacity 
+                                    style={styles.primaryButton}
+                                    onPress={() => {
+                                        const encodedAddress = encodeURIComponent(selectedPlace.address);
+                                        Linking.openURL(`https://maps.google.com?q=${encodedAddress}`);
+                                    }}
+                                >
+                                    <Icons.Map color="#fff" size={18} />
+                                    <Text style={styles.primaryButtonText}>Directions</Text>
+                                </TouchableOpacity>
+                            )}
+                        </View>
+                    </View>
+                )}
+
+                {/* Welcome Message if exists */}
+                {activity.welcome_message && (
+                    <View style={styles.finalizedPlanCard}>
+                        <View style={styles.sectionHeader}>
+                            <Icons.MessageCircle color="#9333ea" size={20} />
+                            <Text style={styles.sectionTitle}>Message from Organizer</Text>
+                        </View>
+                        <Text style={styles.welcomeMessage}>{activity.welcome_message}</Text>
+                    </View>
+                )}
+
+                {/* Attendees Card */}
+                <View style={styles.finalizedPlanCard}>
+                    <View style={styles.sectionHeader}>
+                        <Icons.Users color="#9333ea" size={20} />
+                        <Text style={styles.sectionTitle}>Who's Coming</Text>
+                    </View>
+                    <View style={styles.attendeePills}>
+                        <View style={[styles.attendeePill, styles.hostPill]}>
+                            <Icons.Crown color="#fbbf24" size={14} />
+                            <Text style={styles.attendeePillText}>{activity.user?.name || 'Host'}</Text>
+                        </View>
+                        {activity.participants?.map((participant, index) => (
+                            <View key={index} style={styles.attendeePill}>
+                                <Icons.Check color="#9333ea" size={14} />
+                                <Text style={styles.attendeePillText}>
+                                    {participant.name?.split(' ')[0] || participant.name}
+                                </Text>
+                            </View>
+                        ))}
                     </View>
                 </View>
 

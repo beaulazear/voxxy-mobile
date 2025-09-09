@@ -82,19 +82,25 @@ const CommentsSection = ({ activity }) => {
     const [blockedUsers, setBlockedUsers] = useState([]);
     const [showBlockConfirm, setShowBlockConfirm] = useState(false);
     const [userToBlock, setUserToBlock] = useState(null);
+    const [wasCommentsModalOpen, setWasCommentsModalOpen] = useState(false);
     
     // Refs
     const modalScrollViewRef = useRef(null);
     const modalInputRef = useRef(null);
 
-    // Load blocked users on mount
+    // Load blocked users on mount and set auth token
     useEffect(() => {
-        const loadBlockedUsers = async () => {
+        const initializeBlockedUsers = async () => {
+            // Set auth token if available
+            if (user?.token) {
+                BlockedUsersService.setAuthToken(user.token);
+            }
+            // Backend now filters blocked users, but we keep local list for UI
             const blocked = await BlockedUsersService.getBlockedUsers();
             setBlockedUsers(blocked);
         };
-        loadBlockedUsers();
-    }, []);
+        initializeBlockedUsers();
+    }, [user]);
 
     // Initialize lastUpdateTime based on existing comments or a past time
     const [lastUpdateTime, setLastUpdateTime] = useState(() => {
@@ -365,8 +371,18 @@ const CommentsSection = ({ activity }) => {
             if (!commentText) {
                 setNewComment(textToSubmit); // Restore comment on failure only if using main input
             }
-            const userMessage = handleApiError(error, 'Failed to add comment.');
-            Alert.alert('Error', userMessage);
+            
+            // Handle content filtering rejection from server
+            if (error.status === 422) {
+                Alert.alert(
+                    'Content Not Allowed',
+                    'Your comment was rejected by our content filter. Please revise and try again.',
+                    [{ text: 'OK' }]
+                );
+            } else {
+                const userMessage = handleApiError(error, 'Failed to add comment.');
+                Alert.alert('Error', userMessage);
+            }
         }
     };
 
@@ -393,34 +409,124 @@ const CommentsSection = ({ activity }) => {
             return acc;
         }, {});
 
-    const handleReportComment = (comment) => {
-        setSelectedComment(comment);
-        setReportModalVisible(true);
+    const closeReportModal = () => {
+        console.log('closeReportModal called - Stack trace:', new Error().stack);
+        logger.debug('Closing report modal and resetting state');
+        setReportModalVisible(false);
+        setSelectedComment(null);
         setReportReason('');
         setCustomReportReason('');
+        setShowBlockConfirm(false);
+        setUserToBlock(null);
+        
+        // Reopen comments modal if it was open before
+        if (wasCommentsModalOpen) {
+            setTimeout(() => {
+                setShowAllCommentsModal(true);
+                setWasCommentsModalOpen(false);
+            }, 300);
+        }
+    };
+
+    const handleReportComment = (comment) => {
+        logger.debug('Opening report modal for comment:', { 
+            commentId: comment.id, 
+            userId: comment.user?.id,
+            userName: comment.user?.name,
+            currentUserId: user?.id 
+        });
+        setSelectedComment(comment);
+        setReportReason('');
+        setCustomReportReason('');
+        
+        // Remember if comments modal was open and close it first
+        if (showAllCommentsModal) {
+            setWasCommentsModalOpen(true);
+            setShowAllCommentsModal(false);
+            // Wait for modal to close before opening report modal
+            setTimeout(() => {
+                setReportModalVisible(true);
+            }, 300);
+        } else {
+            setWasCommentsModalOpen(false);
+            // If comments modal isn't open, just show report modal
+            setReportModalVisible(true);
+        }
     };
 
     const handleBlockUser = async (userId, userName) => {
-        setUserToBlock({ id: userId, name: userName });
-        setShowBlockConfirm(true);
+        console.log('handleBlockUser called with:', { userId, userName });
+        logger.debug('Block button pressed:', { userId, userName });
+        
+        const userToBlockData = { id: userId, name: userName };
+        console.log('Setting userToBlock to:', userToBlockData);
+        setUserToBlock(userToBlockData);
+        
+        // Close report modal first so block modal can show on top
+        console.log('Closing report modal to show block confirmation');
+        setReportModalVisible(false);
+        
+        // Small delay to ensure report modal closes before showing block modal
+        setTimeout(() => {
+            console.log('Setting showBlockConfirm to true after delay');
+            setShowBlockConfirm(true);
+        }, 100);
+        
+        logger.debug('Block confirm modal should be visible now');
     };
 
     const confirmBlockUser = async () => {
-        if (!userToBlock) return;
+        if (!userToBlock) {
+            logger.error('No user to block');
+            return;
+        }
         
-        await BlockedUsersService.blockUser(userToBlock.id);
-        const blocked = await BlockedUsersService.getBlockedUsers();
-        setBlockedUsers(blocked);
+        logger.debug('Confirming block for user:', userToBlock);
         
-        Alert.alert(
-            'User Blocked',
-            `${userToBlock.name} has been blocked. Their comments will no longer be visible to you.`,
-            [{ text: 'OK' }]
-        );
-        
-        setShowBlockConfirm(false);
-        setUserToBlock(null);
-        setReportModalVisible(false);
+        try {
+            // Call backend API through service
+            const success = await BlockedUsersService.blockUser(userToBlock.id, userToBlock.name);
+            
+            logger.debug('Block API response:', { success });
+            
+            if (success) {
+                // Refresh blocked users list
+                const blocked = await BlockedUsersService.getBlockedUsers();
+                setBlockedUsers(blocked);
+                
+                // Note: Backend now filters blocked users, so comments will be filtered on next fetch
+                // Comments will be refreshed when the activity is reloaded
+                
+                Alert.alert(
+                    'User Blocked',
+                    `${userToBlock.name} has been blocked. Their content will no longer be visible to you.`,
+                    [{ text: 'OK' }]
+                );
+                
+                // Close both modals
+                setShowBlockConfirm(false);
+                setUserToBlock(null);
+                closeReportModal();
+            } else {
+                logger.error('Block API returned false');
+                Alert.alert(
+                    'Error', 
+                    'Failed to block user. Please try again.',
+                    [{ text: 'OK' }]
+                );
+            }
+        } catch (error) {
+            logger.error('Failed to block user:', error);
+            Alert.alert(
+                'Error',
+                error.message || 'Failed to block user. Please try again.',
+                [{ text: 'OK' }]
+            );
+        } finally {
+            // Always close the confirmation modal
+            setShowBlockConfirm(false);
+            setUserToBlock(null);
+        }
     };
 
     const submitReport = async () => {
@@ -439,11 +545,13 @@ const CommentsSection = ({ activity }) => {
                     method: 'POST',
                     body: JSON.stringify({
                         report: {
-                            reportable_type: 'comment',
+                            reportable_type: 'Comment',
                             reportable_id: selectedComment.id,
                             reason: reason,
                             reporter_id: user.id,
-                            activity_id: activity.id
+                            activity_id: activity.id,
+                            reported_content: selectedComment.content,
+                            description: reportReason === 'other' ? customReportReason : `Reported comment: "${selectedComment.content}"`
                         }
                     })
                 }
@@ -454,7 +562,7 @@ const CommentsSection = ({ activity }) => {
                 'Thank you for helping keep our community safe. We will review this report within 24 hours.',
                 [{ text: 'OK' }]
             );
-            setReportModalVisible(false);
+            closeReportModal();
         } catch (error) {
             logger.error('Error submitting report:', error);
             Alert.alert('Error', 'Failed to submit report. Please try again.');
@@ -502,10 +610,10 @@ const CommentsSection = ({ activity }) => {
                             onPress={() => handleReportComment(comment)}
                             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                         >
-                            <MoreVertical size={16} color="rgba(255, 255, 255, 0.5)" />
+                            <MoreVertical size={18} color="rgba(255, 255, 255, 0.8)" />
                         </TouchableOpacity>
                     )}
-                    <Text style={styles.messageText}>{comment.content}</Text>
+                    <Text style={[styles.messageText, !isMe && { paddingRight: 35 }]}>{comment.content}</Text>
                     <Text style={[styles.timestamp, isMe ? styles.timestampMe : styles.timestampOther]}>
                         {formatTime(comment.created_at)}
                     </Text>
@@ -744,19 +852,19 @@ const CommentsSection = ({ activity }) => {
                 </View>
             </Modal>
 
-            {/* Report Modal */}
+            {/* Report Modal - Moved outside of comments modal to ensure proper layering */}
             <Modal
                 visible={reportModalVisible}
-                animationType="slide"
+                animationType="fade"
                 transparent={true}
-                onRequestClose={() => setReportModalVisible(false)}
+                onRequestClose={closeReportModal}
             >
                 <View style={styles.reportModalOverlay}>
                     <View style={styles.reportModalContainer}>
                         <View style={styles.reportModalHeader}>
                             <Text style={styles.reportModalTitle}>Report Comment</Text>
                             <TouchableOpacity 
-                                onPress={() => setReportModalVisible(false)}
+                                onPress={closeReportModal}
                                 style={styles.reportModalClose}
                             >
                                 <Icons.X size={24} color="#fff" />
@@ -768,16 +876,21 @@ const CommentsSection = ({ activity }) => {
                         </Text>
 
                         <ScrollView style={styles.reportReasonsContainer}>
-                            {selectedComment && selectedComment.user.id !== user?.id && (
+                            {selectedComment && selectedComment.user && selectedComment.user.id !== user?.id ? (
                                 <TouchableOpacity
                                     style={styles.blockUserButton}
-                                    onPress={() => handleBlockUser(selectedComment.user.id, selectedComment.user.name)}
+                                    onPress={() => {
+                                        console.log('===== BLOCK BUTTON PRESSED =====');
+                                        console.log('User to block:', selectedComment.user);
+                                        logger.debug('Block button tapped in modal');
+                                        handleBlockUser(selectedComment.user.id, selectedComment.user.name);
+                                    }}
                                 >
                                     <Text style={styles.blockUserButtonText}>
                                         🚫 Block {selectedComment.user.name?.split(' ')[0] || 'User'}
                                     </Text>
                                 </TouchableOpacity>
-                            )}
+                            ) : null}
 
                             {[
                                 { value: 'spam', label: 'Spam or misleading' },
@@ -823,7 +936,7 @@ const CommentsSection = ({ activity }) => {
                         <View style={styles.reportModalButtons}>
                             <TouchableOpacity
                                 style={styles.reportCancelButton}
-                                onPress={() => setReportModalVisible(false)}
+                                onPress={closeReportModal}
                             >
                                 <Text style={styles.reportCancelText}>Cancel</Text>
                             </TouchableOpacity>
@@ -844,11 +957,15 @@ const CommentsSection = ({ activity }) => {
             </Modal>
 
             {/* Block User Confirmation Modal */}
+            {console.log('Block confirm modal render check:', { showBlockConfirm, userToBlock })}
             <Modal
                 visible={showBlockConfirm}
                 animationType="fade"
                 transparent={true}
-                onRequestClose={() => setShowBlockConfirm(false)}
+                onRequestClose={() => {
+                    setShowBlockConfirm(false);
+                    setUserToBlock(null);
+                }}
             >
                 <View style={styles.blockModalOverlay}>
                     <View style={styles.blockModalContainer}>
@@ -860,7 +977,10 @@ const CommentsSection = ({ activity }) => {
                         <View style={styles.blockModalButtons}>
                             <TouchableOpacity
                                 style={styles.blockCancelButton}
-                                onPress={() => setShowBlockConfirm(false)}
+                                onPress={() => {
+                                    setShowBlockConfirm(false);
+                                    setUserToBlock(null);
+                                }}
                             >
                                 <Text style={styles.blockCancelText}>Cancel</Text>
                             </TouchableOpacity>
@@ -1359,6 +1479,8 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(0, 0, 0, 0.7)',
         justifyContent: 'center',
         alignItems: 'center',
+        zIndex: 9999,
+        elevation: 9999,
     },
     reportModalContainer: {
         backgroundColor: '#201925',
@@ -1368,6 +1490,14 @@ const styles = StyleSheet.create({
         maxHeight: '80%',
         borderWidth: 1,
         borderColor: 'rgba(64, 51, 71, 0.3)',
+        elevation: 10,
+        shadowColor: '#000',
+        shadowOffset: {
+            width: 0,
+            height: 2,
+        },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
     },
     reportModalHeader: {
         flexDirection: 'row',

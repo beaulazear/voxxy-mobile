@@ -5,12 +5,8 @@
 
 import { logger } from './logger';
 
-// Network timeout in milliseconds
 const DEFAULT_TIMEOUT = 10000; // 10 seconds
 
-/**
- * Create a timeout promise that rejects after specified time
- */
 const createTimeoutPromise = (timeout) => {
   return new Promise((_, reject) => {
     setTimeout(() => {
@@ -31,6 +27,8 @@ export const safeApiCall = async (url, options = {}, timeout = DEFAULT_TIMEOUT) 
   
   try {
     logger.debug(`[${requestId}] API Request:`, url, options.method || 'GET');
+    logger.debug(`[${requestId}] Full URL:`, url);
+    logger.debug(`[${requestId}] Request body:`, options.body);
     
     // Validate inputs
     if (!url || typeof url !== 'string') {
@@ -117,7 +115,8 @@ export const safeApiCall = async (url, options = {}, timeout = DEFAULT_TIMEOUT) 
     }
     
     if (error.message.includes('timeout')) {
-      logger.error(`[${requestId}] Timeout Error:`, error.message);
+      // Log timeouts as debug instead of error to reduce noise in polling scenarios
+      logger.debug(`[${requestId}] Request timeout (expected during polling):`, error.message);
       throw new Error('Request timed out. Please check your connection and try again.');
     }
     
@@ -159,11 +158,70 @@ export const handleApiError = (error, userMessage = 'Something went wrong. Pleas
   }
   
   if (error.status === 403) {
+    // Check for backend moderation response format
+    if (error.error?.code === 'USER_SUSPENDED') {
+      const suspendedUntil = error.error?.suspended_until;
+      const reason = error.error?.reason || 'Policy violation';
+      if (suspendedUntil) {
+        return `Your account is suspended until ${new Date(suspendedUntil).toLocaleDateString()}. Reason: ${reason}`;
+      }
+      return `Your account has been temporarily suspended. Reason: ${reason}`;
+    }
+    
+    // Check for suspension/ban specific messages (legacy format)
+    const errorMsg = error.message?.toLowerCase() || '';
+    
+    if (errorMsg.includes('suspended')) {
+      // Extract suspension details if available
+      if (errorMsg.includes('until')) {
+        return error.message; // Use the full message with suspension end date
+      }
+      return 'Your account has been temporarily suspended. Please check your email for more details.';
+    }
+    
+    if (errorMsg.includes('banned')) {
+      return 'Your account has been banned. Please contact support@voxxyai.com for more information.';
+    }
+    
+    if (errorMsg.includes('not authorized') || errorMsg.includes('can_login')) {
+      return 'Your account access is currently restricted. Please contact support for assistance.';
+    }
+    
     return 'You do not have permission to perform this action.';
+  }
+
+  // Handle 451 status code for permanent bans
+  if (error.status === 451) {
+    if (error.error?.code === 'USER_BANNED') {
+      const reason = error.error?.reason || 'Severe policy violation';
+      return `Your account has been permanently banned. Reason: ${reason}. Contact support@voxxyai.com for appeals.`;
+    }
+    return 'Your account has been permanently banned due to policy violations. Contact support@voxxyai.com for appeals.';
   }
   
   if (error.status === 404) {
     return 'The requested resource was not found.';
+  }
+  
+  if (error.status === 422) {
+    // Handle validation errors (like duplicate reports and content filtering)
+    if (error.message?.includes('already reported') || error.message?.includes('Reporter has already')) {
+      return 'You have already reported this content.';
+    }
+    if (error.message?.includes('inappropriate') || error.message?.includes('spam') || error.message?.includes('profanity')) {
+      return 'This content violates our community guidelines. Please revise and try again.';
+    }
+    if (error.message?.includes('too long')) {
+      return 'Your message is too long. Please shorten it.';
+    }
+    if (error.message?.includes('too short')) {
+      return 'Your message is too short. Please add more detail.';
+    }
+    return error.message || 'Invalid request. Please check your input and try again.';
+  }
+  
+  if (error.status === 429) {
+    return 'Too many requests. Please wait a moment and try again.';
   }
   
   if (error.status >= 500) {
@@ -179,6 +237,73 @@ export const handleApiError = (error, userMessage = 'Something went wrong. Pleas
   }
   
   return userMessage;
+};
+
+/**
+ * Check if an error indicates the user is suspended or banned
+ */
+export const isModerationError = (error) => {
+  // Check new status codes
+  if (error.status === 451) return true; // Banned
+  if (error.status === 403) {
+    // Check for new backend format
+    if (error.error?.code === 'USER_SUSPENDED' || error.error?.code === 'USER_BANNED') {
+      return true;
+    }
+    // Check legacy format
+    const errorMsg = error.message?.toLowerCase() || '';
+    return errorMsg.includes('suspended') || errorMsg.includes('banned') || errorMsg.includes('can_login');
+  }
+  return false;
+};
+
+/**
+ * Extract moderation type and details from error
+ */
+export const getModerationStatus = (error) => {
+  // Check for 451 status (banned)
+  if (error.status === 451) {
+    return {
+      type: 'banned',
+      reason: error.error?.reason || 'Severe policy violation',
+      permanent: true
+    };
+  }
+  
+  // Check for 403 status
+  if (error.status === 403) {
+    // New backend format
+    if (error.error?.code === 'USER_BANNED') {
+      return {
+        type: 'banned',
+        reason: error.error?.reason || 'Severe policy violation',
+        permanent: true
+      };
+    }
+    
+    if (error.error?.code === 'USER_SUSPENDED') {
+      return {
+        type: 'suspended',
+        reason: error.error?.reason || 'Policy violation',
+        until: error.error?.suspended_until,
+        permanent: false
+      };
+    }
+    
+    // Legacy format
+    const errorMsg = error.message?.toLowerCase() || '';
+    if (errorMsg.includes('banned')) {
+      return { type: 'banned', permanent: true };
+    }
+    if (errorMsg.includes('suspended')) {
+      return { type: 'suspended', permanent: false };
+    }
+    if (errorMsg.includes('can_login')) {
+      return { type: 'restricted', permanent: false };
+    }
+  }
+  
+  return null;
 };
 
 export default safeApiCall;

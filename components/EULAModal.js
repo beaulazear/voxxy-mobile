@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import {
     Modal,
     View,
@@ -8,25 +8,149 @@ import {
     StyleSheet,
     SafeAreaView,
     Linking,
+    Alert,
+    ActivityIndicator,
 } from 'react-native';
 import { Shield, AlertTriangle, Users, FileText, Check } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import colors from '../styles/Colors';
+import { API_URL } from '../config';
+import { UserContext } from '../context/UserContext';
+import { safeAuthApiCall, handleApiError } from '../utils/safeApiCall';
+import { logger } from '../utils/logger';
 
 export default function EULAModal({ visible, onAccept, onDecline }) {
     const [agreedToTerms, setAgreedToTerms] = useState(false);
     const [agreedToContent, setAgreedToContent] = useState(false);
+    const [agreedToPrivacy, setAgreedToPrivacy] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
+    const { user } = useContext(UserContext);
+
+    const POLICY_VERSION = '1.0.0'; // Match backend version
 
     const handleAccept = async () => {
         if (!agreedToTerms || !agreedToContent) {
-            alert('Please agree to both the Terms of Service and Community Guidelines to continue');
+            Alert.alert('Required', 'Please agree to both the Terms of Service and Community Guidelines to continue');
             return;
         }
         
-        await AsyncStorage.setItem('eulaAcceptedDate', new Date().toISOString());
-        await AsyncStorage.setItem('eulaVersion', '1.1');
-        await AsyncStorage.setItem('contentGuidelinesAccepted', 'true');
-        onAccept();
+        setSubmitting(true);
+
+        try {
+            // If user is logged in, sync with backend
+            if (user && user.token) {
+                const policyEndpoint = `${API_URL}/accept_policies`;
+                logger.debug('========== POLICY ACCEPTANCE DEBUG ==========');
+                logger.debug('Attempting to sync policy acceptance with backend');
+                logger.debug('Full API URL:', policyEndpoint);
+                logger.debug('Token present:', !!user.token);
+                logger.debug('API_URL base:', API_URL);
+                logger.debug('User ID:', user?.id);
+                logger.debug('Policies being accepted:', {
+                    terms: agreedToTerms,
+                    privacy: true, // Always true since we're not showing privacy checkbox separately
+                    guidelines: agreedToContent
+                });
+                logger.debug('===========================================');
+                
+                const response = await safeAuthApiCall(
+                    policyEndpoint,
+                    user.token,
+                    {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            accept_terms: agreedToTerms,
+                            accept_privacy: true, // Always accept privacy since it's bundled with terms
+                            accept_guidelines: agreedToContent,
+                            terms_version: POLICY_VERSION,
+                            privacy_version: POLICY_VERSION,
+                            guidelines_version: POLICY_VERSION
+                        })
+                    }
+                );
+
+                if (response) {
+                    logger.debug('Policies accepted on backend successfully:', response);
+                    
+                    // Store locally as backup with successful sync flag
+                    await AsyncStorage.setItem('policies_accepted', JSON.stringify({
+                        timestamp: new Date().toISOString(),
+                        terms_version: POLICY_VERSION,
+                        privacy_version: POLICY_VERSION,
+                        guidelines_version: POLICY_VERSION,
+                        synced_with_backend: true
+                    }));
+                    
+                    // Also store old keys for backward compatibility
+                    await AsyncStorage.setItem('eulaAcceptedDate', new Date().toISOString());
+                    await AsyncStorage.setItem('eulaVersion', POLICY_VERSION);
+                    
+                    logger.debug('Policies successfully synced with backend and stored locally');
+                } else {
+                    throw new Error('Invalid response from policy acceptance endpoint');
+                }
+            } else {
+                // For users not logged in yet (during signup), store locally
+                await AsyncStorage.setItem('policies_accepted', JSON.stringify({
+                    timestamp: new Date().toISOString(),
+                    terms_version: POLICY_VERSION,
+                    privacy_version: POLICY_VERSION,
+                    guidelines_version: POLICY_VERSION,
+                    synced_with_backend: false,
+                    pending_sync: true
+                }));
+                
+                // Also store old keys for backward compatibility
+                await AsyncStorage.setItem('eulaAcceptedDate', new Date().toISOString());
+                await AsyncStorage.setItem('eulaVersion', POLICY_VERSION);
+                await AsyncStorage.setItem('contentGuidelinesAccepted', 'true');
+            }
+
+            setSubmitting(false);
+            onAccept();
+        } catch (error) {
+            // Only log non-404 errors (404 is expected during signup before backend deployment)
+            if (error.status !== 404) {
+                logger.error('Failed to accept policies:', {
+                    error: error.message,
+                    status: error.status,
+                    stack: error.stack
+                });
+            } else {
+                logger.debug('Policy endpoint not found (expected during signup) - saving locally');
+            }
+            
+            // Check if it's a network/connection error or actual API error
+            const isNetworkError = !error.status || error.message?.includes('Network') || error.message?.includes('timeout');
+            
+            // Still allow user to proceed if backend fails (store locally)
+            await AsyncStorage.setItem('policies_accepted', JSON.stringify({
+                timestamp: new Date().toISOString(),
+                terms_version: POLICY_VERSION,
+                privacy_version: POLICY_VERSION,
+                guidelines_version: POLICY_VERSION,
+                synced_with_backend: false,
+                pending_sync: true,
+                error: error.message
+            }));
+
+            if (isNetworkError) {
+                Alert.alert(
+                    'Connection Issue',
+                    'Policies accepted locally. We\'ll sync with our servers when connection is restored.',
+                    [{ text: 'OK', onPress: onAccept }]
+                );
+            } else {
+                // For actual API errors (including 404), don't show confusing message
+                if (error.status !== 404) {
+                    logger.debug('Policy sync failed but allowing user to continue');
+                }
+                // Just proceed without showing an alert since policies are saved locally
+                onAccept();
+            }
+            
+            setSubmitting(false);
+        }
     };
 
     const GuidelineItem = ({ icon: Icon, title, description }) => (
@@ -61,7 +185,7 @@ export default function EULAModal({ visible, onAccept, onDecline }) {
 
                     <View style={styles.section}>
                         <Text style={styles.sectionTitle}>
-                            <AlertTriangle size={20} color="#FF6B6B" /> Zero Tolerance Policy
+                            <AlertTriangle size={18} color="#FF6B6B" /> Zero Tolerance Policy
                         </Text>
                         <Text style={styles.warningText}>
                             Voxxy has a zero tolerance policy for objectionable content and abusive users. 
@@ -166,11 +290,15 @@ export default function EULAModal({ visible, onAccept, onDecline }) {
 
                 <View style={styles.buttonContainer}>
                     <TouchableOpacity
-                        style={[styles.acceptButton, (!agreedToTerms || !agreedToContent) && styles.disabledButton]}
+                        style={[styles.acceptButton, (!agreedToTerms || !agreedToContent || submitting) && styles.disabledButton]}
                         onPress={handleAccept}
-                        disabled={!agreedToTerms || !agreedToContent}
+                        disabled={!agreedToTerms || !agreedToContent || submitting}
                     >
-                        <Text style={styles.acceptButtonText}>I Agree & Continue</Text>
+                        {submitting ? (
+                            <ActivityIndicator color="#fff" />
+                        ) : (
+                            <Text style={styles.acceptButtonText}>I Agree & Continue</Text>
+                        )}
                     </TouchableOpacity>
                     
                     <TouchableOpacity

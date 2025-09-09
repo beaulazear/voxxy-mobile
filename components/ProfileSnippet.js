@@ -627,7 +627,7 @@ export default function ProfileSnippet({ scrollY = new Animated.Value(0), onScro
             />
           </View>
           <Text style={styles.statNumber}>{userFavorites?.length || 0}</Text>
-          <Text style={styles.statLabel}>Favorite{'\n'}Activities</Text>
+          <Text style={styles.statLabel}>Favorite{'\n'}Venues</Text>
           <View style={styles.statChevron}>
             <ChevronRight stroke="rgba(255, 255, 255, 0.6)" width={14} height={14} strokeWidth={2} />
           </View>

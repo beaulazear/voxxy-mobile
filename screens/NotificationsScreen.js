@@ -11,7 +11,6 @@ import {
     Alert,
     StatusBar,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { ArrowLeft, Bell, CheckCircle, User, Calendar, MessageCircle, X, Clock } from 'react-native-feather';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { UserContext } from '../context/UserContext';
@@ -165,6 +164,13 @@ export default function NotificationsScreen() {
 
     const fetchNotifications = async (isRefresh = false) => {
         try {
+            // Check if user token exists before making the call
+            if (!user?.token) {
+                logger.debug('No user token available for fetching notifications');
+                setLoading(false);
+                return;
+            }
+            
             if (!isRefresh) setLoading(true);
             
             const data = await safeAuthApiCall(`${API_URL}/notifications`, user.token, { method: 'GET' });
@@ -292,8 +298,10 @@ export default function NotificationsScreen() {
     };
 
     useEffect(() => {
-        fetchNotifications();
-    }, []);
+        if (user?.token) {
+            fetchNotifications();
+        }
+    }, [user?.token]);
 
     const onRefresh = () => {
         setRefreshing(true);

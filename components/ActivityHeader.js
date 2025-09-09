@@ -5,23 +5,15 @@ import {
     StyleSheet,
     TouchableOpacity,
     Image,
-    Modal,
-    Animated,
-    Alert,
-    ScrollView,
-    Platform,
+    Animated
 } from 'react-native'
-import { LinearGradient } from 'expo-linear-gradient'
 import {
     ArrowLeft,
     Edit,
     Trash,
     LogOut,
-    HelpCircle,
-    X,
     Star,
     Clock,
-    CheckCircle,
     Flag
 } from 'react-native-feather'
 import {
@@ -32,12 +24,11 @@ import {
 } from 'lucide-react-native'
 import { useNavigation } from '@react-navigation/native'
 import { UserContext } from '../context/UserContext'
-import FinalizeActivityModal from './FinalizeActivityModal'
 
 import DefaultIcon from '../assets/icon.png'
 import { API_URL } from '../config'
 import { logger } from '../utils/logger';
-import { avatarMap, getUserDisplayImage, getAvatarSource } from '../utils/avatarManager';
+import { avatarMap } from '../utils/avatarManager';
 
 const ACTIVITY_CONFIG = {
     'Restaurant': {
@@ -85,49 +76,55 @@ function getActivityDisplayInfo(activityType) {
 function getActivityStatusInfo(activity) {
     const { active, collecting, voting, finalized, completed } = activity;
     const activityInfo = getActivityDisplayInfo(activity.activity_type);
-    
-    // Always use the activity type's icon and display text
+
+    // Base info with activity type's icon but phase-based text
     const baseInfo = {
-        text: activityInfo.displayText,
         icon: activityInfo.icon,
         color: activityInfo.iconColor,
-        bgColor: `rgba(${parseInt(activityInfo.iconColor.slice(1,3), 16)}, ${parseInt(activityInfo.iconColor.slice(3,5), 16)}, ${parseInt(activityInfo.iconColor.slice(5,7), 16)}, 0.15)`
+        bgColor: `rgba(${parseInt(activityInfo.iconColor.slice(1, 3), 16)}, ${parseInt(activityInfo.iconColor.slice(3, 5), 16)}, ${parseInt(activityInfo.iconColor.slice(5, 7), 16)}, 0.15)`
     };
-    
+
     if (completed) {
         return {
             ...baseInfo,
+            text: 'Completed',
             color: '#28a745',
             bgColor: 'rgba(40, 167, 69, 0.15)'
         };
     }
-    
+
     if (finalized) {
         return {
             ...baseInfo,
+            text: 'Finalized',
             color: '#f39c12',
             bgColor: 'rgba(243, 156, 18, 0.15)'
         };
     }
-    
+
     if (voting) {
         return {
             ...baseInfo,
+            text: 'Voxxy Picks',
             color: '#cc31e8',
             bgColor: 'rgba(204, 49, 232, 0.15)'
         };
     }
-    
+
     if (collecting) {
         return {
             ...baseInfo,
+            text: 'Collecting',
             color: '#4ECDC4',
             bgColor: 'rgba(78, 205, 196, 0.15)'
         };
     }
-    
-    // Default/draft state
-    return baseInfo;
+
+    // Default/draft state - show activity type
+    return {
+        ...baseInfo,
+        text: activityInfo.displayText
+    };
 }
 
 // Helper function to safely get avatar (copied from ParticipantsSection)
@@ -141,10 +138,8 @@ const getAvatarFromMap = (filename) => {
 }
 
 // Export sticky header component
-export function ActivityStickyHeader({ activity, isOwner, onBack, onEdit, onDelete, onLeave }) {
+export function ActivityStickyHeader({ activity, isOwner, onBack, onEdit, onDelete, onLeave, onReport }) {
     const { user } = useContext(UserContext)
-    const [helpVisible, setHelpVisible] = useState(false)
-    const [helpStep, setHelpStep] = useState(0)
     const [isBouncing, setIsBouncing] = useState(true)
     const bounceAnim = useRef(new Animated.Value(0)).current
     const navigation = useNavigation()
@@ -158,22 +153,22 @@ export function ActivityStickyHeader({ activity, isOwner, onBack, onEdit, onDele
         if (activity.completed) {
             return "completed";
         }
-        
+
         if (activity.finalized) {
             // Steps 1-3 are done, step 4 (share) is active
             return stepIndex < 3 ? "completed" : stepIndex === 3 ? "active" : "pending";
         }
-        
+
         if (activity.voting) {
             // Step 1 is done, step 2 is active, rest pending
             return stepIndex === 0 ? "completed" : stepIndex === 1 ? "active" : "pending";
         }
-        
+
         if (activity.collecting) {
             // Step 1 is active, rest pending
             return stepIndex === 0 ? "active" : "pending";
         }
-        
+
         // Default: all pending
         return "pending";
     };
@@ -259,10 +254,6 @@ export function ActivityStickyHeader({ activity, isOwner, onBack, onEdit, onDele
         }
     }, [])
 
-    const handleHelpClose = () => {
-        setHelpStep(0)
-        setHelpVisible(false)
-    }
 
     return (
         <>
@@ -273,18 +264,20 @@ export function ActivityStickyHeader({ activity, isOwner, onBack, onEdit, onDele
                             <ArrowLeft stroke="#fff" width={20} height={20} />
                         </TouchableOpacity>
 
-                        <TouchableOpacity
-                            style={styles.helpButton}
-                            onPress={() => setHelpVisible(true)}
-                        >
-                            <HelpCircle stroke="#fff" width={20} height={20} />
-                        </TouchableOpacity>
+                        {onReport && activity.finalized && (
+                            <TouchableOpacity
+                                style={styles.reportButtonLeft}
+                                onPress={onReport}
+                            >
+                                <Flag stroke="#FFA500" width={20} height={20} />
+                            </TouchableOpacity>
+                        )}
                     </View>
 
                     <View style={styles.centerContent}>
                         <View style={[
                             styles.activityStatusChip,
-                            { 
+                            {
                                 backgroundColor: statusInfo.bgColor,
                                 borderColor: statusInfo.color
                             }
@@ -307,18 +300,18 @@ export function ActivityStickyHeader({ activity, isOwner, onBack, onEdit, onDele
                     <View style={styles.rightActions}>
                         {isOwner ? (
                             <>
-                                <TouchableOpacity 
+                                <TouchableOpacity
                                     style={[
-                                        styles.editButton, 
+                                        styles.editButton,
                                         activity.completed && styles.editButtonDisabled
-                                    ]} 
+                                    ]}
                                     onPress={activity.completed ? undefined : onEdit}
                                     disabled={activity.completed}
                                 >
-                                    <Edit 
-                                        stroke={activity.completed ? "#6c757d" : "#8b5cf6"} 
-                                        width={20} 
-                                        height={20} 
+                                    <Edit
+                                        stroke={activity.completed ? "#6c757d" : "#8b5cf6"}
+                                        width={20}
+                                        height={20}
                                     />
                                 </TouchableOpacity>
                                 <TouchableOpacity style={styles.deleteButton} onPress={onDelete}>
@@ -326,144 +319,16 @@ export function ActivityStickyHeader({ activity, isOwner, onBack, onEdit, onDele
                                 </TouchableOpacity>
                             </>
                         ) : (
-                            <TouchableOpacity style={styles.leaveButton} onPress={onLeave}>
-                                <LogOut stroke="#ef4444" width={18} height={18} />
-                                <Text style={styles.leaveButtonText}>Leave</Text>
-                            </TouchableOpacity>
+                            <>
+                                <TouchableOpacity style={styles.leaveButton} onPress={onLeave}>
+                                    <LogOut stroke="#ef4444" width={18} height={18} />
+                                    <Text style={styles.leaveButtonText}>Leave</Text>
+                                </TouchableOpacity>
+                            </>
                         )}
                     </View>
                 </View>
             </View>
-
-            {/* Help Modal */}
-            <Modal
-                visible={helpVisible}
-                transparent={true}
-                animationType="fade"
-                onRequestClose={handleHelpClose}
-            >
-                <View style={styles.helpOverlay}>
-                    <View style={styles.helpModal}>
-                        <LinearGradient
-                            colors={['#8b5cf6', '#7c3aed']}
-                            style={styles.helpGradientHeader}
-                        >
-                            <View style={styles.helpHeader}>
-                                <View style={styles.helpTitleContainer}>
-                                    <Text style={styles.helpTitle}>How It Works</Text>
-                                    <Text style={styles.helpSubtitle}>Your journey to the perfect plan</Text>
-                                </View>
-                                <TouchableOpacity style={styles.helpCloseButton} onPress={handleHelpClose}>
-                                    <X stroke="#fff" width={20} height={20} />
-                                </TouchableOpacity>
-                            </View>
-                        </LinearGradient>
-
-                        <ScrollView style={styles.helpContent} showsVerticalScrollIndicator={false}>
-                            {/* Progress Indicator */}
-                            <View style={styles.progressContainer}>
-                                {steps.map((_, index) => (
-                                    <View key={index} style={styles.progressWrapper}>
-                                        <TouchableOpacity
-                                            style={[
-                                                styles.progressDot,
-                                                index === helpStep && styles.progressDotActive,
-                                                index < helpStep && styles.progressDotCompleted
-                                            ]}
-                                            onPress={() => setHelpStep(index)}
-                                        >
-                                            {index < helpStep ? (
-                                                <CheckCircle stroke="#fff" width={12} height={12} />
-                                            ) : (
-                                                <Text style={styles.progressNumber}>{index + 1}</Text>
-                                            )}
-                                        </TouchableOpacity>
-                                        {index < steps.length - 1 && (
-                                            <View style={[
-                                                styles.progressLine,
-                                                index < helpStep && styles.progressLineCompleted
-                                            ]} />
-                                        )}
-                                    </View>
-                                ))}
-                            </View>
-
-                            {/* Current Step Content */}
-                            <View style={styles.stepContainer}>
-                                <View style={[
-                                    styles.stepIconContainer,
-                                    steps[helpStep].status === 'active' && styles.stepIconActive,
-                                    steps[helpStep].status === 'completed' && styles.stepIconCompleted
-                                ]}>
-                                    <Text style={styles.stepIcon}>{steps[helpStep].icon}</Text>
-                                </View>
-                                
-                                <View style={styles.stepHeader}>
-                                    <Text style={styles.stepNumber}>Step {steps[helpStep].step}</Text>
-                                    <View style={[
-                                        styles.stepStatusBadge,
-                                        steps[helpStep].status === 'active' && styles.statusBadgeActive,
-                                        steps[helpStep].status === 'completed' && styles.statusBadgeCompleted
-                                    ]}>
-                                        <Text style={[
-                                            styles.stepStatusText,
-                                            steps[helpStep].status === 'active' && styles.statusTextActive,
-                                            steps[helpStep].status === 'completed' && styles.statusTextCompleted
-                                        ]}>
-                                            {steps[helpStep].status === 'active' ? 'Current' : 
-                                             steps[helpStep].status === 'completed' ? 'Done' : 'Upcoming'}
-                                        </Text>
-                                    </View>
-                                </View>
-                                
-                                <Text style={styles.stepTitle}>{steps[helpStep].title}</Text>
-                                <Text style={styles.stepDescription}>{steps[helpStep].desc}</Text>
-                            </View>
-
-                        </ScrollView>
-
-                        <View style={styles.helpNavigation}>
-                            <TouchableOpacity
-                                style={[styles.navButton, styles.navButtonSecondary, helpStep === 0 && styles.navButtonDisabled]}
-                                onPress={() => setHelpStep(s => Math.max(0, s - 1))}
-                                disabled={helpStep === 0}
-                            >
-                                <ArrowLeft stroke={helpStep === 0 ? '#64748b' : '#8b5cf6'} width={18} height={18} />
-                                <Text style={[styles.navButtonText, styles.navButtonTextSecondary, helpStep === 0 && styles.navButtonTextDisabled]}>
-                                    Back
-                                </Text>
-                            </TouchableOpacity>
-
-                            <View style={styles.stepIndicator}>
-                                <Text style={styles.stepIndicatorText}>{helpStep + 1} of {steps.length}</Text>
-                            </View>
-
-                            <TouchableOpacity
-                                style={[styles.navButton, styles.navButtonPrimary]}
-                                onPress={() => {
-                                    if (helpStep < steps.length - 1) {
-                                        setHelpStep(s => s + 1)
-                                    } else {
-                                        handleHelpClose()
-                                    }
-                                }}
-                            >
-                                <Text style={[styles.navButtonText, styles.navButtonTextPrimary]}>
-                                    {helpStep < steps.length - 1 ? 'Next' : 'Got it!'}
-                                </Text>
-                                {helpStep < steps.length - 1 && (
-                                    <ArrowLeft 
-                                        stroke="#fff" 
-                                        width={18} 
-                                        height={18} 
-                                        style={{ transform: [{ rotate: '180deg' }] }}
-                                    />
-                                )}
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                </View>
-            </Modal>
         </>
     )
 }
@@ -478,36 +343,36 @@ export default function ActivityHeader({
     const { user, setUser } = useContext(UserContext)
     const navigation = useNavigation()
     const token = user?.token
-    
+
     // Format date from YYYY-MM-DD to readable format
     const formatActivityDate = (dateString) => {
         if (!dateString) return null;
         const [year, month, day] = dateString.split('-');
         const date = new Date(year, month - 1, day);
-        return date.toLocaleDateString('en-US', { 
+        return date.toLocaleDateString('en-US', {
             weekday: 'long',
-            month: 'long', 
+            month: 'long',
             day: 'numeric',
             year: 'numeric'
         });
     };
-    
+
     // Extract and format time from datetime string
     const formatActivityTime = (timeString) => {
         if (!timeString) return null;
         // Extract time portion (assuming format like "2000-01-01T17:30:20.000Z")
         const timePart = timeString.split('T')[1];
         if (!timePart) return null;
-        
+
         // Extract hours and minutes
         const [hours, minutes] = timePart.split(':');
         const hour = parseInt(hours, 10);
         const minute = parseInt(minutes, 10);
-        
+
         // Convert to 12-hour format
         const period = hour >= 12 ? 'PM' : 'AM';
         const hour12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-        
+
         // Format with or without minutes
         if (minute === 0) {
             return `${hour12} ${period}`;
@@ -566,41 +431,28 @@ export default function ActivityHeader({
             {/* Main Content - only the scrollable parts */}
             <View style={styles.container}>
                 <View style={styles.mainContent}>
-                    {/* Title Section */}
-                    <View style={styles.titleWrapper}>
-                        <View style={styles.titleSection}>
-                            {ACTIVITY_CONFIG[activity.activity_type] && (() => {
-                                const IconComponent = ACTIVITY_CONFIG[activity.activity_type].icon;
-                                return (
-                                    <IconComponent
-                                        color={ACTIVITY_CONFIG[activity.activity_type].iconColor}
-                                        size={24}
-                                        strokeWidth={2}
-                                    />
-                                );
-                            })()}
-                            <Text style={styles.activityTitle}>
-                                {activity.finalized ? 'Activity Finalized' :
-                                 activity.voting ? 'Voxxy Picks' : 
-                                 activity.collecting ? 'Collecting' : 
-                                 activity.activity_name}
-                            </Text>
+                    {/* Title Section - Hide when voting (map view) */}
+                    {!activity.voting && (
+                        <View style={styles.titleWrapper}>
+                            <View style={styles.titleSection}>
+                                <Text style={styles.activityTitle}>
+                                    {activity.finalized ? 'Activity Finalized' :
+                                        activity.collecting ? `${activity.responses?.length || 0} Response${activity.responses?.length === 1 ? '' : 's'} Submitted` :
+                                            activity.activity_name}
+                                </Text>
+                            </View>
+                            {/* Subtitle based on activity state */}
+                            {activity.finalized ? (
+                                <Text style={styles.collectingSubtitle}>
+                                    We hope you have a great time! 🎉
+                                </Text>
+                            ) : activity.collecting ? (
+                                <Text style={styles.collectingSubtitle}>
+                                    Share your preferences to get personalized recommendations
+                                </Text>
+                            ) : null}
                         </View>
-                        {/* Subtitle based on activity state */}
-                        {activity.finalized ? (
-                            <Text style={styles.collectingSubtitle}>
-                                We hope you have a great time! 🎉
-                            </Text>
-                        ) : activity.voting ? (
-                            <Text style={styles.collectingSubtitle}>
-                                Review and select - tap cards to see more, favorite, or flag
-                            </Text>
-                        ) : activity.collecting ? (
-                            <Text style={styles.collectingSubtitle}>
-                                Help us create the perfect recommendations for you & your group!
-                            </Text>
-                        ) : null}
-                    </View>
+                    )}
 
                     {/* Finalized Date/Time Section */}
                     {activity.finalized && (activity.date_day || activity.date_time) && (
@@ -729,6 +581,17 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
 
+    reportButtonLeft: {
+        width: 40,
+        height: 40,
+        borderRadius: 12,
+        backgroundColor: 'rgba(255, 165, 0, 0.1)',
+        borderWidth: 1,
+        borderColor: 'rgba(255, 165, 0, 0.3)',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+
     activityStatusChip: {
         paddingHorizontal: 14,
         paddingVertical: 8,
@@ -801,11 +664,22 @@ const styles = StyleSheet.create({
         fontWeight: '600',
     },
 
+    reportButton: {
+        width: 44,
+        height: 44,
+        borderRadius: 14,
+        backgroundColor: 'rgba(255, 165, 0, 0.1)',
+        borderWidth: 1,
+        borderColor: '#FFA500',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 8,
+    },
+
     // Main Content Styles
     mainContent: {
-        gap: 32,
         paddingHorizontal: 12,
-        paddingVertical: 8,
+        paddingVertical: 0,
     },
 
     titleWrapper: {
@@ -816,7 +690,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 12,
+        gap: 6,
     },
 
     activityTitle: {

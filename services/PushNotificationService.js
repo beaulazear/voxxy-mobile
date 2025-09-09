@@ -53,10 +53,16 @@ class PushNotificationService {
                 this.expoPushToken = token.data;
                 return token.data;
             } catch (error) {
-                logger.error('Error in push notification setup:', error);
+                // Handle Expo service errors gracefully
+                if (error.message?.includes('503') || error.message?.includes('no healthy upstream')) {
+                    logger.debug('Expo push notification service temporarily unavailable - will retry later');
+                } else {
+                    logger.error('Error in push notification setup:', error);
+                }
                 notificationDebugger.logStateChange('REGISTRATION_ERROR', { 
                     error: error.message,
-                    stack: error.stack 
+                    stack: error.stack,
+                    isServiceError: error.message?.includes('503') || error.message?.includes('no healthy upstream')
                 });
                 return null;
             }
@@ -165,10 +171,10 @@ class PushNotificationService {
     // Clean up listeners
     cleanup() {
         if (this.notificationListener) {
-            Notifications.removeNotificationSubscription(this.notificationListener);
+            this.notificationListener.remove();
         }
         if (this.responseListener) {
-            Notifications.removeNotificationSubscription(this.responseListener);
+            this.responseListener.remove();
         }
     }
 

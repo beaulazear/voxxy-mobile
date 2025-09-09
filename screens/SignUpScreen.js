@@ -22,6 +22,7 @@ import { safeApiCall, handleApiError } from '../utils/safeApiCall';
 import { validateEmail, validateUserName, validatePassword } from '../utils/validation';
 import { ArrowLeft, Eye, EyeOff, Check, X } from 'lucide-react-native';
 import { TOUCH_TARGETS, SPACING } from '../styles/AccessibilityStyles';
+import { logger } from '../utils/logger';
 
 export default function SignUpScreen() {
     const { setUser } = useContext(UserContext);
@@ -160,19 +161,37 @@ export default function SignUpScreen() {
                 }
             );
 
+            // Log the response data to understand its structure
+            if (data) {
+                logger.debug('Signup response data:', {
+                    hasToken: !!data.token,
+                    hasAuthToken: !!data.authentication_token,
+                    hasJwt: !!data.jwt,
+                    dataKeys: Object.keys(data)
+                });
+                
+                // Ensure token field is properly set
+                if (data.authentication_token && !data.token) {
+                    data.token = data.authentication_token;
+                } else if (data.jwt && !data.token) {
+                    data.token = data.jwt;
+                }
+            }
+            
             // Success animation before navigation
             Animated.timing(fadeAnim, {
                 toValue: 0,
                 duration: 300,
                 useNativeDriver: true,
             }).start(() => {
-                setUser(data);
+                setUser(data || {});
                 navigation.replace('VerificationCode');
             });
         } catch (e) {
             // Display the actual error message from the server
             const errorMessage = e.message || handleApiError(e, 'Sign up failed. Please try again.');
             Alert.alert('Sign Up Error', errorMessage);
+            logger.error('Signup error:', e);
             setIsLoading(false);
         }
     };

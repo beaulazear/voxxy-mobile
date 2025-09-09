@@ -1,12 +1,13 @@
 // context/UserContext.js
 import React, { createContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Platform } from 'react-native';
+import { Alert } from 'react-native';
 import { API_URL } from '../config';
 import PushNotificationService from '../services/PushNotificationService';
+import BlockedUsersService from '../services/BlockedUsersService';
 import { logger } from '../utils/logger';
 import notificationDebugger from '../utils/notificationDebugger';
-import { safeApiCall, safeAuthApiCall, handleApiError } from '../utils/safeApiCall';
+import { safeAuthApiCall, handleApiError, isModerationError, getModerationStatus } from '../utils/safeApiCall';
 
 export const UserContext = createContext();
 
@@ -15,11 +16,13 @@ export const UserProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const [rateLimitRetryCount, setRateLimitRetryCount] = useState(0);
+  const [moderationStatus, setModerationStatus] = useState(null); // null, 'suspended', 'banned'
+  const [suspendedUntil, setSuspendedUntil] = useState(null);
+  const [needsPolicyAcceptance, setNeedsPolicyAcceptance] = useState(false);
 
   useEffect(() => {
     const loadUser = async () => {
       try {
-        // Check if we're in a rate limit backoff period
         const lastRateLimit = await AsyncStorage.getItem('lastRateLimit');
         if (lastRateLimit) {
           const timeSinceRateLimit = Date.now() - parseInt(lastRateLimit);
@@ -44,8 +47,78 @@ export const UserProvider = ({ children }) => {
           { method: 'GET' }
         );
 
+        // Check user moderation status
+        if (userData.status === 'suspended') {
+          setModerationStatus('suspended');
+          setSuspendedUntil(userData.suspended_until);
+          
+          // Show alert to user
+          Alert.alert(
+            'Account Suspended',
+            `Your account has been suspended until ${new Date(userData.suspended_until).toLocaleDateString()}. Reason: ${userData.suspension_reason || 'Policy violation'}`,
+            [{ text: 'OK' }]
+          );
+        } else if (userData.status === 'banned') {
+          setModerationStatus('banned');
+          
+          Alert.alert(
+            'Account Banned',
+            `Your account has been permanently banned. Reason: ${userData.ban_reason || 'Severe policy violation'}. Contact support@voxxyai.com for appeals.`,
+            [{ text: 'OK', onPress: () => logout() }]
+          );
+          return setLoading(false);
+        } else {
+          setModerationStatus(null);
+          setSuspendedUntil(null);
+        }
+
+        // Check policy acceptance status
+        if (userData.needs_policy_acceptance) {
+          setNeedsPolicyAcceptance(true);
+          logger.debug('User needs to accept updated policies');
+        } else {
+          setNeedsPolicyAcceptance(false);
+          
+          // Sync pending policy acceptance if needed
+          const pendingPolicies = await AsyncStorage.getItem('policies_accepted');
+          if (pendingPolicies) {
+            const policies = JSON.parse(pendingPolicies);
+            if (policies.pending_sync && !policies.synced_with_backend) {
+              try {
+                await safeAuthApiCall(
+                  `${API_URL}/accept_policies`,
+                  token,
+                  {
+                    method: 'POST',
+                    body: JSON.stringify({
+                      accept_terms: true,
+                      accept_privacy: true,
+                      accept_guidelines: true,
+                      terms_version: policies.terms_version,
+                      privacy_version: policies.privacy_version,
+                      guidelines_version: policies.guidelines_version
+                    })
+                  }
+                );
+                
+                // Update local storage to mark as synced
+                policies.synced_with_backend = true;
+                policies.pending_sync = false;
+                await AsyncStorage.setItem('policies_accepted', JSON.stringify(policies));
+                logger.debug('Synced pending policy acceptance with backend');
+              } catch (error) {
+                logger.error('Failed to sync pending policy acceptance:', error);
+              }
+            }
+          }
+        }
+
         const userWithToken = { ...userData, token };
         setUser(userWithToken);
+
+        // Initialize blocked users service with token
+        BlockedUsersService.setAuthToken(token);
+        await BlockedUsersService.initialize(token);
 
         // Clear rate limit tracking on successful login
         await AsyncStorage.removeItem('lastRateLimit');
@@ -147,6 +220,31 @@ export const UserProvider = ({ children }) => {
         { method: 'GET' }
       );
 
+      // Check user moderation status on login
+      if (userData.status === 'suspended') {
+        setModerationStatus('suspended');
+        setSuspendedUntil(userData.suspended_until);
+        
+        Alert.alert(
+          'Account Suspended',
+          `Your account has been suspended until ${new Date(userData.suspended_until).toLocaleDateString()}. Reason: ${userData.suspension_reason || 'Policy violation'}`,
+          [{ text: 'OK' }]
+        );
+      } else if (userData.status === 'banned') {
+        setModerationStatus('banned');
+        await AsyncStorage.removeItem('jwt');
+        
+        Alert.alert(
+          'Account Banned',
+          `Your account has been permanently banned. Reason: ${userData.ban_reason || 'Severe policy violation'}. Contact support@voxxyai.com for appeals.`,
+          [{ text: 'OK' }]
+        );
+        throw new Error('Account is banned');
+      } else {
+        setModerationStatus(null);
+        setSuspendedUntil(null);
+      }
+
       const userWithToken = { ...userData, token };
       setUser(userWithToken);
 
@@ -161,6 +259,27 @@ export const UserProvider = ({ children }) => {
       return userWithToken;
     } catch (error) {
       logger.error('Error during login:', error);
+      
+      // Check if error is due to moderation
+      if (isModerationError(error)) {
+        const status = getModerationStatus(error);
+        setModerationStatus(status);
+        
+        if (status === 'banned') {
+          Alert.alert(
+            'Account Banned',
+            handleApiError(error),
+            [{ text: 'OK' }]
+          );
+        } else if (status === 'suspended') {
+          Alert.alert(
+            'Account Suspended',
+            handleApiError(error),
+            [{ text: 'OK' }]
+          );
+        }
+      }
+      
       await AsyncStorage.removeItem('jwt');
       throw error;
     }
@@ -241,6 +360,41 @@ export const UserProvider = ({ children }) => {
         { method: 'GET' }
       );
 
+      // Check moderation status on refresh
+      if (userData.status === 'suspended') {
+        setModerationStatus('suspended');
+        setSuspendedUntil(userData.suspended_until);
+        
+        // Only show alert if status changed
+        if (moderationStatus !== 'suspended') {
+          Alert.alert(
+            'Account Suspended',
+            `Your account has been suspended until ${new Date(userData.suspended_until).toLocaleDateString()}. Reason: ${userData.suspension_reason || 'Policy violation'}`,
+            [{ text: 'OK' }]
+          );
+        }
+      } else if (userData.status === 'banned') {
+        setModerationStatus('banned');
+        
+        Alert.alert(
+          'Account Banned',
+          `Your account has been permanently banned. Reason: ${userData.ban_reason || 'Severe policy violation'}. Contact support@voxxyai.com for appeals.`,
+          [{ text: 'OK', onPress: () => logout() }]
+        );
+        return;
+      } else {
+        // Check if suspension was lifted
+        if (moderationStatus === 'suspended') {
+          Alert.alert(
+            'Suspension Lifted',
+            'Your account suspension has been lifted. Welcome back!',
+            [{ text: 'OK' }]
+          );
+        }
+        setModerationStatus(null);
+        setSuspendedUntil(null);
+      }
+
       const userWithToken = { ...userData, token: user.token };
       setUser(userWithToken);
       
@@ -260,6 +414,19 @@ export const UserProvider = ({ children }) => {
       return userWithToken;
     } catch (err) {
       logger.error('Failed to refresh user:', err);
+      
+      // Check if error is due to moderation
+      if (isModerationError(err)) {
+        const status = getModerationStatus(err);
+        setModerationStatus(status);
+        
+        Alert.alert(
+          status === 'banned' ? 'Account Banned' : 'Account Suspended',
+          handleApiError(err),
+          [{ text: 'OK', onPress: status === 'banned' ? () => logout() : undefined }]
+        );
+      }
+      
       // If unauthorized, clean up token
       if (err.status === 401 || err.status === 403) {
         await AsyncStorage.removeItem('jwt');
@@ -319,6 +486,9 @@ export const UserProvider = ({ children }) => {
       refreshActivity,
       unreadNotificationCount,
       setUnreadNotificationCount,
+      moderationStatus,
+      suspendedUntil,
+      needsPolicyAcceptance,
     }}>
       {children}
     </UserContext.Provider>

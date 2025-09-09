@@ -1,132 +1,110 @@
-import React from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import {
     View,
     Text,
     StyleSheet,
     TouchableOpacity,
-    ScrollView,
     SafeAreaView,
+    Dimensions,
+    Animated,
 } from 'react-native'
+import { LinearGradient } from 'expo-linear-gradient'
 import { 
     ArrowLeft, 
-    Coffee, 
-    Droplet,
-    Dices,
-    MapPin,
-    Film,
-    Book,
-    Edit,
-    RotateCcw,
-    Hamburger,
-    Martini
+    Utensils,
+    Wine,
+    Coffee,
+    Sparkles,
 } from 'lucide-react-native'
+import * as Haptics from 'expo-haptics'
+
+const { width: screenWidth } = Dimensions.get('window')
 
 export default function StartNewAdventure({ onTripSelect, onBack }) {
-    const adventures = [
-        {
-            name: 'Surprise Me!',
-            icon: RotateCcw,
-            iconColor: '#8b5cf6',
-            active: true,
-            isRandom: true
-        },
-        {
-            name: 'Food',
-            icon: Hamburger,
-            iconColor: '#FF6B6B',
-            active: true
-        },
-        {
-            name: 'Drinks',
-            icon: Martini,
-            iconColor: '#4ECDC4',
-            active: true
-        },
-        {
-            name: 'Game Night',
-            icon: Dices,
-            iconColor: '#A8E6CF',
-            active: true
-        },
-        {
-            name: 'Destination',
-            icon: MapPin,
-            iconColor: '#B8A5C4',
-            active: false
-        },
-        {
-            name: 'Movie Night',
-            icon: Film,
-            iconColor: '#FFB6C1',
-            active: false
-        },
-        {
-            name: 'Book Club',
-            icon: Book,
-            iconColor: '#9B59B6',
-            active: false
-        },
-        {
-            name: 'Art',
-            icon: Edit,
-            iconColor: '#E74C3C',
-            active: false
-        },
-    ]
+    const [selected, setSelected] = useState(null)
+    const scaleRestaurant = useRef(new Animated.Value(1)).current
+    const scaleBar = useRef(new Animated.Value(1)).current
+    const rotateRestaurant = useRef(new Animated.Value(0)).current
+    const rotateBar = useRef(new Animated.Value(0)).current
 
-    const handleSelection = (name) => {
-        const adventure = adventures.find(a => a.name === name)
-        if (!adventure?.active) return
+    // Fun entrance animation
+    useEffect(() => {
+        Animated.parallel([
+            Animated.spring(scaleRestaurant, {
+                toValue: 1,
+                from: 0.8,
+                tension: 50,
+                friction: 5,
+                useNativeDriver: true,
+                delay: 100,
+            }),
+            Animated.spring(scaleBar, {
+                toValue: 1,
+                from: 0.8,
+                tension: 50,
+                friction: 5,
+                useNativeDriver: true,
+                delay: 200,
+            }),
+        ]).start()
+    }, [])
+
+    const handleSelection = (type) => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+        setSelected(type)
         
-        if (adventure.isRandom) {
-            handleRandomSelection()
-        } else {
-            onTripSelect(name)
-        }
+        // Bounce animation on selection
+        const scale = type === 'Restaurant' ? scaleRestaurant : scaleBar
+        const rotate = type === 'Restaurant' ? rotateRestaurant : rotateBar
+        
+        Animated.parallel([
+            Animated.sequence([
+                Animated.timing(scale, {
+                    toValue: 1.05,
+                    duration: 100,
+                    useNativeDriver: true,
+                }),
+                Animated.spring(scale, {
+                    toValue: 1,
+                    friction: 3,
+                    tension: 40,
+                    useNativeDriver: true,
+                }),
+            ]),
+            Animated.sequence([
+                Animated.timing(rotate, {
+                    toValue: 0.03,
+                    duration: 100,
+                    useNativeDriver: true,
+                }),
+                Animated.timing(rotate, {
+                    toValue: -0.03,
+                    duration: 100,
+                    useNativeDriver: true,
+                }),
+                Animated.timing(rotate, {
+                    toValue: 0,
+                    duration: 100,
+                    useNativeDriver: true,
+                }),
+            ]),
+        ]).start()
+
+        // Navigate after animation
+        setTimeout(() => {
+            onTripSelect(type === 'Restaurant' ? 'Restaurant' : 'Cocktails')
+        }, 400)
     }
 
-    const handleRandomSelection = () => {
-        const activeAdventures = adventures.filter(adventure => adventure.active && !adventure.isRandom)
-        if (activeAdventures.length > 0) {
-            const randomIndex = Math.floor(Math.random() * activeAdventures.length)
-            const randomAdventure = activeAdventures[randomIndex]
-            onTripSelect(randomAdventure.name)
-        }
-    }
+    const rotateRestaurantInterpolate = rotateRestaurant.interpolate({
+        inputRange: [-1, 1],
+        outputRange: ['-30deg', '30deg'],
+    })
 
-    const renderActivityCard = (adventure, index) => {
-        const { name, icon: IconComponent, iconColor, active } = adventure
-
-        return (
-            <TouchableOpacity
-                key={name}
-                style={[
-                    styles.activityCard,
-                    active ? styles.activeCard : styles.inactiveCard,
-                    index % 2 === 0 ? styles.leftCard : styles.rightCard
-                ]}
-                onPress={() => handleSelection(name)}
-                activeOpacity={active ? 0.7 : 1}
-                disabled={!active}
-            >
-                <View style={[styles.iconContainer, { backgroundColor: active ? 'rgba(255, 255, 255, 0.05)' : 'transparent' }]}>
-                    <IconComponent 
-                        color={active ? '#E0E0E0' : '#666'} 
-                        size={32} 
-                        strokeWidth={2}
-                    />
-                </View>
-                <Text style={[styles.activityName, !active && styles.inactiveName]}>
-                    {name}
-                </Text>
-                {!active && (
-                    <View style={styles.comingSoonBadge}>
-                        <Text style={styles.comingSoonText}>Coming Soon</Text>
-                    </View>
-                )}
-            </TouchableOpacity>
-        )
-    }
+    const rotateBarInterpolate = rotateBar.interpolate({
+        inputRange: [-1, 1],
+        outputRange: ['-30deg', '30deg'],
+    })
 
     return (
         <SafeAreaView style={styles.container}>
@@ -135,25 +113,121 @@ export default function StartNewAdventure({ onTripSelect, onBack }) {
                 <TouchableOpacity style={styles.backButton} onPress={onBack}>
                     <ArrowLeft color="#fff" size={20} />
                 </TouchableOpacity>
-                <View style={styles.headerContent}>
-                    <Text style={styles.title}>
-                        Start New Activity
-                    </Text>
+                <View style={styles.titleContainer}>
+                    <Text style={styles.title}>Pick Your Vibe</Text>
+                    <View style={styles.sparkleContainer}>
+                        <Sparkles color="#FFE66D" size={24} />
+                    </View>
                 </View>
             </View>
 
-            {/* Activity Grid */}
-            <ScrollView
-                style={styles.scrollContainer}
-                contentContainerStyle={styles.scrollContent}
-                showsVerticalScrollIndicator={false}
-            >
-                <View style={styles.grid}>
-                    {adventures.map((adventure, index) =>
-                        renderActivityCard(adventure, index)
-                    )}
+            <Text style={styles.subtitle}>What sounds good tonight?</Text>
+
+            {/* Two Big Buttons */}
+            <View style={styles.buttonsContainer}>
+                {/* Restaurant Button */}
+                <Animated.View style={[
+                    styles.buttonWrapper,
+                    {
+                        transform: [
+                            { scale: scaleRestaurant },
+                            { rotate: rotateRestaurantInterpolate }
+                        ]
+                    }
+                ]}>
+                    <TouchableOpacity
+                        style={styles.optionButton}
+                        onPress={() => handleSelection('Restaurant')}
+                        activeOpacity={0.9}
+                    >
+                        <LinearGradient
+                            colors={selected === 'Restaurant' 
+                                ? ['#FF6B6B', '#FF5252'] 
+                                : ['#FF6B6B', '#FF8787']}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
+                            style={[
+                                styles.gradientButton,
+                                selected === 'Restaurant' && styles.selectedButton
+                            ]}
+                        >
+                            <View style={styles.iconCircle}>
+                                <Utensils color="#fff" size={40} strokeWidth={1.5} />
+                            </View>
+                            <Text style={styles.buttonTitle}>Restaurant</Text>
+                            <Text style={styles.buttonDescription}>
+                                Great food awaits
+                            </Text>
+                            {selected === 'Restaurant' && (
+                                <View style={styles.selectedBadge}>
+                                    <Text style={styles.selectedText}>✓ Selected</Text>
+                                </View>
+                            )}
+                        </LinearGradient>
+                    </TouchableOpacity>
+                </Animated.View>
+
+                {/* Bar Button */}
+                <Animated.View style={[
+                    styles.buttonWrapper,
+                    {
+                        transform: [
+                            { scale: scaleBar },
+                            { rotate: rotateBarInterpolate }
+                        ]
+                    }
+                ]}>
+                    <TouchableOpacity
+                        style={styles.optionButton}
+                        onPress={() => handleSelection('Bar')}
+                        activeOpacity={0.9}
+                    >
+                        <LinearGradient
+                            colors={selected === 'Bar' 
+                                ? ['#4ECDC4', '#44A39F'] 
+                                : ['#4ECDC4', '#6DD5CE']}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
+                            style={[
+                                styles.gradientButton,
+                                selected === 'Bar' && styles.selectedButton
+                            ]}
+                        >
+                            <View style={styles.iconCircle}>
+                                <Wine color="#fff" size={40} strokeWidth={1.5} />
+                            </View>
+                            <Text style={styles.buttonTitle}>Bar</Text>
+                            <Text style={styles.buttonDescription}>
+                                Cocktails, beer, and good vibes
+                            </Text>
+                            {selected === 'Bar' && (
+                                <View style={styles.selectedBadge}>
+                                    <Text style={styles.selectedText}>✓ Selected</Text>
+                                </View>
+                            )}
+                        </LinearGradient>
+                    </TouchableOpacity>
+                </Animated.View>
+            </View>
+
+            {/* Coming Soon Section */}
+            <View style={styles.comingSoonSection}>
+                <Text style={styles.comingSoonTitle}>More Coming Soon</Text>
+                <View style={styles.comingSoonGrid}>
+                    <View style={styles.comingSoonItem}>
+                        <Coffee color="rgba(255, 255, 255, 0.4)" size={20} />
+                        <Text style={styles.comingSoonText}>Coffee</Text>
+                    </View>
+                    <View style={styles.comingSoonItem}>
+                        <Text style={styles.comingSoonEmoji}>🥐</Text>
+                        <Text style={styles.comingSoonText}>Brunch</Text>
+                    </View>
+                    <View style={styles.comingSoonItem}>
+                        <Text style={styles.comingSoonEmoji}>🍰</Text>
+                        <Text style={styles.comingSoonText}>Dessert</Text>
+                    </View>
                 </View>
-            </ScrollView>
+            </View>
         </SafeAreaView>
     )
 }
@@ -169,7 +243,6 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         padding: 20,
         paddingTop: 10,
-        gap: 16,
     },
 
     backButton: {
@@ -183,134 +256,161 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
 
-    headerContent: {
+    titleContainer: {
         flex: 1,
+        flexDirection: 'row',
         alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 40, // Balance the back button
     },
 
     title: {
-        fontSize: 28,
-        fontWeight: '700',
+        fontSize: 32,
+        fontWeight: '800',
         color: '#fff',
-        textAlign: 'center',
-        marginBottom: 8,
         fontFamily: 'Montserrat_700Bold',
+        marginRight: 12,
     },
 
-    gradientText: {
-        // Note: React Native doesn't support text gradients natively
-        // You might want to use react-native-linear-gradient or similar
-        color: '#B931D6',
+    sparkleContainer: {
+        transform: [{ rotate: '15deg' }],
     },
 
     subtitle: {
-        fontSize: 16,
-        color: '#ccc',
+        fontSize: 18,
+        color: 'rgba(255, 255, 255, 0.7)',
         textAlign: 'center',
-        lineHeight: 22,
+        marginBottom: 40,
+        fontFamily: 'Montserrat_500Medium',
     },
 
-    scrollContainer: {
+    buttonsContainer: {
         flex: 1,
+        paddingHorizontal: 20,
+        gap: 20,
+        justifyContent: 'center',
+        paddingBottom: 40,
     },
 
-    scrollContent: {
+    buttonWrapper: {
+        width: '100%',
+    },
+
+    optionButton: {
+        width: '100%',
+        borderRadius: 24,
+        overflow: 'hidden',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.3,
+        shadowRadius: 12,
+        elevation: 8,
+    },
+
+    gradientButton: {
+        padding: 28,
+        alignItems: 'center',
+        borderRadius: 24,
+        borderWidth: 2,
+        borderColor: 'transparent',
+        position: 'relative',
+    },
+
+    selectedButton: {
+        borderColor: 'rgba(255, 255, 255, 0.4)',
+        borderWidth: 3,
+    },
+
+    iconCircle: {
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+        backgroundColor: 'rgba(255, 255, 255, 0.2)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 16,
+        borderWidth: 2,
+        borderColor: 'rgba(255, 255, 255, 0.3)',
+    },
+
+    buttonTitle: {
+        fontSize: 28,
+        fontWeight: '800',
+        color: '#fff',
+        marginBottom: 8,
+        fontFamily: 'Montserrat_700Bold',
+        textShadowColor: 'rgba(0, 0, 0, 0.2)',
+        textShadowOffset: { width: 0, height: 2 },
+        textShadowRadius: 4,
+    },
+
+    buttonDescription: {
+        fontSize: 16,
+        color: 'rgba(255, 255, 255, 0.9)',
+        fontFamily: 'Montserrat_500Medium',
+        textAlign: 'center',
+    },
+
+    selectedBadge: {
+        position: 'absolute',
+        top: 16,
+        right: 16,
+        backgroundColor: 'rgba(255, 255, 255, 0.2)',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.3)',
+    },
+
+    selectedText: {
+        color: '#fff',
+        fontSize: 12,
+        fontWeight: '600',
+        fontFamily: 'Montserrat_600SemiBold',
+    },
+
+    comingSoonSection: {
         padding: 20,
         paddingTop: 0,
     },
 
-    grid: {
+    comingSoonTitle: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: 'rgba(255, 255, 255, 0.4)',
+        textTransform: 'uppercase',
+        letterSpacing: 1,
+        marginBottom: 16,
+        fontFamily: 'Montserrat_600SemiBold',
+        textAlign: 'center',
+    },
+
+    comingSoonGrid: {
         flexDirection: 'row',
-        flexWrap: 'wrap',
-        justifyContent: 'space-between',
+        justifyContent: 'center',
         gap: 16,
     },
 
-    activityCard: {
-        width: '47%', // Slightly less than 50% to account for gap
-        backgroundColor: 'rgba(255, 255, 255, 0.04)',
-        borderRadius: 16,
-        padding: 24,
+    comingSoonItem: {
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        borderRadius: 12,
+        paddingVertical: 10,
+        paddingHorizontal: 16,
+        flexDirection: 'row',
         alignItems: 'center',
-        minHeight: 160,
-        justifyContent: 'space-between',
-        position: 'relative',
-        borderWidth: 1,
-    },
-
-    activeCard: {
-        borderColor: 'rgba(255, 255, 255, 0.15)',
-        backgroundColor: 'rgba(255, 255, 255, 0.06)',
-        opacity: 1,
-        shadowColor: 'rgba(0, 0, 0, 0.2)',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.5,
-        shadowRadius: 4,
-        elevation: 3,
-    },
-
-    inactiveCard: {
-        borderColor: 'rgba(255, 255, 255, 0.05)',
-        opacity: 0.4,
-    },
-
-    leftCard: {
-        // For any specific left card styling if needed
-    },
-
-    rightCard: {
-        // For any specific right card styling if needed
-    },
-
-    iconContainer: {
-        width: 60,
-        height: 60,
-        borderRadius: 30,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: 12,
+        gap: 8,
         borderWidth: 1,
         borderColor: 'rgba(255, 255, 255, 0.08)',
     },
 
-    emoji: {
-        fontSize: 48,
-        lineHeight: 56,
-        marginBottom: 8,
-        textAlign: 'center',
-    },
-
-    activityName: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: '#fff',
-        textAlign: 'center',
-        marginBottom: 8,
-        fontFamily: 'Montserrat_600SemiBold',
-    },
-
-    inactiveName: {
-        color: '#888',
-    },
-
-
-    comingSoonBadge: {
-        position: 'absolute',
-        top: 8,
-        right: 8,
-        backgroundColor: 'rgba(255, 255, 255, 0.1)',
-        paddingHorizontal: 6,
-        paddingVertical: 3,
-        borderRadius: 8,
-        borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.15)',
+    comingSoonEmoji: {
+        fontSize: 20,
     },
 
     comingSoonText: {
-        fontSize: 9,
-        fontWeight: '600',
-        color: 'rgba(255, 255, 255, 0.7)',
-        textTransform: 'uppercase',
-        letterSpacing: 0.3,
+        fontSize: 14,
+        color: 'rgba(255, 255, 255, 0.5)',
+        fontFamily: 'Montserrat_500Medium',
     },
 })

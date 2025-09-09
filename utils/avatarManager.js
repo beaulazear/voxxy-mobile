@@ -48,7 +48,15 @@ export const getUserDisplayImage = (userObj, API_URL) => {
         return { uri: profilePicUrl };
     }
     
-    // Check for avatar (relative path)
+    // Check for profilePic (from blocked users API)
+    if (userObj?.profilePic) {
+        const profilePicUrl = userObj.profilePic.startsWith('http')
+            ? userObj.profilePic
+            : `${API_URL}${userObj.profilePic}`;
+        return { uri: profilePicUrl };
+    }
+    
+    // Check for avatar (relative path - legacy)
     if (userObj?.avatar) {
         return getAvatarSource(userObj.avatar);
     }

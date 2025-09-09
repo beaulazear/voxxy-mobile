@@ -369,6 +369,29 @@ export default function LetsEatChatNew({ visible, onClose }) {
                     errorText: errorText,
                     payload: payload
                 })
+                
+                // Handle content filtering rejection
+                if (response.status === 422) {
+                    try {
+                        const errorData = JSON.parse(errorText)
+                        if (errorData.errors) {
+                            let errorMessage = 'Some content was rejected:\n'
+                            if (errorData.errors.activity_name) {
+                                errorMessage += '• Activity name contains inappropriate content\n'
+                            }
+                            if (errorData.errors.welcome_message) {
+                                errorMessage += '• Welcome message contains inappropriate content\n'
+                            }
+                            Alert.alert('Content Not Allowed', errorMessage.trim())
+                        } else {
+                            Alert.alert('Content Not Allowed', 'Your activity contains inappropriate content. Please revise and try again.')
+                        }
+                    } catch {
+                        Alert.alert('Content Not Allowed', 'Your activity contains inappropriate content. Please revise and try again.')
+                    }
+                    throw new Error('Content rejected by filter')
+                }
+                
                 throw new Error(`Failed to create activity: ${response.status} ${errorText}`)
             }
 

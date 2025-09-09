@@ -16,16 +16,16 @@ import {
     Keyboard,
     AppState,
 } from 'react-native'
-import { LinearGradient } from 'expo-linear-gradient'
 import { UserContext } from '../context/UserContext'
 import { useNavigation } from '@react-navigation/native'
-import { ArrowLeft, X } from 'react-native-feather'
+import { X } from 'react-native-feather'
 import ActivityHeader, { ActivityStickyHeader } from '../components/ActivityHeader'
 import ParticipantsSection from '../components/ParticipantsSection'
 import AIRecommendations from '../components/AIRecommendations'
 import CommentsSection from '../components/CommentsSection'
 import UpdateDetailsModal from '../components/UpdateDetailsModal'
 import FinalizeActivityModal from '../components/FinalizeActivityModal'
+import ReportModal from '../components/ReportModal'
 import { API_URL } from '../config'
 import { logger } from '../utils/logger';
 import { TOUCH_TARGETS, SPACING } from '../styles/AccessibilityStyles';
@@ -33,28 +33,28 @@ import { safeAuthApiCall, handleApiError } from '../utils/safeApiCall';
 
 const adventures = [
     {
-        name: 'Food',
+        name: 'Restaurant',
         emoji: '🍜',
         active: true,
-        description: 'Schedule your next group meal together.'
+        description: 'Find the perfect restaurant for your group.'
     },
     {
-        name: 'Drinks',
+        name: 'Bar',
         emoji: '🍸',
         active: true,
-        description: 'Plan your perfect night out with friends.'
+        description: 'Discover great bars and lounges.'
+    },
+    {
+        name: 'Brunch',
+        emoji: '☕',
+        active: true,
+        description: 'Find the best brunch spots.'
     },
     {
         name: 'Lets Meet',
         emoji: '⏰',
         active: true,
         description: 'Find a time that works for everyone.'
-    },
-    {
-        name: 'Game Night',
-        emoji: '🎮',
-        active: true,
-        description: 'Set up a memorable game night.'
     },
     {
         name: 'Find a Destination',
@@ -98,6 +98,7 @@ export default function ActivityDetailsScreen({ route }) {
     const [currentActivity, setCurrentActivity] = useState(null)
     const [refreshTrigger, setRefreshTrigger] = useState(false)
     const [showUpdateModal, setShowUpdateModal] = useState(false)
+    const [showReportModal, setShowReportModal] = useState(false)
     const [showFinalizeModal, setShowFinalizeModal] = useState(false)
     const [pinnedActivities, setPinnedActivities] = useState([])
     const [isUpdating, setIsUpdating] = useState(false)
@@ -142,9 +143,9 @@ export default function ActivityDetailsScreen({ route }) {
             logger.debug(`🔍 Activity state - Type: ${activity.activity_type}, Voting: ${activity.voting}, Finalized: ${activity.finalized}`)
             logger.debug(`🔍 Pinned activities in context: ${activity.pinned_activities?.length || 0}`)
 
-            // Fetch pinned activities for activity types that use them (Restaurant, Cocktails, Game Night)
+            // Fetch pinned activities for restaurant/bar types that use them (including legacy types)
             // Only fetch if activity is in voting phase or has pinned activities (not during preference collection phase)
-            if (['Restaurant', 'Cocktails', 'Game Night'].includes(activity.activity_type) && (activity.voting || activity.finalized)) {
+            if (['Restaurant', 'Cocktails', 'Brunch', 'Game Night'].includes(activity.activity_type) && (activity.voting || activity.finalized)) {
                 logger.debug(`🍽️ Fetching pinned activities for activity ${activityId} (voting: ${activity.voting}, finalized: ${activity.finalized})`)
                 
                 if (!token) {
@@ -182,7 +183,7 @@ export default function ActivityDetailsScreen({ route }) {
                 }
                 
                 fetchPinnedActivities()
-            } else if (['Restaurant', 'Cocktails', 'Game Night'].includes(activity.activity_type)) {
+            } else if (['Restaurant', 'Cocktails', 'Brunch', 'Game Night'].includes(activity.activity_type)) {
                 logger.debug(`⏸️ Skipping pinned activities fetch for activity ${activityId} - recommendations not yet generated`)
                 // Use context data as fallback only if we're not fetching from API
                 if (activity.pinned_activities && activity.pinned_activities.length > 0) {
@@ -252,7 +253,13 @@ export default function ActivityDetailsScreen({ route }) {
         const fetchLatestActivity = async () => {
             try {
                 // Don't fetch if modal is open or user is typing
-                if (showUpdateModal || showFinalizeModal) {
+                if (showUpdateModal || showFinalizeModal || showReportModal) {
+                    return;
+                }
+                
+                // Don't poll when in voting phase (map view) to prevent map glitches
+                if (currentActivity?.voting) {
+                    logger.debug('📊 Skipping poll in voting phase to prevent map re-renders');
                     return;
                 }
 
@@ -263,8 +270,18 @@ export default function ActivityDetailsScreen({ route }) {
                 );
 
                 if (data) {
-                    // Check if there are actual changes
-                    const hasChanges = JSON.stringify(data) !== JSON.stringify(currentActivity);
+                    // Create deep copies and remove fields that shouldn't trigger re-renders
+                    const oldData = JSON.parse(JSON.stringify(currentActivity || {}));
+                    const newData = JSON.parse(JSON.stringify(data));
+                    
+                    // Remove volatile fields that change frequently but don't affect UI
+                    delete oldData.updated_at;
+                    delete newData.updated_at;
+                    delete oldData.last_seen;
+                    delete newData.last_seen;
+                    
+                    // Check if there are actual meaningful changes
+                    const hasChanges = JSON.stringify(newData) !== JSON.stringify(oldData);
                     
                     if (hasChanges) {
                         logger.debug('📊 Activity data changed, updating...');
@@ -296,7 +313,10 @@ export default function ActivityDetailsScreen({ route }) {
                 }
             } catch (error) {
                 // Silent fail for polling - don't interrupt user
-                logger.debug('Polling error (silent):', error.message);
+                // Only log if it's not a timeout error (these are expected sometimes)
+                if (!error.message.includes('timeout')) {
+                    logger.debug('Polling error (silent):', error.message);
+                }
             }
         };
 
@@ -347,7 +367,7 @@ export default function ActivityDetailsScreen({ route }) {
             }
             appStateSubscription?.remove();
         };
-    }, [activityId, user?.token, showUpdateModal, showFinalizeModal]); // Removed currentActivity?.finalized to prevent re-renders
+    }, [activityId, user?.token]); // Only depend on essential values, not modal states
 
     // Auto-scroll to bottom when keyboard opens
     useEffect(() => {
@@ -500,6 +520,15 @@ export default function ActivityDetailsScreen({ route }) {
             Alert.alert('Error', userMessage)
         }
     }
+
+    const handleReportActivity = () => {
+        setShowReportModal(true);
+    };
+
+    const handleReportSubmitted = () => {
+        // Optional: show a success message or refresh
+        logger.debug('Activity report submitted');
+    };
 
     const handleLeaveActivity = async () => {
         Alert.alert(
@@ -721,44 +750,22 @@ export default function ActivityDetailsScreen({ route }) {
         <SafeAreaView style={styles.safe}>
             <StatusBar backgroundColor="#201925" barStyle="light-content" />
             
-            <KeyboardAvoidingView 
-                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                style={styles.keyboardAvoidingView}
-            >
-                <ScrollView
-                    ref={scrollViewRef}
-                    style={styles.scrollView}
-                    showsVerticalScrollIndicator={false}
-                    contentContainerStyle={styles.contentContainer}
-                    stickyHeaderIndices={[0]}
-                    keyboardShouldPersistTaps="handled"
-                >
-                    {/* Sticky header - only the top buttons */}
-                    <View>
-                        <ActivityStickyHeader
-                            activity={currentActivity}
-                            isOwner={isOwner}
-                            onBack={handleBack}
-                            onEdit={() => setShowUpdateModal(true)}
-                            onDelete={() => handleDelete(currentActivity.id)}
-                            onLeave={handleLeaveActivity}
-                        />
-                    </View>
-
-                    {/* Main header content that scrolls */}
-                    <ActivityHeader
+            {/* When in voting phase (map view), don't use ScrollView */}
+            {currentActivity.voting ? (
+                <View style={styles.fixedContainer}>
+                    {/* Sticky header */}
+                    <ActivityStickyHeader
                         activity={currentActivity}
                         isOwner={isOwner}
                         onBack={handleBack}
                         onEdit={() => setShowUpdateModal(true)}
-                        onFinalize={handleFinalize}
-                        onActivityUpdate={(updatedActivity) => {
-                            setCurrentActivity(updatedActivity)
-                            setRefreshTrigger(prev => !prev)
-                        }}
+                        onDelete={() => handleDelete(currentActivity.id)}
+                        onLeave={handleLeaveActivity}
+                        onReport={handleReportActivity}
                     />
-
-                    <View style={[styles.contentSection, pendingInvite && styles.blurred]}>
+                    
+                    {/* Map view takes remaining space */}
+                    <View style={styles.mapViewContent}>
                         <AIRecommendations
                             activity={currentActivity}
                             pinnedActivities={pinnedActivities}
@@ -768,19 +775,72 @@ export default function ActivityDetailsScreen({ route }) {
                             isOwner={isOwner}
                             onEdit={() => handleFinalize()}
                         />
+                    </View>
+                </View>
+            ) : (
+                <KeyboardAvoidingView 
+                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                    style={styles.keyboardAvoidingView}
+                >
+                    <ScrollView
+                        ref={scrollViewRef}
+                        style={styles.scrollView}
+                        showsVerticalScrollIndicator={false}
+                        contentContainerStyle={styles.contentContainer}
+                        stickyHeaderIndices={[0]}
+                        keyboardShouldPersistTaps="handled"
+                    >
+                        {/* Sticky header - only the top buttons */}
+                        <View>
+                            <ActivityStickyHeader
+                                activity={currentActivity}
+                                isOwner={isOwner}
+                                onBack={handleBack}
+                                onEdit={() => setShowUpdateModal(true)}
+                                onDelete={() => handleDelete(currentActivity.id)}
+                                onLeave={handleLeaveActivity}
+                                onReport={handleReportActivity}
+                            />
+                        </View>
 
-                        <ParticipantsSection
+                        {/* Main header content that scrolls */}
+                        <ActivityHeader
                             activity={currentActivity}
-                            votes={currentActivity.activity_type === 'Meeting' ? pinned : pinnedActivities}
                             isOwner={isOwner}
-                            onInvite={handleInvite}
-                            onRemoveParticipant={handleRemoveParticipant}
+                            onBack={handleBack}
+                            onEdit={() => setShowUpdateModal(true)}
+                            onFinalize={handleFinalize}
+                            onReport={handleReportActivity}
+                            onActivityUpdate={(updatedActivity) => {
+                                setCurrentActivity(updatedActivity)
+                                setRefreshTrigger(prev => !prev)
+                            }}
                         />
 
-                        <CommentsSection activity={currentActivity} />
-                    </View>
-                </ScrollView>
-            </KeyboardAvoidingView>
+                        <View style={[styles.contentSection, pendingInvite && styles.blurred]}>
+                            <AIRecommendations
+                                activity={currentActivity}
+                                pinnedActivities={pinnedActivities}
+                                setPinnedActivities={setPinnedActivities}
+                                setPinned={setPinned}
+                                setRefreshTrigger={setRefreshTrigger}
+                                isOwner={isOwner}
+                                onEdit={() => handleFinalize()}
+                            />
+
+                            <ParticipantsSection
+                                activity={currentActivity}
+                                votes={currentActivity.activity_type === 'Meeting' ? pinned : pinnedActivities}
+                                isOwner={isOwner}
+                                onInvite={handleInvite}
+                                onRemoveParticipant={handleRemoveParticipant}
+                            />
+
+                            <CommentsSection activity={currentActivity} />
+                        </View>
+                    </ScrollView>
+                </KeyboardAvoidingView>
+            )}
 
             {/* Loading Overlay */}
             {isUpdating && (
@@ -866,6 +926,16 @@ export default function ActivityDetailsScreen({ route }) {
                     }
                 }}
             />
+
+            <ReportModal
+                visible={showReportModal}
+                onClose={() => setShowReportModal(false)}
+                reportableType="Activity"
+                reportableId={currentActivity?.id}
+                reportableTitle={currentActivity?.activity_name}
+                reportableContent={currentActivity?.welcome_message}
+                onReportSubmitted={handleReportSubmitted}
+            />
         </SafeAreaView>
     )
 }
@@ -912,6 +982,15 @@ const styles = StyleSheet.create({
     safe: {
         flex: 1,
         backgroundColor: '#201925',
+    },
+
+    fixedContainer: {
+        flex: 1,
+        backgroundColor: '#201925',
+    },
+
+    mapViewContent: {
+        flex: 1,
     },
 
     keyboardAvoidingView: {

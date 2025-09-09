@@ -19,17 +19,14 @@ import { LinearGradient } from 'expo-linear-gradient'
 import { UserContext } from '../context/UserContext'
 import AccountCreatedScreen from './AccountCreatedScreen'
 import VoxxyFooter from '../components/VoxxyFooter'
-import { Users, HelpCircle, X, Plus, Zap, CheckCircle, BookOpen, Mail, Coffee, MapPin, Star, User, Activity, Hamburger, Martini, Dices, ChevronRight, ToggleLeft, ToggleRight, Grid3X3, List } from 'lucide-react-native'
-import CustomHeader from '../components/CustomHeader'
+import { Users, X, Plus, Zap, CheckCircle, BookOpen, Mail, Coffee, MapPin, Star, User, Activity, Hamburger, Martini, ChevronRight, ToggleLeft, ToggleRight, Grid3X3, List } from 'lucide-react-native'
 import ProfileSnippet from '../components/ProfileSnippet'
 import { useNavigation } from '@react-navigation/native';
-import PushNotificationService from '../services/PushNotificationService';
 import { API_URL } from '../config';
 import { Alert } from 'react-native';
 import { safeAuthApiCall, handleApiError } from '../utils/safeApiCall';
 import UnifiedActivityChat from '../components/UnifiedActivityChat';
 import { logger } from '../utils/logger';
-import PrivacyConsentModal from '../components/PrivacyConsentModal';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width: screenWidth } = Dimensions.get('window')
@@ -46,40 +43,48 @@ const PREVIEW_PAST = 3
 const CARD_MARGIN = 12
 const CARD_PADDING = 16
 
-// Activity type configuration
 const ACTIVITY_CONFIG = {
   'Restaurant': {
-    displayText: 'Food',
+    displayText: 'Restaurant',
     countdownText: 'Hope you and your crew savored every bite together! 🥂',
     countdownLabel: 'Meal Starts In',
     emoji: '🍜',
     icon: Hamburger,
     iconColor: '#FF6B6B'
   },
-  'Game Night': {
-    displayText: 'Game Night',
-    countdownText: 'Dice rolled, friendships scored—your group leveled up the fun! 🏆',
-    countdownLabel: 'Game Night Starts In',
-    emoji: '🎮',
-    icon: Dices,
-    iconColor: '#A8E6CF'
-  },
   'Cocktails': {
-    displayText: 'Drinks',
+    displayText: 'Bar',
     countdownText: 'Cheers to wild laughs and brighter memories—what a crew! 🥂',
     countdownLabel: 'Your Outing Starts In',
     emoji: '🍸',
     icon: Martini,
     iconColor: '#4ECDC4'
+  },
+  // Legacy support for existing activities
+  'Brunch': {
+    displayText: 'Brunch',
+    countdownText: 'Mimosas, pancakes, and perfect company—what a morning! 🥂',
+    countdownLabel: 'Brunch Starts In',
+    emoji: '☕',
+    icon: Coffee,
+    iconColor: '#FFA500'
+  },
+  'Game Night': {
+    displayText: 'Game Night',
+    countdownText: 'Dice rolled, friendships scored—your group leveled up the fun! 🏆',
+    countdownLabel: 'Game Night Starts In',
+    emoji: '🎮',
+    icon: Coffee, // Using Coffee as fallback since Dices was removed
+    iconColor: '#A8E6CF'
   }
 }
 
 // Helper function to get activity display info
 function getActivityDisplayInfo(activityType) {
   return ACTIVITY_CONFIG[activityType] || {
-    displayText: 'Lets Meet!',
-    countdownText: 'ACTIVITY STARTED',
-    countdownLabel: 'Activity Starts In',
+    displayText: 'Meetup',
+    countdownText: 'Hope you had a great time!',
+    countdownLabel: 'Meetup Starts In',
     emoji: '🎉',
     icon: Activity,
     iconColor: '#B8A5C4'
@@ -235,12 +240,10 @@ function CreateCard({ navigation, isLast, isInvitesEmpty = false, onPress }) {
   const iconRotation = useRef(new Animated.Value(0)).current
   const floatAnim = useRef(new Animated.Value(0)).current
   
-  // Cycling icons for activities
+  // Cycling icons for dining options
   const activityIcons = [
-    { component: Hamburger, color: '#FF6B6B', name: 'food' },
-    { component: Martini, color: '#4ECDC4', name: 'drinks' },
-    { component: Dices, color: '#FFE66D', name: 'games' },
-    { component: Users, color: '#A8E6CF', name: 'meeting' }
+    { component: Hamburger, color: '#FF6B6B', name: 'restaurant' },
+    { component: Martini, color: '#4ECDC4', name: 'bar' }
   ]
   
   const [currentIconIndex, setCurrentIconIndex] = useState(0)
@@ -434,12 +437,10 @@ function AnimatedStartNewActivityButton({ navigation, onPress }) {
   // Simple opacity animation for subtle glow effect
   const glowOpacity = useRef(new Animated.Value(0.3)).current
   
-  // Cycling icons for activities
+  // Cycling icons for dining options
   const activityIcons = [
-    { component: Hamburger, color: '#FF6B6B', name: 'food' },
-    { component: Martini, color: '#4ECDC4', name: 'drinks' },
-    { component: Dices, color: '#FFE66D', name: 'games' },
-    { component: Users, color: '#A8E6CF', name: 'meeting' }
+    { component: Hamburger, color: '#FF6B6B', name: 'restaurant' },
+    { component: Martini, color: '#4ECDC4', name: 'bar' }
   ]
   
   const [currentIconIndex, setCurrentIconIndex] = useState(0)
@@ -502,8 +503,8 @@ function AnimatedStartNewActivityButton({ navigation, onPress }) {
                 <CurrentIcon color="#ffffff" size={32} strokeWidth={2.5} />
               </View>
 
-              <Text style={styles.wideButtonTitle}>Start New Activity</Text>
-              <Text style={styles.wideButtonSubtitle}>Ready to create something amazing?</Text>
+              <Text style={styles.wideButtonTitle}>Plan Your Next Outing</Text>
+              <Text style={styles.wideButtonSubtitle}>Find the perfect spot to meet</Text>
 
               {/* Cycling micro icons */}
               <View style={styles.wideButtonMicroIcons}>
@@ -581,10 +582,8 @@ export default function HomeScreen({ route }) {
   const [loadingFavorites, setLoadingFavorites] = useState(false)
   const [selectedFavorite, setSelectedFavorite] = useState(null)
   const [showFavoriteModal, setShowFavoriteModal] = useState(false)
-  const [showAllFavoritesModal, setShowAllFavoritesModal] = useState(false)
   const [isListView, setIsListView] = useState(true)
   const [showActivityCreation, setShowActivityCreation] = useState(false)
-  const [showPrivacyConsent, setShowPrivacyConsent] = useState(false)
   const scrollY = useRef(new Animated.Value(0)).current
   const scrollRef = useRef(null)
 
@@ -602,35 +601,6 @@ export default function HomeScreen({ route }) {
     }
   }
 
-  // Check privacy consent on mount
-  useEffect(() => {
-    const checkPrivacyConsent = async () => {
-      const consentDate = await AsyncStorage.getItem('privacyConsentDate');
-      if (!consentDate && user) {
-        // User hasn't consented to privacy policy yet
-        setShowPrivacyConsent(true);
-      }
-    };
-    
-    if (user) {
-      checkPrivacyConsent();
-    }
-  }, [user]);
-
-  const handlePrivacyAccept = async () => {
-    setShowPrivacyConsent(false);
-    // After accepting privacy, they can enable notifications if they want
-  };
-
-  const handlePrivacyDecline = () => {
-    // User declined - they can still use the app but with limited features
-    setShowPrivacyConsent(false);
-    Alert.alert(
-      'Privacy Notice',
-      'You can review and accept our privacy policy anytime from Settings.',
-      [{ text: 'OK' }]
-    );
-  };
 
   // Fetch user favorites
   const fetchUserFavorites = async () => {
@@ -1309,7 +1279,7 @@ export default function HomeScreen({ route }) {
         inProgressCount={inProgress.length}
         pastCount={past.length}
         userFavorites={userFavorites}
-        onShowFavorites={() => setShowAllFavoritesModal(true)}
+        onShowFavorites={() => navigation.navigate('Favorites')}
       />
       <Animated.FlatList
         ref={scrollRef}
@@ -1465,7 +1435,7 @@ export default function HomeScreen({ route }) {
                       {filter === 'Favorites' && originalCounts['Favorites'] > displayedActivities.length && (
                         <TouchableOpacity
                           style={styles.seeAllListItem}
-                          onPress={() => setShowAllFavoritesModal(true)}
+                          onPress={() => navigation.navigate('Favorites')}
                           activeOpacity={0.7}
                         >
                           <View style={styles.seeAllListIcon}>
@@ -1505,7 +1475,7 @@ export default function HomeScreen({ route }) {
                             <SeeAllCard 
                               onPress={() => {
                                 if (filter === 'Favorites') {
-                                  setShowAllFavoritesModal(true)
+                                  navigation.navigate('Favorites')
                                 }
                               }}
                               totalCount={filter === 'Favorites' ? userFavorites.length : (originalCounts[filter] || 0)}
@@ -1665,107 +1635,6 @@ export default function HomeScreen({ route }) {
         </SafeAreaView>
       </Modal>
       
-      {/* All Favorites Modal */}
-      <Modal
-        visible={showAllFavoritesModal}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={() => setShowAllFavoritesModal(false)}
-      >
-        <SafeAreaView style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
-            <TouchableOpacity
-              style={styles.modalCloseButton}
-              onPress={() => setShowAllFavoritesModal(false)}
-            >
-              <X stroke="#fff" width={20} height={20} strokeWidth={2.5} />
-            </TouchableOpacity>
-            <Text style={styles.modalTitle}>All Favorites</Text>
-            <View style={styles.modalHeaderSpacer} />
-          </View>
-          
-          <FlatList
-            data={userFavorites.sort((a, b) => new Date(b.created_at || '1970-01-01') - new Date(a.created_at || '1970-01-01'))}
-            keyExtractor={(item) => String(item.id || `${item.user_id}-${item.pinned_activity_id}`)}
-            renderItem={({ item }) => {
-              // For favorites, item is a user_activity with its own title and address
-              const activity = item.activity || item.pinned_activity?.activity
-              const activityType = activity?.activity_type || 'Restaurant'
-              const displayInfo = getActivityDisplayInfo(activityType)
-              
-              return (
-                <TouchableOpacity
-                  style={styles.pastActivityItem}
-                  onPress={() => {
-                    setShowAllFavoritesModal(false)
-                    setSelectedFavorite(item)
-                    setShowFavoriteModal(true)
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.pastActivityIcon}>
-                    {displayInfo.icon && (
-                      <displayInfo.icon 
-                        color={displayInfo.iconColor} 
-                        size={24} 
-                        strokeWidth={2}
-                      />
-                    )}
-                  </View>
-                  <View style={styles.pastActivityContent}>
-                    <Text style={styles.pastActivityTitle}>{item.title || 'Unnamed'}</Text>
-                    <Text style={styles.pastActivityMeta}>
-                      {displayInfo.displayText} • {item.address ? item.address.split(',')[0] : 'Location not specified'}
-                    </Text>
-                    {item.price_range && (
-                      <View style={styles.favoritePriceContainer}>
-                        <Text style={styles.favoritePriceText}>{item.price_range}</Text>
-                      </View>
-                    )}
-                    {/* Saved on date */}
-                    {item.created_at && (
-                      <Text style={styles.modalSavedDate}>
-                        Saved on {new Date(item.created_at).toLocaleDateString('en-US', {
-                          year: 'numeric',
-                          month: 'long', 
-                          day: 'numeric'
-                        })}
-                      </Text>
-                    )}
-                  </View>
-                  <View style={styles.favoriteActions}>
-                    <TouchableOpacity
-                      style={styles.deleteFavoriteButton}
-                      onPress={(e) => {
-                        e.stopPropagation()
-                        Alert.alert(
-                          'Remove Favorite',
-                          'Are you sure you want to remove this favorite?',
-                          [
-                            { text: 'Cancel', style: 'cancel' },
-                            { 
-                              text: 'Remove', 
-                              style: 'destructive',
-                              onPress: () => deleteFavorite(item.id)
-                            }
-                          ]
-                        )
-                      }}
-                      activeOpacity={0.7}
-                    >
-                      <X stroke="#ff6b6b" width={18} height={18} />
-                    </TouchableOpacity>
-                    <ChevronRight stroke="#B8A5C4" width={20} height={20} />
-                  </View>
-                </TouchableOpacity>
-              )
-            }}
-            contentContainerStyle={styles.modalListContent}
-            showsVerticalScrollIndicator={false}
-            ItemSeparatorComponent={() => <View style={styles.pastActivitySeparator} />}
-          />
-        </SafeAreaView>
-      </Modal>
 
       {/* Unified Activity Creation Modal */}
       <UnifiedActivityChat
@@ -1773,13 +1642,6 @@ export default function HomeScreen({ route }) {
         onClose={handleActivityCreated}
       />
 
-      {/* Privacy Consent Modal */}
-      <PrivacyConsentModal
-        visible={showPrivacyConsent}
-        onAccept={handlePrivacyAccept}
-        onDecline={handlePrivacyDecline}
-        navigation={navigation}
-      />
     </SafeAreaView>
   )
 }

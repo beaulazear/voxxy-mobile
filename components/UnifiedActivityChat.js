@@ -58,7 +58,7 @@ export default function UnifiedActivityChat({ visible, onClose }) {
     const progressAnim = useRef(new Animated.Value(0)).current
     const [showSuccess, setShowSuccess] = useState(false)
     const [isSubmitting, setIsSubmitting] = useState(false)
-    const [loadingMessage, setLoadingMessage] = useState('Creating your activity...')
+    const [loadingMessage, setLoadingMessage] = useState('Creating your plan...')
 
     // Step 1: Activity Type Selection
     const [selectedActivity, setSelectedActivity] = useState('')
@@ -75,36 +75,21 @@ export default function UnifiedActivityChat({ visible, onClose }) {
     const [selectedTimeOfDay, setSelectedTimeOfDay] = useState('')
     const [selectedGroupSize, setSelectedGroupSize] = useState('')
 
-    // Activity options
+    // Restaurant & Bar options
     const activities = [
         {
-            type: 'Random',
-            name: 'Surprise Me!',
-            icon: RotateCcw,
-            iconColor: '#8b5cf6',
-            description: 'Let us pick for you',
-            isRandom: true
-        },
-        {
             type: 'Restaurant',
-            name: 'Food',
+            name: 'Restaurant',
             icon: Hamburger,
             iconColor: '#FF6B6B',
-            description: 'Find the perfect spot to eat'
+            description: 'Find the perfect restaurant'
         },
         {
-            type: 'Cocktails',  // Changed to match backend expectation
-            name: 'Drinks',
+            type: 'Cocktails',
+            name: 'Bar',
             icon: Martini,
             iconColor: '#4ECDC4',
-            description: 'Plan your night out'
-        },
-        {
-            type: 'Game Night',
-            name: 'Game Night',
-            icon: Dices,
-            iconColor: '#A8E6CF',
-            description: 'Host a fun game night'
+            description: 'Discover great bars & lounges'
         },
     ]
 
@@ -125,24 +110,17 @@ export default function UnifiedActivityChat({ visible, onClose }) {
     ]
 
 
-    // Group size options (for Game Night)
+    // Group size options (for dining)
     const groupSizeOptions = [
-        { label: '2-4', value: '2-4', icon: Users, desc: 'Small group' },
-        { label: '5-8', value: '5-8', icon: Users, desc: 'Medium group' },
-        { label: '9+', value: '9+', icon: Users, desc: 'Large party' }
+        { label: '2', value: '2', icon: Users, desc: 'Intimate dining' },
+        { label: '3-4', value: '3-4', icon: Users, desc: 'Small group' },
+        { label: '5-8', value: '5-8', icon: Users, desc: 'Medium party' },
+        { label: '9+', value: '9+', icon: Users, desc: 'Large group' }
     ]
 
-    // Adjust total steps based on activity
+    // All restaurant/bar venues need location and time
     useEffect(() => {
-        if (selectedActivity === 'Game Night') {
-            setTotalSteps(2) // Activity, Group Size (no location)
-        } else if (selectedActivity === 'Cocktails') {
-            setTotalSteps(3) // Activity, Location, Time
-        } else if (selectedActivity === 'Restaurant') {
-            setTotalSteps(3) // Activity, Location, Time
-        } else {
-            setTotalSteps(3) // Default
-        }
+        setTotalSteps(3) // Type, Location, Time - same for both Restaurant and Bar
     }, [selectedActivity])
 
     // Calculate progress
@@ -243,24 +221,24 @@ export default function UnifiedActivityChat({ visible, onClose }) {
         switch (step) {
             case 1:
                 return {
-                    title: 'What are you planning?',
-                    subtitle: 'Choose your activity type'
+                    title: "What's the vibe?",
+                    subtitle: 'Pick your scene for tonight'
                 }
             case 2:
                 return {
-                    title: 'Where?',
+                    title: 'Where are we looking?',
                     subtitle: 'Set your location'
                 }
             case 3:
-                if (selectedActivity === 'Restaurant' || selectedActivity === 'Cocktails') {
+                if (selectedActivity === 'Restaurant') {
                     return {
-                        title: 'When?',
+                        title: 'When are we dining?',
                         subtitle: 'Pick the perfect time'
                     }
-                } else if (selectedActivity === 'Game Night') {
+                } else if (selectedActivity === 'Cocktails') {
                     return {
-                        title: 'How many players?',
-                        subtitle: 'Select your group size'
+                        title: 'When are we going out?',
+                        subtitle: 'Choose your time'
                     }
                 }
                 break
@@ -273,48 +251,80 @@ export default function UnifiedActivityChat({ visible, onClose }) {
         return (
             <Animated.View style={{ opacity: fadeAnim }}>
                 {step === 1 && (
-                    <View style={styles.activityGrid}>
-                        {activities.map((activity) => {
-                            const IconComponent = activity.icon
-                            const isSelected = selectedActivity === activity.type
-                            return (
-                                <TouchableOpacity
-                                    key={activity.type}
-                                    style={[
-                                        styles.activityCard,
-                                        isSelected && styles.activityCardSelected
-                                    ]}
-                                    onPress={() => {
-                                        if (activity.isRandom) {
-                                            // Pick a random activity
-                                            const nonRandomActivities = activities.filter(a => !a.isRandom)
-                                            const randomIndex = Math.floor(Math.random() * nonRandomActivities.length)
-                                            setSelectedActivity(nonRandomActivities[randomIndex].type)
-                                        } else {
-                                            setSelectedActivity(activity.type)
-                                        }
-                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-                                    }}
-                                >
-                                    <View style={[
-                                        styles.activityIconContainer,
-                                        isSelected && styles.activityIconContainerSelected
-                                    ]}>
-                                        <IconComponent 
-                                            color={isSelected ? '#fff' : '#B8A5C4'} 
-                                            size={28} 
-                                            strokeWidth={2}
-                                        />
+                    <View style={styles.activityButtonsContainer}>
+                        {/* Restaurant Button */}
+                        <TouchableOpacity
+                            style={styles.activityOption}
+                            onPress={() => {
+                                setSelectedActivity('Restaurant')
+                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+                            }}
+                            activeOpacity={0.9}
+                        >
+                            <LinearGradient
+                                colors={selectedActivity === 'Restaurant' 
+                                    ? ['#FF6B6B', '#FF5252'] 
+                                    : ['rgba(255,107,107,0.2)', 'rgba(255,107,107,0.1)']}
+                                style={[
+                                    styles.activityGradient,
+                                    selectedActivity === 'Restaurant' && styles.selectedActivityGradient
+                                ]}
+                            >
+                                <View style={styles.activityIconCircle}>
+                                    <Hamburger
+                                        color={selectedActivity === 'Restaurant' ? '#fff' : '#FF6B6B'}
+                                        size={36}
+                                        strokeWidth={1.5}
+                                    />
+                                </View>
+                                <Text style={[
+                                    styles.activityButtonTitle,
+                                    selectedActivity === 'Restaurant' && styles.selectedActivityTitle
+                                ]}>Dining</Text>
+                                {selectedActivity === 'Restaurant' && (
+                                    <View style={styles.checkmark}>
+                                        <Text style={styles.checkmarkText}>✓</Text>
                                     </View>
-                                    <Text style={[
-                                        styles.activityLabel,
-                                        isSelected && styles.activityLabelSelected
-                                    ]}>
-                                        {activity.name}
-                                    </Text>
-                                </TouchableOpacity>
-                            )
-                        })}
+                                )}
+                            </LinearGradient>
+                        </TouchableOpacity>
+
+                        {/* Bar Button */}
+                        <TouchableOpacity
+                            style={styles.activityOption}
+                            onPress={() => {
+                                setSelectedActivity('Cocktails')
+                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+                            }}
+                            activeOpacity={0.9}
+                        >
+                            <LinearGradient
+                                colors={selectedActivity === 'Cocktails' 
+                                    ? ['#4ECDC4', '#44A39F'] 
+                                    : ['rgba(78,205,196,0.2)', 'rgba(78,205,196,0.1)']}
+                                style={[
+                                    styles.activityGradient,
+                                    selectedActivity === 'Cocktails' && styles.selectedActivityGradient
+                                ]}
+                            >
+                                <View style={styles.activityIconCircle}>
+                                    <Martini
+                                        color={selectedActivity === 'Cocktails' ? '#fff' : '#4ECDC4'}
+                                        size={36}
+                                        strokeWidth={1.5}
+                                    />
+                                </View>
+                                <Text style={[
+                                    styles.activityButtonTitle,
+                                    selectedActivity === 'Cocktails' && styles.selectedActivityTitle
+                                ]}>Drinks</Text>
+                                {selectedActivity === 'Cocktails' && (
+                                    <View style={styles.checkmark}>
+                                        <Text style={styles.checkmarkText}>✓</Text>
+                                    </View>
+                                )}
+                            </LinearGradient>
+                        </TouchableOpacity>
                     </View>
                 )}
 
@@ -489,40 +499,6 @@ export default function UnifiedActivityChat({ visible, onClose }) {
                     </View>
                 )}
 
-                {step === 3 && selectedActivity === 'Game Night' && (
-                    <View style={styles.optionsGrid}>
-                        {groupSizeOptions.map((option) => {
-                            const IconComponent = option.icon
-                            const isSelected = selectedGroupSize === option.value
-                            return (
-                                <TouchableOpacity
-                                    key={option.value}
-                                    style={[
-                                        styles.groupOption,
-                                        isSelected && styles.groupOptionSelected
-                                    ]}
-                                    onPress={() => {
-                                        setSelectedGroupSize(option.value)
-                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-                                    }}
-                                >
-                                    <IconComponent 
-                                        color={isSelected ? '#fff' : '#B8A5C4'} 
-                                        size={24} 
-                                        strokeWidth={2}
-                                    />
-                                    <Text style={[
-                                        styles.optionLabel,
-                                        isSelected && styles.optionLabelSelected
-                                    ]}>
-                                        {option.label}
-                                    </Text>
-                                    <Text style={styles.optionDesc}>{option.desc}</Text>
-                                </TouchableOpacity>
-                            )
-                        })}
-                    </View>
-                )}
 
             </Animated.View>
         )
@@ -543,8 +519,6 @@ export default function UnifiedActivityChat({ visible, onClose }) {
             case 3:
                 if (selectedActivity === 'Restaurant' || selectedActivity === 'Cocktails') {
                     return !selectedTimeOfDay
-                } else if (selectedActivity === 'Game Night') {
-                    return !selectedGroupSize
                 }
                 return false
             default:
@@ -557,12 +531,7 @@ export default function UnifiedActivityChat({ visible, onClose }) {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
         if (step < totalSteps) {
             fadeAnim.setValue(0)
-            // Skip location step (step 2) for Game Night
-            if (step === 1 && selectedActivity === 'Game Night') {
-                setStep(3) // Jump to step 3 (group size)
-            } else {
-                setStep(step + 1)
-            }
+            setStep(step + 1)
         } else {
             handleSubmit()
         }
@@ -572,12 +541,7 @@ export default function UnifiedActivityChat({ visible, onClose }) {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
         if (step > 1) {
             fadeAnim.setValue(0)
-            // Skip location step (step 2) for Game Night when going back
-            if (step === 3 && selectedActivity === 'Game Night') {
-                setStep(1) // Jump back to step 1 (activity selection)
-            } else {
-                setStep(step - 1)
-            }
+            setStep(step - 1)
         }
     }
 
@@ -588,15 +552,12 @@ export default function UnifiedActivityChat({ visible, onClose }) {
         try {
             setIsSubmitting(true)
             
-            // Format location (TBD for Game Night)
-            let activityLocation = 'TBD'
-            if (selectedActivity !== 'Game Night') {
-                activityLocation = location.trim()
-                if (currentLocationUsed && coords) {
-                    activityLocation = `${coords.lat.toFixed(6)}, ${coords.lng.toFixed(6)}`
-                } else if (savedLocationUsed && user?.latitude && user?.longitude) {
-                    activityLocation = `${user.latitude.toFixed(6)}, ${user.longitude.toFixed(6)}`
-                }
+            // Format location for restaurant/bar
+            let activityLocation = location.trim()
+            if (currentLocationUsed && coords) {
+                activityLocation = `${coords.lat.toFixed(6)}, ${coords.lng.toFixed(6)}`
+            } else if (savedLocationUsed && user?.latitude && user?.longitude) {
+                activityLocation = `${user.latitude.toFixed(6)}, ${user.longitude.toFixed(6)}`
             }
 
             // Build payload based on activity type
@@ -608,7 +569,7 @@ export default function UnifiedActivityChat({ visible, onClose }) {
                 collecting: true
             }
 
-            // Add activity-specific fields
+            // Add venue-specific fields
             if (selectedActivity === 'Restaurant') {
                 payload.time_of_day = selectedTimeOfDay
                 payload.responses = `Time of day: ${selectedTimeOfDay}`
@@ -616,11 +577,7 @@ export default function UnifiedActivityChat({ visible, onClose }) {
             } else if (selectedActivity === 'Cocktails') {
                 payload.time_of_day = selectedTimeOfDay
                 payload.responses = `Time: ${selectedTimeOfDay}`
-                payload.date_notes = `Looking for ${selectedTimeOfDay} spots for drinks`
-            } else if (selectedActivity === 'Game Night') {
-                payload.group_size = selectedGroupSize
-                payload.responses = `Group size: ${selectedGroupSize}`
-                payload.date_notes = `Game night for ${selectedGroupSize} people`
+                payload.date_notes = `Looking for ${selectedTimeOfDay} bars and lounges`
             }
 
             logger.debug('Creating activity with payload:', payload)
@@ -664,7 +621,7 @@ export default function UnifiedActivityChat({ visible, onClose }) {
             
         } catch (error) {
             logger.error('Error creating activity:', error)
-            Alert.alert('Error', 'Failed to create activity. Please try again.')
+            Alert.alert('Error', 'Failed to create plan. Please try again.')
             setIsSubmitting(false)
         }
     }
@@ -750,7 +707,7 @@ export default function UnifiedActivityChat({ visible, onClose }) {
                                 style={styles.nextButtonGradient}
                             >
                                 <Text style={styles.nextButtonText}>
-                                    {step < totalSteps ? 'Next' : 'Create Activity'}
+                                    {step < totalSteps ? 'Next' : 'Start Planning'}
                                 </Text>
                                 <ArrowRight color="#fff" size={20} />
                             </LinearGradient>
@@ -789,7 +746,7 @@ export default function UnifiedActivityChat({ visible, onClose }) {
                                         resizeMode="contain"
                                     />
                                 </Animated.View>
-                                <Text style={styles.successText}>Activity Created!</Text>
+                                <Text style={styles.successText}>Plan Created!</Text>
                             </Animated.View>
                         )}
                     </View>
@@ -828,6 +785,103 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#201925',
+    },
+    
+    // Activity selection button styles
+    activityButtonsContainer: {
+        paddingHorizontal: 20,
+        gap: 16,
+        marginTop: 40,
+        flex: 1,
+        justifyContent: 'center',
+    },
+    
+    activityOption: {
+        width: '100%',
+        borderRadius: 20,
+        overflow: 'hidden',
+        marginBottom: 8,
+    },
+    
+    activityGradient: {
+        paddingVertical: 28,
+        paddingHorizontal: 32,
+        borderRadius: 24,
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderWidth: 2,
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+        position: 'relative',
+        minHeight: 110,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 8,
+        elevation: 4,
+    },
+    
+    selectedActivityGradient: {
+        borderColor: 'rgba(255, 255, 255, 0.4)',
+        borderWidth: 3,
+        shadowOpacity: 0.25,
+        shadowRadius: 12,
+        elevation: 6,
+    },
+    
+    activityIconCircle: {
+        width: 70,
+        height: 70,
+        borderRadius: 35,
+        backgroundColor: 'rgba(255, 255, 255, 0.2)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 24,
+        borderWidth: 2,
+        borderColor: 'rgba(255, 255, 255, 0.3)',
+    },
+    
+    activityButtonTitle: {
+        fontSize: 28,
+        fontWeight: '700',
+        color: '#B8A5C4',
+        fontFamily: 'Montserrat_700Bold',
+        letterSpacing: 0.5,
+        flex: 1,
+    },
+    
+    selectedActivityTitle: {
+        color: '#fff',
+    },
+    
+    activityButtonDesc: {
+        fontSize: 15,
+        color: 'rgba(184, 165, 196, 0.8)',
+        fontFamily: 'Montserrat_500Medium',
+        position: 'absolute',
+        bottom: 26,
+        left: 104,
+    },
+    
+    selectedActivityDesc: {
+        color: 'rgba(255, 255, 255, 0.8)',
+    },
+    
+    checkmark: {
+        position: 'absolute',
+        top: 16,
+        right: 16,
+        width: 28,
+        height: 28,
+        borderRadius: 14,
+        backgroundColor: 'rgba(255, 255, 255, 0.2)',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    
+    checkmarkText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: 'bold',
     },
     progressContainer: {
         paddingHorizontal: 24,

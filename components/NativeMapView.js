@@ -14,6 +14,7 @@ import {
 import MapView, { Marker } from 'react-native-maps';
 import Icon from 'react-native-vector-icons/Feather';
 import * as Location from 'expo-location';
+import { logger } from '../utils/logger';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -47,6 +48,7 @@ export default function NativeMapView({
     onRecommendationSelect 
 }) {
     const mapRef = useRef(null);
+    const mapReadyTimeoutRef = useRef(null);
     const [selectedMarker, setSelectedMarker] = useState(null);
     const [mapRegion, setMapRegion] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -57,12 +59,22 @@ export default function NativeMapView({
     const color = ACTIVITY_COLORS[activityType] || ACTIVITY_COLORS.default;
     const icon = ACTIVITY_ICONS[activityType] || ACTIVITY_ICONS.default;
 
+    // Cleanup timeout on unmount
+    useEffect(() => {
+        return () => {
+            if (mapReadyTimeoutRef.current) {
+                clearTimeout(mapReadyTimeoutRef.current);
+                mapReadyTimeoutRef.current = null;
+            }
+        };
+    }, []);
+
     // Get user location
     useEffect(() => {
         (async () => {
             let { status } = await Location.requestForegroundPermissionsAsync();
             if (status !== 'granted') {
-                console.log('Location permission denied');
+                logger.debug('Location permission denied');
                 return;
             }
 
@@ -77,12 +89,16 @@ export default function NativeMapView({
     // Geocode addresses to coordinates
     useEffect(() => {
         const geocodeAddresses = async () => {
-            console.log('Starting geocoding for', recommendations.length, 'recommendations');
+            logger.debug('Starting geocoding for', recommendations.length, 'recommendations');
             setLoading(true);
             const geocoded = [];
             
             for (const rec of recommendations) {
-                if (rec.address) {
+                // Check if coordinates already exist
+                if (rec.coordinate && rec.coordinate.latitude && rec.coordinate.longitude) {
+                    logger.debug('Using existing coordinates for:', rec.title);
+                    geocoded.push(rec);
+                } else if (rec.address) {
                     try {
                         // Try to geocode using Expo Location
                         const geocodeResult = await Location.geocodeAsync(rec.address);
@@ -109,7 +125,7 @@ export default function NativeMapView({
                             });
                         }
                     } catch (error) {
-                        console.log('Geocoding error for:', rec.address);
+                        logger.debug('Geocoding error for:', rec.address);
                         // Fallback coordinates
                         const latOffset = (Math.random() - 0.5) * 0.1;
                         const lonOffset = (Math.random() - 0.5) * 0.1;
@@ -125,7 +141,7 @@ export default function NativeMapView({
                 }
             }
             
-            console.log('Geocoded', geocoded.length, 'locations');
+            logger.debug('Geocoded', geocoded.length, 'locations');
             setGeocodedRecommendations(geocoded);
             
             // Set initial map region based on geocoded locations
@@ -177,6 +193,23 @@ export default function NativeMapView({
         if (recommendations.length > 0) {
             geocodeAddresses();
         } else {
+            // Set default region when no recommendations
+            if (userLocation) {
+                setMapRegion({
+                    latitude: userLocation.latitude,
+                    longitude: userLocation.longitude,
+                    latitudeDelta: 0.0922,
+                    longitudeDelta: 0.0421
+                });
+            } else {
+                // Default to San Francisco
+                setMapRegion({
+                    latitude: 37.7749,
+                    longitude: -122.4194,
+                    latitudeDelta: 0.0922,
+                    longitudeDelta: 0.0421
+                });
+            }
             setLoading(false);
         }
     }, [recommendations]);
@@ -249,8 +282,8 @@ export default function NativeMapView({
     }
 
     // Log for debugging
-    console.log('Rendering map with region:', mapRegion);
-    console.log('Filtered recommendations:', filteredRecommendations.length);
+    logger.debug('Rendering map with region:', mapRegion);
+    logger.debug('Filtered recommendations:', filteredRecommendations.length);
 
     return (
         <View style={styles.container}>
@@ -306,17 +339,25 @@ export default function NativeMapView({
                     longitudeDelta: 0.0421,
                 }}
                 onMapReady={() => {
-                    console.log('Map ready - animating to show all markers');
+                    logger.debug('Map ready - animating to show all markers');
                     // Fit to show all markers after map loads
                     if (mapRef.current && filteredRecommendations.length > 0) {
-                        setTimeout(() => {
-                            mapRef.current.fitToCoordinates(
-                                filteredRecommendations.map(r => r.coordinate),
-                                {
-                                    edgePadding: { top: 100, right: 50, bottom: 50, left: 50 },
-                                    animated: true,
-                                }
-                            );
+                        // Clear any existing timeout
+                        if (mapReadyTimeoutRef.current) {
+                            clearTimeout(mapReadyTimeoutRef.current);
+                        }
+                        
+                        mapReadyTimeoutRef.current = setTimeout(() => {
+                            // Check again if mapRef still exists (component might have unmounted)
+                            if (mapRef.current && filteredRecommendations.length > 0) {
+                                mapRef.current.fitToCoordinates(
+                                    filteredRecommendations.map(r => r.coordinate),
+                                    {
+                                        edgePadding: { top: 100, right: 50, bottom: 50, left: 50 },
+                                        animated: true,
+                                    }
+                                );
+                            }
                         }, 500);
                     }
                 }}
@@ -339,9 +380,18 @@ export default function NativeMapView({
                         tracksViewChanges={false}
                         stopPropagation={true}
                     >
-                        <View style={styles.vLogoMarkerContainer}>
-                            <View style={styles.vLogoMarkerOuter}>
-                                <View style={styles.vLogoMarkerInner}>
+                        <View style={[
+                            styles.vLogoMarkerContainer,
+                            recommendation.isFavorite && styles.favoriteMarkerContainer
+                        ]}>
+                            <View style={[
+                                styles.vLogoMarkerOuter,
+                                recommendation.isFavorite && styles.favoriteMarkerOuter
+                            ]}>
+                                <View style={[
+                                    styles.vLogoMarkerInner,
+                                    recommendation.isFavorite && styles.favoriteMarkerInner
+                                ]}>
                                     <Image 
                                         source={require('../assets/voxxy-triangle.png')} 
                                         style={styles.vLogoImage}
@@ -349,7 +399,15 @@ export default function NativeMapView({
                                     />
                                 </View>
                             </View>
-                            <View style={styles.vLogoMarkerPointer} />
+                            <View style={[
+                                styles.vLogoMarkerPointer,
+                                recommendation.isFavorite && styles.favoriteMarkerPointer
+                            ]} />
+                            {recommendation.isFavorite && (
+                                <View style={styles.favoriteStarBadge}>
+                                    <Icon name="star" size={10} color="#FFD700" />
+                                </View>
+                            )}
                         </View>
                     </Marker>
                 ))}
@@ -360,7 +418,19 @@ export default function NativeMapView({
                 <View style={styles.selectedCard}>
                     <TouchableOpacity
                         style={styles.selectedCardClose}
-                        onPress={() => setSelectedMarker(null)}
+                        onPress={() => {
+                            setSelectedMarker(null);
+                            // Zoom out and re-center on all markers
+                            if (mapRef.current && filteredRecommendations.length > 0) {
+                                mapRef.current.fitToCoordinates(
+                                    filteredRecommendations.map(r => r.coordinate),
+                                    {
+                                        edgePadding: { top: 150, right: 50, bottom: 100, left: 50 },
+                                        animated: true,
+                                    }
+                                );
+                            }
+                        }}
                     >
                         <Icon name="x" size={24} color="#666" />
                     </TouchableOpacity>
@@ -548,9 +618,9 @@ const styles = {
         justifyContent: 'center'
     },
     vLogoMarkerOuter: {
-        width: 56,
-        height: 56,
-        borderRadius: 28,
+        width: 44,
+        height: 44,
+        borderRadius: 22,
         backgroundColor: 'white',
         justifyContent: 'center',
         alignItems: 'center',
@@ -563,9 +633,9 @@ const styles = {
         borderColor: 'rgba(123, 63, 242, 0.1)'
     },
     vLogoMarkerInner: {
-        width: 44,
-        height: 44,
-        borderRadius: 22,
+        width: 36,
+        height: 36,
+        borderRadius: 18,
         backgroundColor: 'rgba(139, 92, 246, 0.05)',
         justifyContent: 'center',
         alignItems: 'center',
@@ -573,16 +643,16 @@ const styles = {
         borderColor: 'rgba(139, 92, 246, 0.1)'
     },
     vLogoImage: {
-        width: 28,
-        height: 28,
+        width: 26,
+        height: 26,
         tintColor: '#7B3FF2'
     },
     vLogoMarkerPointer: {
         width: 0,
         height: 0,
-        borderLeftWidth: 10,
-        borderRightWidth: 10,
-        borderTopWidth: 14,
+        borderLeftWidth: 8,
+        borderRightWidth: 8,
+        borderTopWidth: 10,
         borderStyle: 'solid',
         backgroundColor: 'transparent',
         borderLeftColor: 'transparent',
@@ -594,6 +664,46 @@ const styles = {
         shadowOpacity: 0.2,
         shadowRadius: 4,
         elevation: 4
+    },
+    // Favorite marker styles
+    favoriteMarkerContainer: {
+        transform: [{ scale: 1.1 }],
+    },
+    favoriteMarkerOuter: {
+        backgroundColor: '#FFD700',
+        shadowColor: '#FFD700',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.5,
+        shadowRadius: 16,
+        borderWidth: 2,
+        borderColor: 'rgba(255, 215, 0, 0.2)',
+    },
+    favoriteMarkerInner: {
+        backgroundColor: '#FFA500',
+        borderColor: 'rgba(255, 165, 0, 0.3)',
+        borderWidth: 1,
+    },
+    favoriteMarkerPointer: {
+        borderTopColor: '#FFD700',
+        shadowColor: '#FFD700',
+    },
+    favoriteStarBadge: {
+        position: 'absolute',
+        top: -6,
+        right: -6,
+        width: 20,
+        height: 20,
+        borderRadius: 10,
+        backgroundColor: 'white',
+        justifyContent: 'center',
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
+        elevation: 5,
+        borderWidth: 2,
+        borderColor: '#FFD700',
     },
     calloutContainer: {
         width: 200,
@@ -713,7 +823,7 @@ const styles = {
     mapControls: {
         position: 'absolute',
         right: 20,
-        top: 25,
+        top: 20,
         gap: 12
     },
     mapControlButton: {

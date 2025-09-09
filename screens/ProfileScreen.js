@@ -17,18 +17,16 @@ import {
 import { UserContext } from '../context/UserContext'
 import { useNavigation } from '@react-navigation/native';
 import { API_URL } from '../config';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import NotificationSettings from '../components/NotificationSettings';
 import { ArrowLeft, User, Settings, Edit3, Trash2, LogOut, Camera, MapPin, Calendar, X, Activity, Users, ChevronRight } from 'react-native-feather';
-import { Hamburger, Martini, Dices } from 'lucide-react-native';
-import PushNotificationService from '../services/PushNotificationService'
+import { Hamburger, Martini, Dices, Shield } from 'lucide-react-native';
 import { logger } from '../utils/logger';
 import { getUserDisplayImage } from '../utils/avatarManager';
 import * as ImagePicker from 'expo-image-picker';
 import LocationPicker from '../components/LocationPicker';
 import colors from '../styles/Colors';
+import BlockedUsersService from '../services/BlockedUsersService';
 
-// Activity configuration matching ProfileSnippet
 const ACTIVITY_CONFIG = {
   'Restaurant': {
     displayText: 'Food',
@@ -78,6 +76,9 @@ export default function ProfileScreen() {
     const { user, setUser, updateUser, logout } = useContext(UserContext);
     const navigation = useNavigation();
     const [showPastActivitiesModal, setShowPastActivitiesModal] = useState(false);
+    const [showBlockedUsersModal, setShowBlockedUsersModal] = useState(false);
+    const [blockedUsers, setBlockedUsers] = useState([]);
+    const [loadingBlockedUsers, setLoadingBlockedUsers] = useState(false);
 
     // Profile tab states
     const [isEditingName, setIsEditingName] = useState(false);
@@ -430,6 +431,13 @@ export default function ProfileScreen() {
                     style: 'destructive',
                     onPress: async () => {
                         try {
+                            logger.debug('Delete account attempt:', {
+                                userId: user.id,
+                                hasToken: !!token,
+                                tokenValue: token ? `${token.substring(0, 10)}...` : 'undefined',
+                                userHasToken: !!user?.token
+                            });
+                            
                             const res = await fetch(`${API_URL}/users/${user.id}`, {
                                 method: 'DELETE',
                                 headers: {
@@ -438,7 +446,13 @@ export default function ProfileScreen() {
                                 },
                             });
                             
-                            if (!res.ok) throw new Error('Failed to delete account');
+                            if (!res.ok) {
+                                logger.error('Delete account failed:', {
+                                    status: res.status,
+                                    statusText: res.statusText
+                                });
+                                throw new Error('Failed to delete account');
+                            }
                             
                             // Use the logout method from context which handles all cleanup
                             await logout();
@@ -452,6 +466,56 @@ export default function ProfileScreen() {
                         }
                     },
                 },
+            ]
+        );
+    };
+
+    const handleShowBlockedUsers = async () => {
+        setLoadingBlockedUsers(true);
+        setShowBlockedUsersModal(true);
+        
+        try {
+            // Initialize service with token if needed
+            if (user?.token) {
+                BlockedUsersService.setAuthToken(user.token);
+            }
+            
+            // Get blocked users with details
+            const blockedUsersList = await BlockedUsersService.getBlockedUserDetails();
+            setBlockedUsers(blockedUsersList);
+        } catch (error) {
+            logger.error('Failed to load blocked users:', error);
+            Alert.alert('Error', 'Failed to load blocked users');
+        } finally {
+            setLoadingBlockedUsers(false);
+        }
+    };
+
+    const handleUnblockUser = async (userId, userName) => {
+        Alert.alert(
+            'Unblock User',
+            `Are you sure you want to unblock ${userName}?`,
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Unblock',
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            const success = await BlockedUsersService.unblockUser(userId);
+                            if (success) {
+                                // Refresh the list
+                                const updatedList = await BlockedUsersService.getBlockedUserDetails();
+                                setBlockedUsers(updatedList);
+                                
+                                Alert.alert('Success', `${userName} has been unblocked`);
+                            }
+                        } catch (error) {
+                            logger.error('Failed to unblock user:', error);
+                            Alert.alert('Error', 'Failed to unblock user');
+                        }
+                    }
+                }
             ]
         );
     };
@@ -610,6 +674,16 @@ export default function ProfileScreen() {
                     onPress={() => navigation.navigate('PrivacyPolicy')}
                 >
                     <Text style={styles.privacyButtonText}>Privacy Policy</Text>
+                    <ChevronRight stroke="#9261E5" width={20} height={20} />
+                </TouchableOpacity>
+                <TouchableOpacity 
+                    style={[styles.privacyButton, { marginTop: 12 }]}
+                    onPress={handleShowBlockedUsers}
+                >
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <Shield size={20} color="#9261E5" style={{ marginRight: 8 }} />
+                        <Text style={styles.privacyButtonText}>Blocked Users</Text>
+                    </View>
                     <ChevronRight stroke="#9261E5" width={20} height={20} />
                 </TouchableOpacity>
             </View>
@@ -792,6 +866,73 @@ export default function ProfileScreen() {
                             </View>
                         )}
                     </ScrollView>
+                </SafeAreaView>
+            </Modal>
+
+            {/* Blocked Users Modal */}
+            <Modal
+                visible={showBlockedUsersModal}
+                animationType="slide"
+                presentationStyle="pageSheet"
+                onRequestClose={() => setShowBlockedUsersModal(false)}
+            >
+                <SafeAreaView style={styles.modalContainer}>
+                    <View style={styles.modalHeader}>
+                        <TouchableOpacity 
+                            style={styles.modalCloseButton}
+                            onPress={() => setShowBlockedUsersModal(false)}
+                        >
+                            <X stroke="#fff" width={20} height={20} strokeWidth={2.5} />
+                        </TouchableOpacity>
+                        <Text style={styles.modalTitle}>Blocked Users</Text>
+                        <View style={{ width: 30 }} />
+                    </View>
+
+                    {loadingBlockedUsers ? (
+                        <View style={styles.centerContainer}>
+                            <ActivityIndicator size="large" color="#9261E5" />
+                            <Text style={styles.loadingText}>Loading blocked users...</Text>
+                        </View>
+                    ) : blockedUsers.length === 0 ? (
+                        <View style={styles.centerContainer}>
+                            <Shield size={48} color="#666" style={{ marginBottom: 16 }} />
+                            <Text style={styles.emptyStateTitle}>No Blocked Users</Text>
+                            <Text style={styles.emptyStateText}>
+                                Users you block will appear here
+                            </Text>
+                        </View>
+                    ) : (
+                        <ScrollView style={styles.modalContent}>
+                            {blockedUsers.map((blockedUser) => (
+                                <View key={blockedUser.id} style={styles.blockedUserItem}>
+                                    <View style={styles.blockedUserInfo}>
+                                        <Image 
+                                            source={
+                                                blockedUser.profilePic ? 
+                                                { uri: `${API_URL}${blockedUser.profilePic}` } :
+                                                require('../assets/Weird5.jpg')
+                                            }
+                                            style={styles.blockedUserAvatar}
+                                        />
+                                        <View style={styles.blockedUserDetails}>
+                                            <Text style={styles.blockedUserName}>
+                                                {blockedUser.name}
+                                            </Text>
+                                            <Text style={styles.blockedUserEmail}>
+                                                {blockedUser.email}
+                                            </Text>
+                                        </View>
+                                    </View>
+                                    <TouchableOpacity
+                                        style={styles.unblockButton}
+                                        onPress={() => handleUnblockUser(blockedUser.id, blockedUser.name)}
+                                    >
+                                        <Text style={styles.unblockButtonText}>Unblock</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            ))}
+                        </ScrollView>
+                    )}
                 </SafeAreaView>
             </Modal>
         </SafeAreaView>
@@ -1362,5 +1503,75 @@ const styles = StyleSheet.create({
     modalContent: {
         flex: 1,
         backgroundColor: '#201925',
+    },
+
+    // Blocked Users Modal Styles
+    blockedUserItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 20,
+        paddingVertical: 15,
+        borderBottomWidth: 1,
+        borderBottomColor: 'rgba(146, 97, 229, 0.1)',
+    },
+    blockedUserInfo: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flex: 1,
+    },
+    blockedUserAvatar: {
+        width: 50,
+        height: 50,
+        borderRadius: 25,
+        marginRight: 12,
+    },
+    blockedUserDetails: {
+        flex: 1,
+    },
+    blockedUserName: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#fff',
+        marginBottom: 4,
+    },
+    blockedUserEmail: {
+        fontSize: 14,
+        color: '#B8A5C4',
+    },
+    unblockButton: {
+        backgroundColor: 'rgba(146, 97, 229, 0.2)',
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: 'rgba(146, 97, 229, 0.3)',
+    },
+    unblockButtonText: {
+        color: '#9261E5',
+        fontSize: 14,
+        fontWeight: '600',
+    },
+    centerContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 40,
+    },
+    loadingText: {
+        color: '#B8A5C4',
+        fontSize: 16,
+        marginTop: 12,
+    },
+    emptyStateTitle: {
+        fontSize: 20,
+        fontWeight: '600',
+        color: '#fff',
+        marginBottom: 8,
+    },
+    emptyStateText: {
+        fontSize: 16,
+        color: '#B8A5C4',
+        textAlign: 'center',
     },
 });
