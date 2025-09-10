@@ -11,8 +11,8 @@ import {
     StyleSheet,
     Keyboard,
     Platform,
-    Animated,
     Image,
+    KeyboardAvoidingView,
 } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import DateTimePicker from '@react-native-community/datetimepicker'
@@ -63,8 +63,6 @@ export default function FinalizeActivityModal({
     const [loadingMessage, setLoadingMessage] = useState('')
     const [selectedPinnedId, setSelectedPinnedId] = useState(null)
     
-    // Animation for logo
-    const pulseValue = React.useRef(new Animated.Value(1)).current
     const [selectedTimeSlotId, setSelectedTimeSlotId] = useState(null)
     const [showDatePicker, setShowDatePicker] = useState(false)
     const [showTimePicker, setShowTimePicker] = useState(false)
@@ -84,7 +82,7 @@ export default function FinalizeActivityModal({
     const usesPinnedActivities = isRestaurant || isCocktails || isGameNight
 
     // Check if basic activity details are set (required before finalization)
-    const hasBasicDetails = formData.date_day && formData.date_time && formData.activity_location.trim()
+    const hasBasicDetails = formData.date_day && formData.date_time
 
     // Validation logic
     const timeSlotValid = !usesTimeSlots || selectedTimeSlotId != null
@@ -118,25 +116,6 @@ export default function FinalizeActivityModal({
         }
     }, [pinned])
 
-    // Logo pulse animation
-    useEffect(() => {
-        const animation = Animated.loop(
-            Animated.sequence([
-                Animated.timing(pulseValue, {
-                    toValue: 1.1,
-                    duration: 1000,
-                    useNativeDriver: true,
-                }),
-                Animated.timing(pulseValue, {
-                    toValue: 1,
-                    duration: 1000,
-                    useNativeDriver: true,
-                }),
-            ])
-        )
-        animation.start()
-        return () => animation.stop()
-    }, [])
 
     const handleTimeSlotChange = (timeSlotId) => {
         setSelectedTimeSlotId(timeSlotId)
@@ -271,9 +250,6 @@ export default function FinalizeActivityModal({
             if (!formData.date_time) {
                 msgs.push('Please select an activity time.')
             }
-            if (!formData.activity_location.trim()) {
-                msgs.push('Please enter an activity location.')
-            }
             if (!formData.activity_name.trim()) {
                 msgs.push('Please enter an activity name.')
             }
@@ -374,7 +350,7 @@ export default function FinalizeActivityModal({
                     </Text>
                 </View>
 
-                <ScrollView style={styles.optionList} showsVerticalScrollIndicator={false}>
+                <View style={styles.optionList}>
                     {sortedActivities.map(p => (
                         <TouchableOpacity
                             key={p.id}
@@ -410,7 +386,7 @@ export default function FinalizeActivityModal({
                             </View>
                         </TouchableOpacity>
                     ))}
-                </ScrollView>
+                </View>
             </View>
         )
     }
@@ -500,7 +476,11 @@ export default function FinalizeActivityModal({
             onRequestClose={onClose}
         >
             <SafeAreaView style={modalStyles.modalOverlay}>
-                <Animated.View style={modalStyles.modalContainer}>
+                <KeyboardAvoidingView 
+                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                    style={{ flex: 1 }}
+                >
+                <View style={modalStyles.modalContainer}>
                     {/* Gradient Background */}
                     <LinearGradient
                         colors={modalColors.headerGradient}
@@ -518,24 +498,7 @@ export default function FinalizeActivityModal({
                     </TouchableOpacity>
 
                     {/* Logo */}
-                    <Animated.View 
-                        style={[
-                            styles.logoWrapper,
-                            {
-                                transform: [
-                                    {
-                                        scale: pulseValue
-                                    },
-                                    {
-                                        rotate: pulseValue.interpolate({
-                                            inputRange: [1, 1.1],
-                                            outputRange: ['0deg', '5deg']
-                                        })
-                                    }
-                                ]
-                            }
-                        ]}
-                    >
+                    <View style={styles.logoWrapper}>
                         <View style={styles.logoCircle}>
                             <Image 
                                 source={VoxxyTriangle} 
@@ -543,7 +506,7 @@ export default function FinalizeActivityModal({
                                 resizeMode="contain"
                             />
                         </View>
-                    </Animated.View>
+                    </View>
 
                     {/* Content */}
                     <View style={modalStyles.modalContent}>
@@ -633,6 +596,8 @@ export default function FinalizeActivityModal({
                                             display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                                             onChange={handleDateChange}
                                             minimumDate={new Date()}
+                                            textColor="#FFFFFF"
+                                            themeVariant="dark"
                                         />
                                         {Platform.OS === 'ios' && (
                                             <View style={styles.pickerButtons}>
@@ -680,6 +645,8 @@ export default function FinalizeActivityModal({
                                             mode="time"
                                             display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                                             onChange={handleTimeChange}
+                                            textColor="#FFFFFF"
+                                            themeVariant="dark"
                                         />
                                         {Platform.OS === 'ios' && (
                                             <View style={styles.pickerButtons}>
@@ -701,22 +668,6 @@ export default function FinalizeActivityModal({
                                 )}
                             </View>
 
-                            {/* Location Input */}
-                            <View style={styles.inputSection}>
-                                <View style={styles.inputHeader}>
-                                    <View style={styles.iconWrapper}>
-                                        <MapPin stroke={modalColors.purple500} width={16} height={16} />
-                                    </View>
-                                    <Text style={styles.inputLabel}>Activity Location</Text>
-                                </View>
-                                <TextInput
-                                    style={styles.input}
-                                    placeholder="Enter activity location..."
-                                    placeholderTextColor={modalColors.textDim}
-                                    value={formData.activity_location}
-                                    onChangeText={(value) => handleInputChange('activity_location', value)}
-                                />
-                            </View>
 
                             {renderPinnedActivities()}
                             {renderTimeSlots()}
@@ -751,7 +702,8 @@ export default function FinalizeActivityModal({
                             </TouchableOpacity>
                         </View>
                     </View>
-                </Animated.View>
+                </View>
+                </KeyboardAvoidingView>
             </SafeAreaView>
         </Modal>
     )
@@ -766,9 +718,9 @@ const styles = StyleSheet.create({
     },
 
     logoCircle: {
-        width: 90,
-        height: 90,
-        borderRadius: 45,
+        width: 70,
+        height: 70,
+        borderRadius: 35,
         backgroundColor: '#ffffff',
         justifyContent: 'center',
         alignItems: 'center',
@@ -783,15 +735,8 @@ const styles = StyleSheet.create({
     },
 
     logo: {
-        width: 75,
-        height: 75,
-        shadowColor: '#000',
-        shadowOffset: {
-            width: 0,
-            height: 2,
-        },
-        shadowOpacity: 0.25,
-        shadowRadius: 4,
+        width: 55,
+        height: 55,
     },
 
     scrollView: {
@@ -860,18 +805,18 @@ const styles = StyleSheet.create({
     },
 
     optionList: {
-        maxHeight: 200,
+        marginTop: 12,
     },
 
     optionItem: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: 'rgba(147, 51, 234, 0.05)',
-        padding: 12,
-        borderRadius: 12,
-        marginBottom: 8,
+        backgroundColor: 'rgba(147, 51, 234, 0.08)',
+        padding: 16,
+        borderRadius: 14,
+        marginBottom: 12,
         borderWidth: 2,
-        borderColor: 'transparent',
+        borderColor: 'rgba(147, 51, 234, 0.2)',
     },
 
     optionItemSelected: {
@@ -905,10 +850,11 @@ const styles = StyleSheet.create({
     },
 
     optionTitle: {
-        fontSize: 15,
-        fontWeight: '600',
+        fontSize: 17,
+        fontWeight: '700',
         color: modalColors.textWhite,
         flex: 1,
+        marginBottom: 4,
     },
 
     optionTitleSelected: {

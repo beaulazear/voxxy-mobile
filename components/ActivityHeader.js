@@ -178,14 +178,14 @@ export function ActivityStickyHeader({ activity, isOwner, onBack, onEdit, onDele
             step: "1",
             icon: "✨",
             title: "Share Your Preferences",
-            desc: "Invite your friends to gather multiple preferences through a quick, fun quiz, or submit your own preferences and share the activity later. The AI will use these inputs to create personalized recommendations.",
+            desc: "Invite your friends to gather multiple preferences through a quick, fun quiz, or submit your own preferences and share the activity later. Voxxy will use these inputs to create personalized recommendations.",
             status: getStepStatus(0)
         },
         {
             step: "2",
             icon: "🤖",
             title: "Generate Recommendations",
-            desc: "Based on everyone's preferences, our AI curates perfect options tailored to your group. The host can swipe through recommendations and save favorites.",
+            desc: "Based on everyone's preferences, Voxxy curates perfect options tailored to your group. The host can swipe through recommendations and save favorites.",
             status: getStepStatus(1)
         },
         {
@@ -264,12 +264,20 @@ export function ActivityStickyHeader({ activity, isOwner, onBack, onEdit, onDele
                             <ArrowLeft stroke="#fff" width={20} height={20} />
                         </TouchableOpacity>
 
-                        {onReport && activity.finalized && (
+                        {onReport && (
                             <TouchableOpacity
-                                style={styles.reportButtonLeft}
-                                onPress={onReport}
+                                style={[
+                                    styles.reportButtonLeft,
+                                    !activity.finalized && styles.reportButtonDisabled
+                                ]}
+                                onPress={activity.finalized ? onReport : null}
+                                disabled={!activity.finalized}
                             >
-                                <Flag stroke="#FFA500" width={20} height={20} />
+                                <Flag 
+                                    stroke={activity.finalized ? "#FFA500" : "rgba(255, 165, 0, 0.3)"} 
+                                    width={20} 
+                                    height={20} 
+                                />
                             </TouchableOpacity>
                         )}
                     </View>
@@ -590,6 +598,11 @@ const styles = StyleSheet.create({
         borderColor: 'rgba(255, 165, 0, 0.3)',
         alignItems: 'center',
         justifyContent: 'center',
+    },
+    reportButtonDisabled: {
+        backgroundColor: 'rgba(255, 165, 0, 0.03)',
+        borderColor: 'rgba(255, 165, 0, 0.1)',
+        opacity: 0.5,
     },
 
     activityStatusChip: {

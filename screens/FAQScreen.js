@@ -16,49 +16,49 @@ const colors = {
 
 const faqs = [
     {
-        question: 'How do I create a new activity?',
+        question: 'How do I find the perfect bar or restaurant?',
         answer:
-            'Tap the "+" button on the home screen, choose your activity type (Restaurant, Game Night, Cocktails, or Meeting), fill in the details like name, date, and location, then invite participants by selecting contacts or entering email addresses.',
+            'Tap the "+" button on the home screen, choose between Restaurant or Bar, select your location and preferred time. You can either invite friends to collaborate on finding the perfect spot, or use Voxxy solo to discover your personal favorites.',
     },
     {
-        question: 'How does the AI recommendation system work?',
+        question: 'How does Voxxy find personalized recommendations?',
         answer:
-            'After creating an activity, participants submit their preferences through our chat interface. The AI analyzes all responses and generates personalized recommendations. You can then swipe through options, save favorites, and finalize your choice.',
+            'After setting up your outing, you and any invited friends share preferences through a quick chat. Voxxy analyzes everyone\'s input - dietary needs, atmosphere preferences, budget - then searches real venues near you to generate perfectly matched recommendations.',
     },
     {
-        question: 'What are the different activity phases?',
+        question: 'What are the different phases of planning?',
         answer:
-            'Activities have 4 phases: 1) Collecting - gathering participant preferences, 2) Voting - host reviews AI recommendations, 3) Finalized - selected option is confirmed, 4) Completed - activity has finished and can be rated.',
+            'Your plans have 4 phases: 1) Collecting - gathering everyone\'s preferences, 2) Reviewing - browsing through Voxxy\'s personalized recommendations, 3) Finalized - your selected venue is confirmed, 4) Completed - after your visit, you can rate and save favorites.',
     },
     {
-        question: 'How do I invite people to my activity?',
+        question: 'Can I use Voxxy by myself or with friends?',
         answer:
-            'When creating an activity, tap "Add Participants" to select from your contacts or manually enter email addresses. Invitees will receive notifications to join and submit their preferences.',
+            'Both! Use Voxxy solo to discover personal favorite spots based on your preferences alone, or invite friends by selecting contacts or entering emails. When planning with others, everyone submits preferences and Voxxy finds places everyone will love.',
     },
     {
-        question: 'Can I see my community and past activities?',
+        question: 'How do I track my favorite spots?',
         answer:
-            'Yes! Your profile shows completed activities and community members you\'ve connected with. Tap on community members to see your shared activity history, and tap on past activities to view details or leave reviews.',
+            'Your profile saves all your dining and drinking history. View past visits, save your favorite venues for future reference, and see which friends you\'ve gone out with. You can also tap on any past outing to leave reviews or revisit details.',
     },
     {
-        question: 'How do I submit preferences for an activity?',
+        question: 'What preferences can I share with Voxxy?',
         answer:
-            'When invited to an activity, tap "Submit Your Preferences" and chat with our AI assistant. Share your preferences for food, atmosphere, budget, or availability - the more details you provide, the better the recommendations.',
+            'When finding a restaurant or bar, share any preferences that matter: cuisine types, dietary restrictions, atmosphere (romantic, lively, LGBTQ+ friendly), budget, drink preferences, or any special requests. The more specific you are, the better Voxxy\'s recommendations.',
     },
     {
-        question: 'What happens after preferences are collected?',
+        question: 'How do I choose from Voxxy\'s recommendations?',
         answer:
-            'The activity host can generate AI recommendations based on all participant preferences. They can swipe through options, save favorites, and select the final choice. Once finalized, all participants can see the selected plan.',
+            'After preferences are submitted, Voxxy generates personalized venue recommendations. Browse through detailed options with hours, prices, and descriptions. Save favorites, compare choices, then select your final pick. Everyone invited can see the final selection.',
     },
     {
-        question: 'Can I flag or favorite activities?',
+        question: 'Can I save and share my favorite venues?',
         answer:
-            'Yes! You can favorite activities you enjoyed and flag inappropriate content. Your favorites help improve future recommendations, and flagged content is reviewed by our moderation team.',
+            'Yes! Save venues you love to your favorites for easy access later. Share final plans with friends via text or social media. Your saved favorites also help Voxxy learn your preferences for even better future recommendations.',
     },
     {
-        question: 'How do I share activity details?',
+        question: 'What makes Voxxy different from other apps?',
         answer:
-            'Once an activity is finalized, tap "Share Final Plan Details" to send the information to participants or others. You can also share individual activities from your past activities list.',
+            'Voxxy is the only app that combines group preference matching with intelligent venue discovery. Whether finding a compromise for a group or discovering your perfect personal spot, Voxxy considers everyone\'s needs to find places you\'ll actually love.',
     },
     {
         question: 'Where can I report bugs or request features?',
@@ -69,29 +69,25 @@ const faqs = [
 
 const steps = [
     {
-        title: 'Create Your First Activity',
-        description: 'Tap the "+" button on the home screen, choose an activity type, and fill in the basic details like name, date, and location.',
+        title: 'Start Your Search',
+        description: 'Tap the "+" button and choose between finding a Restaurant or Bar. Select your location and preferred time - whether it\'s dinner tonight or drinks this weekend.',
     },
     {
-        title: 'Invite Participants',
-        description: 'Add friends by selecting from your contacts or entering email addresses. They\'ll receive invitations to join your activity.',
+        title: 'Go Solo or Invite Friends',
+        description: 'Use Voxxy solo to discover your personal favorite spots, or invite friends to find places everyone will love. Add participants from contacts or enter their email addresses.',
     },
     {
-        title: 'Collect Preferences',
-        description: 'Participants chat with the AI to share their preferences. The app collects everyone\'s input during the "Collecting" phase.',
+        title: 'Share Your Preferences',
+        description: 'Chat with Voxxy about what you\'re looking for - cuisine type, atmosphere, dietary needs, budget, or any special requests. Friends do the same if you\'ve invited them.',
     },
     {
-        title: 'Review AI Recommendations',
-        description: 'As the host, generate AI recommendations and swipe through personalized options based on participant preferences.',
+        title: 'Browse Personalized Recommendations',
+        description: 'Voxxy searches real venues near you and generates perfectly matched recommendations with hours, prices, and descriptions. Save favorites as you browse.',
     },
     {
-        title: 'Finalize Your Plan',
-        description: 'Select your favorite recommendation to finalize the activity. Share the final plan details with all participants.',
-    },
-    {
-        title: 'Complete & Review',
-        description: 'After your activity, mark it as completed and leave reviews to help improve future recommendations.',
-    },
+        title: 'Pick Your Spot & Go!',
+        description: 'Select your favorite venue to finalize the plan. Share details with friends, save to your favorites for next time, and enjoy your perfectly matched outing!',
+    }
 ];
 
 export default function FAQScreen() {

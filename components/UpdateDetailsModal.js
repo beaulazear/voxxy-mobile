@@ -10,7 +10,6 @@ import {
     Alert,
     StyleSheet,
     Keyboard,
-    Animated,
     Image,
 } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
@@ -18,6 +17,7 @@ import { X, Save, Edit3, MapPin, MessageSquare } from 'react-native-feather'
 import { modalStyles, modalColors } from '../styles/modalStyles'
 import VoxxyTriangle from '../assets/voxxy-triangle.png'
 import { UserContext } from '../context/UserContext'
+import SearchLocationModal from './SearchLocationModal'
 import { API_URL } from '../config'
 import { logger } from '../utils/logger';
 import { safeAuthApiCall, handleApiError } from '../utils/safeApiCall';
@@ -33,11 +33,11 @@ export default function UpdateDetailsModal({ activity, visible, onClose, onUpdat
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [loadingMessage, setLoadingMessage] = useState('')
 
-    // Animation for logo
-    const pulseValue = React.useRef(new Animated.Value(1)).current
 
     // Location state
     const [usingCurrentLocation, setUsingCurrentLocation] = useState(false)
+    const [showLocationSearch, setShowLocationSearch] = useState(false)
+    const [coords, setCoords] = useState(null)
 
     // Check if location contains coordinates on mount
     React.useEffect(() => {
@@ -50,38 +50,21 @@ export default function UpdateDetailsModal({ activity, visible, onClose, onUpdat
         }
     }, [activity.activity_location])
 
-    // Logo pulse animation
-    React.useEffect(() => {
-        const animation = Animated.loop(
-            Animated.sequence([
-                Animated.timing(pulseValue, {
-                    toValue: 1.1,
-                    duration: 1000,
-                    useNativeDriver: true,
-                }),
-                Animated.timing(pulseValue, {
-                    toValue: 1,
-                    duration: 1000,
-                    useNativeDriver: true,
-                }),
-            ])
-        )
-        animation.start()
-        return () => animation.stop()
-    }, [])
 
     const token = user?.token
 
     // Helper function to determine what fields to show based on activity type
     const getEditableFields = () => {
         const activityType = activity.activity_type
+        // Only allow location editing during collecting phase (not voting, finalized, or completed)
+        const canEditLocation = !activity.voting && !activity.finalized && !activity.completed
 
         switch (activityType) {
             case 'Restaurant':
             case 'Cocktails':
                 return {
                     name: true,
-                    location: true,
+                    location: canEditLocation,
                     welcomeMessage: true
                 }
             case 'Meeting':
@@ -112,6 +95,14 @@ export default function UpdateDetailsModal({ activity, visible, onClose, onUpdat
     const handleClearLocation = () => {
         setUsingCurrentLocation(false)
         setLocation('')
+        setCoords(null)
+    }
+
+    const handleLocationSelect = (selectedLocation, selectedCoords) => {
+        setLocation(selectedLocation)
+        setCoords(selectedCoords)
+        setUsingCurrentLocation(false)
+        setShowLocationSearch(false)
     }
 
     const handleSubmit = async () => {
@@ -128,9 +119,13 @@ export default function UpdateDetailsModal({ activity, visible, onClose, onUpdat
 
         // Add location for applicable activity types
         if (editableFields.location) {
-            payload.activity_location = usingCurrentLocation
-                ? activity.activity_location  // Keep original coordinates
-                : location.trim()
+            if (usingCurrentLocation) {
+                payload.activity_location = activity.activity_location  // Keep original coordinates
+            } else if (coords) {
+                payload.activity_location = `${coords.lat}, ${coords.lng}`
+            } else {
+                payload.activity_location = location.trim()
+            }
         }
 
         try {
@@ -169,7 +164,7 @@ export default function UpdateDetailsModal({ activity, visible, onClose, onUpdat
             onRequestClose={onClose}
         >
             <SafeAreaView style={modalStyles.modalOverlay}>
-                <Animated.View style={modalStyles.modalContainer}>
+                <View style={modalStyles.modalContainer}>
                     {/* Gradient Background */}
                     <LinearGradient
                         colors={modalColors.headerGradient}
@@ -187,24 +182,7 @@ export default function UpdateDetailsModal({ activity, visible, onClose, onUpdat
                     </TouchableOpacity>
 
                     {/* Logo */}
-                    <Animated.View 
-                        style={[
-                            styles.logoWrapper,
-                            {
-                                transform: [
-                                    {
-                                        scale: pulseValue
-                                    },
-                                    {
-                                        rotate: pulseValue.interpolate({
-                                            inputRange: [1, 1.1],
-                                            outputRange: ['0deg', '5deg']
-                                        })
-                                    }
-                                ]
-                            }
-                        ]}
-                    >
+                    <View style={styles.logoWrapper}>
                         <View style={styles.logoCircle}>
                             <Image 
                                 source={VoxxyTriangle} 
@@ -212,12 +190,12 @@ export default function UpdateDetailsModal({ activity, visible, onClose, onUpdat
                                 resizeMode="contain"
                             />
                         </View>
-                    </Animated.View>
+                    </View>
 
                     {/* Content */}
                     <View style={modalStyles.modalContent}>
-                        <Text style={modalStyles.modernTitle}>Edit Activity Details</Text>
-                        <Text style={modalStyles.modernDescription}>Update your activity information</Text>
+                        <Text style={modalStyles.modernTitle}>Edit Plan Details</Text>
+                        <Text style={modalStyles.modernDescription}>Update your outing information</Text>
 
                         {/* Scrollable Content */}
                         <ScrollView
@@ -248,7 +226,7 @@ export default function UpdateDetailsModal({ activity, visible, onClose, onUpdat
                                     <View style={styles.iconWrapper}>
                                         <Edit3 stroke={modalColors.purple500} width={16} height={16} />
                                     </View>
-                                    <Text style={styles.inputLabel}>Activity Name</Text>
+                                    <Text style={styles.inputLabel}>Name</Text>
                                 </View>
                                 <TextInput
                                     style={styles.input}
@@ -268,7 +246,7 @@ export default function UpdateDetailsModal({ activity, visible, onClose, onUpdat
                                     <View style={styles.iconWrapper}>
                                         <MessageSquare stroke={modalColors.purple500} width={16} height={16} />
                                     </View>
-                                    <Text style={styles.inputLabel}>Welcome Message</Text>
+                                    <Text style={styles.inputLabel}>Message For Group</Text>
                                 </View>
                                 <TextInput
                                     style={styles.textarea}
@@ -287,16 +265,26 @@ export default function UpdateDetailsModal({ activity, visible, onClose, onUpdat
                             </View>
 
                             {/* Location (for Restaurant & Cocktails) */}
-                            {editableFields.location && (
+                            {(activity.activity_type === 'Restaurant' || activity.activity_type === 'Cocktails') && (
                                 <View style={styles.inputSection}>
                                     <View style={styles.inputHeader}>
                                         <View style={styles.iconWrapper}>
                                             <MapPin stroke={modalColors.purple500} width={16} height={16} />
                                         </View>
                                         <Text style={styles.inputLabel}>Location</Text>
+                                        {!editableFields.location && (
+                                            <Text style={styles.lockedLabel}>(Locked after collecting phase)</Text>
+                                        )}
                                     </View>
 
-                                    {usingCurrentLocation ? (
+                                    {!editableFields.location ? (
+                                        <View style={styles.lockedLocationContainer}>
+                                            <MapPin stroke="rgba(255, 255, 255, 0.4)" width={20} height={20} />
+                                            <Text style={styles.lockedLocationText}>
+                                                {location || activity.activity_location || 'No location set'}
+                                            </Text>
+                                        </View>
+                                    ) : usingCurrentLocation ? (
                                         <View style={styles.currentLocationContainer}>
                                             <View style={styles.currentLocationInfo}>
                                                 <MapPin stroke="#10b981" width={16} height={16} />
@@ -313,17 +301,15 @@ export default function UpdateDetailsModal({ activity, visible, onClose, onUpdat
                                             </TouchableOpacity>
                                         </View>
                                     ) : (
-                                        <TextInput
-                                            style={styles.input}
-                                            placeholder="Enter location"
-                                            placeholderTextColor={modalColors.textDim}
-                                            value={location}
-                                            onChangeText={setLocation}
-                                            autoCapitalize="words"
-                                            returnKeyType="done"
-                                            onSubmitEditing={() => Keyboard.dismiss()}
-                                            blurOnSubmit={true}
-                                        />
+                                        <TouchableOpacity
+                                            style={styles.locationPickerButton}
+                                            onPress={() => setShowLocationSearch(true)}
+                                        >
+                                            <MapPin stroke={modalColors.purple500} width={20} height={20} />
+                                            <Text style={styles.locationPickerText}>
+                                                {location || 'Select location'}
+                                            </Text>
+                                        </TouchableOpacity>
                                     )}
                                 </View>
                             )}
@@ -365,8 +351,15 @@ export default function UpdateDetailsModal({ activity, visible, onClose, onUpdat
                             </TouchableOpacity>
                         </View>
                     </View>
-                </Animated.View>
+                </View>
             </SafeAreaView>
+            
+            {/* Location Search Modal */}
+            <SearchLocationModal
+                visible={showLocationSearch}
+                onClose={() => setShowLocationSearch(false)}
+                onSelectLocation={handleLocationSelect}
+            />
         </Modal>
     )
 }
@@ -380,9 +373,9 @@ const styles = StyleSheet.create({
     },
 
     logoCircle: {
-        width: 90,
-        height: 90,
-        borderRadius: 45,
+        width: 70,
+        height: 70,
+        borderRadius: 35,
         backgroundColor: '#ffffff',
         justifyContent: 'center',
         alignItems: 'center',
@@ -397,15 +390,8 @@ const styles = StyleSheet.create({
     },
 
     logo: {
-        width: 75,
-        height: 75,
-        shadowColor: '#000',
-        shadowOffset: {
-            width: 0,
-            height: 2,
-        },
-        shadowOpacity: 0.25,
-        shadowRadius: 4,
+        width: 55,
+        height: 55,
     },
 
     scrollView: {
@@ -525,6 +511,53 @@ const styles = StyleSheet.create({
         fontSize: 14,
         fontWeight: '600',
         marginLeft: 6,
+    },
+
+    locationPickerButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(185, 84, 236, 0.08)',
+        borderWidth: 1.5,
+        borderColor: 'rgba(185, 84, 236, 0.3)',
+        borderRadius: 12,
+        paddingHorizontal: 16,
+        paddingVertical: 14,
+        gap: 12,
+    },
+
+    locationPickerText: {
+        color: '#fff',
+        fontSize: 15,
+        fontWeight: '500',
+        flex: 1,
+    },
+
+    lockedLabel: {
+        color: 'rgba(255, 165, 0, 0.7)',
+        fontSize: 12,
+        fontWeight: '500',
+        marginLeft: 8,
+        fontStyle: 'italic',
+    },
+
+    lockedLocationContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(255, 255, 255, 0.03)',
+        borderWidth: 1.5,
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+        borderRadius: 12,
+        paddingHorizontal: 16,
+        paddingVertical: 14,
+        gap: 12,
+        opacity: 0.7,
+    },
+
+    lockedLocationText: {
+        color: 'rgba(255, 255, 255, 0.6)',
+        fontSize: 15,
+        fontWeight: '500',
+        flex: 1,
     },
 
 })

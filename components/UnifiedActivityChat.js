@@ -263,8 +263,8 @@ export default function UnifiedActivityChat({ visible, onClose }) {
                         >
                             <LinearGradient
                                 colors={selectedActivity === 'Restaurant' 
-                                    ? ['#FF6B6B', '#FF5252'] 
-                                    : ['rgba(255,107,107,0.2)', 'rgba(255,107,107,0.1)']}
+                                    ? ['#B954EC', '#9C3FCC'] 
+                                    : ['rgba(185, 84, 236, 0.08)', 'rgba(185, 84, 236, 0.04)']}
                                 style={[
                                     styles.activityGradient,
                                     selectedActivity === 'Restaurant' && styles.selectedActivityGradient
@@ -300,8 +300,8 @@ export default function UnifiedActivityChat({ visible, onClose }) {
                         >
                             <LinearGradient
                                 colors={selectedActivity === 'Cocktails' 
-                                    ? ['#4ECDC4', '#44A39F'] 
-                                    : ['rgba(78,205,196,0.2)', 'rgba(78,205,196,0.1)']}
+                                    ? ['#B954EC', '#9C3FCC'] 
+                                    : ['rgba(185, 84, 236, 0.08)', 'rgba(185, 84, 236, 0.04)']}
                                 style={[
                                     styles.activityGradient,
                                     selectedActivity === 'Cocktails' && styles.selectedActivityGradient
@@ -809,41 +809,41 @@ const styles = StyleSheet.create({
         borderRadius: 24,
         flexDirection: 'row',
         alignItems: 'center',
-        borderWidth: 2,
-        borderColor: 'rgba(255, 255, 255, 0.1)',
+        borderWidth: 1.5,
+        borderColor: 'rgba(185, 84, 236, 0.15)',
         position: 'relative',
         minHeight: 110,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.15,
-        shadowRadius: 8,
-        elevation: 4,
+        shadowColor: '#B954EC',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 6,
+        elevation: 2,
     },
     
     selectedActivityGradient: {
-        borderColor: 'rgba(255, 255, 255, 0.4)',
-        borderWidth: 3,
-        shadowOpacity: 0.25,
-        shadowRadius: 12,
-        elevation: 6,
+        borderColor: 'rgba(185, 84, 236, 0.6)',
+        borderWidth: 2,
+        shadowOpacity: 0.15,
+        shadowRadius: 10,
+        elevation: 4,
     },
     
     activityIconCircle: {
         width: 70,
         height: 70,
         borderRadius: 35,
-        backgroundColor: 'rgba(255, 255, 255, 0.2)',
+        backgroundColor: 'rgba(255, 255, 255, 0.08)',
         alignItems: 'center',
         justifyContent: 'center',
         marginRight: 24,
-        borderWidth: 2,
-        borderColor: 'rgba(255, 255, 255, 0.3)',
+        borderWidth: 1.5,
+        borderColor: 'rgba(255, 255, 255, 0.12)',
     },
     
     activityButtonTitle: {
         fontSize: 28,
         fontWeight: '700',
-        color: '#B8A5C4',
+        color: 'rgba(255, 255, 255, 0.7)',
         fontFamily: 'Montserrat_700Bold',
         letterSpacing: 0.5,
         flex: 1,

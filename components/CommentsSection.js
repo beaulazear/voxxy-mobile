@@ -410,7 +410,6 @@ const CommentsSection = ({ activity }) => {
         }, {});
 
     const closeReportModal = () => {
-        console.log('closeReportModal called - Stack trace:', new Error().stack);
         logger.debug('Closing report modal and resetting state');
         setReportModalVisible(false);
         setSelectedComment(null);
@@ -455,20 +454,16 @@ const CommentsSection = ({ activity }) => {
     };
 
     const handleBlockUser = async (userId, userName) => {
-        console.log('handleBlockUser called with:', { userId, userName });
         logger.debug('Block button pressed:', { userId, userName });
         
         const userToBlockData = { id: userId, name: userName };
-        console.log('Setting userToBlock to:', userToBlockData);
         setUserToBlock(userToBlockData);
         
         // Close report modal first so block modal can show on top
-        console.log('Closing report modal to show block confirmation');
         setReportModalVisible(false);
         
         // Small delay to ensure report modal closes before showing block modal
         setTimeout(() => {
-            console.log('Setting showBlockConfirm to true after delay');
             setShowBlockConfirm(true);
         }, 100);
         
@@ -880,8 +875,6 @@ const CommentsSection = ({ activity }) => {
                                 <TouchableOpacity
                                     style={styles.blockUserButton}
                                     onPress={() => {
-                                        console.log('===== BLOCK BUTTON PRESSED =====');
-                                        console.log('User to block:', selectedComment.user);
                                         logger.debug('Block button tapped in modal');
                                         handleBlockUser(selectedComment.user.id, selectedComment.user.name);
                                     }}
@@ -957,7 +950,6 @@ const CommentsSection = ({ activity }) => {
             </Modal>
 
             {/* Block User Confirmation Modal */}
-            {console.log('Block confirm modal render check:', { showBlockConfirm, userToBlock })}
             <Modal
                 visible={showBlockConfirm}
                 animationType="fade"

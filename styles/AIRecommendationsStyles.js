@@ -1236,7 +1236,15 @@ const styles = StyleSheet.create({
         fontSize: 16,
         textAlign: 'center',
         lineHeight: 24,
-        marginBottom: 30,
+        marginBottom: 10,
+        paddingHorizontal: 10,
+    },
+    loadingModalTimeEstimate: {
+        color: '#FFE66D',
+        fontSize: 14,
+        textAlign: 'center',
+        fontWeight: '600',
+        marginBottom: 25,
         paddingHorizontal: 10,
     },
     loadingDots: {

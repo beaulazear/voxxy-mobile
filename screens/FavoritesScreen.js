@@ -16,6 +16,7 @@ import NativeMapView from '../components/NativeMapView';
 import { API_URL } from '../config';
 import { safeAuthApiCall } from '../utils/safeApiCall';
 import * as Location from 'expo-location';
+import { logger } from '../utils/logger';
 
 export default function FavoritesScreen() {
     const { user } = useContext(UserContext);
@@ -111,7 +112,7 @@ export default function FavoritesScreen() {
                 }
             }
         } catch (error) {
-            console.error('Error fetching favorites:', error);
+            logger.error('Error fetching favorites:', error);
         } finally {
             setLoadingFavorites(false);
         }

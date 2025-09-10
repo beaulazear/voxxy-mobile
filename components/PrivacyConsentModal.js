@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import {
     Modal,
     View,
@@ -8,24 +8,132 @@ import {
     StyleSheet,
     SafeAreaView,
     Linking,
+    Alert,
+    ActivityIndicator,
 } from 'react-native';
 import { Shield, MapPin, Users, Bell, Brain, Check } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import colors from '../styles/Colors';
+import { API_URL } from '../config';
+import { UserContext } from '../context/UserContext';
+import { safeAuthApiCall, handleApiError } from '../utils/safeApiCall';
+import { logger } from '../utils/logger';
 
 export default function PrivacyConsentModal({ visible, onAccept, onDecline, navigation }) {
     const [agreedToTerms, setAgreedToTerms] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
+    const { user } = useContext(UserContext);
+
+    const PRIVACY_VERSION = '1.0.0'; // Match EULA version format
 
     const handleAccept = async () => {
         if (!agreedToTerms) {
-            alert('Please agree to the Privacy Policy to continue');
+            Alert.alert('Required', 'Please agree to the Privacy Policy to continue');
             return;
         }
         
-        // Store consent timestamp
-        await AsyncStorage.setItem('privacyConsentDate', new Date().toISOString());
-        await AsyncStorage.setItem('privacyConsentVersion', '1.0');
-        onAccept();
+        setSubmitting(true);
+
+        try {
+            // If user is logged in, sync with backend
+            if (user && user.token) {
+                const policyEndpoint = `${API_URL}/accept_policies`;
+                logger.debug('========== PRIVACY POLICY ACCEPTANCE DEBUG ==========');
+                logger.debug('Attempting to sync privacy policy acceptance with backend');
+                logger.debug('Full API URL:', policyEndpoint);
+                logger.debug('Token present:', !!user.token);
+                logger.debug('User ID:', user?.id);
+                logger.debug('Policy being accepted:', {
+                    privacy: true,
+                    version: PRIVACY_VERSION
+                });
+                logger.debug('====================================================');
+                
+                const response = await safeAuthApiCall(
+                    policyEndpoint,
+                    user.token,
+                    {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            accept_privacy: true,
+                            privacy_version: PRIVACY_VERSION
+                        })
+                    }
+                );
+
+                if (response) {
+                    logger.debug('Privacy policy accepted on backend successfully:', response);
+                    
+                    // Store locally as backup with successful sync flag
+                    await AsyncStorage.setItem('privacy_policy_accepted', JSON.stringify({
+                        timestamp: new Date().toISOString(),
+                        privacy_version: PRIVACY_VERSION,
+                        synced_with_backend: true
+                    }));
+                    
+                    // Also store old keys for backward compatibility
+                    await AsyncStorage.setItem('privacyConsentDate', new Date().toISOString());
+                    await AsyncStorage.setItem('privacyConsentVersion', PRIVACY_VERSION);
+                    
+                    logger.debug('Privacy policy successfully synced with backend and stored locally');
+                } else {
+                    throw new Error('Invalid response from policy acceptance endpoint');
+                }
+            } else {
+                // For users not logged in yet (during signup), store locally
+                await AsyncStorage.setItem('privacy_policy_accepted', JSON.stringify({
+                    timestamp: new Date().toISOString(),
+                    privacy_version: PRIVACY_VERSION,
+                    synced_with_backend: false,
+                    pending_sync: true
+                }));
+                
+                // Also store old keys for backward compatibility
+                await AsyncStorage.setItem('privacyConsentDate', new Date().toISOString());
+                await AsyncStorage.setItem('privacyConsentVersion', PRIVACY_VERSION);
+                
+                logger.debug('Privacy policy stored locally (user not logged in)');
+            }
+
+            setSubmitting(false);
+            onAccept();
+        } catch (error) {
+            logger.error('Failed to accept privacy policy:', {
+                error: error.message,
+                status: error.status,
+                stack: error.stack
+            });
+            
+            // Check if it's a network/connection error
+            const isNetworkError = !error.status || error.message?.includes('Network') || error.message?.includes('timeout');
+            
+            // Still allow user to proceed if backend fails (store locally)
+            await AsyncStorage.setItem('privacy_policy_accepted', JSON.stringify({
+                timestamp: new Date().toISOString(),
+                privacy_version: PRIVACY_VERSION,
+                synced_with_backend: false,
+                pending_sync: true,
+                error: error.message
+            }));
+
+            // Also store old keys for backward compatibility
+            await AsyncStorage.setItem('privacyConsentDate', new Date().toISOString());
+            await AsyncStorage.setItem('privacyConsentVersion', PRIVACY_VERSION);
+
+            if (isNetworkError) {
+                Alert.alert(
+                    'Connection Issue',
+                    'Privacy policy accepted locally. We\'ll sync with our servers when connection is restored.',
+                    [{ text: 'OK', onPress: onAccept }]
+                );
+            } else {
+                // For actual API errors, just proceed without showing an alert
+                logger.debug('Privacy policy sync failed but allowing user to continue');
+                onAccept();
+            }
+            
+            setSubmitting(false);
+        }
     };
 
     const handleViewPrivacy = () => {
@@ -143,11 +251,15 @@ export default function PrivacyConsentModal({ visible, onAccept, onDecline, navi
 
                 <View style={styles.buttonContainer}>
                     <TouchableOpacity
-                        style={[styles.acceptButton, !agreedToTerms && styles.disabledButton]}
+                        style={[styles.acceptButton, (!agreedToTerms || submitting) && styles.disabledButton]}
                         onPress={handleAccept}
-                        disabled={!agreedToTerms}
+                        disabled={!agreedToTerms || submitting}
                     >
-                        <Text style={styles.acceptButtonText}>Accept & Continue</Text>
+                        {submitting ? (
+                            <ActivityIndicator color="#fff" />
+                        ) : (
+                            <Text style={styles.acceptButtonText}>Accept & Continue</Text>
+                        )}
                     </TouchableOpacity>
                     
                     <TouchableOpacity

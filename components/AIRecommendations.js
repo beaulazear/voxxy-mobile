@@ -462,6 +462,75 @@ const SwipeableCard = ({ recommendation, onSwipeLeft, onSwipeRight, onFlag, onFa
     );
 };
 
+// Helper function to format hours for display
+const formatHours = (hoursString) => {
+    if (!hoursString || hoursString === 'N/A') return 'Hours not available';
+    
+    // If it's already a simple string (old format), return as is
+    if (!hoursString.includes('day')) {
+        return hoursString;
+    }
+    
+    try {
+        // Parse days of the week from the string
+        const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+        const shortDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+        
+        // Split by days and create a map
+        const hoursMap = {};
+        let currentHours = [];
+        
+        days.forEach((day, index) => {
+            const dayPattern = new RegExp(`${day}[:\s]+([^,]+)(?:,|$)`, 'i');
+            const match = hoursString.match(dayPattern);
+            if (match) {
+                const hours = match[1].trim();
+                if (hours.toLowerCase() !== 'closed') {
+                    if (!currentHours.length || currentHours[currentHours.length - 1].hours !== hours) {
+                        currentHours.push({
+                            days: [shortDays[index]],
+                            hours: hours
+                        });
+                    } else {
+                        currentHours[currentHours.length - 1].days.push(shortDays[index]);
+                    }
+                }
+            }
+        });
+        
+        // Format grouped hours
+        if (currentHours.length === 0) {
+            return 'Hours vary';
+        }
+        
+        // Check if all days have the same hours
+        if (currentHours.length === 1 && currentHours[0].days.length === 7) {
+            return `Daily: ${currentHours[0].hours}`;
+        }
+        
+        // Group consecutive days with same hours
+        const formatted = currentHours.map(group => {
+            if (group.days.length === 1) {
+                return `${group.days[0]}: ${group.hours}`;
+            } else if (group.days.length === 2) {
+                return `${group.days.join(' & ')}: ${group.hours}`;
+            } else {
+                return `${group.days[0]}-${group.days[group.days.length - 1]}: ${group.hours}`;
+            }
+        });
+        
+        // If more than 2 groups, show simplified view
+        if (formatted.length > 2) {
+            return formatted.slice(0, 2).join(' • ');
+        }
+        
+        return formatted.join(' • ');
+    } catch (e) {
+        // If parsing fails, return a simplified version
+        return hoursString.length > 50 ? hoursString.substring(0, 47) + '...' : hoursString;
+    }
+};
+
 export default function AIRecommendations({
     activity,
     pinnedActivities,
@@ -876,7 +945,8 @@ export default function AIRecommendations({
                         date_notes,
                         activity_id: id,
                     }),
-                }
+                },
+                30000 // 30 second timeout for AI recommendations
             );
 
             const pinnedActivityPromises = recs.map(rec =>
@@ -1496,7 +1566,10 @@ export default function AIRecommendations({
                                 </View>
                                 <Text style={styles.loadingModalTitle}>Crafting Your Perfect Experience</Text>
                                 <Text style={styles.loadingModalSubtitle}>
-                                    Voxxy is curating the perfect recommendations for your group...
+                                    Voxxy is analyzing venues and personalizing recommendations...
+                                </Text>
+                                <Text style={styles.loadingModalTimeEstimate}>
+                                    This may take 10-20 seconds
                                 </Text>
                                 <View style={styles.loadingDots}>
                                     <Animated.View 
@@ -1670,7 +1743,7 @@ export default function AIRecommendations({
                                                     <View style={styles.detailItem}>
                                                         <Icons.Clock />
                                                         <Text style={styles.detailLabel}>Play Time:</Text>
-                                                        <Text style={styles.detailValue}>{selectedRec?.hours || 'N/A'}</Text>
+                                                        <Text style={styles.detailValue}>{formatHours(selectedRec?.hours)}</Text>
                                                     </View>
                                                     <View style={styles.detailItem}>
                                                         <Icons.DollarSign />
@@ -1688,7 +1761,7 @@ export default function AIRecommendations({
                                                     <View style={styles.detailItem}>
                                                         <Icons.Clock />
                                                         <Text style={styles.detailLabel}>Hours:</Text>
-                                                        <Text style={styles.detailValue}>{selectedRec?.hours || 'N/A'}</Text>
+                                                        <Text style={styles.detailValue}>{formatHours(selectedRec?.hours)}</Text>
                                                     </View>
                                                 </>
                                             )}
@@ -1831,12 +1904,12 @@ export default function AIRecommendations({
                                                 <View>
                                                     {isGameNightActivity ? (
                                                         <>
-                                                            <Text style={styles.listDetail}>{p.hours || 'N/A'}</Text>
+                                                            <Text style={styles.listDetail}>{formatHours(p.hours)}</Text>
                                                             <Text style={styles.listDetail}>{p.address || 'N/A'}</Text>
                                                         </>
                                                     ) : (
                                                         <>
-                                                            <Text style={styles.listDetail}>{p.hours || 'N/A'}</Text>
+                                                            <Text style={styles.listDetail}>{formatHours(p.hours)}</Text>
                                                             <Text style={styles.listDetail}>{p.address || 'N/A'}</Text>
                                                         </>
                                                     )}
@@ -2088,7 +2161,7 @@ export default function AIRecommendations({
                                             <View style={styles.detailItem}>
                                                 <Icons.Clock />
                                                 <Text style={styles.detailLabel}>Play Time:</Text>
-                                                <Text style={styles.detailValue}>{selectedRec?.hours || 'N/A'}</Text>
+                                                <Text style={styles.detailValue}>{formatHours(selectedRec?.hours)}</Text>
                                             </View>
                                             <View style={styles.detailItem}>
                                                 <Icons.DollarSign />
@@ -2106,7 +2179,7 @@ export default function AIRecommendations({
                                             <View style={styles.detailItem}>
                                                 <Icons.Clock />
                                                 <Text style={styles.detailLabel}>Hours:</Text>
-                                                <Text style={styles.detailValue}>{selectedRec?.hours || 'N/A'}</Text>
+                                                <Text style={styles.detailValue}>{formatHours(selectedRec?.hours)}</Text>
                                             </View>
                                         </>
                                     )}
@@ -2404,7 +2477,7 @@ export default function AIRecommendations({
                                         <View style={styles.detailItem}>
                                             <Icons.Clock />
                                             <Text style={styles.detailLabel}>Play Time:</Text>
-                                            <Text style={styles.detailValue}>{selectedRec?.hours || 'N/A'}</Text>
+                                            <Text style={styles.detailValue}>{formatHours(selectedRec?.hours)}</Text>
                                         </View>
                                         <View style={styles.detailItem}>
                                             <Icons.DollarSign />
@@ -2422,7 +2495,7 @@ export default function AIRecommendations({
                                         <View style={styles.detailItem}>
                                             <Icons.Clock />
                                             <Text style={styles.detailLabel}>Hours:</Text>
-                                            <Text style={styles.detailValue}>{selectedRec?.hours || 'N/A'}</Text>
+                                            <Text style={styles.detailValue}>{formatHours(selectedRec?.hours)}</Text>
                                         </View>
                                     </>
                                 )}

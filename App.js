@@ -73,7 +73,7 @@ const AppNavigator = () => {
         const privacyConsentDate = await AsyncStorage.getItem('privacyConsentDate');
         const privacyConsentVersion = await AsyncStorage.getItem('privacyConsentVersion');
         
-        if (!privacyConsentDate || privacyConsentVersion !== '1.0') {
+        if (!privacyConsentDate || privacyConsentVersion !== '1.0.0') {
           // Show privacy consent first
           setShowPrivacyConsent(true);
           setPoliciesLoading(false);
