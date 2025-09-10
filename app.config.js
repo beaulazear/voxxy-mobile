@@ -3,10 +3,10 @@ const IS_DEV = process.env.APP_ENV === 'development' || process.env.NODE_ENV ===
 
 module.exports = {
   expo: {
-    name: IS_DEV ? "Voxxy (Dev)" : "Voxxy",
+    name: IS_DEV ? "Voxxy" : "Voxxy",
     slug: "voxxy-mobile",
     description: "Connect with friends through shared activities. Organize dinners, meetings, and events with AI-powered recommendations and real-time coordination.",
-    version: "1.2.14",
+    version: "1.2.15",
     orientation: "portrait",
     icon: "./assets/icon.png",
     userInterfaceStyle: "light",
@@ -22,7 +22,7 @@ module.exports = {
     ios: {
       supportsTablet: true,
       bundleIdentifier: "com.beaulazear.voxxymobile",
-      buildNumber: "15",
+      buildNumber: "16",
       config: {
         usesNonExemptEncryption: false
       },

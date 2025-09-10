@@ -18,6 +18,7 @@ import {
     Share,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
 import Icon from 'react-native-vector-icons/Feather';
 import { UserContext } from '../context/UserContext';
 import { API_URL } from '../config';
@@ -462,72 +463,145 @@ const SwipeableCard = ({ recommendation, onSwipeLeft, onSwipeRight, onFlag, onFa
     );
 };
 
-// Helper function to format hours for display
+// Component for rendering hours in a stylish way
+const HoursDisplay = ({ hours, style, compact = false }) => {
+    const hoursData = formatHours(hours);
+    
+    if (hoursData.type === 'simple') {
+        return <Text style={style}>{hoursData.text}</Text>;
+    }
+    
+    if (compact) {
+        // For compact view, just show the first group
+        const firstGroup = hoursData.groups[0];
+        const moreCount = hoursData.groups.length - 1;
+        return (
+            <Text style={style}>
+                {firstGroup.days}: {firstGroup.hours}
+                {moreCount > 0 && ` +${moreCount}`}
+            </Text>
+        );
+    }
+    
+    return (
+        <View style={styles.hoursContainer}>
+            {hoursData.groups.map((group, index) => (
+                <View key={index} style={styles.hoursRow}>
+                    <Text style={styles.hoursDays}>{group.days}:</Text>
+                    <Text style={styles.hoursTime}>{group.hours}</Text>
+                </View>
+            ))}
+        </View>
+    );
+};
+
+// Helper function to format hours for display - returns an object with formatted data
 const formatHours = (hoursString) => {
-    if (!hoursString || hoursString === 'N/A') return 'Hours not available';
+    if (!hoursString || hoursString === 'N/A') return { type: 'simple', text: 'Hours not available' };
     
     // If it's already a simple string (old format), return as is
-    if (!hoursString.includes('day')) {
-        return hoursString;
+    if (!hoursString.includes('Mon') && !hoursString.includes('Tue') && !hoursString.includes('Wed')) {
+        return { type: 'simple', text: hoursString };
     }
     
     try {
-        // Parse days of the week from the string
-        const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-        const shortDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+        // Parse the hours string - expecting format like "Mon: Closed, Tue: Closed, Wed: 12:00 – 8:00 PM..."
+        const dayAbbrevs = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+        const hoursData = [];
         
-        // Split by days and create a map
-        const hoursMap = {};
-        let currentHours = [];
+        // Split by comma and parse each day
+        const parts = hoursString.split(',').map(p => p.trim());
         
-        days.forEach((day, index) => {
-            const dayPattern = new RegExp(`${day}[:\s]+([^,]+)(?:,|$)`, 'i');
-            const match = hoursString.match(dayPattern);
-            if (match) {
-                const hours = match[1].trim();
-                if (hours.toLowerCase() !== 'closed') {
-                    if (!currentHours.length || currentHours[currentHours.length - 1].hours !== hours) {
-                        currentHours.push({
-                            days: [shortDays[index]],
-                            hours: hours
-                        });
-                    } else {
-                        currentHours[currentHours.length - 1].days.push(shortDays[index]);
-                    }
+        parts.forEach(part => {
+            const colonIndex = part.indexOf(':');
+            if (colonIndex > -1) {
+                const day = part.substring(0, colonIndex).trim();
+                const hours = part.substring(colonIndex + 1).trim();
+                
+                // Find the day index
+                const dayIndex = dayAbbrevs.findIndex(d => part.startsWith(d));
+                if (dayIndex !== -1) {
+                    hoursData.push({
+                        day: dayAbbrevs[dayIndex],
+                        dayIndex,
+                        hours: hours
+                    });
                 }
             }
         });
         
-        // Format grouped hours
-        if (currentHours.length === 0) {
-            return 'Hours vary';
-        }
-        
-        // Check if all days have the same hours
-        if (currentHours.length === 1 && currentHours[0].days.length === 7) {
-            return `Daily: ${currentHours[0].hours}`;
-        }
-        
         // Group consecutive days with same hours
-        const formatted = currentHours.map(group => {
-            if (group.days.length === 1) {
-                return `${group.days[0]}: ${group.hours}`;
-            } else if (group.days.length === 2) {
-                return `${group.days.join(' & ')}: ${group.hours}`;
+        const groups = [];
+        let currentGroup = null;
+        
+        hoursData.forEach(data => {
+            if (data.hours.toLowerCase() === 'closed') {
+                // Skip closed days for cleaner display
+                return;
+            }
+            
+            // Clean up the hours format (remove extra spaces, standardize dash)
+            const cleanHours = data.hours.replace(/\s+/g, ' ').replace(/[–—]/g, '-').trim();
+            
+            if (!currentGroup || currentGroup.hours !== cleanHours) {
+                currentGroup = {
+                    startDay: data.day,
+                    endDay: data.day,
+                    startIndex: data.dayIndex,
+                    endIndex: data.dayIndex,
+                    hours: cleanHours
+                };
+                groups.push(currentGroup);
+            } else if (data.dayIndex === currentGroup.endIndex + 1) {
+                // Consecutive day with same hours
+                currentGroup.endDay = data.day;
+                currentGroup.endIndex = data.dayIndex;
             } else {
-                return `${group.days[0]}-${group.days[group.days.length - 1]}: ${group.hours}`;
+                // Non-consecutive day with same hours - start new group
+                currentGroup = {
+                    startDay: data.day,
+                    endDay: data.day,
+                    startIndex: data.dayIndex,
+                    endIndex: data.dayIndex,
+                    hours: cleanHours
+                };
+                groups.push(currentGroup);
             }
         });
         
-        // If more than 2 groups, show simplified view
-        if (formatted.length > 2) {
-            return formatted.slice(0, 2).join(' • ');
+        // Format the groups
+        if (groups.length === 0) {
+            return { type: 'simple', text: 'Closed' };
         }
         
-        return formatted.join(' • ');
+        // Check if all open days have the same hours
+        if (groups.length === 1) {
+            const group = groups[0];
+            if (group.startIndex === 0 && group.endIndex === 6) {
+                return { type: 'simple', text: `Daily: ${group.hours}` };
+            } else if (group.startDay === group.endDay) {
+                return { type: 'simple', text: `${group.startDay}: ${group.hours}` };
+            } else {
+                return { type: 'simple', text: `${group.startDay}-${group.endDay}: ${group.hours}` };
+            }
+        }
+        
+        // For multiple groups, return structured data for better display
+        return {
+            type: 'structured',
+            groups: groups.map(group => ({
+                days: group.startDay === group.endDay ? group.startDay : `${group.startDay}-${group.endDay}`,
+                hours: group.hours
+            }))
+        };
+        
     } catch (e) {
-        // If parsing fails, return a simplified version
-        return hoursString.length > 50 ? hoursString.substring(0, 47) + '...' : hoursString;
+        // If parsing fails, try to extract just the hours
+        const timeMatch = hoursString.match(/\d{1,2}:\d{2}\s*[–-]\s*\d{1,2}:\d{2}\s*[AP]M/i);
+        if (timeMatch) {
+            return { type: 'simple', text: timeMatch[0] };
+        }
+        return { type: 'simple', text: 'See details' };
     }
 };
 
@@ -1079,6 +1153,7 @@ export default function AIRecommendations({
 
 
     const openDetail = (rec) => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         setSelectedRec(rec);
         setShowDetailModal(true);
     };
@@ -1103,6 +1178,7 @@ export default function AIRecommendations({
 
     // Flag handler for marking recommendations to exclude  
     const handleFlag = (recommendation) => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         setFlaggedRecommendations(prev => [...prev, recommendation]);
         Alert.alert('Flagged', 'This recommendation has been flagged for exclusion.');
     };
@@ -1123,6 +1199,7 @@ export default function AIRecommendations({
     };
 
     const handleFavorite = async (recommendation) => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         if (!recommendation.id) {
             Alert.alert('Error', 'Unable to favorite this recommendation');
             return;
@@ -1647,7 +1724,7 @@ export default function AIRecommendations({
                     </View>
                     
                     {/* Display all recommendations */}
-                    <View style={styles.recommendationsGrid}>
+                    <View style={[styles.recommendationsGrid, styles.recommendationsGridNoToggle]}>
                         {pinnedActivities.map((recommendation) => {
                             return (
                                 <TouchableOpacity
@@ -1743,7 +1820,7 @@ export default function AIRecommendations({
                                                     <View style={styles.detailItem}>
                                                         <Icons.Clock />
                                                         <Text style={styles.detailLabel}>Play Time:</Text>
-                                                        <Text style={styles.detailValue}>{formatHours(selectedRec?.hours)}</Text>
+                                                        <HoursDisplay hours={selectedRec?.hours} style={styles.detailValue} />
                                                     </View>
                                                     <View style={styles.detailItem}>
                                                         <Icons.DollarSign />
@@ -1761,7 +1838,7 @@ export default function AIRecommendations({
                                                     <View style={styles.detailItem}>
                                                         <Icons.Clock />
                                                         <Text style={styles.detailLabel}>Hours:</Text>
-                                                        <Text style={styles.detailValue}>{formatHours(selectedRec?.hours)}</Text>
+                                                        <HoursDisplay hours={selectedRec?.hours} style={styles.detailValue} />
                                                     </View>
                                                 </>
                                             )}
@@ -1841,6 +1918,7 @@ export default function AIRecommendations({
                                         <TouchableOpacity 
                                             style={styles.primaryActionButton} 
                                             onPress={() => {
+                                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                                                 Alert.alert(
                                                     'What would you like to do?',
                                                     '',
@@ -1904,12 +1982,12 @@ export default function AIRecommendations({
                                                 <View>
                                                     {isGameNightActivity ? (
                                                         <>
-                                                            <Text style={styles.listDetail}>{formatHours(p.hours)}</Text>
+                                                            <HoursDisplay hours={p.hours} style={styles.listDetail} compact={true} />
                                                             <Text style={styles.listDetail}>{p.address || 'N/A'}</Text>
                                                         </>
                                                     ) : (
                                                         <>
-                                                            <Text style={styles.listDetail}>{formatHours(p.hours)}</Text>
+                                                            <HoursDisplay hours={p.hours} style={styles.listDetail} compact={true} />
                                                             <Text style={styles.listDetail}>{p.address || 'N/A'}</Text>
                                                         </>
                                                     )}
@@ -1959,7 +2037,10 @@ export default function AIRecommendations({
                             <View style={styles.viewModeToggleOverlay}>
                                 <TouchableOpacity
                                     style={[styles.viewModeButton, viewMode === 'map' && styles.viewModeButtonActive]}
-                                    onPress={() => setViewMode('map')}
+                                    onPress={() => {
+                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                        setViewMode('map');
+                                    }}
                                 >
                                     <Icons.Map color={viewMode === 'map' ? '#fff' : '#666'} size={18} />
                                     <Text style={[styles.viewModeButtonText, viewMode === 'map' && styles.viewModeButtonTextActive]}>
@@ -1968,7 +2049,10 @@ export default function AIRecommendations({
                                 </TouchableOpacity>
                                 <TouchableOpacity
                                     style={[styles.viewModeButton, viewMode === 'cards' && styles.viewModeButtonActive]}
-                                    onPress={() => setViewMode('cards')}
+                                    onPress={() => {
+                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                        setViewMode('cards');
+                                    }}
                                 >
                                     <Icons.Grid color={viewMode === 'cards' ? '#fff' : '#666'} size={18} />
                                     <Text style={[styles.viewModeButtonText, viewMode === 'cards' && styles.viewModeButtonTextActive]}>
@@ -1984,6 +2068,7 @@ export default function AIRecommendations({
                                 <TouchableOpacity 
                                     style={styles.primaryActionButton} 
                                     onPress={() => {
+                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                                         Alert.alert(
                                             'What would you like to do?',
                                             '',
@@ -2014,13 +2099,16 @@ export default function AIRecommendations({
                     </View>
                 ) : (
                     /* Card View */
-                    <View style={styles.cardsContainer}>
+                    <ScrollView style={styles.cardsContainer} showsVerticalScrollIndicator={false}>
                         {/* View Mode Toggle overlay - only show for non-Game Night activities */}
                         {!isGameNightActivity && (
                             <View style={styles.viewModeToggleOverlay}>
                                 <TouchableOpacity
                                     style={[styles.viewModeButton, viewMode === 'map' && styles.viewModeButtonActive]}
-                                    onPress={() => setViewMode('map')}
+                                    onPress={() => {
+                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                        setViewMode('map');
+                                    }}
                                 >
                                     <Icons.Map color={viewMode === 'map' ? '#fff' : '#666'} size={18} />
                                     <Text style={[styles.viewModeButtonText, viewMode === 'map' && styles.viewModeButtonTextActive]}>
@@ -2029,7 +2117,10 @@ export default function AIRecommendations({
                                 </TouchableOpacity>
                                 <TouchableOpacity
                                     style={[styles.viewModeButton, viewMode === 'cards' && styles.viewModeButtonActive]}
-                                    onPress={() => setViewMode('cards')}
+                                    onPress={() => {
+                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                        setViewMode('cards');
+                                    }}
                                 >
                                     <Icons.Grid color={viewMode === 'cards' ? '#fff' : '#666'} size={18} />
                                     <Text style={[styles.viewModeButtonText, viewMode === 'cards' && styles.viewModeButtonTextActive]}>
@@ -2105,6 +2196,7 @@ export default function AIRecommendations({
                         <TouchableOpacity 
                             style={styles.primaryActionButton} 
                             onPress={() => {
+                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                                 Alert.alert(
                                     'What would you like to do?',
                                     '',
@@ -2132,7 +2224,7 @@ export default function AIRecommendations({
                         </TouchableOpacity>
                             </View>
                         )}
-                    </View>
+                    </ScrollView>
                 )}
 
                 {/* Detail Modal - Same as before */}
@@ -2161,7 +2253,7 @@ export default function AIRecommendations({
                                             <View style={styles.detailItem}>
                                                 <Icons.Clock />
                                                 <Text style={styles.detailLabel}>Play Time:</Text>
-                                                <Text style={styles.detailValue}>{formatHours(selectedRec?.hours)}</Text>
+                                                <HoursDisplay hours={selectedRec?.hours} style={styles.detailValue} />
                                             </View>
                                             <View style={styles.detailItem}>
                                                 <Icons.DollarSign />
@@ -2179,7 +2271,7 @@ export default function AIRecommendations({
                                             <View style={styles.detailItem}>
                                                 <Icons.Clock />
                                                 <Text style={styles.detailLabel}>Hours:</Text>
-                                                <Text style={styles.detailValue}>{formatHours(selectedRec?.hours)}</Text>
+                                                <HoursDisplay hours={selectedRec?.hours} style={styles.detailValue} />
                                             </View>
                                         </>
                                     )}

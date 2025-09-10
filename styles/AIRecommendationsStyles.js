@@ -1044,6 +1044,26 @@ const styles = StyleSheet.create({
         fontSize: 14,
         fontWeight: '600',
     },
+    hoursContainer: {
+        flex: 1,
+        marginLeft: 8,
+    },
+    hoursRow: {
+        flexDirection: 'row',
+        marginBottom: 4,
+    },
+    hoursDays: {
+        color: '#B8A5C4',
+        fontSize: 13,
+        fontWeight: '600',
+        minWidth: 65,
+    },
+    hoursTime: {
+        color: '#fff',
+        fontSize: 13,
+        fontWeight: '500',
+        flex: 1,
+    },
     section: {
         marginBottom: 20,
     },
@@ -2435,14 +2455,15 @@ const styles = StyleSheet.create({
     recommendationsGrid: {
         paddingHorizontal: 12,
         paddingTop: 60,
-        paddingBottom: 20,
+        paddingBottom: 12,
     },
     recommendationsGridNoToggle: {
         paddingTop: 16,  // Much less padding when there's no toggle
     },
     participantViewHeader: {
         paddingHorizontal: 16,
-        paddingVertical: 20,
+        paddingTop: 16,
+        paddingBottom: 8,
         alignItems: 'center',
     },
     participantViewTitle: {
@@ -2588,7 +2609,7 @@ const styles = StyleSheet.create({
     },
     bottomActionsContainer: {
         paddingHorizontal: 16,
-        marginTop: 16,
+        marginTop: 8,
         paddingBottom: 30,
         gap: 12,
     },

@@ -1049,7 +1049,11 @@ export default function HomeScreen({ route }) {
             styles.listItemTitle,
             !item.finalized && { color: 'rgba(255, 255, 255, 0.6)' }
           ]} numberOfLines={1}>
-            {item.finalized ? item.activity_name : 'Collecting'}
+            {item.finalized 
+              ? item.activity_name 
+              : item.voting 
+                ? 'Choosing Venue' 
+                : 'Collecting'}
           </Text>
           <View style={styles.listItemMeta}>
             <Text style={styles.listItemType}>{displayInfo.displayText}</Text>
@@ -1247,7 +1251,11 @@ export default function HomeScreen({ route }) {
         {/* Activity Name or Status */}
         <View style={styles.cardTitleArea}>
           <Text style={styles.cardTitle} numberOfLines={3} ellipsizeMode="tail">
-            {item.finalized ? item.activity_name : 'Collecting preferences'}
+            {item.finalized 
+              ? item.activity_name 
+              : item.voting 
+                ? 'Choosing Venue' 
+                : 'Collecting preferences'}
           </Text>
         </View>
       </TouchableOpacity>

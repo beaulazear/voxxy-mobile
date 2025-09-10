@@ -14,6 +14,7 @@ import {
 import MapView, { Marker } from 'react-native-maps';
 import Icon from 'react-native-vector-icons/Feather';
 import * as Location from 'expo-location';
+import * as Haptics from 'expo-haptics';
 import { logger } from '../utils/logger';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
@@ -223,6 +224,7 @@ export default function NativeMapView({
         : geocodedRecommendations.filter(rec => rec.category === selectedCategory);
 
     const handleMarkerPress = (recommendation) => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         setSelectedMarker(recommendation);
         
         // Animate to selected marker
