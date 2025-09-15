@@ -2703,6 +2703,32 @@ const styles = StyleSheet.create({
         borderTopColor: 'rgba(255, 255, 255, 0.1)',
         gap: 12,
     },
+    // Tag styles for keyword display
+    tagsContainer: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 6,
+        marginTop: 8,
+    },
+    tagPill: {
+        borderRadius: 12,
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderWidth: 1,
+        borderColor: 'rgba(204, 49, 232, 0.3)',
+    },
+    tagText: {
+        color: '#cc31e8',
+        fontSize: 12,
+        fontWeight: '600',
+    },
+    recCardTags: {
+        marginTop: 6,
+        marginBottom: 12,
+    },
+    detailTags: {
+        marginTop: 8,
+    },
 });
 
 export default styles;

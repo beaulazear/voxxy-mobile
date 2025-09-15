@@ -292,6 +292,10 @@ export default function VerificationCodeScreen() {
                                 textAlign="center"
                                 editable={!isVerifying}
                                 selectTextOnFocus
+                                // iOS SMS autofill
+                                textContentType={index === 0 ? "oneTimeCode" : "none"}
+                                // Android SMS autofill
+                                autoComplete={index === 0 ? "sms-otp" : "off"}
                             />
                         ))}
                     </View>

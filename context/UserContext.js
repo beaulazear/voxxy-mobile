@@ -20,6 +20,25 @@ export const UserProvider = ({ children }) => {
   const [suspendedUntil, setSuspendedUntil] = useState(null);
   const [needsPolicyAcceptance, setNeedsPolicyAcceptance] = useState(false);
 
+  // Retry pending push token on app startup
+  const retryPendingPushToken = async (token) => {
+    if (!__DEV__) return; // Only retry in development
+    
+    try {
+      const pendingTokenData = await AsyncStorage.getItem('pendingPushToken');
+      if (pendingTokenData && token) {
+        const { token: pushToken, userId } = JSON.parse(pendingTokenData);
+        
+        const success = await sendPushTokenToBackend(pushToken, userId, token);
+        if (success) {
+          await AsyncStorage.removeItem('pendingPushToken');
+        }
+      }
+    } catch (error) {
+      logger.debug('Failed to retry pending push token:', error);
+    }
+  };
+
   useEffect(() => {
     const loadUser = async () => {
       try {
@@ -128,6 +147,9 @@ export const UserProvider = ({ children }) => {
         // Only set up listeners, actual registration happens when user enables in settings
         PushNotificationService.setupNotificationListeners();
         
+        // Retry any pending push token from previous session
+        await retryPendingPushToken(token);
+        
         // Fetch and set the actual unread count
         try {
           const notifications = await safeAuthApiCall(
@@ -162,7 +184,7 @@ export const UserProvider = ({ children }) => {
     loadUser();
   }, []);
 
-  // Set up push notifications for a user
+  // Set up push notifications for a user with enhanced error handling
   const setupPushNotificationsForUser = async (userData) => {
     if (!userData) return;
 
@@ -176,19 +198,53 @@ export const UserProvider = ({ children }) => {
         const pushToken = await PushNotificationService.registerForPushNotificationsAsync();
 
         if (pushToken && userData.token) {
-          // Send token to backend
-          await sendPushTokenToBackend(pushToken, userData.id, userData.token);
+          const success = await sendPushTokenToBackend(pushToken, userData.id, userData.token);
+          
+          if (!success && __DEV__) {
+            // Store token locally for retry later (dev only)
+            await AsyncStorage.setItem('pendingPushToken', JSON.stringify({
+              token: pushToken,
+              userId: userData.id,
+              timestamp: new Date().toISOString()
+            }));
+            logger.debug('Push token sync failed, stored for retry');
+          }
+        } else if (!pushToken && __DEV__) {
+          logger.debug('Failed to obtain push token from Expo');
+          
+          // Store failure reason for debugging (dev only)
+          await AsyncStorage.setItem('pushTokenFailure', JSON.stringify({
+            reason: 'No token received from Expo',
+            timestamp: new Date().toISOString()
+          }));
         }
       }
     } catch (error) {
       logger.error('Error setting up push notifications:', error);
+      
+      // Store error details for debugging (dev only)
+      if (__DEV__) {
+        await AsyncStorage.setItem('pushSetupError', JSON.stringify({
+          error: error.message,
+          timestamp: new Date().toISOString()
+        }));
+      }
     }
   };
 
-  // Send push token to your backend
-  const sendPushTokenToBackend = async (pushToken, userId, authToken) => {
+  // Send push token to your backend with retry logic
+  const sendPushTokenToBackend = async (pushToken, userId, authToken, retryCount = 0) => {
+    const MAX_RETRIES = 3;
+    const RETRY_DELAY = 2000; // 2 seconds
+    
     try {
       const url = `${API_URL}/users/${userId}/update_push_token`;
+      
+      // Log only in development
+      if (__DEV__) {
+        logger.debug('Sending push token to backend', { userId, retryCount });
+      }
+      
       const response = await notificationDebugger.debugBackendSync(
         url, 
         userId, 
@@ -197,15 +253,69 @@ export const UserProvider = ({ children }) => {
       );
 
       if (response.ok) {
-        logger.debug('Push token sent to backend successfully');
+        if (__DEV__) {
+          logger.debug('Push token sent to backend successfully');
+        }
+        
+        // Store success for debugging (only in dev)
+        if (__DEV__) {
+          await AsyncStorage.setItem('lastPushTokenSync', JSON.stringify({
+            success: true,
+            timestamp: new Date().toISOString()
+          }));
+        }
+        
+        return true;
       } else {
-        logger.error('Failed to send push token to backend:', {
+        const errorDetails = {
           status: response.status,
           statusText: response.statusText
-        });
+        };
+        
+        logger.error('Failed to send push token to backend:', errorDetails);
+        
+        // Retry logic for non-4xx errors
+        if (response.status >= 500 && retryCount < MAX_RETRIES) {
+          if (__DEV__) {
+            logger.debug(`Retrying push token sync (attempt ${retryCount + 1}/${MAX_RETRIES})`);
+          }
+          await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
+          return sendPushTokenToBackend(pushToken, userId, authToken, retryCount + 1);
+        }
+        
+        // Store failure for debugging (only in dev)
+        if (__DEV__) {
+          await AsyncStorage.setItem('lastPushTokenSync', JSON.stringify({
+            success: false,
+            timestamp: new Date().toISOString(),
+            error: errorDetails
+          }));
+        }
+        
+        return false;
       }
     } catch (error) {
       logger.error('Error sending push token to backend:', error);
+      
+      // Retry on network errors
+      if (retryCount < MAX_RETRIES) {
+        if (__DEV__) {
+          logger.debug(`Retrying push token sync after network error`);
+        }
+        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
+        return sendPushTokenToBackend(pushToken, userId, authToken, retryCount + 1);
+      }
+      
+      // Store error for debugging (only in dev)
+      if (__DEV__) {
+        await AsyncStorage.setItem('lastPushTokenSync', JSON.stringify({
+          success: false,
+          timestamp: new Date().toISOString(),
+          error: error.message
+        }));
+      }
+      
+      return false;
     }
   };
 

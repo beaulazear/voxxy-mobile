@@ -207,29 +207,33 @@ export default function SignUpScreen() {
     // pick the right autofill hints per step
     const autoFillProps = (() => {
         switch (step) {
-            case 1:
-                return {
-                    textContentType: 'emailAddress',   // credential autofill
-                    autoComplete: 'email',         // Android/iOS
-                    importantForAutofill: 'yes',
-                };
-            case 0:
+            case 0: // Name
                 return {
                     textContentType: 'name',
                     autoComplete: 'name',
-                    importantForAutofill: 'no',
+                    autoCapitalize: 'words',
+                    autoCorrect: false,
                 };
-            case 2:
+            case 1: // Email
+                return {
+                    textContentType: 'emailAddress',
+                    autoComplete: 'email',
+                    autoCapitalize: 'none',
+                    autoCorrect: false,
+                };
+            case 2: // New Password
                 return {
                     textContentType: 'newPassword',
-                    autoComplete: 'off',
-                    importantForAutofill: 'no',
+                    autoComplete: 'password-new',
+                    autoCapitalize: 'none',
+                    autoCorrect: false,
                 };
-            case 3:
+            case 3: // Confirm Password
                 return {
-                    textContentType: 'password',
-                    autoComplete: 'off',
-                    importantForAutofill: 'no',
+                    textContentType: 'newPassword',
+                    autoComplete: 'password-new',
+                    autoCapitalize: 'none',
+                    autoCorrect: false,
                 };
             default:
                 return {};
@@ -277,8 +281,6 @@ export default function SignUpScreen() {
                                     placeholderTextColor="#666"
                                     secureTextEntry={secure && (step === 2 ? !showPassword : !showConfirmation)}
                                     keyboardType={keyboard}
-                                    autoCorrect={false}
-                                    autoCapitalize="none"
                                     {...autoFillProps}
                                     returnKeyType={isLast ? 'done' : 'next'}
                                     onSubmitEditing={isLast ? handleSignUp : handleNext}

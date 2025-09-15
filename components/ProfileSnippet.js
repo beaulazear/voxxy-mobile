@@ -12,6 +12,7 @@ import {
   SafeAreaView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
 import { UserContext } from '../context/UserContext';
 import { Bell, Users, Activity, X, ChevronRight, ChevronDown, ChevronUp, MapPin } from 'react-native-feather';
 import { Hamburger, Martini, Dices } from 'lucide-react-native';
@@ -616,7 +617,10 @@ export default function ProfileSnippet({ scrollY = new Animated.Value(0), onScro
       <Animated.View style={[styles.statsContainer, { opacity: statsOpacity }]}>
         <TouchableOpacity 
           style={styles.statBox}
-          onPress={onShowFavorites}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            onShowFavorites();
+          }}
           activeOpacity={0.8}
         >
           <View style={styles.statIconContainer}>
@@ -635,7 +639,10 @@ export default function ProfileSnippet({ scrollY = new Animated.Value(0), onScro
 
         <TouchableOpacity 
           style={styles.statBox}
-          onPress={() => setShowCommunityModal(true)}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            setShowCommunityModal(true);
+          }}
           activeOpacity={0.8}
         >
           <View style={styles.statIconContainer}>

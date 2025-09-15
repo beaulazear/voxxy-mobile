@@ -89,6 +89,42 @@ const safeJsonParse = (data, fallback = []) => {
     return fallback;
 };
 
+// Helper function to determine if reason field contains keywords or paragraph
+const isKeywordFormat = (reason) => {
+    if (!reason || typeof reason !== 'string') return false;
+
+    // Check if it's likely keywords: short phrases separated by commas
+    const parts = reason.split(',');
+
+    // If we have multiple parts and they're all relatively short, it's likely keywords
+    if (parts.length > 1) {
+        // Check if all parts are short (less than 30 chars) and don't contain sentence-ending punctuation
+        const allShort = parts.every(part => {
+            const trimmed = part.trim();
+            return trimmed.length < 30 && !trimmed.match(/[.!?]$/);
+        });
+        return allShort;
+    }
+
+    // Single item or long text is likely a paragraph
+    return false;
+};
+
+// Component to render keyword tags
+const KeywordTags = ({ keywords, style }) => {
+    const tags = keywords.split(',').map(tag => tag.trim()).filter(tag => tag);
+
+    return (
+        <View style={[styles.tagsContainer, style]}>
+            {tags.map((tag, index) => (
+                <View key={index} style={styles.tagPill}>
+                    <Text style={styles.tagText}>{tag}</Text>
+                </View>
+            ))}
+        </View>
+    );
+};
+
 const analyzeAvailability = (responses) => {
     const availabilityData = {};
     const participantCount = {};
@@ -1748,11 +1784,15 @@ export default function AIRecommendations({
                                                 </Text>
                                             </View>
                                             
-                                            {/* Description */}
-                                            {(recommendation.description || recommendation.reason) && (
-                                                <Text style={styles.recCardDescription} numberOfLines={2}>
-                                                    {recommendation.description || recommendation.reason}
-                                                </Text>
+                                            {/* Description or Keywords */}
+                                            {recommendation.reason && isKeywordFormat(recommendation.reason) ? (
+                                                <KeywordTags keywords={recommendation.reason} style={styles.recCardTags} />
+                                            ) : (
+                                                (recommendation.description || recommendation.reason) && (
+                                                    <Text style={styles.recCardDescription} numberOfLines={2}>
+                                                        {recommendation.description || recommendation.reason}
+                                                    </Text>
+                                                )
                                             )}
                                             
                                             {/* Address */}
@@ -1866,8 +1906,14 @@ export default function AIRecommendations({
 
                                         {selectedRec?.reason && (
                                             <View style={styles.reason}>
-                                                <Text style={styles.reasonTitle}>{activityText.reasonTitle}</Text>
-                                                <Text style={styles.reasonText}>{selectedRec.reason}</Text>
+                                                {isKeywordFormat(selectedRec.reason) ? (
+                                                    <KeywordTags keywords={selectedRec.reason} style={styles.detailTags} />
+                                                ) : (
+                                                    <>
+                                                        <Text style={styles.reasonTitle}>{activityText.reasonTitle}</Text>
+                                                        <Text style={styles.reasonText}>{selectedRec.reason}</Text>
+                                                    </>
+                                                )}
                                             </View>
                                         )}
 
@@ -2162,11 +2208,15 @@ export default function AIRecommendations({
                                             </Text>
                                         </View>
                                         
-                                        {/* Description */}
-                                        {(recommendation.description || recommendation.reason) && (
-                                            <Text style={styles.recCardDescription} numberOfLines={2}>
-                                                {recommendation.description || recommendation.reason}
-                                            </Text>
+                                        {/* Description or Keywords */}
+                                        {recommendation.reason && isKeywordFormat(recommendation.reason) ? (
+                                            <KeywordTags keywords={recommendation.reason} style={styles.recCardTags} />
+                                        ) : (
+                                            (recommendation.description || recommendation.reason) && (
+                                                <Text style={styles.recCardDescription} numberOfLines={2}>
+                                                    {recommendation.description || recommendation.reason}
+                                                </Text>
+                                            )
                                         )}
                                         
                                         {/* Address */}
@@ -2299,8 +2349,14 @@ export default function AIRecommendations({
 
                                 {selectedRec?.reason && (
                                     <View style={styles.reason}>
-                                        <Text style={styles.reasonTitle}>{activityText.reasonTitle}</Text>
-                                        <Text style={styles.reasonText}>{selectedRec.reason}</Text>
+                                        {isKeywordFormat(selectedRec.reason) ? (
+                                            <KeywordTags keywords={selectedRec.reason} style={styles.detailTags} />
+                                        ) : (
+                                            <>
+                                                <Text style={styles.reasonTitle}>{activityText.reasonTitle}</Text>
+                                                <Text style={styles.reasonText}>{selectedRec.reason}</Text>
+                                            </>
+                                        )}
                                     </View>
                                 )}
 
@@ -2615,8 +2671,14 @@ export default function AIRecommendations({
 
                             {selectedRec?.reason && (
                                 <View style={styles.reason}>
-                                    <Text style={styles.reasonTitle}>{activityText.reasonTitle}</Text>
-                                    <Text style={styles.reasonText}>{selectedRec.reason}</Text>
+                                    {isKeywordFormat(selectedRec.reason) ? (
+                                        <KeywordTags keywords={selectedRec.reason} style={styles.detailTags} />
+                                    ) : (
+                                        <>
+                                            <Text style={styles.reasonTitle}>{activityText.reasonTitle}</Text>
+                                            <Text style={styles.reasonText}>{selectedRec.reason}</Text>
+                                        </>
+                                    )}
                                 </View>
                             )}
 

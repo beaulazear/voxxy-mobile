@@ -10,12 +10,12 @@ import {
   ScrollView,
   Linking,
   Modal,
-  Haptics,
   Animated,
   Dimensions,
   Image,
 } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
+import * as Haptics from 'expo-haptics'
 import { UserContext } from '../context/UserContext'
 import AccountCreatedScreen from './AccountCreatedScreen'
 import VoxxyFooter from '../components/VoxxyFooter'
@@ -348,9 +348,7 @@ function CreateCard({ navigation, isLast, isInvitesEmpty = false, onPress }) {
           isInvitesEmpty && styles.invitesEmptyCard
         ]}
         onPress={() => {
-          if (Haptics?.impactAsync) {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
-          }
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
           onPress()
         }}
         activeOpacity={0.8}
@@ -482,9 +480,7 @@ function AnimatedStartNewActivityButton({ navigation, onPress }) {
       <TouchableOpacity
         style={styles.wideStartActivityButton}
         onPress={() => {
-          if (Haptics?.impactAsync) {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
-          }
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
           onPress()
         }}
         activeOpacity={0.8}
@@ -869,9 +865,7 @@ export default function HomeScreen({ route }) {
           index === displayedActivities.length - 1 && styles.lastCard
         ]}
         onPress={() => {
-          if (Haptics?.impactAsync) {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
-          }
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
           // Show favorite details modal instead of navigating to activity
           setSelectedFavorite(item)
           setShowFavoriteModal(true)
@@ -1025,9 +1019,7 @@ export default function HomeScreen({ route }) {
           index === displayedActivities.length - 1 && styles.listItemLast
         ]}
         onPress={() => {
-          if (Haptics?.impactAsync) {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
-          }
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
           navigation.navigate('ActivityDetails', { activityId: item.id })
         }}
         activeOpacity={0.7}
@@ -1099,9 +1091,7 @@ export default function HomeScreen({ route }) {
           index === displayedActivities.length - 1 && styles.listItemLast
         ]}
         onPress={() => {
-          if (Haptics?.impactAsync) {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
-          }
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
           setSelectedFavorite(item)
           setShowFavoriteModal(true)
         }}
@@ -1188,9 +1178,7 @@ export default function HomeScreen({ route }) {
           index === displayedActivities.length - 1 && styles.lastCard
         ]}
         onPress={() => {
-          if (Haptics?.impactAsync) {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
-          }
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
           navigation.navigate('ActivityDetails', { activityId: item.id })
         }}
         activeOpacity={0.9}
@@ -1326,9 +1314,7 @@ export default function HomeScreen({ route }) {
                               styles.topToggleTab
                             ]}
                             onPress={() => {
-                              if (Haptics?.impactAsync) {
-                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-                              }
+                              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
                               setIsListView(!isListView)
                             }}
                             activeOpacity={0.7}

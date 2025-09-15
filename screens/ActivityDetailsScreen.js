@@ -653,7 +653,7 @@ export default function ActivityDetailsScreen({ route }) {
 
             setUser(prev => ({
                 ...prev,
-                activities: prev.activities.map(a => {
+                activities: (prev.activities || []).map(a => {
                     if (a.id !== currentActivity.id) return a
                     return {
                         ...a,

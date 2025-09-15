@@ -341,7 +341,7 @@ export default function GameNightResponseForm({
                 const { response: newResponse, comment: newComment } = data
 
                 setUser(prev => {
-                    const activities = prev.activities.map(act => {
+                    const activities = (prev.activities || []).map(act => {
                         if (act.id === activityId) {
                             const filteredResponses = (act.responses || []).filter(
                                 response => response.user_id !== user.id
@@ -359,7 +359,7 @@ export default function GameNightResponseForm({
                         return act
                     })
 
-                    const participant_activities = prev.participant_activities.map(pa => {
+                    const participant_activities = (prev.participant_activities || []).map(pa => {
                         if (pa.activity.id === activityId) {
                             const filteredResponses = (pa.activity.responses || []).filter(
                                 response => response.user_id !== user.id

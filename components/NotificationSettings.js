@@ -1,6 +1,6 @@
 // components/NotificationSettings.js
 import React, { useContext, useState } from 'react';
-import { View, Text, Switch, StyleSheet, Alert } from 'react-native';
+import { View, Text, Switch, StyleSheet, Alert, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { UserContext } from '../context/UserContext';
 import { logger } from '../utils/logger';
 import { API_URL } from '../config';
@@ -8,6 +8,54 @@ import { API_URL } from '../config';
 const NotificationSettings = () => {
     const { user, updateUser } = useContext(UserContext);
     const [updating, setUpdating] = useState(false);
+    const [testingSending, setTestingSending] = useState(false);
+
+    const sendTestNotification = async () => {
+        if (testingSending) return;
+        
+        setTestingSending(true);
+        try {
+            const response = await fetch(`${API_URL}/send_test_to_self`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${user.token}`,
+                },
+            });
+
+            const data = await response.json();
+            
+            if (response.ok && data.success) {
+                Alert.alert(
+                    '✅ Test Sent!', 
+                    'Check your device for the notification.',
+                    [{ text: 'OK' }]
+                );
+                if (__DEV__) {
+                    logger.debug('Test notification sent', data.debug_info);
+                }
+            } else {
+                const debugInfo = __DEV__ && data.debug_info ? 
+                    `\n\nDebug Info:\n${JSON.stringify(data.debug_info, null, 2)}` : '';
+                
+                Alert.alert(
+                    '❌ Test Failed',
+                    `${data.message || 'Could not send test notification'}${debugInfo}`,
+                    [{ text: 'OK' }]
+                );
+                if (__DEV__) {
+                    logger.error('Test notification failed', data);
+                }
+            }
+        } catch (error) {
+            Alert.alert('Error', 'Network error. Please try again.');
+            if (__DEV__) {
+                logger.error('Test notification error:', error);
+            }
+        } finally {
+            setTestingSending(false);
+        }
+    };
 
     const updateNotificationSetting = async (type, value) => {
         if (updating) return;
@@ -102,6 +150,24 @@ const NotificationSettings = () => {
                     thumbColor={user?.text_notifications ? '#FFE66D' : '#f4f3f4'}
                 />
             </View>
+
+            {/* Test Notification Button */}
+            {user?.push_notifications && (
+                <TouchableOpacity 
+                    style={styles.testButton}
+                    onPress={sendTestNotification}
+                    disabled={testingSending}
+                >
+                    {testingSending ? (
+                        <ActivityIndicator color="#fff" />
+                    ) : (
+                        <>
+                            <Text style={styles.testButtonText}>🔔 Send Test Notification</Text>
+                            <Text style={styles.testButtonSubtext}>Verify push notifications are working</Text>
+                        </>
+                    )}
+                </TouchableOpacity>
+            )}
         </View>
     );
 };
@@ -144,6 +210,24 @@ const styles = StyleSheet.create({
         color: '#B8A5C4',
         fontSize: 13,
         lineHeight: 18,
+    },
+    testButton: {
+        backgroundColor: '#9261E5',
+        padding: 16,
+        borderRadius: 12,
+        marginTop: 20,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    testButtonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '600',
+        marginBottom: 4,
+    },
+    testButtonSubtext: {
+        color: '#E8D9F2',
+        fontSize: 13,
     },
 });
 

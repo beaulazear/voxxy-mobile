@@ -69,37 +69,39 @@ export default function NightOutResponseForm({
 
     const percent = (step / getTotalSteps()) * 100
 
-    // Form state
-    const [selectedDrink, setSelectedDrink] = useState('')
-    const [selectedAtmosphere, setSelectedAtmosphere] = useState('')
-    const [selectedBudget, setSelectedBudget] = useState('')
+    // Form state - updated for multiple selections
+    const [selectedDrinks, setSelectedDrinks] = useState([])
+    const [selectedAtmospheres, setSelectedAtmospheres] = useState([])
+    const [selectedBudget, setSelectedBudget] = useState('') // Budget remains single-select
     const [preferences, setPreferences] = useState(guestMode ? '' : (user?.preferences || ''))
     const [useSavedPreferences, setUseSavedPreferences] = useState(true)
     const [availability, setAvailability] = useState({})
     const [selectedDate, setSelectedDate] = useState('')
     const [selectedTimes, setSelectedTimes] = useState([])
 
-    // Night out options
+    // Night out options - optimized for Google Places categories
     const drinkOptions = [
-        { label: 'Cocktails', icon: Wine, desc: 'Mixed drinks & cocktails' },
-        { label: 'Wine', icon: Wine, desc: 'Wine bars & tastings' },
-        { label: 'Beer', icon: Beer, desc: 'Craft beer & breweries' },
-        { label: 'Whiskey/Spirits', icon: Coffee, desc: 'Premium spirits' },
-        { label: 'Champagne', icon: Wine, desc: 'Bubbly & celebrations' },
-        { label: 'Non-alcoholic', icon: Coffee, desc: 'Mocktails & sodas' },
-        { label: 'Surprise me!', icon: Target, desc: 'Any drink preference' }
+        { label: 'Cocktail Bar', icon: Wine, desc: 'Craft cocktails & mixology' },
+        { label: 'Wine Bar', icon: Wine, desc: 'Wine bars & tastings' },
+        { label: 'Brewery', icon: Beer, desc: 'Craft beer & breweries' },
+        { label: 'Whiskey Bar', icon: Coffee, desc: 'Whiskey & premium spirits' },
+        { label: 'Rooftop Bar', icon: Building, desc: 'Drinks with a view' },
+        { label: 'Dive Bar', icon: Beer, desc: 'Casual & unpretentious' },
+        { label: 'Sports Bar', icon: Gamepad2, desc: 'Games & drinks' },
+        { label: 'Lounge', icon: Wine, desc: 'Sophisticated atmosphere' },
+        { label: 'Tiki Bar', icon: PartyPopper, desc: 'Tropical drinks & vibes' }
     ]
 
     const atmosphereOptions = [
-        { label: 'LGTBQ+', icon: Flag, desc: 'Inclusive & welcoming' },
-        { label: 'Casual & Fun', icon: PartyPopper, desc: 'Relaxed atmosphere' },
-        { label: 'Rooftop Views', icon: Building, desc: 'Great city views' },
+        { label: 'LGBTQ+ Friendly', icon: Flag, desc: 'Inclusive & welcoming' },
         { label: 'Live Music', icon: Music, desc: 'Bands & performances' },
-        { label: 'Dance Floor', icon: Music, desc: 'Dancing & nightlife' },
-        { label: 'Wine Bar Vibes', icon: Wine, desc: 'Sophisticated setting' },
-        { label: 'Sports Bar', icon: Gamepad2, desc: 'Sports & games' },
-        { label: 'Romantic Date', icon: Heart, desc: 'Intimate & cozy' },
-        { label: 'Group Hangout', icon: Users, desc: 'Friends & socializing' }
+        { label: 'DJ/Dancing', icon: Music, desc: 'Dance floor & nightlife' },
+        { label: 'Outdoor Seating', icon: Building, desc: 'Patio & fresh air' },
+        { label: 'Speakeasy', icon: Coffee, desc: 'Hidden & exclusive' },
+        { label: 'Happy Hour', icon: PartyPopper, desc: 'Great deals & specials' },
+        { label: 'Date Night', icon: Heart, desc: 'Romantic & intimate' },
+        { label: 'Large Groups', icon: Users, desc: 'Good for parties' },
+        { label: 'Pool/Games', icon: Gamepad2, desc: 'Pool tables & activities' }
     ]
 
     const budgetOptions = [
@@ -188,13 +190,27 @@ export default function NightOutResponseForm({
         }
     }
 
-    // Handlers
+    // Handlers - updated for multiple selections
     const handleDrinkSelect = (drink) => {
-        setSelectedDrink(drink)
+        setSelectedDrinks(prev => {
+            const isSelected = prev.includes(drink)
+            if (isSelected) {
+                return prev.filter(d => d !== drink)
+            } else {
+                return [...prev, drink]
+            }
+        })
     }
 
     const handleAtmosphereSelect = (atmosphere) => {
-        setSelectedAtmosphere(atmosphere)
+        setSelectedAtmospheres(prev => {
+            const isSelected = prev.includes(atmosphere)
+            if (isSelected) {
+                return prev.filter(a => a !== atmosphere)
+            } else {
+                return [...prev, atmosphere]
+            }
+        })
     }
 
     // Availability handlers
@@ -229,11 +245,11 @@ export default function NightOutResponseForm({
         })
     }
 
-    // Validation
+    // Validation - updated for multiple selections
     const isNextDisabled = () => {
-        if (step === 1) return !selectedDrink
-        if (step === 2) return !selectedAtmosphere
-        if (step === 3) return !selectedBudget
+        if (step === 1) return selectedDrinks.length === 0
+        if (step === 2) return selectedAtmospheres.length === 0
+        if (step === 3) return !selectedBudget  // Budget remains single-select
         if (step === 4) return false
         if (step === 5 && activity?.allow_participant_time_selection) {
             return Object.keys(availability).length === 0
@@ -269,14 +285,14 @@ export default function NightOutResponseForm({
         }
     }
 
-    // Submission
+    // Submission - updated for multiple selections
     const handleSubmit = async () => {
         // Use saved preferences if the user hasn't changed them
         const finalPreferences = useSavedPreferences && user?.preferences ? user.preferences : preferences
-        
+
         const notes = `Night Out Preferences:
-🍸 Drink Preference: ${selectedDrink}
-🎉 Atmosphere: ${selectedAtmosphere}
+🍸 Drink Preferences: ${selectedDrinks.join(', ')}
+🎉 Atmosphere: ${selectedAtmospheres.join(', ')}
 💰 Budget: ${selectedBudget}
 📝 Special Preferences: ${finalPreferences || 'None'}`.trim()
 
@@ -329,7 +345,7 @@ export default function NightOutResponseForm({
                 const { response: newResponse, comment: newComment } = data
 
                 setUser(prev => {
-                    const activities = prev.activities.map(act => {
+                    const activities = (prev.activities || []).map(act => {
                         if (act.id === activityId) {
                             const filteredResponses = (act.responses || []).filter(
                                 response => response.user_id !== user.id
@@ -347,7 +363,7 @@ export default function NightOutResponseForm({
                         return act
                     })
 
-                    const participant_activities = prev.participant_activities.map(pa => {
+                    const participant_activities = (prev.participant_activities || []).map(pa => {
                         if (pa.activity.id === activityId) {
                             const filteredResponses = (pa.activity.responses || []).filter(
                                 response => response.user_id !== user.id
@@ -413,26 +429,35 @@ export default function NightOutResponseForm({
             case 1:
                 return (
                     <Animated.View style={[styles.stepContainer, { opacity: fadeAnim }]}>
+                        <Text style={styles.multiSelectHint}>Select all that appeal to you</Text>
                         <View style={styles.singleSelectGrid}>
-                            {drinkOptions.map(option => (
-                                <TouchableOpacity
-                                    key={option.label}
-                                    style={[
-                                        styles.singleSelectCard,
-                                        selectedDrink === option.label && styles.singleSelectCardSelected
-                                    ]}
-                                    onPress={() => handleDrinkSelect(option.label)}
-                                >
-                                    <option.icon color="#fff" size={20} style={{ marginBottom: 8 }} />
-                                    <Text style={[
-                                        styles.singleSelectLabel,
-                                        selectedDrink === option.label && styles.singleSelectLabelSelected
-                                    ]}>
-                                        {option.label}
-                                    </Text>
-                                    <Text style={styles.singleSelectDesc}>{option.desc}</Text>
-                                </TouchableOpacity>
-                            ))}
+                            {drinkOptions.map(option => {
+                                const isSelected = selectedDrinks.includes(option.label)
+                                return (
+                                    <TouchableOpacity
+                                        key={option.label}
+                                        style={[
+                                            styles.singleSelectCard,
+                                            isSelected && styles.singleSelectCardSelected
+                                        ]}
+                                        onPress={() => handleDrinkSelect(option.label)}
+                                    >
+                                        {isSelected && (
+                                            <View style={styles.checkmark}>
+                                                <Plus color="#fff" size={14} style={{ transform: [{ rotate: '45deg' }] }} />
+                                            </View>
+                                        )}
+                                        <option.icon color="#fff" size={20} style={{ marginBottom: 8 }} />
+                                        <Text style={[
+                                            styles.singleSelectLabel,
+                                            isSelected && styles.singleSelectLabelSelected
+                                        ]}>
+                                            {option.label}
+                                        </Text>
+                                        <Text style={styles.singleSelectDesc}>{option.desc}</Text>
+                                    </TouchableOpacity>
+                                )
+                            })}
                         </View>
                     </Animated.View>
                 )
@@ -440,26 +465,35 @@ export default function NightOutResponseForm({
             case 2:
                 return (
                     <Animated.View style={[styles.stepContainer, { opacity: fadeAnim }]}>
+                        <Text style={styles.multiSelectHint}>Select all that interest you</Text>
                         <View style={styles.singleSelectGrid}>
-                            {atmosphereOptions.map(option => (
-                                <TouchableOpacity
-                                    key={option.label}
-                                    style={[
-                                        styles.singleSelectCard,
-                                        selectedAtmosphere === option.label && styles.singleSelectCardSelected
-                                    ]}
-                                    onPress={() => handleAtmosphereSelect(option.label)}
-                                >
-                                    <option.icon color="#fff" size={20} style={{ marginBottom: 8 }} />
-                                    <Text style={[
-                                        styles.singleSelectLabel,
-                                        selectedAtmosphere === option.label && styles.singleSelectLabelSelected
-                                    ]}>
-                                        {option.label}
-                                    </Text>
-                                    <Text style={styles.singleSelectDesc}>{option.desc}</Text>
-                                </TouchableOpacity>
-                            ))}
+                            {atmosphereOptions.map(option => {
+                                const isSelected = selectedAtmospheres.includes(option.label)
+                                return (
+                                    <TouchableOpacity
+                                        key={option.label}
+                                        style={[
+                                            styles.singleSelectCard,
+                                            isSelected && styles.singleSelectCardSelected
+                                        ]}
+                                        onPress={() => handleAtmosphereSelect(option.label)}
+                                    >
+                                        {isSelected && (
+                                            <View style={styles.checkmark}>
+                                                <Plus color="#fff" size={14} style={{ transform: [{ rotate: '45deg' }] }} />
+                                            </View>
+                                        )}
+                                        <option.icon color="#fff" size={20} style={{ marginBottom: 8 }} />
+                                        <Text style={[
+                                            styles.singleSelectLabel,
+                                            isSelected && styles.singleSelectLabelSelected
+                                        ]}>
+                                            {option.label}
+                                        </Text>
+                                        <Text style={styles.singleSelectDesc}>{option.desc}</Text>
+                                    </TouchableOpacity>
+                                )
+                            })}
                         </View>
                     </Animated.View>
                 )
@@ -828,6 +862,7 @@ const styles = StyleSheet.create({
         padding: 16,
         alignItems: 'center',
         width: (screenWidth - 48 - 12) / 2, // Calculate width for 2 columns with gap
+        position: 'relative',
     },
 
     singleSelectCardSelected: {
@@ -838,6 +873,26 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 0 },
         shadowOpacity: 0.3,
         shadowRadius: 8,
+    },
+
+    checkmark: {
+        position: 'absolute',
+        top: 8,
+        right: 8,
+        width: 20,
+        height: 20,
+        borderRadius: 10,
+        backgroundColor: '#cc31e8',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+
+    multiSelectHint: {
+        color: 'rgba(255, 255, 255, 0.7)',
+        fontSize: 14,
+        fontStyle: 'italic',
+        textAlign: 'center',
+        marginBottom: 16,
     },
 
     singleSelectLabel: {

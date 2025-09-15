@@ -41,7 +41,8 @@ import {
     CreditCard,
     Crown,
     Target,
-    X
+    X,
+    Plus
 } from 'lucide-react-native'
 import { UserContext } from '../context/UserContext'
 import { API_URL } from '../config'
@@ -72,39 +73,45 @@ export default function CuisineResponseForm({
 
     const percent = (step / getTotalSteps()) * 100
 
-    // Form state
-    const [selectedCuisine, setSelectedCuisine] = useState('')
-    const [selectedAtmosphere, setSelectedAtmosphere] = useState('')
-    const [selectedBudget, setSelectedBudget] = useState('')
+    // Form state - updated for multiple selections
+    const [selectedCuisines, setSelectedCuisines] = useState([])
+    const [selectedAtmospheres, setSelectedAtmospheres] = useState([])
+    const [selectedBudget, setSelectedBudget] = useState('') // Budget remains single-select
     const [dietary, setDietary] = useState(guestMode ? '' : (user?.preferences || ''))
     const [useSavedPreferences, setUseSavedPreferences] = useState(true)
     const [availability, setAvailability] = useState({})
     const [selectedDate, setSelectedDate] = useState('')
     const [selectedTimes, setSelectedTimes] = useState([])
 
-    // Cuisine options with icons
+    // Cuisine options - optimized for Google Places categories
     const cuisineOptions = [
         { label: 'Italian', icon: Pizza, desc: 'Pasta, pizza, risotto' },
-        { label: 'Mexican', icon: ChefHat, desc: 'Tacos, burritos, quesadillas' },
-        { label: 'Chinese', icon: Utensils, desc: 'Stir-fry, dim sum, noodles' },
         { label: 'Japanese', icon: Fish, desc: 'Sushi, ramen, tempura' },
-        { label: 'Indian', icon: ChefHat, desc: 'Curry, naan, biryani' },
-        { label: 'Thai', icon: Cherry, desc: 'Pad thai, curry, spring rolls' },
-        { label: 'Mediterranean', icon: Cherry, desc: 'Hummus, falafel, kebabs' },
+        { label: 'Mexican', icon: ChefHat, desc: 'Tacos, burritos, quesadillas' },
+        { label: 'Chinese', icon: Utensils, desc: 'Dim sum, noodles, stir-fry' },
+        { label: 'Thai', icon: Cherry, desc: 'Pad thai, curry, tom yum' },
+        { label: 'Indian', icon: ChefHat, desc: 'Curry, tandoori, biryani' },
+        { label: 'Mediterranean', icon: Cherry, desc: 'Greek, Lebanese, Turkish' },
+        { label: 'Korean', icon: Beef, desc: 'BBQ, kimchi, bibimbap' },
+        { label: 'Vietnamese', icon: Utensils, desc: 'Pho, banh mi, spring rolls' },
         { label: 'American', icon: Beef, desc: 'Burgers, steaks, BBQ' },
-        { label: 'Surprise me!', icon: Target, desc: 'Any cuisine preference' }
+        { label: 'French', icon: Wine, desc: 'Bistro, pastries, wine' },
+        { label: 'Spanish', icon: Wine, desc: 'Tapas, paella, sangria' }
     ]
 
     const atmosphereOptions = [
-        { label: 'Casual', icon: Coffee, desc: 'Relaxed & comfortable' },
-        { label: 'Trendy', icon: Wine, desc: 'Modern & stylish' },
-        { label: 'Romantic', icon: Heart, desc: 'Intimate & cozy' },
-        { label: 'Outdoor', icon: Trees, desc: 'Patio & garden seating' },
-        { label: 'Family Friendly', icon: Users, desc: 'Great for all ages' },
-        { label: 'Cozy', icon: Home, desc: 'Warm & inviting' },
-        { label: 'Rooftop', icon: Building, desc: 'City views & fresh air' },
-        { label: 'Waterfront', icon: Waves, desc: 'Ocean or lake views' },
-        { label: 'Historic', icon: Landmark, desc: 'Classic & traditional' }
+        { label: 'Casual Dining', icon: Coffee, desc: 'Relaxed & comfortable' },
+        { label: 'Fine Dining', icon: Crown, desc: 'Upscale & sophisticated' },
+        { label: 'Fast Casual', icon: Utensils, desc: 'Quick but quality' },
+        { label: 'Romantic', icon: Heart, desc: 'Date night ambiance' },
+        { label: 'Outdoor Seating', icon: Trees, desc: 'Patio & al fresco' },
+        { label: 'Family Friendly', icon: Users, desc: 'Kids welcome' },
+        { label: 'Trendy/Hip', icon: Wine, desc: 'Instagram-worthy spots' },
+        { label: 'Local Favorite', icon: Home, desc: 'Neighborhood gems' },
+        { label: 'Vegetarian/Vegan', icon: Cherry, desc: 'Plant-based options' },
+        { label: 'Gluten-Free', icon: Heart, desc: 'Celiac friendly' },
+        { label: 'Brunch Spot', icon: Coffee, desc: 'Weekend brunch' },
+        { label: 'Late Night', icon: Building, desc: 'Open late hours' }
     ]
 
     const budgetOptions = [
@@ -192,13 +199,27 @@ export default function CuisineResponseForm({
         }
     }
 
-    // Handlers
+    // Handlers - updated for multiple selections
     const handleCuisineSelect = (cuisine) => {
-        setSelectedCuisine(cuisine)
+        setSelectedCuisines(prev => {
+            const isSelected = prev.includes(cuisine)
+            if (isSelected) {
+                return prev.filter(c => c !== cuisine)
+            } else {
+                return [...prev, cuisine]
+            }
+        })
     }
 
     const handleAtmosphereSelect = (atmosphere) => {
-        setSelectedAtmosphere(atmosphere)
+        setSelectedAtmospheres(prev => {
+            const isSelected = prev.includes(atmosphere)
+            if (isSelected) {
+                return prev.filter(a => a !== atmosphere)
+            } else {
+                return [...prev, atmosphere]
+            }
+        })
     }
 
     // Availability handlers
@@ -233,11 +254,11 @@ export default function CuisineResponseForm({
         })
     }
 
-    // Validation
+    // Validation - updated for multiple selections
     const isNextDisabled = () => {
-        if (step === 1) return !selectedCuisine
-        if (step === 2) return !selectedAtmosphere
-        if (step === 3) return !selectedBudget
+        if (step === 1) return selectedCuisines.length === 0
+        if (step === 2) return selectedAtmospheres.length === 0
+        if (step === 3) return !selectedBudget  // Budget remains single-select
         if (step === 4) return false
         if (step === 5 && activity?.allow_participant_time_selection) {
             return Object.keys(availability).length === 0
@@ -273,14 +294,14 @@ export default function CuisineResponseForm({
         }
     }
 
-    // Submission
+    // Submission - updated for multiple selections
     const handleSubmit = async () => {
         // Use saved preferences if the user hasn't changed them
         const finalDietary = useSavedPreferences && user?.preferences ? user.preferences : dietary
-        
+
         const notes = `Dining Preferences:
-🍽️ Cuisine: ${selectedCuisine}
-🏠 Atmosphere: ${selectedAtmosphere}
+🍽️ Cuisine: ${selectedCuisines.join(', ')}
+🏠 Atmosphere: ${selectedAtmospheres.join(', ')}
 💰 Budget: ${selectedBudget}
 🥗 Dietary Needs: ${finalDietary || 'None'}`.trim()
 
@@ -333,7 +354,7 @@ export default function CuisineResponseForm({
                 const { response: newResponse, comment: newComment } = data
 
                 setUser(prev => {
-                    const activities = prev.activities.map(act => {
+                    const activities = (prev.activities || []).map(act => {
                         if (act.id === activityId) {
                             const filteredResponses = (act.responses || []).filter(
                                 response => response.user_id !== user.id
@@ -351,7 +372,7 @@ export default function CuisineResponseForm({
                         return act
                     })
 
-                    const participant_activities = prev.participant_activities.map(pa => {
+                    const participant_activities = (prev.participant_activities || []).map(pa => {
                         if (pa.activity.id === activityId) {
                             const filteredResponses = (pa.activity.responses || []).filter(
                                 response => response.user_id !== user.id
@@ -417,26 +438,35 @@ export default function CuisineResponseForm({
             case 1:
                 return (
                     <Animated.View style={[styles.stepContainer, { opacity: fadeAnim }]}>
+                        <Text style={styles.multiSelectHint}>Select all cuisines you enjoy</Text>
                         <View style={styles.singleSelectGrid}>
-                            {cuisineOptions.map(option => (
-                                <TouchableOpacity
-                                    key={option.label}
-                                    style={[
-                                        styles.singleSelectCard,
-                                        selectedCuisine === option.label && styles.singleSelectCardSelected
-                                    ]}
-                                    onPress={() => handleCuisineSelect(option.label)}
-                                >
-                                    <option.icon color="#fff" size={20} style={{ marginBottom: 8 }} />
-                                    <Text style={[
-                                        styles.singleSelectLabel,
-                                        selectedCuisine === option.label && styles.singleSelectLabelSelected
-                                    ]}>
-                                        {option.label}
-                                    </Text>
-                                    <Text style={styles.singleSelectDesc}>{option.desc}</Text>
-                                </TouchableOpacity>
-                            ))}
+                            {cuisineOptions.map(option => {
+                                const isSelected = selectedCuisines.includes(option.label)
+                                return (
+                                    <TouchableOpacity
+                                        key={option.label}
+                                        style={[
+                                            styles.singleSelectCard,
+                                            isSelected && styles.singleSelectCardSelected
+                                        ]}
+                                        onPress={() => handleCuisineSelect(option.label)}
+                                    >
+                                        {isSelected && (
+                                            <View style={styles.checkmark}>
+                                                <Plus color="#fff" size={14} style={{ transform: [{ rotate: '45deg' }] }} />
+                                            </View>
+                                        )}
+                                        <option.icon color="#fff" size={20} style={{ marginBottom: 8 }} />
+                                        <Text style={[
+                                            styles.singleSelectLabel,
+                                            isSelected && styles.singleSelectLabelSelected
+                                        ]}>
+                                            {option.label}
+                                        </Text>
+                                        <Text style={styles.singleSelectDesc}>{option.desc}</Text>
+                                    </TouchableOpacity>
+                                )
+                            })}
                         </View>
                     </Animated.View>
                 )
@@ -444,26 +474,35 @@ export default function CuisineResponseForm({
             case 2:
                 return (
                     <Animated.View style={[styles.stepContainer, { opacity: fadeAnim }]}>
+                        <Text style={styles.multiSelectHint}>Select all that apply to your preferences</Text>
                         <View style={styles.singleSelectGrid}>
-                            {atmosphereOptions.map(option => (
-                                <TouchableOpacity
-                                    key={option.label}
-                                    style={[
-                                        styles.singleSelectCard,
-                                        selectedAtmosphere === option.label && styles.singleSelectCardSelected
-                                    ]}
-                                    onPress={() => handleAtmosphereSelect(option.label)}
-                                >
-                                    <option.icon color="#fff" size={20} style={{ marginBottom: 8 }} />
-                                    <Text style={[
-                                        styles.singleSelectLabel,
-                                        selectedAtmosphere === option.label && styles.singleSelectLabelSelected
-                                    ]}>
-                                        {option.label}
-                                    </Text>
-                                    <Text style={styles.singleSelectDesc}>{option.desc}</Text>
-                                </TouchableOpacity>
-                            ))}
+                            {atmosphereOptions.map(option => {
+                                const isSelected = selectedAtmospheres.includes(option.label)
+                                return (
+                                    <TouchableOpacity
+                                        key={option.label}
+                                        style={[
+                                            styles.singleSelectCard,
+                                            isSelected && styles.singleSelectCardSelected
+                                        ]}
+                                        onPress={() => handleAtmosphereSelect(option.label)}
+                                    >
+                                        {isSelected && (
+                                            <View style={styles.checkmark}>
+                                                <Plus color="#fff" size={14} style={{ transform: [{ rotate: '45deg' }] }} />
+                                            </View>
+                                        )}
+                                        <option.icon color="#fff" size={20} style={{ marginBottom: 8 }} />
+                                        <Text style={[
+                                            styles.singleSelectLabel,
+                                            isSelected && styles.singleSelectLabelSelected
+                                        ]}>
+                                            {option.label}
+                                        </Text>
+                                        <Text style={styles.singleSelectDesc}>{option.desc}</Text>
+                                    </TouchableOpacity>
+                                )
+                            })}
                         </View>
                     </Animated.View>
                 )
@@ -832,6 +871,7 @@ const styles = StyleSheet.create({
         padding: 16,
         alignItems: 'center',
         width: (screenWidth - 48 - 12) / 2, // Calculate width for 2 columns with gap
+        position: 'relative',
     },
 
     singleSelectCardSelected: {
@@ -842,6 +882,26 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 0 },
         shadowOpacity: 0.3,
         shadowRadius: 8,
+    },
+
+    checkmark: {
+        position: 'absolute',
+        top: 8,
+        right: 8,
+        width: 20,
+        height: 20,
+        borderRadius: 10,
+        backgroundColor: '#cc31e8',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+
+    multiSelectHint: {
+        color: 'rgba(255, 255, 255, 0.7)',
+        fontSize: 14,
+        fontStyle: 'italic',
+        textAlign: 'center',
+        marginBottom: 16,
     },
 
     singleSelectLabel: {

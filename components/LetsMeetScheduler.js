@@ -314,8 +314,8 @@ export default function LetsMeetScheduler({
                         };
                     };
 
-                    const updActs = prev.activities.map(updateActivityResponses);
-                    const updPart = prev.participant_activities.map((part) => ({
+                    const updActs = (prev.activities || []).map(updateActivityResponses);
+                    const updPart = (prev.participant_activities || []).map((part) => ({
                         ...part,
                         activity: updateActivityResponses(part.activity)
                     }));
