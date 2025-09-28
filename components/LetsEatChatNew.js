@@ -34,6 +34,7 @@ import * as Location from 'expo-location'
 import * as Haptics from 'expo-haptics'
 import { API_URL } from '../config'
 import { logger } from '../utils/logger'
+import { trackActivityCreated } from '../utils/analytics'
 import SearchLocationModal from './SearchLocationModal'
 
 const { width: screenWidth } = Dimensions.get('window')
@@ -396,6 +397,9 @@ export default function LetsEatChatNew({ visible, onClose }) {
             }
 
             const data = await response.json()
+
+            // Track activity creation
+            trackActivityCreated(data)
 
             // Update user context with new activity
             setUser((prev) => ({

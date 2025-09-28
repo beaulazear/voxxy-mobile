@@ -11,7 +11,7 @@ const avatarMap = {
 const imageCache = new Map();
 
 // Get avatar source - now returns voxxy-triangle.png as default
-export const getAvatarSource = (filename) => {
+export const getAvatarSource = (_filename) => {
     return avatarMap['voxxy-triangle.png'];
 };
 

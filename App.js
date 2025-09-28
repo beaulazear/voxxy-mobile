@@ -17,7 +17,6 @@ import ProfileScreen from './screens/ProfileScreen';
 import LandingScreen from './screens/LandingScreen';
 import ActivityDetailsScreen from './screens/ActivityDetailsScreen';
 import FavoritesScreen from './screens/FavoritesScreen';
-// TripDashboardScreen removed - now integrated as modal in HomeScreen
 import TryVoxxScreen from './screens/TryVoxxScreen';
 import NotificationsScreen from './screens/NotificationsScreen';
 import PrivacyPolicyScreen from './screens/PrivacyPolicyScreen';
@@ -56,7 +55,7 @@ const AppNavigator = () => {
   useEffect(() => {
     const checkPolicies = async () => {
       // Only check for authenticated users with a valid token
-      if (user && user.token) {
+      if (user && user.token && user.confirmed_at) {
         // Check if we have user-specific policy acceptance
         const userPolicyKey = `user_${user.id}_policies_accepted`;
         const userPoliciesAccepted = await AsyncStorage.getItem(userPolicyKey);
@@ -156,7 +155,20 @@ const AppNavigator = () => {
   const handlePrivacyAccept = async () => {
     // Privacy accepted, now show EULA
     setShowPrivacyConsent(false);
-    // Check if EULA needs to be shown
+
+    // Check user-specific EULA acceptance first
+    if (user?.id) {
+      const userPolicyKey = `user_${user.id}_policies_accepted`;
+      const userPoliciesAccepted = await AsyncStorage.getItem(userPolicyKey);
+
+      // If user hasn't accepted policies yet, always show EULA
+      if (!userPoliciesAccepted) {
+        setShowEULA(true);
+        return;
+      }
+    }
+
+    // Fallback to checking general EULA acceptance for compatibility
     const eulaAccepted = await AsyncStorage.getItem('eulaAcceptedDate');
     const eulaVersion = await AsyncStorage.getItem('eulaVersion');
     if (!eulaAccepted || eulaVersion !== '1.0.0') {

@@ -14,7 +14,6 @@ import {
     Linking,
     Platform,
     SafeAreaView,
-    PanResponder,
     Share,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -27,13 +26,6 @@ import styles from '../styles/AIRecommendationsStyles';
 import { modalStyles, modalColors } from '../styles/modalStyles';
 import NativeMapView from './NativeMapView';
 
-// Activity configuration for emoji display
-const ACTIVITY_CONFIG = {
-    'Restaurant': { emoji: '🍜' },
-    'Cocktails': { emoji: '🍸' },
-    'Brunch': { emoji: '🥐' },
-    'Game Night': { emoji: '🎮' },
-};
 
 // Updated Icons object using Feather icons
 const Icons = {
@@ -58,7 +50,6 @@ const Icons = {
     Star: (props) => <Icon name="star" size={16} color="#cc31e8" {...props} />,
     RotateCcw: (props) => <Icon name="rotate-ccw" size={16} color="#cc31e8" {...props} />,
     FastForward: (props) => <Icon name="fast-forward" size={16} color="#cc31e8" {...props} />,
-    ChevronRight: (props) => <Icon name="chevron-right" size={16} color="#cc31e8" {...props} />,
     Map: (props) => <Icon name="map" size={16} color="#cc31e8" {...props} />,
     Grid: (props) => <Icon name="grid" size={16} color="#cc31e8" {...props} />,
     Crown: (props) => <Icon name="award" size={16} color="#cc31e8" {...props} />,
@@ -73,7 +64,7 @@ import LetsMeetScheduler from './LetsMeetScheduler';
 import { logger } from '../utils/logger';
 import { safeAuthApiCall, handleApiError } from '../utils/safeApiCall';
 
-const { width: screenWidth } = Dimensions.get('window');
+// Removed unused screenWidth variable
 
 const safeJsonParse = (data, fallback = []) => {
     if (!data) return fallback;
@@ -317,187 +308,7 @@ const PhotoGallery = ({ photos }) => {
     );
 };
 
-const ProgressBar = ({ percent }) => {
-    return (
-        <View style={styles.progressBarContainer}>
-            <View style={[styles.progressBar, { width: `${percent}%` }]} />
-        </View>
-    );
-};
 
-// Swipeable Card Component
-const SwipeableCard = ({ recommendation, onSwipeLeft, onSwipeRight, onFlag, onFavorite, onViewDetails, isGameNight }) => {
-    const pan = React.useRef(new Animated.ValueXY()).current;
-    const scale = React.useRef(new Animated.Value(1)).current;
-    const rotate = React.useRef(new Animated.Value(0)).current;
-
-    const panResponder = PanResponder.create({
-        onStartShouldSetPanResponder: () => true,
-        onMoveShouldSetPanResponder: (evt, gestureState) => {
-            // Only respond to horizontal movement for swiping
-            return Math.abs(gestureState.dx) > Math.abs(gestureState.dy) && Math.abs(gestureState.dx) > 10;
-        },
-        onPanResponderGrant: () => {
-            pan.setOffset({ x: pan.x._value, y: pan.y._value });
-            Animated.spring(scale, { toValue: 1.05, useNativeDriver: false }).start();
-        },
-        onPanResponderMove: (evt, gestureState) => {
-            pan.setValue({ x: gestureState.dx, y: gestureState.dy });
-            // Rotate card based on horizontal movement
-            const rotation = gestureState.dx / screenWidth * 30; // Max 30 degrees
-            rotate.setValue(rotation);
-        },
-        onPanResponderRelease: (evt, gestureState) => {
-            pan.flattenOffset();
-            
-            const threshold = screenWidth * 0.2; // 20% of screen width for easier swiping
-            
-            if (gestureState.dx > threshold) {
-                // Swipe right - like
-                Animated.parallel([
-                    Animated.timing(pan, {
-                        toValue: { x: screenWidth + 100, y: gestureState.dy },
-                        duration: 300,
-                        useNativeDriver: false,
-                    }),
-                    Animated.timing(rotate, {
-                        toValue: 30,
-                        duration: 300,
-                        useNativeDriver: false,
-                    }),
-                ]).start(() => onSwipeRight(recommendation));
-            } else if (gestureState.dx < -threshold) {
-                // Swipe left - dislike
-                Animated.parallel([
-                    Animated.timing(pan, {
-                        toValue: { x: -screenWidth - 100, y: gestureState.dy },
-                        duration: 300,
-                        useNativeDriver: false,
-                    }),
-                    Animated.timing(rotate, {
-                        toValue: -30,
-                        duration: 300,
-                        useNativeDriver: false,  
-                    }),
-                ]).start(() => onSwipeLeft(recommendation));
-            } else {
-                // Snap back to center
-                Animated.parallel([
-                    Animated.spring(pan, {
-                        toValue: { x: 0, y: 0 },
-                        useNativeDriver: false,
-                    }),
-                    Animated.spring(scale, {
-                        toValue: 1,
-                        useNativeDriver: false,
-                    }),
-                    Animated.spring(rotate, {
-                        toValue: 0,
-                        useNativeDriver: false,
-                    }),
-                ]).start();
-            }
-        },
-    });
-
-    const rotateInterpolate = rotate.interpolate({
-        inputRange: [-30, 0, 30],
-        outputRange: ['-30deg', '0deg', '30deg'],
-    });
-
-    return (
-        <Animated.View
-            style={[
-                styles.swipeCard,
-                styles.activeCard,
-                {
-                    transform: [
-                        { translateX: pan.x },
-                        { translateY: pan.y },
-                        { rotate: rotateInterpolate },
-                        { scale: scale },
-                    ],
-                },
-            ]}
-            {...panResponder.panHandlers}
-        >
-            {/* Swipe Indicators */}
-            <Animated.View 
-                style={[
-                    styles.swipeIndicator, 
-                    styles.likeIndicator,
-                    { opacity: pan.x.interpolate({ inputRange: [0, 75], outputRange: [0, 1] }) }
-                ]}
-            >
-                <Icons.CheckCircle color="#28a745" size={24} />
-                <Text style={styles.likeText}>LIKE</Text>
-            </Animated.View>
-            
-            <Animated.View 
-                style={[
-                    styles.swipeIndicator, 
-                    styles.dislikeIndicator,
-                    { opacity: pan.x.interpolate({ inputRange: [-75, 0], outputRange: [1, 0] }) }
-                ]}
-            >
-                <Icons.X color="#e74c3c" size={24} />
-                <Text style={styles.dislikeText}>PASS</Text>
-            </Animated.View>
-
-            {/* Card Content - Simplified like Try Voxxy */}
-            <LinearGradient
-                colors={['rgba(204, 49, 232, 0.08)', 'rgba(144, 81, 225, 0.04)']}
-                style={styles.cardGradient}
-            >
-                {/* Header with Title and Price */}
-                <View style={styles.cardHeader}>
-                    <TouchableOpacity onPress={() => onViewDetails(recommendation)} activeOpacity={0.7} style={styles.cardTitleContainer}>
-                        <Text style={styles.cardTitle}>{recommendation.title}</Text>
-                    </TouchableOpacity>
-                    <Text style={styles.cardPrice}>{recommendation.price_range || '$'}</Text>
-                </View>
-
-                {/* Description */}
-                {recommendation.description && (
-                    <Text style={styles.cardDescription} numberOfLines={2}>
-                        {recommendation.description}
-                    </Text>
-                )}
-
-                {/* Address */}
-                {recommendation.address && (
-                    <View style={styles.cardAddressRow}>
-                        <Icons.MapPin color="#B8A5C4" size={14} />
-                        <Text style={styles.cardAddressText} numberOfLines={1}>
-                            {recommendation.address}
-                        </Text>
-                    </View>
-                )}
-
-                {/* Action Buttons */}
-                <View style={styles.cardActions} pointerEvents="box-none">
-                    <TouchableOpacity 
-                        style={[styles.cardActionButton, styles.flagButton]} 
-                        onPress={() => onFlag(recommendation)}
-                        activeOpacity={0.8}
-                    >
-                        <Icons.Flag color="#ffc107" size={16} />
-                        <Text style={styles.flagButtonText}>Flag</Text>
-                    </TouchableOpacity>
-                    
-                    <TouchableOpacity 
-                        style={[styles.cardActionButton, styles.favoriteButton]} 
-                        onPress={() => onFavorite(recommendation)}
-                        activeOpacity={0.8}
-                    >
-                        <Icons.Star color="#D4AF37" size={16} />
-                        <Text style={styles.favoriteButtonText}>Favorite</Text>
-                    </TouchableOpacity>
-                </View>
-            </LinearGradient>
-        </Animated.View>
-    );
-};
 
 // Component for rendering hours in a stylish way
 const HoursDisplay = ({ hours, style, compact = false }) => {
@@ -661,9 +472,9 @@ export default function AIRecommendations({
     
     // Favoriting states
     const [userFavorites, setUserFavorites] = useState([]);
-    const [loadingFavorites, setLoadingFavorites] = useState(false);
     const [flaggedRecommendations, setFlaggedRecommendations] = useState([]);
     const [favoriteLoading, setFavoriteLoading] = useState({});
+    const [loadingFavorites, setLoadingFavorites] = useState(false);
     
     // View mode toggle (map vs cards) - default to cards for Game Night
     const [viewMode, setViewMode] = useState(
@@ -863,12 +674,11 @@ export default function AIRecommendations({
         }
     }, [collecting, isOwner]);
 
-    const { id, responses = [], activity_location, date_notes, collecting, finalized, voting, completed, active, selected_pinned_activity_id } = activity;
+    const { id, responses = [], activity_location, date_notes, collecting, finalized, voting, completed, active } = activity;
 
     const activityType = activity.activity_type || 'Restaurant';
 
     const isNightOutActivity = activityType === 'Cocktails';
-    const isLetsEatActivity = activityType === 'Restaurant' || activityType === 'Brunch'; // Treat Brunch as Restaurant
     const isBrunchActivity = activityType === 'Brunch'; // Legacy support
     const isMeetingActivity = activityType === 'Meeting';
     const isGameNightActivity = activityType === 'Game Night'; // Legacy support
@@ -1044,7 +854,7 @@ export default function AIRecommendations({
         }
 
         try {
-            const { recommendations: recs } = await safeAuthApiCall(
+            const response = await safeAuthApiCall(
                 `${API_URL}${activityText.apiEndpoint}`,
                 user.token,
                 {
@@ -1058,6 +868,18 @@ export default function AIRecommendations({
                 },
                 30000 // 30 second timeout for AI recommendations
             );
+
+            // Add null checking and validation
+            if (!response || !response.recommendations || !Array.isArray(response.recommendations)) {
+                throw new Error('Invalid response format from recommendations API');
+            }
+
+            const recs = response.recommendations;
+
+            // Ensure we have recommendations before proceeding
+            if (recs.length === 0) {
+                throw new Error('No recommendations were generated. Please try again.');
+            }
 
             const pinnedActivityPromises = recs.map(rec =>
                 safeAuthApiCall(
@@ -1165,27 +987,6 @@ export default function AIRecommendations({
         }
     };
 
-    const handleSaveActivity = async () => {
-        try {
-            await fetch(`${API_URL}/activities/${id}`, {
-                method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${user?.token}`,
-                },
-                body: JSON.stringify({
-                    saved: true
-                }),
-            });
-
-            Alert.alert('Success', 'Activity saved successfully!');
-            setRefreshTrigger(f => !f);
-        } catch (error) {
-            logger.error('Error saving activity:', error);
-            const errorMessage = handleApiError(error, 'Failed to save activity.');
-            Alert.alert('Error', errorMessage);
-        }
-    };
 
 
     const openDetail = (rec) => {
@@ -1207,17 +1008,11 @@ export default function AIRecommendations({
                 url: shareUrl,
                 title: activity.activity_name
             });
-        } catch (error) {
+        } catch (_error) {
             Alert.alert('Error', 'Could not share link');
         }
     };
 
-    // Flag handler for marking recommendations to exclude  
-    const handleFlag = (recommendation) => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        setFlaggedRecommendations(prev => [...prev, recommendation]);
-        Alert.alert('Flagged', 'This recommendation has been flagged for exclusion.');
-    };
 
     // Helper function to check if a recommendation is favorited
     const isRecommendationFavorited = (recommendationId) => {

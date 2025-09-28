@@ -255,7 +255,7 @@ export default function EULAModal({ visible, onAccept, onDecline }) {
 
                     <TouchableOpacity
                         style={styles.linkButton}
-                        onPress={() => Linking.openURL('https://www.voxxyai.com/#terms')}
+                        onPress={() => Linking.openURL('https://www.heyvoxxy.com/#terms')}
                     >
                         <FileText size={20} color="#9261E5" />
                         <Text style={styles.linkText}>Read Full Terms of Service</Text>

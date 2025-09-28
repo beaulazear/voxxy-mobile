@@ -6,7 +6,7 @@ module.exports = {
     name: IS_DEV ? "Voxxy" : "Voxxy",
     slug: "voxxy-mobile",
     description: "Connect with friends through shared activities. Organize dinners, meetings, and events with AI-powered recommendations and real-time coordination.",
-    version: "1.2.16",
+    version: "1.2.17",
     orientation: "portrait",
     icon: "./assets/icon.png",
     userInterfaceStyle: "light",
@@ -22,7 +22,13 @@ module.exports = {
     ios: {
       supportsTablet: true,
       bundleIdentifier: "com.beaulazear.voxxymobile",
-      buildNumber: "17",
+      buildNumber: "18",
+      associatedDomains: [
+        "applinks:heyvoxxy.com",
+        "applinks:www.heyvoxxy.com",
+        "webcredentials:heyvoxxy.com",
+        "webcredentials:www.heyvoxxy.com"
+      ],
       config: {
         usesNonExemptEncryption: false
       },
@@ -38,6 +44,23 @@ module.exports = {
     android: {
       package: "com.beaulazear.voxxymobile",
       versionCode: 2,
+      intentFilters: [
+        {
+          action: "VIEW",
+          autoVerify: true,
+          data: [
+            {
+              scheme: "https",
+              host: "heyvoxxy.com"
+            },
+            {
+              scheme: "https",
+              host: "www.heyvoxxy.com"
+            }
+          ],
+          category: ["BROWSABLE", "DEFAULT"]
+        }
+      ],
       adaptiveIcon: {
         foregroundImage: "./assets/adaptive-icon.png",
         backgroundColor: "#ffffff"

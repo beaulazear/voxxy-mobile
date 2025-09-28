@@ -116,7 +116,7 @@ const SuspendedScreen = () => {
             We take our community guidelines seriously to ensure Voxxy remains a safe and enjoyable platform for everyone.
           </Text>
           <TouchableOpacity
-            onPress={() => Linking.openURL('https://voxxyai.com/terms')}
+            onPress={() => Linking.openURL('https://heyvoxxy.com/terms')}
           >
             <Text style={styles.linkText}>View Community Guidelines</Text>
           </TouchableOpacity>

@@ -42,6 +42,7 @@ import * as Location from 'expo-location'
 import * as Haptics from 'expo-haptics'
 import { API_URL } from '../config'
 import { logger } from '../utils/logger'
+import { trackActivityCreated } from '../utils/analytics'
 import SearchLocationModal from './SearchLocationModal'
 import VoxxyLogo from '../assets/voxxy-triangle.png'
 
@@ -597,6 +598,9 @@ export default function UnifiedActivityChat({ visible, onClose }) {
             }
 
             const data = await response.json()
+
+            // Track activity creation
+            trackActivityCreated(data)
 
             // Update user context
             setUser((prev) => ({

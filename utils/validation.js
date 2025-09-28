@@ -251,7 +251,7 @@ export const validatePassword = (password) => {
     lowercase: /[a-z]/.test(password),
     uppercase: /[A-Z]/.test(password),
     numbers: /\d/.test(password),
-    symbols: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password),
+    symbols: /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password),
   };
 
   // Calculate strength score

@@ -20,6 +20,7 @@ import { useNavigation } from '@react-navigation/native';
 import { UserContext } from '../context/UserContext';
 import { safeApiCall, handleApiError } from '../utils/safeApiCall';
 import { validateEmail, validateUserName, validatePassword } from '../utils/validation';
+import { trackSignup } from '../utils/analytics';
 import { ArrowLeft, Eye, EyeOff, Check, X } from 'lucide-react-native';
 import { TOUCH_TARGETS, SPACING } from '../styles/AccessibilityStyles';
 import { logger } from '../utils/logger';
@@ -178,6 +179,11 @@ export default function SignUpScreen() {
                 }
             }
             
+            // Track signup completion
+            if (data) {
+                trackSignup(data);
+            }
+
             // Success animation before navigation
             Animated.timing(fadeAnim, {
                 toValue: 0,
@@ -263,6 +269,7 @@ export default function SignUpScreen() {
 
                         <View style={styles.inputContainer}>
                                 <TextInput
+                                    key={`input-step-${step}`}
                                     ref={inputRef}
                                     style={[
                                         styles.input,
@@ -400,14 +407,14 @@ export default function SignUpScreen() {
                         <Text style={styles.legalText}>
                             By continuing, you agree to our{' '}
                             <Text
-                                onPress={() => Linking.openURL('https://www.voxxyai.com/#terms')}
+                                onPress={() => Linking.openURL('https://www.heyvoxxy.com/#terms')}
                                 style={styles.textLinkAction}
                             >
                                 Terms of Service
                             </Text>{' '}
                             and{' '}
                             <Text
-                                onPress={() => Linking.openURL('https://www.voxxyai.com/#/privacy')}
+                                onPress={() => Linking.openURL('https://www.heyvoxxy.com/#/privacy')}
                                 style={styles.textLinkAction}
                             >
                                 Privacy Policy

@@ -21,6 +21,7 @@ import { API_URL } from '../config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { safeApiCall, handleApiError } from '../utils/safeApiCall';
 import { validateEmail } from '../utils/validation';
+import { trackLogin } from '../utils/analytics';
 import { Eye, EyeOff } from 'lucide-react-native';
 import { TOUCH_TARGETS } from '../styles/AccessibilityStyles';
 
@@ -109,6 +110,10 @@ export default function LoginScreen() {
 
       await AsyncStorage.setItem('jwt', data.token);
       setUser(data);
+
+      // Track login event
+      trackLogin();
+
       navigation.replace('/');
     } catch (err) {
       const errorMessage = handleApiError(err, 'Invalid email or password. Please try again.');
@@ -164,7 +169,7 @@ export default function LoginScreen() {
                   secureTextEntry={!showPassword}
                   autoCapitalize="none"
                   autoCorrect={false}
-                  autoComplete="password"
+                  autoComplete="current-password"
                   returnKeyType="go"
                   textContentType="password"
                   onSubmitEditing={handleLogin}
@@ -212,7 +217,7 @@ export default function LoginScreen() {
 
               <TouchableOpacity
                 onPress={() =>
-                  Linking.openURL('https://www.voxxyai.com/#/forgot-password')
+                  Linking.openURL('https://www.heyvoxxy.com/#/forgot-password')
                 }
                 style={styles.linkButton}
                 activeOpacity={0.7}

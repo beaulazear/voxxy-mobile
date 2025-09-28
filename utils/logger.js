@@ -21,6 +21,7 @@ export const logger = {
    */
   debug: (...args) => {
     if (currentLogLevel <= LOG_LEVELS.debug) {
+      // eslint-disable-next-line no-console
       console.log('[DEBUG]', new Date().toISOString(), ...args);
     }
   },
@@ -31,6 +32,7 @@ export const logger = {
    */
   info: (...args) => {
     if (currentLogLevel <= LOG_LEVELS.info) {
+      // eslint-disable-next-line no-console
       console.log('[INFO]', new Date().toISOString(), ...args);
     }
   },
@@ -41,6 +43,7 @@ export const logger = {
    */
   warn: (...args) => {
     if (currentLogLevel <= LOG_LEVELS.warn) {
+      // eslint-disable-next-line no-console
       console.warn('[WARN]', new Date().toISOString(), ...args);
     }
   },
@@ -51,6 +54,7 @@ export const logger = {
    */
   error: (...args) => {
     if (currentLogLevel <= LOG_LEVELS.error) {
+      // eslint-disable-next-line no-console
       console.error('[ERROR]', new Date().toISOString(), ...args);
     }
   },
@@ -62,6 +66,7 @@ export const logger = {
    */
   log: (prefix, ...args) => {
     if (currentLogLevel <= LOG_LEVELS.info) {
+      // eslint-disable-next-line no-console
       console.log(`[${prefix}]`, new Date().toISOString(), ...args);
     }
   },
@@ -71,9 +76,13 @@ export const logger = {
    */
   disableConsoleInProduction: () => {
     if (IS_PRODUCTION) {
+      // eslint-disable-next-line no-console
       console.log = () => {};
+      // eslint-disable-next-line no-console
       console.info = () => {};
+      // eslint-disable-next-line no-console
       console.warn = () => {};
+      // eslint-disable-next-line no-console
       console.debug = () => {};
       // Keep console.error for critical issues
     }
