@@ -18,6 +18,7 @@ import {
 import { API_URL } from '../config';
 import { useNavigation } from '@react-navigation/native';
 import { UserContext } from '../context/UserContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { safeApiCall, handleApiError } from '../utils/safeApiCall';
 import { validateEmail, validateUserName, validatePassword } from '../utils/validation';
 import { trackSignup } from '../utils/analytics';
@@ -38,6 +39,7 @@ export default function SignUpScreen() {
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmation, setShowConfirmation] = useState(false);
     const [validationErrors, setValidationErrors] = useState({});
+    const [touched, setTouched] = useState({});
     
     // Animation refs
     const fadeAnim = useRef(new Animated.Value(1)).current;
@@ -152,37 +154,50 @@ export default function SignUpScreen() {
                     method: 'POST',
                     headers: { 'X-Mobile-App': 'true' },
                     body: JSON.stringify({
-                        user: { 
-                            name: nameValidation.sanitized, 
-                            email: emailValidation.sanitized, 
-                            password: password, 
+                        user: {
+                            name: nameValidation.sanitized,
+                            email: emailValidation.sanitized,
+                            password: password,
                             password_confirmation: confirmation
                         },
                     }),
                 }
             );
 
-            // Log the response data to understand its structure
-            if (data) {
-                logger.debug('Signup response data:', {
+            // Normalize token from various possible response fields
+            const token = data.token || data.authentication_token || data.jwt;
+
+            if (!token) {
+                logger.error('Signup response missing token:', {
                     hasToken: !!data.token,
                     hasAuthToken: !!data.authentication_token,
                     hasJwt: !!data.jwt,
                     dataKeys: Object.keys(data)
                 });
-                
-                // Ensure token field is properly set
-                if (data.authentication_token && !data.token) {
-                    data.token = data.authentication_token;
-                } else if (data.jwt && !data.token) {
-                    data.token = data.jwt;
-                }
+                throw new Error('Server did not return an authentication token');
             }
-            
+
+            logger.debug('Signup response data:', {
+                hasToken: !!data.token,
+                hasAuthToken: !!data.authentication_token,
+                hasJwt: !!data.jwt,
+                dataKeys: Object.keys(data)
+            });
+
+            // Create normalized user data without mutating original response
+            const userData = { ...data, token };
+
+            // Store token in AsyncStorage
+            try {
+                await AsyncStorage.setItem('jwt', token);
+            } catch (storageError) {
+                Alert.alert('Sign Up Error', 'Could not save authentication token. Please try again.');
+                setIsLoading(false);
+                return;
+            }
+
             // Track signup completion
-            if (data) {
-                trackSignup(data);
-            }
+            trackSignup(userData);
 
             // Success animation before navigation
             Animated.timing(fadeAnim, {
@@ -190,7 +205,7 @@ export default function SignUpScreen() {
                 duration: 300,
                 useNativeDriver: true,
             }).start(() => {
-                setUser(data || {});
+                setUser(userData);
                 navigation.replace('VerificationCode');
             });
         } catch (e) {
@@ -273,16 +288,22 @@ export default function SignUpScreen() {
                                     ref={inputRef}
                                     style={[
                                         styles.input,
-                                        validationErrors[step] && styles.inputError,
-                                        canProceed && value.length > 0 && styles.inputValid
+                                        touched[step] && validationErrors[step] && styles.inputError,
+                                        touched[step] && canProceed && value.length > 0 && styles.inputValid
                                     ]}
                                     value={value}
                                     onChangeText={(text) => {
                                         onChange(text);
+                                        // Mark field as touched when user types
+                                        setTouched(prev => ({ ...prev, [step]: true }));
                                         // Clear validation error when user starts typing
                                         if (validationErrors[step]) {
                                             setValidationErrors(prev => ({ ...prev, [step]: null }));
                                         }
+                                    }}
+                                    onBlur={() => {
+                                        // Mark field as touched when user leaves input
+                                        setTouched(prev => ({ ...prev, [step]: true }));
                                     }}
                                     placeholder={placeholder}
                                     placeholderTextColor="#666"
@@ -325,10 +346,17 @@ export default function SignUpScreen() {
                                 )}
                             </View>
                         
-                        {/* Validation error message */}
-                        {validationErrors[step] && (
+                        {/* Validation error message - only show if field has been touched */}
+                        {touched[step] && validationErrors[step] && (
                             <Animated.View style={styles.errorContainer}>
                                 <Text style={styles.errorText}>{validationErrors[step]}</Text>
+                            </Animated.View>
+                        )}
+
+                        {/* Show real-time validation error for invalid input after user has interacted */}
+                        {touched[step] && !canProceed && value.length > 0 && !validationErrors[step] && (
+                            <Animated.View style={styles.errorContainer}>
+                                <Text style={styles.errorText}>{currentValidation.error}</Text>
                             </Animated.View>
                         )}
                         

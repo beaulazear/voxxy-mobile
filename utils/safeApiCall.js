@@ -306,4 +306,41 @@ export const getModerationStatus = (error) => {
   return null;
 };
 
+/**
+ * Safe API call with automatic retry for network errors
+ * @param {string} url - The API endpoint URL
+ * @param {object} options - Fetch options (method, headers, body, etc.)
+ * @param {number} retries - Number of retry attempts (default: 3)
+ * @param {number} timeout - Request timeout in milliseconds (default: 10000)
+ * @returns {Promise<object>} - Parsed JSON response or throws descriptive error
+ */
+export const safeApiCallWithRetry = async (url, options = {}, retries = 3, timeout = DEFAULT_TIMEOUT) => {
+  let lastError;
+
+  for (let attempt = 0; attempt < retries; attempt++) {
+    try {
+      return await safeApiCall(url, options, timeout);
+    } catch (error) {
+      lastError = error;
+
+      // Don't retry on HTTP errors (400-599), only network errors
+      if (error.status) {
+        throw error;
+      }
+
+      // Don't retry on the last attempt
+      if (attempt === retries - 1) {
+        throw error;
+      }
+
+      // Exponential backoff: wait 1s, 2s, 4s...
+      const waitTime = 1000 * Math.pow(2, attempt);
+      logger.debug(`Retry attempt ${attempt + 1}/${retries} after ${waitTime}ms for ${url}`);
+      await new Promise(resolve => setTimeout(resolve, waitTime));
+    }
+  }
+
+  throw lastError;
+};
+
 export default safeApiCall;

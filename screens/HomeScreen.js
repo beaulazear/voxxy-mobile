@@ -8,8 +8,6 @@ import {
   TouchableOpacity,
   FlatList,
   ScrollView,
-  Linking,
-  Modal,
   Animated,
   Dimensions,
   Image,
@@ -19,25 +17,16 @@ import * as Haptics from 'expo-haptics'
 import { UserContext } from '../context/UserContext'
 import AccountCreatedScreen from './AccountCreatedScreen'
 import VoxxyFooter from '../components/VoxxyFooter'
-import { Users, X, Plus, Zap, CheckCircle, BookOpen, Mail, Coffee, MapPin, Star, User, Activity, Hamburger, Martini, ChevronRight, ToggleLeft, ToggleRight, Grid3X3, List } from 'lucide-react-native'
+import { Users, Zap, CheckCircle, Mail, Coffee, Activity, Hamburger, Martini } from 'lucide-react-native'
 import ProfileSnippet from '../components/ProfileSnippet'
-import { useNavigation } from '@react-navigation/native';
-import { API_URL } from '../config';
-import { Alert } from 'react-native';
-import { safeAuthApiCall, handleApiError } from '../utils/safeApiCall';
-import UnifiedActivityChat from '../components/UnifiedActivityChat';
-import { logger } from '../utils/logger';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useNavigation } from '@react-navigation/native'
+import UnifiedActivityChat from '../components/UnifiedActivityChat'
+import { logger } from '../utils/logger'
 
 const { width: screenWidth } = Dimensions.get('window')
 
-const FULL_HEIGHT = 333
-
-const FILTERS = [
-  { key: 'Toggle', icon: Grid3X3, isToggle: true },
-  { key: 'Active', icon: Zap },
-  { key: 'Favorites', icon: Star }
-]
+const HEADER_HEIGHT = 60 // Matches ProfileSnippet height
+const HEADER_SPACING = 16 // Space between ProfileSnippet and content
 
 const PREVIEW_PAST = 3
 const CARD_MARGIN = 12
@@ -112,171 +101,81 @@ function useCountdown(targetTs) {
   return { days, hrs, mins, secs, formatted: `${pad(hrs + days * 24)}:${pad(mins)}:${pad(secs)}` }
 }
 
-function CountdownText({ targetTs, activityType }) {
-  const countdown = useCountdown(targetTs)
-  const displayInfo = getActivityDisplayInfo(activityType)
+// Floating Icon Component
+function FloatingIcon({ icon: Icon, color, delay = 0, duration = 3000 }) {
+  const translateY = useRef(new Animated.Value(0)).current
+  const opacity = useRef(new Animated.Value(0.3)).current
 
-  if (countdown.days === 0 && countdown.hrs === 0 && countdown.mins === 0 && countdown.secs === 0) {
-    return (
-      <View style={styles.countdownContainer}>
-        <Text style={styles.countdownCompleted}>
-          Started!
-        </Text>
-      </View>
-    )
-  }
-
-  return (
-    <View style={styles.countdownContainer}>
-      <View style={styles.countdownGrid}>
-        {countdown.days > 0 && (
-          <View style={styles.countdownBlock}>
-            <Text style={styles.countdownNumber}>{countdown.days}</Text>
-            <Text style={styles.countdownUnit}>day{countdown.days !== 1 ? 's' : ''}</Text>
-          </View>
-        )}
-        <View style={styles.countdownBlock}>
-          <Text style={styles.countdownNumber}>{countdown.hrs}</Text>
-          <Text style={styles.countdownUnit}>hrs</Text>
-        </View>
-        <View style={styles.countdownBlock}>
-          <Text style={styles.countdownNumber}>{countdown.mins}</Text>
-          <Text style={styles.countdownUnit}>min</Text>
-        </View>
-        <View style={styles.countdownBlock}>
-          <Text style={styles.countdownNumber}>{countdown.secs}</Text>
-          <Text style={styles.countdownUnit}>sec</Text>
-        </View>
-      </View>
-    </View>
-  )
-}
-
-function ProgressDisplay({ activity, currentUserId }) {
-  // Check if current user is the host
-  const isHost = activity.user_id === currentUserId
-  
-  // Check if current user has submitted a response (for non-hosts)
-  const userResponse = activity.responses?.find(r => r.user_id === currentUserId)
-  const hasUserResponded = !!userResponse
-  
-  return (
-    <View style={styles.progressOverlay}>
-      {/* Simple status message */}
-      {isHost ? (
-        <View style={styles.hostBadge}>
-          <Users color="#B954EC" size={16} strokeWidth={2.5} />
-          <Text style={styles.hostText}>Waiting for responses</Text>
-        </View>
-      ) : hasUserResponded ? (
-        <View style={styles.bandContainer}>
-          <View style={styles.bandBackground} />
-          <View style={styles.respondedBadge}>
-            <CheckCircle color="#4ECDC4" size={16} strokeWidth={2.5} />
-            <Text style={styles.respondedText}>Submitted!</Text>
-          </View>
-        </View>
-      ) : (
-        <View style={styles.bandContainer}>
-          <View style={styles.bandBackgroundAction} />
-          <View style={styles.actionNeededBadge}>
-            <Zap color="#FFE66D" size={16} strokeWidth={2.5} />
-            <Text style={styles.actionNeededText}>Action needed!</Text>
-          </View>
-        </View>
-      )}
-    </View>
-  )
-}
-
-// See All Card Component
-function SeeAllCard({ onPress, totalCount, type = 'activities' }) {
-  const isFavorites = type === 'favorites'
-  return (
-    <TouchableOpacity
-      style={[
-        styles.seeAllCard,
-        isFavorites && styles.seeAllFavoritesCard
-      ]}
-      onPress={onPress}
-      activeOpacity={0.8}
-    >
-      {/* Header matching activity cards */}
-      <View style={[styles.cardHeader, styles.seeAllHeader]}>
-        <View style={styles.cardIconContainer}>
-          <BookOpen color={isFavorites ? "#D4AF37" : "#B954EC"} size={20} strokeWidth={2} />
-        </View>
-        <View style={styles.cardHeaderInfo}>
-          <Text style={styles.cardType}>Collection</Text>
-          <Text style={styles.cardHost}>view all</Text>
-        </View>
-      </View>
-      
-      {/* Content area */}
-      <View style={styles.seeAllMainContent}>
-        <Text style={styles.seeAllCount}>{totalCount}</Text>
-        <Text style={styles.seeAllLabel}>Total {type}</Text>
-      </View>
-      
-      {/* Bottom area matching activity cards */}
-      <View style={styles.cardTitleArea}>
-        <Text style={styles.cardTitle}>
-          {isFavorites ? 'View All Favorites' : 'View All Activities'}
-        </Text>
-      </View>
-    </TouchableOpacity>
-  )
-}
-
-// Animated Create New Activity Card with cycling icons and Voxxy gradient
-function CreateCard({ navigation, isLast, isInvitesEmpty = false, onPress }) {
-  const title = isInvitesEmpty ? 'No Current Invites' : 'Create New Activity'
-  const subtitle = isInvitesEmpty ? 'Be the first to invite your friends!' : 'Start planning something amazing!'
-  const actionText = isInvitesEmpty ? 'Start planning now →' : 'Ready to vibe? →'
-
-  // Animation values
-  const pulseAnim = useRef(new Animated.Value(1)).current
-  const glowAnim = useRef(new Animated.Value(0)).current
-  const iconRotation = useRef(new Animated.Value(0)).current
-  const floatAnim = useRef(new Animated.Value(0)).current
-  
-  // Cycling icons for dining options
-  const activityIcons = [
-    { component: Hamburger, color: '#FF6B6B', name: 'restaurant' },
-    { component: Martini, color: '#4ECDC4', name: 'bar' }
-  ]
-  
-  const [currentIconIndex, setCurrentIconIndex] = useState(0)
-  const CurrentIcon = activityIcons[currentIconIndex].component
-  const currentIconColor = activityIcons[currentIconIndex].color
-
-  // Start animations on mount
   useEffect(() => {
-    // Pulsing animation
-    const pulseAnimation = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.05,
-          duration: 2000,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 2000,
-          useNativeDriver: true,
-        }),
+    const animation = Animated.loop(
+      Animated.parallel([
+        Animated.sequence([
+          Animated.delay(delay),
+          Animated.timing(translateY, {
+            toValue: -20,
+            duration: duration,
+            useNativeDriver: true,
+          }),
+          Animated.timing(translateY, {
+            toValue: 0,
+            duration: duration,
+            useNativeDriver: true,
+          }),
+        ]),
+        Animated.sequence([
+          Animated.timing(opacity, {
+            toValue: 0.6,
+            duration: duration / 2,
+            useNativeDriver: true,
+          }),
+          Animated.timing(opacity, {
+            toValue: 0.2,
+            duration: duration / 2,
+            useNativeDriver: true,
+          }),
+        ]),
       ])
     )
+    animation.start()
+    return () => animation.stop()
+  }, [])
 
-    // Glow animation
-    const glowAnimation = Animated.loop(
+  return (
+    <Animated.View style={{ transform: [{ translateY }], opacity }}>
+      <Icon color={color} size={20} strokeWidth={2} />
+    </Animated.View>
+  )
+}
+
+// Animated Start New Activity Wide Button
+function AnimatedStartNewActivityButton({ navigation, onPress, userName }) {
+  // Background gradient animation
+  const gradientAnim = useRef(new Animated.Value(0)).current
+  const pulseAnim = useRef(new Animated.Value(1)).current
+
+  // Cycling icons for dining options
+  const activityIcons = [
+    { component: Hamburger, color: '#FF6B6B', name: 'restaurant', label: 'Restaurants' },
+    { component: Martini, color: '#4ECDC4', name: 'bar', label: 'Bars & Lounges' }
+  ]
+
+  const [currentIconIndex, setCurrentIconIndex] = useState(0)
+  const CurrentIcon = activityIcons[currentIconIndex].component
+
+  // Get first name only
+  const firstName = userName ? userName.split(' ')[0] : 'there'
+
+  // Start animations
+  useEffect(() => {
+    // Gradient shimmer animation
+    const gradientAnimation = Animated.loop(
       Animated.sequence([
-        Animated.timing(glowAnim, {
+        Animated.timing(gradientAnim, {
           toValue: 1,
           duration: 3000,
           useNativeDriver: false,
         }),
-        Animated.timing(glowAnim, {
+        Animated.timing(gradientAnim, {
           toValue: 0,
           duration: 3000,
           useNativeDriver: false,
@@ -284,257 +183,125 @@ function CreateCard({ navigation, isLast, isInvitesEmpty = false, onPress }) {
       ])
     )
 
-    // Float animation
-    const floatAnimation = Animated.loop(
+    // Subtle pulse animation
+    const pulseAnimation = Animated.loop(
       Animated.sequence([
-        Animated.timing(floatAnim, {
-          toValue: -5,
-          duration: 2500,
+        Animated.timing(pulseAnim, {
+          toValue: 1.02,
+          duration: 2000,
           useNativeDriver: true,
         }),
-        Animated.timing(floatAnim, {
-          toValue: 5,
-          duration: 2500,
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 2000,
           useNativeDriver: true,
         }),
       ])
     )
 
+    gradientAnimation.start()
     pulseAnimation.start()
-    glowAnimation.start()
-    floatAnimation.start()
 
-    // Icon cycling every 2.5 seconds
-    const iconInterval = setInterval(() => {
-      // Add rotation animation when changing icons
-      Animated.timing(iconRotation, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }).start(() => {
-        setCurrentIconIndex((prev) => (prev + 1) % activityIcons.length)
-        iconRotation.setValue(0)
-      })
-    }, 2500)
-
-    return () => {
-      pulseAnimation.stop()
-      glowAnimation.stop()
-      floatAnimation.stop()
-      clearInterval(iconInterval)
-    }
-  }, [])
-
-  const glowOpacity = glowAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.3, 0.8]
-  })
-
-  const iconRotationDegree = iconRotation.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg']
-  })
-
-  return (
-    <Animated.View
-      style={[
-        { transform: [{ scale: pulseAnim }, { translateY: floatAnim }] }
-      ]}
-    >
-      <TouchableOpacity
-        style={[
-          styles.createCard,
-          isLast && styles.lastCard,
-          isInvitesEmpty && styles.invitesEmptyCard
-        ]}
-        onPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
-          onPress()
-        }}
-        activeOpacity={0.8}
-      >
-        {/* Animated Glow Effect */}
-        <Animated.View 
-          style={[
-            styles.createCardAnimatedGlow, 
-            { opacity: glowOpacity }
-          ]} 
-        />
-
-        {/* Voxxy Gradient Background */}
-        <LinearGradient
-          colors={['#cc31e8', '#9051e1']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.createCardGradient}
-        >
-          <View style={styles.createCardContent}>
-            {/* Animated Main Icon */}
-            <Animated.View 
-              style={[
-                styles.createMainIconContainer,
-                { transform: [{ rotate: iconRotationDegree }] }
-              ]}
-            >
-              {isInvitesEmpty ? (
-                <Mail color="#ffffff" size={32} strokeWidth={2.5} />
-              ) : (
-                <CurrentIcon color="#ffffff" size={32} strokeWidth={2.5} />
-              )}
-            </Animated.View>
-
-            <Text style={styles.createTitle}>{title}</Text>
-            <Text style={styles.createSubtitle}>{subtitle}</Text>
-
-            {/* Floating micro icons */}
-            {!isInvitesEmpty && (
-              <View style={styles.createMicroIcons}>
-                {activityIcons.map((icon, index) => {
-                  const IconComponent = icon.component
-                  const isActive = index === currentIconIndex
-                  return (
-                    <Animated.View 
-                      key={index}
-                      style={[
-                        styles.microIcon,
-                        isActive && styles.microIconActive
-                      ]}
-                    >
-                      <IconComponent 
-                        color={isActive ? '#ffffff' : 'rgba(255,255,255,0.4)'} 
-                        size={14} 
-                        strokeWidth={2} 
-                      />
-                    </Animated.View>
-                  )
-                })}
-              </View>
-            )}
-
-            {isInvitesEmpty && (
-              <View style={styles.invitesEmptyIcon}>
-                <Text style={styles.invitesEmptyEmoji}>💌</Text>
-              </View>
-            )}
-
-            <View style={styles.createCallToAction}>
-              <Text style={styles.createActionText}>{actionText}</Text>
-              <Animated.View style={[styles.createSparkle, { transform: [{ rotate: iconRotationDegree }] }]}>
-                <Zap color="#ffffff" size={16} strokeWidth={2.5} />
-              </Animated.View>
-            </View>
-          </View>
-        </LinearGradient>
-      </TouchableOpacity>
-    </Animated.View>
-  )
-}
-
-// Animated Start New Activity Wide Button
-function AnimatedStartNewActivityButton({ navigation, onPress }) {
-  // Simple opacity animation for subtle glow effect
-  const glowOpacity = useRef(new Animated.Value(0.3)).current
-  
-  // Cycling icons for dining options
-  const activityIcons = [
-    { component: Hamburger, color: '#FF6B6B', name: 'restaurant' },
-    { component: Martini, color: '#4ECDC4', name: 'bar' }
-  ]
-  
-  const [currentIconIndex, setCurrentIconIndex] = useState(0)
-  const CurrentIcon = activityIcons[currentIconIndex].component
-
-  // Start simple animation
-  useEffect(() => {
-    // Simple glow animation
-    const glowAnimation = Animated.loop(
-      Animated.sequence([
-        Animated.timing(glowOpacity, {
-          toValue: 0.8,
-          duration: 2000,
-          useNativeDriver: false,
-        }),
-        Animated.timing(glowOpacity, {
-          toValue: 0.3,
-          duration: 2000,
-          useNativeDriver: false,
-        }),
-      ])
-    )
-
-    glowAnimation.start()
-
-    // Icon cycling every 3 seconds
+    // Icon cycling every 4 seconds
     const iconInterval = setInterval(() => {
       setCurrentIconIndex((prev) => (prev + 1) % activityIcons.length)
-    }, 3000)
+    }, 4000)
 
     return () => {
-      glowAnimation.stop()
+      gradientAnimation.stop()
+      pulseAnimation.stop()
       clearInterval(iconInterval)
     }
   }, [])
 
   return (
-    <View style={styles.wideButtonContainer}>
-      <TouchableOpacity
-        style={styles.wideStartActivityButton}
-        onPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
-          onPress()
-        }}
-        activeOpacity={0.8}
-      >
-        {/* Gradient Border */}
-        <LinearGradient
-          colors={['#cc31e8', '#9051e1']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.wideButtonGradientBorder}
+    <View style={styles.fullScreenCTAContainer}>
+      {/* Floating decorative icons */}
+      <View style={styles.floatingIconTopLeft}>
+        <FloatingIcon icon={Hamburger} color="#FF6B6B" delay={0} duration={3000} />
+      </View>
+      <View style={styles.floatingIconTopRight}>
+        <FloatingIcon icon={Martini} color="#4ECDC4" delay={500} duration={3500} />
+      </View>
+      <View style={styles.floatingIconBottomLeft}>
+        <FloatingIcon icon={Coffee} color="#FFA500" delay={1000} duration={4000} />
+      </View>
+      <View style={styles.floatingIconBottomRight}>
+        <FloatingIcon icon={Users} color="#B954EC" delay={1500} duration={3200} />
+      </View>
+
+      {/* Main CTA */}
+      <Animated.View style={[styles.ctaWrapper, { transform: [{ scale: pulseAnim }] }]}>
+        <TouchableOpacity
+          style={styles.wideStartActivityButton}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+            onPress()
+          }}
+          activeOpacity={0.85}
         >
-          <View style={styles.wideButtonInner}>
-            <View style={styles.wideButtonContent}>
-              {/* Main Icon */}
-              <View style={styles.wideButtonMainIconContainer}>
-                <CurrentIcon color="#ffffff" size={32} strokeWidth={2.5} />
-              </View>
+          {/* Animated Gradient Border */}
+          <LinearGradient
+            colors={['#cc31e8', '#667eea', '#cc31e8']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.wideButtonGradientBorder}
+          >
+            <View style={styles.wideButtonInner}>
+              <View style={styles.wideButtonContent}>
+                {/* Main Icon with glow */}
+                <View style={styles.wideButtonMainIconContainer}>
+                  <View style={styles.iconGlow} />
+                  <CurrentIcon color="#ffffff" size={40} strokeWidth={2.5} />
+                </View>
 
-              <Text style={styles.wideButtonTitle}>Plan Your Next Outing</Text>
-              <Text style={styles.wideButtonSubtitle}>Find the perfect spot to meet</Text>
+                {/* Combined greeting and title */}
+                <View style={styles.titleContainer}>
+                  <Text style={styles.wideButtonTitle}>
+                    Hey {firstName} ✨
+                  </Text>
+                  <Text style={styles.wideButtonTitle}>
+                    Lets get started!
+                  </Text>
+                </View>
 
-              {/* Cycling micro icons */}
-              <View style={styles.wideButtonMicroIcons}>
-                {activityIcons.map((icon, index) => {
-                  const IconComponent = icon.component
-                  const isActive = index === currentIconIndex
-                  return (
-                    <Animated.View 
-                      key={index}
-                      style={[
-                        styles.wideMicroIcon,
-                        isActive && styles.wideMicroIconActive
-                      ]}
-                    >
-                      <IconComponent 
-                        color={isActive ? '#ffffff' : 'rgba(255,255,255,0.5)'} 
-                        size={16} 
-                        strokeWidth={2} 
-                      />
-                    </Animated.View>
-                  )
-                })}
-              </View>
+                <Text style={styles.wideButtonSubtitle}>
+                  Discover amazing {activityIcons[currentIconIndex].label.toLowerCase()} with friends
+                </Text>
 
-              <View style={styles.wideButtonCallToAction}>
-                <Text style={styles.wideButtonActionText}>Ready to vibe? →</Text>
-                <View style={styles.wideButtonSparkle}>
-                  <Zap color="#ffffff" size={18} strokeWidth={2.5} />
+                {/* Activity type indicators */}
+                <View style={styles.wideButtonMicroIcons}>
+                  {activityIcons.map((icon, index) => {
+                    const IconComponent = icon.component
+                    const isActive = index === currentIconIndex
+                    return (
+                      <Animated.View
+                        key={index}
+                        style={[
+                          styles.wideMicroIcon,
+                          isActive && styles.wideMicroIconActive
+                        ]}
+                      >
+                        <IconComponent
+                          color={isActive ? '#ffffff' : 'rgba(255,255,255,0.4)'}
+                          size={24}
+                          strokeWidth={2}
+                        />
+                      </Animated.View>
+                    )
+                  })}
+                </View>
+
+                {/* CTA Button */}
+                <View style={styles.wideButtonCallToAction}>
+                  <Zap color="#ffffff" size={20} strokeWidth={2.5} />
+                  <Text style={styles.wideButtonActionText}>Let's Go!</Text>
                 </View>
               </View>
             </View>
-          </View>
-        </LinearGradient>
+          </LinearGradient>
         </TouchableOpacity>
+      </Animated.View>
     </View>
   )
 }
@@ -572,20 +339,7 @@ function ModernTab({ filter, isActive, onPress }) {
 export default function HomeScreen({ route }) {
   const { user } = useContext(UserContext)
   const navigation = useNavigation()
-  const [filter, setFilter] = useState('')
-  const [showAllPast, setShowAllPast] = useState(false)
-  const [userFavorites, setUserFavorites] = useState([])
-  const [loadingFavorites, setLoadingFavorites] = useState(false)
-  const [selectedFavorite, setSelectedFavorite] = useState(null)
-  const [showFavoriteModal, setShowFavoriteModal] = useState(false)
-  const [isListView, setIsListView] = useState(true)
   const [showActivityCreation, setShowActivityCreation] = useState(false)
-  const scrollY = useRef(new Animated.Value(0)).current
-  const scrollRef = useRef(null)
-
-  const scrollToTop = () => {
-    scrollRef.current?.scrollToOffset({ offset: 0, animated: true })
-  }
 
   // Handle activity creation completion
   const handleActivityCreated = (newActivityId) => {
@@ -594,97 +348,6 @@ export default function HomeScreen({ route }) {
       navigation.navigate('ActivityDetails', { activityId: newActivityId })
     } else {
       setShowActivityCreation(false)
-    }
-  }
-
-
-  // Fetch user favorites
-  const fetchUserFavorites = async () => {
-    if (!user?.token) {
-      logger.debug('No user token available for fetching favorites')
-      return
-    }
-    
-    logger.debug('Fetching favorites from:', `${API_URL}/user_activities/favorited`)
-    setLoadingFavorites(true)
-    try {
-      const favorites = await safeAuthApiCall(
-        `${API_URL}/user_activities/favorited`,
-        user.token,
-        { method: 'GET' }
-      )
-      
-      // Filter out favorites where the activity has been deleted
-      const validFavorites = (favorites || []).filter(fav => {
-        const hasActivity = fav.activity || fav.pinned_activity?.activity
-        if (!hasActivity) {
-          logger.debug('Filtering out favorite with missing activity:', fav.id)
-        }
-        return hasActivity
-      })
-      
-      setUserFavorites(validFavorites)
-    } catch (error) {
-      logger.error('Error fetching favorites:', error)
-      const userMessage = handleApiError(error, 'Failed to load favorites. Please try again.');
-      // Only show alert for non-network errors to avoid spam
-      if (!error.message.includes('Network connection failed')) {
-        Alert.alert('Error', userMessage);
-      }
-    } finally {
-      setLoadingFavorites(false)
-    }
-  }
-
-  // Fetch favorites when user changes or when Favorites tab is selected
-  useEffect(() => {
-    logger.debug('Filter changed to:', filter)
-    logger.debug('User token exists:', !!user?.token)
-    if (filter === 'Favorites' && user?.token) {
-      logger.debug('Triggering favorites fetch...')
-      fetchUserFavorites()
-    }
-  }, [filter, user?.token])
-
-  // Fetch favorites on component mount to always have the count available
-  useEffect(() => {
-    if (user?.token) {
-      logger.debug('Fetching favorites on component mount...')
-      fetchUserFavorites()
-    }
-  }, [user?.token])
-
-  // Handle navigation params to show favorites modal
-  useEffect(() => {
-    if (route?.params?.showFavorites) {
-      setShowAllFavoritesModal(true)
-      // Clear the param to prevent it from triggering again
-      navigation.setParams({ showFavorites: undefined })
-    }
-  }, [route?.params?.showFavorites, navigation])
-
-  // Delete a favorite
-  const deleteFavorite = async (favoriteId) => {
-    if (!user?.token) return
-
-    try {
-      await safeAuthApiCall(
-        `${API_URL}/user_activities/${favoriteId}`,
-        user.token,
-        { method: 'DELETE' }
-      )
-      
-      // Update the local state by removing the deleted favorite
-      setUserFavorites(prevFavorites => 
-        prevFavorites.filter(fav => fav.id !== favoriteId)
-      )
-      
-      logger.debug(`Favorite with ID ${favoriteId} deleted successfully`)
-      Alert.alert('Success', 'Favorite removed successfully!')
-    } catch (error) {
-      logger.error('Error deleting favorite:', error)
-      const userMessage = handleApiError(error, 'Failed to remove favorite. Please try again.')
-      Alert.alert('Error', userMessage)
     }
   }
 
@@ -727,70 +390,33 @@ export default function HomeScreen({ route }) {
     })
     .map(p => p.activity) || []
 
-  useEffect(() => {
-    // Only set filter if it's not already set
-    if (!filter || filter === '') {
-      setFilter('Active')
-    }
-  }, [filter])
-
   if (user && !user.confirmed_at) {
     return <AccountCreatedScreen />
   }
 
-  // Store the original unsliced counts for accurate totals
-  const originalCounts = {
-    'Favorites': userFavorites.length,
-    'Active': inProgress.length + invites.length
-  }
-
+  // Active activities (in-progress + invites)
   const filteredActivities = (() => {
-    const dataMap = {
-      'Active': [...inProgress, ...invites],
-      'Favorites': userFavorites,
-    }
-
-    const data = dataMap[filter] || []
-    
-    if (filter === 'Favorites') {
-      logger.debug('Filtering favorites, userFavorites:', userFavorites)
-      logger.debug('Data for favorites:', data)
-    }
+    const data = [...inProgress, ...invites]
 
     const sortedData = data.sort((a, b) => {
-      // For in-progress activities, prioritize action needed items
-      if (filter === 'Active') {
-        const aUserResponse = a.responses?.find(r => r.user_id === user?.id)
-        const bUserResponse = b.responses?.find(r => r.user_id === user?.id)
-        const aIsHost = a.user_id === user?.id
-        const bIsHost = b.user_id === user?.id
-        
-        const aActionNeeded = !aIsHost && !aUserResponse
-        const bActionNeeded = !bIsHost && !bUserResponse
-        
-        // Action needed items come first
-        if (aActionNeeded && !bActionNeeded) return -1
-        if (!aActionNeeded && bActionNeeded) return 1
-      }
-      
-      // For Favorites, sort by created_at (most recent first)
-      if (filter === 'Favorites') {
-        const dateA = new Date(a.created_at || '1970-01-01')
-        const dateB = new Date(b.created_at || '1970-01-01')
-        return dateB - dateA
-      }
-      
-      // For other activities, sort by date_day (soonest first)
+      // Prioritize action needed items
+      const aUserResponse = a.responses?.find(r => r.user_id === user?.id)
+      const bUserResponse = b.responses?.find(r => r.user_id === user?.id)
+      const aIsHost = a.user_id === user?.id
+      const bIsHost = b.user_id === user?.id
+
+      const aActionNeeded = !aIsHost && !aUserResponse
+      const bActionNeeded = !bIsHost && !bUserResponse
+
+      // Action needed items come first
+      if (aActionNeeded && !bActionNeeded) return -1
+      if (!aActionNeeded && bActionNeeded) return 1
+
+      // Sort by date_day (soonest first)
       const dateA = new Date(a.date_day || '9999-12-31')
       const dateB = new Date(b.date_day || '9999-12-31')
       return dateA - dateB
     })
-    
-    
-    // For Favorites, only show 5 most recent
-    if (filter === 'Favorites' && sortedData.length > 5) {
-      return sortedData.slice(0, 5)
-    }
 
     return sortedData
   })()
@@ -834,110 +460,6 @@ export default function HomeScreen({ route }) {
   }
 
 
-
-  function renderFavoriteCard({ item, index }) {
-    // Debug logging
-    logger.debug('Rendering favorite card for item:', item)
-    logger.debug('Item keys:', Object.keys(item))
-    
-    // For favorites, item is a user_activity with nested pinned_activity and activity
-    const pinnedActivity = item.pinned_activity || item
-    const activity = item.activity || pinnedActivity?.activity
-    
-    logger.debug('pinnedActivity:', pinnedActivity)
-    logger.debug('activity:', activity)
-    
-    // Skip rendering if activity is missing (shouldn't happen with filtering, but extra safety)
-    if (!activity) {
-      logger.warn('Skipping favorite card with missing activity:', item.id)
-      return null
-    }
-    
-    const activityType = activity?.activity_type || 'Restaurant'
-    const displayInfo = getActivityDisplayInfo(activityType)
-
-    return (
-      <TouchableOpacity
-        style={[
-          styles.card,
-          styles.favoriteCard,
-          index === 0 && styles.firstCard,
-          index === displayedActivities.length - 1 && styles.lastCard
-        ]}
-        onPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
-          // Show favorite details modal instead of navigating to activity
-          setSelectedFavorite(item)
-          setShowFavoriteModal(true)
-        }}
-        activeOpacity={0.9}
-      >
-        {/* Corner decorations for favorites */}
-        <View style={[styles.cardCorner, styles.cardCornerTopLeft, styles.favoriteCorner]} />
-        <View style={[styles.cardCorner, styles.cardCornerTopRight, styles.favoriteCorner]} />
-        <View style={[styles.cardCorner, styles.cardCornerBottomLeft, styles.favoriteCorner]} />
-        <View style={[styles.cardCorner, styles.cardCornerBottomRight, styles.favoriteCorner]} />
-        {/* Header with icon and activity type */}
-        <View style={styles.cardHeader}>
-          <View style={styles.cardIconContainer}>
-            {displayInfo.icon && (
-              <displayInfo.icon 
-                color={displayInfo.iconColor} 
-                size={20} 
-                strokeWidth={2}
-              />
-            )}
-          </View>
-          <View style={styles.cardHeaderInfo}>
-            <Text style={styles.cardType}>{displayInfo.displayText}</Text>
-          </View>
-          {/* Favorite star indicator */}
-          <View style={styles.favoriteIndicator}>
-            <Star color="#D4AF37" size={16} fill="#D4AF37" />
-          </View>
-        </View>
-
-        {/* Card content */}
-        <View style={styles.favoriteCardContent}>
-          <Text style={styles.favoriteCardTitle} numberOfLines={2}>
-            {item.title || pinnedActivity?.title || 'Favorite Recommendation'}
-          </Text>
-          
-          {item.address && (
-            <View style={styles.favoriteCardMeta}>
-              <MapPin color="rgba(255, 255, 255, 0.6)" size={12} />
-              <Text style={styles.favoriteCardMetaText} numberOfLines={1}>
-                {item.address}
-              </Text>
-            </View>
-          )}
-          
-          {item.price_range && (
-            <View style={styles.favoriteCardMeta}>
-              <Text style={styles.favoriteCardPrice}>{item.price_range}</Text>
-            </View>
-          )}
-          
-          {/* Saved on date */}
-          {item.created_at && (
-            <View style={styles.favoriteCardMeta}>
-              <Text style={styles.favoriteCardDate}>
-                Saved {new Date(item.created_at).toLocaleDateString('en-US', {
-                  month: 'short',
-                  day: 'numeric'
-                })}
-              </Text>
-            </View>
-          )}
-        </View>
-
-        {/* Favorite badge */}
-        <View style={styles.favoriteBadge}>
-          <Text style={styles.favoriteBadgeText}>★ Favorite</Text>
-        </View>
-      </TouchableOpacity>
-    )
-  }
 
   function renderListItem({ item, index }) {
     const firstName = item.user?.name?.split(' ')[0] || ''
@@ -1076,186 +598,9 @@ export default function HomeScreen({ route }) {
     )
   }
 
-  function renderFavoriteListItem({ item, index }) {
-    const pinnedActivity = item.pinned_activity || item
-    const activity = item.activity || pinnedActivity?.activity
-    const activityType = activity?.activity_type || 'Restaurant'
-    const displayInfo = getActivityDisplayInfo(activityType)
-
-    return (
-      <TouchableOpacity
-        style={[
-          styles.listItem,
-          styles.listItemFavorite,
-          index === 0 && styles.listItemFirst,
-          index === displayedActivities.length - 1 && styles.listItemLast
-        ]}
-        onPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
-          setSelectedFavorite(item)
-          setShowFavoriteModal(true)
-        }}
-        activeOpacity={0.7}
-      >
-        {/* Left: Activity Icon */}
-        <View style={styles.listItemIcon}>
-          {displayInfo.icon && (
-            <displayInfo.icon 
-              color={displayInfo.iconColor} 
-              size={24} 
-              strokeWidth={2.5}
-            />
-          )}
-        </View>
-
-        {/* Center: Favorite Info */}
-        <View style={styles.listItemContent}>
-          <Text style={styles.listItemTitle} numberOfLines={1}>
-            {item.title || pinnedActivity?.title || 'Favorite Recommendation'}
-          </Text>
-          <View style={styles.listItemMeta}>
-            <Text style={styles.listItemType}>{displayInfo.displayText}</Text>
-            {item.address && (
-              <Text style={styles.listItemLocation} numberOfLines={1}>
-                {item.address.split(',')[0]}
-              </Text>
-            )}
-            {item.price_range && (
-              <Text style={styles.listItemPrice}>{item.price_range}</Text>
-            )}
-            {/* Saved on date */}
-            {item.created_at && (
-              <Text style={styles.listItemSavedDate}>
-                Saved {new Date(item.created_at).toLocaleDateString('en-US', {
-                  month: 'short',
-                  day: 'numeric'
-                })}
-              </Text>
-            )}
-          </View>
-        </View>
-
-        {/* Right: Favorite Star */}
-        <View style={styles.listItemStatus}>
-          <Star color="#D4AF37" size={18} fill="#D4AF37" />
-        </View>
-      </TouchableOpacity>
-    )
-  }
-
-  function renderCard({ item, index }) {
-    const firstName = item.user?.name?.split(' ')[0] || ''
-    const isInvite = invites.some(invite => invite.id === item.id)
-    const isInProgress = !item.finalized && !item.completed && !isInvite
-    const isFinalizedWithDateTime = item.finalized && item.date_day && item.date_time
-    const isCompleted = item.completed
-    const displayInfo = getActivityDisplayInfo(item.activity_type)
-    const isUserHost = item.user?.id === user?.id
-    
-    // Debug logging for first grid card  
-    if (index === 0) {
-      logger.debug('DEBUG - First grid card:', {
-        itemUserId: item.user?.id,
-        currentUserId: user?.id,
-        userName: user?.name,
-        isUserHost,
-        itemName: item.activity_name
-      })
-    }
-
-    let countdownTs = null
-    if (isFinalizedWithDateTime) {
-      countdownTs = getEventDateTime(item)
-    }
-
-    return (
-      <TouchableOpacity
-        style={[
-          styles.card,
-          isInvite && styles.inviteCard,
-          isUserHost && styles.userOwnedCard,
-          index === 0 && styles.firstCard,
-          index === displayedActivities.length - 1 && styles.lastCard
-        ]}
-        onPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
-          navigation.navigate('ActivityDetails', { activityId: item.id })
-        }}
-        activeOpacity={0.9}
-      >
-        {/* Corner decorations for activity cards */}
-        <View style={[styles.cardCorner, styles.cardCornerTopLeft, styles.activityCorner]} />
-        <View style={[styles.cardCorner, styles.cardCornerTopRight, styles.activityCorner]} />
-        <View style={[styles.cardCorner, styles.cardCornerBottomLeft, styles.activityCorner]} />
-        <View style={[styles.cardCorner, styles.cardCornerBottomRight, styles.activityCorner]} />
-        
-        
-        {/* Header with icon and activity type */}
-        <View style={styles.cardHeader}>
-          <View style={styles.cardIconContainer}>
-            {displayInfo.icon && (
-              <displayInfo.icon 
-                color={displayInfo.iconColor} 
-                size={20} 
-                strokeWidth={2}
-              />
-            )}
-          </View>
-          <View style={styles.cardHeaderInfo}>
-            <Text style={styles.cardType}>{displayInfo.displayText}</Text>
-            <Text style={styles.cardHost}>by {isUserHost ? 'you' : firstName}</Text>
-          </View>
-        </View>
-
-        {/* Status/Content Area */}
-        <View style={styles.cardStatusArea}>
-          {isInvite ? (
-            <View style={styles.inviteStatusContainer}>
-              <View style={styles.inviteBadge}>
-                <Mail color="#fff" size={16} strokeWidth={2.5} />
-                <Text style={styles.inviteBadgeText}>NEW INVITE</Text>
-              </View>
-              <Text style={styles.invitePrompt}>Tap to respond!</Text>
-            </View>
-          ) : countdownTs ? (
-            <CountdownText targetTs={countdownTs} activityType={item.activity_type} />
-          ) : isInProgress ? (
-            <ProgressDisplay activity={item} currentUserId={user?.id} />
-          ) : isCompleted ? (
-            <View style={styles.completedContainer}>
-              <View style={styles.completedStamp}>
-                <CheckCircle color="#4ECDC4" size={24} strokeWidth={2.5} />
-                <Text style={styles.completedText}>COLLECTED</Text>
-              </View>
-              <Text style={styles.completedDate}>{formatDate(item.date_day)}</Text>
-            </View>
-          ) : (
-            <View style={styles.overlayStatusContainer}>
-              <Text style={styles.overlayStatusText}>Planning...</Text>
-            </View>
-          )}
-        </View>
-
-        {/* Activity Name or Status */}
-        <View style={styles.cardTitleArea}>
-          <Text style={styles.cardTitle} numberOfLines={3} ellipsizeMode="tail">
-            {item.finalized 
-              ? item.activity_name 
-              : item.voting 
-                ? 'Choosing Venue' 
-                : 'Collecting preferences'}
-          </Text>
-        </View>
-      </TouchableOpacity>
-    )
-  }
-
   const ListHeader = () => (
     <>
-      <View style={{ height: 300 }} />
-      
-
-
+      <View style={{ height: HEADER_HEIGHT + HEADER_SPACING }} />
     </>
   )
 
@@ -1267,368 +612,21 @@ export default function HomeScreen({ route }) {
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="light-content" />
-      <ProfileSnippet 
-        scrollY={scrollY} 
-        onScrollToTop={scrollToTop} 
-        setFilter={setFilter} 
-        invitesCount={invites.length}
-        inProgressCount={inProgress.length}
-        pastCount={past.length}
-        userFavorites={userFavorites}
-        onShowFavorites={() => navigation.navigate('Favorites')}
-      />
-      <Animated.FlatList
-        ref={scrollRef}
-        data={[]} // Empty array for header/footer only
-        keyExtractor={() => 'dummy'}
-        renderItem={() => null}
-        ListHeaderComponent={ListHeader}
-        onScroll={Animated.event(
-          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-          { useNativeDriver: false }
-        )}
-        scrollEventThrottle={16}
-        ListFooterComponent={() => (
-          <>
-            {/* Main content - Activities */}
-              <>
-                {/* Top Filter Tabs */}
-                <ScrollView 
-                  horizontal 
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.topFiltersContent}
-                  style={styles.topFiltersContainer}
-                >
-                    {FILTERS.map((filterItem) => {
-                      const isActive = filter === filterItem.key
-                      const IconComponent = filterItem.isToggle ? (isListView ? Grid3X3 : List) : filterItem.icon
-                      const count = filterItem.key === 'Favorites' ? userFavorites.length : 
-                                   filterItem.key === 'Active' ? (inProgress.length + invites.length) : 0
-                      
-                      if (filterItem.isToggle) {
-                        return (
-                          <TouchableOpacity
-                            key={filterItem.key}
-                            style={[
-                              styles.topFilterTab,
-                              styles.topToggleTab
-                            ]}
-                            onPress={() => {
-                              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-                              setIsListView(!isListView)
-                            }}
-                            activeOpacity={0.7}
-                          >
-                            <IconComponent
-                              stroke={isListView ? '#4ECDC4' : '#B8A5C4'}
-                              width={18}
-                              height={18}
-                              strokeWidth={2.5}
-                            />
-                          </TouchableOpacity>
-                        )
-                      }
-                      
-                      return (
-                        <TouchableOpacity
-                          key={filterItem.key}
-                          style={[
-                            styles.topFilterTab,
-                            isActive && styles.topFilterTabActive
-                          ]}
-                          onPress={() => {
-                            if (Haptics?.impactAsync) {
-                              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-                            }
-                            setFilter(filterItem.key)
-                            setShowAllPast(false)
-                          }}
-                          activeOpacity={0.7}
-                        >
-                          <IconComponent
-                            stroke={isActive ? '#fff' : '#B8A5C4'}
-                            width={18}
-                            height={18}
-                            strokeWidth={isActive ? 2.5 : 2}
-                          />
-                          <Text style={[
-                            styles.topFilterTabText,
-                            isActive && styles.topFilterTabTextActive
-                          ]}>
-                            {filterItem.key}
-                          </Text>
-                          {count > 0 && (
-                            <View style={styles.topFilterBadge}>
-                              <Text style={styles.topFilterBadgeText}>{count}</Text>
-                            </View>
-                          )}
-                        </TouchableOpacity>
-                      )
-                    })}
-                    
-                    {/* Create new activity button */}
-                    <TouchableOpacity
-                      style={styles.topCreateTab}
-                      onPress={() => {
-                        if (Haptics?.impactAsync) {
-                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
-                        }
-                        setShowActivityCreation(true)
-                      }}
-                      activeOpacity={0.7}
-                    >
-                      <Plus
-                        color='#4ECDC4'
-                        size={16}
-                        strokeWidth={2.5}
-                      />
-                      <Text style={styles.topCreateTabText}>New</Text>
-                    </TouchableOpacity>
-                </ScrollView>
-
-                {/* Activities section */}
-                <View style={styles.activitiesContainer}>
-                  {filteredActivities.length === 0 ? (
-                    // Show loading state for favorites
-                    filter === 'Favorites' && loadingFavorites ? (
-                      <View style={styles.sideEmptyContainer}>
-                        <Text style={styles.sideEmptyIcon}>⏳</Text>
-                        <Text style={styles.sideEmpty}>Loading favorites...</Text>
-                        <Text style={styles.sideEmptySub}>
-                          Fetching your saved recommendations
-                        </Text>
-                      </View>
-                    ) : null // No empty state - just show Start New Activity button
-                  ) : isListView ? (
-                    // Vertical List View
-                    <ScrollView 
-                      style={styles.listContainer}
-                      contentContainerStyle={styles.listContent}
-                      showsVerticalScrollIndicator={false}
-                    >
-                      {displayedActivities.map((item, index) => {
-                        const key = filter === 'Favorites' 
-                          ? String(item.id || `${item.user_id}-${item.pinned_activity_id}`)
-                          : String(item.id)
-                        
-                        if (filter === 'Favorites') {
-                          return (
-                            <View key={key}>
-                              {renderFavoriteListItem({ item, index })}
-                            </View>
-                          )
-                        }
-                        return (
-                          <View key={key}>
-                            {renderListItem({ item, index })}
-                          </View>
-                        )
-                      })}
-                      
-                      {/* Show "See All" button for favorites in list view */}
-                      {filter === 'Favorites' && originalCounts['Favorites'] > displayedActivities.length && (
-                        <TouchableOpacity
-                          style={styles.seeAllListItem}
-                          onPress={() => navigation.navigate('Favorites')}
-                          activeOpacity={0.7}
-                        >
-                          <View style={styles.seeAllListIcon}>
-                            <BookOpen color="#B8A5C4" size={20} strokeWidth={2} />
-                          </View>
-                          <View style={styles.seeAllListContent}>
-                            <Text style={styles.seeAllListTitle}>View All Favorites</Text>
-                            <Text style={styles.seeAllListSubtitle}>
-                              {userFavorites.length} total favorites
-                            </Text>
-                          </View>
-                          <ChevronRight stroke="#B8A5C4" width={20} height={20} />
-                        </TouchableOpacity>
-                      )}
-                    </ScrollView>
-                  ) : (
-                    // Horizontal Grid View (existing)
-                    <FlatList
-                      data={
-                        (filter === 'Favorites' && originalCounts['Favorites'] >= 1)
-                          ? [...displayedActivities, { isSeeAll: true }]
-                          : displayedActivities
-                      }
-                      keyExtractor={(item, index) => {
-                        if (item.isSeeAll) return 'see-all'
-                        if (filter === 'Favorites') {
-                          // For favorites, use the user_activity id or combination
-                          return String(item.id || `${item.user_id}-${item.pinned_activity_id}`)
-                        }
-                        return String(item.id)
-                      }}
-                      horizontal
-                      showsHorizontalScrollIndicator={false}
-                      renderItem={({ item, index }) => {
-                        if (item.isSeeAll) {
-                          return (
-                            <SeeAllCard 
-                              onPress={() => {
-                                if (filter === 'Favorites') {
-                                  navigation.navigate('Favorites')
-                                }
-                              }}
-                              totalCount={filter === 'Favorites' ? userFavorites.length : (originalCounts[filter] || 0)}
-                              type={filter === 'Favorites' ? 'favorites' : 'activities'}
-                            />
-                          )
-                        }
-                        if (filter === 'Favorites') {
-                          return renderFavoriteCard({ item, index })
-                        }
-                        return renderCard({ item, index })
-                      }}
-                      contentContainerStyle={styles.horizontalGrid}
-                      snapToAlignment="start"
-                      decelerationRate="fast"
-                      snapToInterval={216} // card width + margin (200 + 16)
-                    />
-                  )}
-                </View>
-                
-                {/* Animated Start New Activity Button - Wide Version */}
-                <AnimatedStartNewActivityButton 
-                  navigation={navigation} 
-                  onPress={() => setShowActivityCreation(true)} 
-                />
-              </>
-            <ListFooter />
-          </>
-        )}
+      <ProfileSnippet />
+      <ScrollView
         contentContainerStyle={styles.grid}
         showsVerticalScrollIndicator={false}
-      />
-      <VoxxyFooter onPlusPress={() => setShowActivityCreation(true)} />
-      
-      {/* Favorite Details Modal */}
-      <Modal
-        visible={showFavoriteModal}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={() => setShowFavoriteModal(false)}
       >
-        <SafeAreaView style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
-            <TouchableOpacity
-              style={styles.modalCloseButton}
-              onPress={() => setShowFavoriteModal(false)}
-            >
-              <Text style={styles.modalCloseText}>✕</Text>
-            </TouchableOpacity>
-            <Text style={styles.modalTitle}>Favorite Details</Text>
-            <View style={styles.modalHeaderSpacer} />
-          </View>
-          
-          {selectedFavorite && (
-            <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
-              <View style={styles.modalCard}>
-                <Text style={styles.modalCardTitle}>
-                  {selectedFavorite.title}
-                </Text>
-                
-                {/* Saved on date */}
-                {selectedFavorite.created_at && (
-                  <View style={styles.modalSavedOnSection}>
-                    <Text style={styles.modalSavedOnText}>
-                      Saved on {new Date(selectedFavorite.created_at).toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'long', 
-                        day: 'numeric'
-                      })}
-                    </Text>
-                  </View>
-                )}
-                
-                {selectedFavorite.description && (
-                  <View style={styles.modalSection}>
-                    <Text style={styles.modalSectionTitle}>Description</Text>
-                    <Text style={styles.modalSectionText}>
-                      {selectedFavorite.description}
-                    </Text>
-                  </View>
-                )}
-                
-                {selectedFavorite.reason && (
-                  <View style={styles.modalSection}>
-                    <Text style={styles.modalSectionTitle}>Why it's recommended</Text>
-                    <Text style={styles.modalSectionText}>
-                      {selectedFavorite.reason}
-                    </Text>
-                  </View>
-                )}
-                
-                {selectedFavorite.address && (
-                  <View style={styles.modalSection}>
-                    <Text style={styles.modalSectionTitle}>Location</Text>
-                    <Text style={styles.modalSectionText}>
-                      {selectedFavorite.address}
-                    </Text>
-                  </View>
-                )}
-                
-                <View style={styles.modalMetaRow}>
-                  {selectedFavorite.price_range && (
-                    <View style={styles.modalMetaItem}>
-                      <Text style={styles.modalMetaLabel}>Price Range</Text>
-                      <Text style={styles.modalMetaValue}>{selectedFavorite.price_range}</Text>
-                    </View>
-                  )}
-                  
-                  {selectedFavorite.hours && (
-                    <View style={styles.modalMetaItem}>
-                      <Text style={styles.modalMetaLabel}>Hours</Text>
-                      <Text style={styles.modalMetaValue}>{selectedFavorite.hours}</Text>
-                    </View>
-                  )}
-                </View>
-                
-                {selectedFavorite.reviews && Array.isArray(selectedFavorite.reviews) && selectedFavorite.reviews.length > 0 && (
-                  <View style={styles.modalSection}>
-                    <Text style={styles.modalSectionTitle}>Reviews</Text>
-                    {selectedFavorite.reviews.slice(0, 3).map((review, index) => (
-                      <View key={index} style={styles.modalReviewItem}>
-                        <Text style={styles.modalReviewText}>"{review}"</Text>
-                      </View>
-                    ))}
-                  </View>
-                )}
-                
-                {selectedFavorite.photos && Array.isArray(selectedFavorite.photos) && selectedFavorite.photos.length > 0 && (
-                  <View style={styles.modalSection}>
-                    <Text style={styles.modalSectionTitle}>Photos</Text>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                      <View style={styles.modalPhotosContainer}>
-                        {selectedFavorite.photos.slice(0, 5).map((photo, index) => (
-                          <Image
-                            key={index}
-                            source={{ uri: photo }}
-                            style={styles.modalPhotoItem}
-                            resizeMode="cover"
-                          />
-                        ))}
-                      </View>
-                    </ScrollView>
-                  </View>
-                )}
-
-                {selectedFavorite.website && (
-                  <TouchableOpacity
-                    style={styles.modalWebsiteButton}
-                    onPress={() => Linking.openURL(selectedFavorite.website)}
-                  >
-                    <Text style={styles.modalWebsiteText}>Visit Website</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            </ScrollView>
-          )}
-        </SafeAreaView>
-      </Modal>
-      
+        <ListHeader />
+        {/* Animated Start New Activity Button - Wide Version */}
+        <AnimatedStartNewActivityButton
+          navigation={navigation}
+          onPress={() => setShowActivityCreation(true)}
+          userName={user?.name}
+        />
+        <ListFooter />
+      </ScrollView>
+      <VoxxyFooter onPlusPress={() => setShowActivityCreation(true)} />
 
       {/* Unified Activity Creation Modal */}
       <UnifiedActivityChat
@@ -2510,36 +1508,71 @@ const styles = StyleSheet.create({
   },
 
   // Wide Start Activity Button Styles
-  // Animated Wide Button Styles
-  wideButtonContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 24,
-    paddingBottom: 36,
+  // Full Screen CTA Styles
+  fullScreenCTAContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 40,
+    position: 'relative',
+  },
+
+  ctaWrapper: {
+    width: '100%',
+    maxWidth: 400,
+  },
+
+  floatingIconTopLeft: {
+    position: 'absolute',
+    top: 60,
+    left: 30,
+    opacity: 0.3,
+  },
+
+  floatingIconTopRight: {
+    position: 'absolute',
+    top: 100,
+    right: 40,
+    opacity: 0.3,
+  },
+
+  floatingIconBottomLeft: {
+    position: 'absolute',
+    bottom: 120,
+    left: 50,
+    opacity: 0.3,
+  },
+
+  floatingIconBottomRight: {
+    position: 'absolute',
+    bottom: 80,
+    right: 30,
+    opacity: 0.3,
   },
 
   wideStartActivityButton: {
-    borderRadius: 28,
+    borderRadius: 32,
     overflow: 'hidden',
     position: 'relative',
-    minHeight: 180,
+    minHeight: 320,
   },
-
 
   wideButtonGradientBorder: {
     flex: 1,
-    borderRadius: 28,
-    padding: 3, // This creates the border thickness
-    shadowColor: 'rgba(204, 49, 232, 0.4)',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.8,
-    shadowRadius: 16,
-    elevation: 20,
+    borderRadius: 32,
+    padding: 4,
+    shadowColor: 'rgba(185, 84, 236, 0.6)',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 1,
+    shadowRadius: 24,
+    elevation: 24,
   },
-  
+
   wideButtonInner: {
     flex: 1,
-    borderRadius: 25, // Slightly smaller to account for padding
-    backgroundColor: '#201925', // Same as background
+    borderRadius: 28,
+    backgroundColor: 'rgba(32, 25, 37, 0.95)',
     overflow: 'hidden',
   },
 
@@ -2547,91 +1580,117 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 32,
-    paddingVertical: 32,
-    gap: 16,
+    paddingHorizontal: 40,
+    paddingVertical: 48,
+    gap: 20,
+    position: 'relative',
+    zIndex: 1,
+  },
+
+  titleContainer: {
+    alignItems: 'center',
+    gap: 4,
   },
 
   wideButtonMainIconContainer: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 12,
-    shadowColor: 'rgba(0, 0, 0, 0.3)',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 1,
-    shadowRadius: 12,
+    marginBottom: 8,
     borderWidth: 3,
-    borderColor: 'rgba(255, 255, 255, 0.25)',
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    position: 'relative',
+  },
+
+  iconGlow: {
+    position: 'absolute',
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: 'rgba(185, 84, 236, 0.3)',
+    shadowColor: '#B954EC',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 20,
   },
 
   wideButtonTitle: {
     color: '#ffffff',
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: '700',
     textAlign: 'center',
-    lineHeight: 28,
+    lineHeight: 30,
     fontFamily: 'Montserrat_700Bold',
-    textShadowColor: 'rgba(0, 0, 0, 0.4)',
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
     textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
+    textShadowRadius: 6,
   },
 
   wideButtonSubtitle: {
-    color: 'rgba(255, 255, 255, 0.9)',
-    fontSize: 16,
+    color: 'rgba(255, 255, 255, 0.85)',
+    fontSize: 15,
     fontWeight: '500',
     textAlign: 'center',
     lineHeight: 22,
-    marginBottom: 8,
+    marginBottom: 12,
+    paddingHorizontal: 8,
   },
 
   wideButtonMicroIcons: {
     flexDirection: 'row',
-    gap: 12,
-    marginTop: 8,
-    marginBottom: 16,
+    gap: 16,
+    marginTop: 12,
+    marginBottom: 20,
   },
 
   wideMicroIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
   },
 
   wideMicroIconActive: {
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
-    borderColor: 'rgba(255, 255, 255, 0.4)',
-    borderWidth: 2,
-    transform: [{ scale: 1.1 }],
+    backgroundColor: 'rgba(185, 84, 236, 0.3)',
+    borderColor: 'rgba(185, 84, 236, 0.6)',
+    borderWidth: 2.5,
+    transform: [{ scale: 1.12 }],
+    shadowColor: '#B954EC',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 12,
   },
 
   wideButtonCallToAction: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    borderRadius: 25,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-    gap: 8,
+    paddingHorizontal: 32,
+    paddingVertical: 16,
+    backgroundColor: 'rgba(185, 84, 236, 0.25)',
+    borderRadius: 28,
+    borderWidth: 2,
+    borderColor: 'rgba(185, 84, 236, 0.4)',
+    gap: 10,
+    shadowColor: '#B954EC',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
   },
 
   wideButtonActionText: {
     color: '#ffffff',
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: 17,
+    fontWeight: '700',
     letterSpacing: 0.5,
+    textTransform: 'uppercase',
   },
 
   wideButtonSparkle: {

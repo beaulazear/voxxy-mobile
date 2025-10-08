@@ -21,13 +21,14 @@ class GooglePlacesService {
     async searchPlaces(input, types = 'geocode', language = 'en') {
         logger.debug('GooglePlacesService.searchPlaces called with:', input);
         if (!input || input.length < 2) {
+            logger.debug('Input too short, returning empty array');
             return [];
         }
 
         try {
             const url = `${API_URL}/api/places/search?query=${encodeURIComponent(input)}&types=${encodeURIComponent(types)}`;
             logger.debug('Calling Rails API:', url);
-            
+
             const response = await fetch(url, {
                 method: 'GET',
                 headers: {
@@ -37,20 +38,22 @@ class GooglePlacesService {
             });
 
             const data = await response.json();
-            logger.debug('Rails API response:', data);
+            logger.debug('Rails API response status:', response.status);
+            logger.debug('Rails API response data:', data);
 
-            if (response.ok && data.results) {
+            if (response.ok && data.results && data.results.length > 0) {
+                logger.debug(`✅ Got ${data.results.length} results from API`);
                 return data.results;
             } else {
                 logger.error('Rails Places API error:', data.error || 'Unknown error');
-                // Fallback to mock data if Rails API fails
-                logger.debug('Falling back to mock data');
-                return this.getMockResults(input);
+                logger.debug('⚠️ Falling back to mock data for query:', input);
+                const mockResults = this.getMockResults(input);
+                logger.debug(`⚠️ Returning ${mockResults.length} mock results`);
+                return mockResults;
             }
         } catch (error) {
             logger.error('Rails Places API network error:', error);
-            // Fallback to mock data if network fails
-            logger.debug('Network error, falling back to mock data');
+            logger.debug('⚠️ Network error, falling back to mock data');
             return this.getMockResults(input);
         }
     }
@@ -140,13 +143,43 @@ class GooglePlacesService {
 
         // Fallback to parsing from description if components aren't available
         if (!city && place.structured_formatting) {
-            city = place.structured_formatting.main_text;
+            const mainText = place.structured_formatting.main_text;
             const secondary = place.structured_formatting.secondary_text;
-            if (secondary) {
-                const parts = secondary.split(', ');
-                if (parts.length > 0) state = parts[0];
-                if (parts.length > 1) country = parts[1];
+
+            // If secondary text includes a city name (e.g., "Brooklyn, NY, USA" or "Manhattan, NY, USA")
+            // then main_text is likely a neighborhood
+            if (secondary && secondary.includes(',')) {
+                const secondaryParts = secondary.split(', ');
+                // First part of secondary is likely the city (e.g., "Brooklyn")
+                if (secondaryParts.length >= 2) {
+                    neighborhood = mainText; // Main text is the neighborhood
+                    city = secondaryParts[0]; // First part of secondary is city
+                    state = secondaryParts[1]; // Second part is state
+                    if (secondaryParts.length > 2) {
+                        country = secondaryParts[2]; // Third part is country
+                    }
+                } else {
+                    // Just one part in secondary, main_text is probably city
+                    city = mainText;
+                    state = secondaryParts[0];
+                }
+            } else {
+                // No commas in secondary, main_text is probably the city
+                city = mainText;
+                if (secondary) {
+                    state = secondary;
+                }
             }
+        }
+
+        // Create a user-friendly formatted address
+        let formattedAddress = '';
+        if (neighborhood && city) {
+            formattedAddress = `${neighborhood}, ${city}${state ? ', ' + state : ''}`;
+        } else if (city) {
+            formattedAddress = `${city}${state ? ', ' + state : ''}`;
+        } else {
+            formattedAddress = placeDetails?.formatted_address || place.description;
         }
 
         return {
@@ -154,7 +187,7 @@ class GooglePlacesService {
             city: city,
             state: state,
             country: country,
-            formatted: placeDetails?.formatted_address || place.description,
+            formatted: formattedAddress,
             latitude: placeDetails?.geometry?.location?.lat || null,
             longitude: placeDetails?.geometry?.location?.lng || null,
             place_id: place.place_id
@@ -165,7 +198,9 @@ class GooglePlacesService {
      * Get mock results for development when API key isn't available
      */
     getMockResults(input) {
-        logger.debug('getMockResults called with:', input);
+        logger.debug('🎭 getMockResults called with:', input);
+        logger.debug('📦 Generating mock location data...');
+
         const mockData = [
             {
                 place_id: 'mock_nyc',
@@ -173,6 +208,22 @@ class GooglePlacesService {
                 structured_formatting: {
                     main_text: 'New York',
                     secondary_text: 'NY, USA'
+                }
+            },
+            {
+                place_id: 'mock_bushwick',
+                description: 'Bushwick, Brooklyn, NY, USA',
+                structured_formatting: {
+                    main_text: 'Bushwick',
+                    secondary_text: 'Brooklyn, NY, USA'
+                }
+            },
+            {
+                place_id: 'mock_williamsburg',
+                description: 'Williamsburg, Brooklyn, NY, USA',
+                structured_formatting: {
+                    main_text: 'Williamsburg',
+                    secondary_text: 'Brooklyn, NY, USA'
                 }
             },
             {
@@ -189,6 +240,14 @@ class GooglePlacesService {
                 structured_formatting: {
                     main_text: 'Manhattan',
                     secondary_text: 'NY, USA'
+                }
+            },
+            {
+                place_id: 'mock_soho',
+                description: 'SoHo, Manhattan, NY, USA',
+                structured_formatting: {
+                    main_text: 'SoHo',
+                    secondary_text: 'Manhattan, NY, USA'
                 }
             },
             {
@@ -241,11 +300,19 @@ class GooglePlacesService {
             }
         ];
 
-        const filtered = mockData.filter(item => 
-            item.description.toLowerCase().includes(input.toLowerCase())
-        );
-        
-        logger.debug('Mock results filtered:', filtered);
+        const filtered = mockData.filter(item => {
+            const searchLower = input.toLowerCase();
+            const descLower = item.description.toLowerCase();
+            const mainTextLower = item.structured_formatting.main_text.toLowerCase();
+            const secondaryLower = item.structured_formatting.secondary_text.toLowerCase();
+
+            return descLower.includes(searchLower) ||
+                   mainTextLower.includes(searchLower) ||
+                   secondaryLower.includes(searchLower);
+        });
+
+        logger.debug(`Mock results filtered: ${filtered.length} results for "${input}"`);
+        logger.debug('Mock results:', filtered.map(f => f.description));
         return filtered;
     }
 }

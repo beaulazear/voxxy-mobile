@@ -108,7 +108,20 @@ export default function LoginScreen() {
         }
       );
 
-      await AsyncStorage.setItem('jwt', data.token);
+      // Validate token before attempting to store
+      if (!data.token) {
+        throw new Error('No authentication token received from server');
+      }
+
+      // Safely store the token with error handling
+      try {
+        await AsyncStorage.setItem('jwt', data.token);
+      } catch (storageError) {
+        Alert.alert('Login Failed', 'Could not save login credentials. Please try again.');
+        setIsLoading(false);
+        return;
+      }
+
       setUser(data);
 
       // Track login event
@@ -116,7 +129,7 @@ export default function LoginScreen() {
 
       navigation.replace('/');
     } catch (err) {
-      const errorMessage = handleApiError(err, 'Invalid email or password. Please try again.');
+      const errorMessage = err.message || handleApiError(err, 'Invalid email or password. Please try again.');
       Alert.alert('Login Failed', errorMessage);
       setIsLoading(false);
     }

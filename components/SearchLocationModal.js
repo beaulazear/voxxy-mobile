@@ -26,10 +26,15 @@ const SearchLocationModal = ({ visible, onClose, onLocationSelect }) => {
     // Focus input when modal opens
     useEffect(() => {
         if (visible) {
-            setTimeout(() => {
+            logger.debug('🚪 SearchLocationModal opened, attempting to focus input...');
+            // Longer delay to ensure modal is fully mounted, especially in nested contexts
+            const timer = setTimeout(() => {
+                logger.debug('🎯 Focusing search input');
                 searchInputRef.current?.focus();
-            }, 500);
+            }, 700);
+            return () => clearTimeout(timer);
         } else {
+            logger.debug('🚪 SearchLocationModal closed, clearing state');
             // Clear search when modal closes
             setSearchText('');
             setSuggestions([]);
@@ -38,21 +43,23 @@ const SearchLocationModal = ({ visible, onClose, onLocationSelect }) => {
 
     // Search places using Google Places API
     const searchPlaces = async (query) => {
-        logger.debug('searchPlaces called with:', query);
+        logger.debug('🔍 SearchLocationModal.searchPlaces called with:', query);
         if (!query || query.length < 2) {
+            logger.debug('Query too short, clearing suggestions');
             setSuggestions([]);
             return;
         }
 
         try {
             setIsLoading(true);
-            
+            logger.debug('🌐 Calling GooglePlacesService.searchPlaces...');
+
             // Pass 'geocode' to get all location types including neighborhoods
             const results = await GooglePlacesService.searchPlaces(query, 'geocode');
-            logger.debug('Search results:', results);
+            logger.debug(`📍 Got ${results.length} search results:`, results);
             setSuggestions(results);
         } catch (error) {
-            logger.error('Places search error:', error);
+            logger.error('❌ Places search error:', error);
             setSuggestions([]);
         } finally {
             setIsLoading(false);
@@ -61,9 +68,9 @@ const SearchLocationModal = ({ visible, onClose, onLocationSelect }) => {
 
     // Handle search input changes with debouncing
     const handleSearchChange = (text) => {
-        logger.debug('Search text changed:', text);
+        logger.debug('⌨️  Search text changed to:', text);
         setSearchText(text);
-        
+
         // Clear previous timeout
         if (searchTimeout.current) {
             clearTimeout(searchTimeout.current);
@@ -71,7 +78,7 @@ const SearchLocationModal = ({ visible, onClose, onLocationSelect }) => {
 
         // Set new timeout for search debouncing
         searchTimeout.current = setTimeout(() => {
-            logger.debug('Searching for:', text);
+            logger.debug(`⏰ Debounce complete, searching for: "${text}"`);
             searchPlaces(text);
         }, 300);
     };

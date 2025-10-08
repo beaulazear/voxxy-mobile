@@ -16,13 +16,13 @@ import FAQScreen from './screens/FAQScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import LandingScreen from './screens/LandingScreen';
 import ActivityDetailsScreen from './screens/ActivityDetailsScreen';
+import ActivitiesScreen from './screens/ActivitiesScreen';
 import FavoritesScreen from './screens/FavoritesScreen';
 import TryVoxxScreen from './screens/TryVoxxScreen';
 import NotificationsScreen from './screens/NotificationsScreen';
 import PrivacyPolicyScreen from './screens/PrivacyPolicyScreen';
 import SuspendedScreen from './screens/SuspendedScreen';
-import EULAModal from './components/EULAModal';
-import PrivacyConsentModal from './components/PrivacyConsentModal';
+const WelcomeScreen = React.lazy(() => import('./screens/WelcomeScreen'));
 
 import { InvitationNotificationProvider } from './services/InvitationNotificationService';
 
@@ -46,72 +46,35 @@ export function navigate(name, params) {
 }
 
 const AppNavigator = () => {
-  const { user, loading, moderationStatus, refreshUser, needsPolicyAcceptance } = useContext(UserContext);
-  const [showPrivacyConsent, setShowPrivacyConsent] = useState(false);
-  const [showEULA, setShowEULA] = useState(false);
+  const { user, loading, moderationStatus, refreshUser } = useContext(UserContext);
+  const [needsOnboarding, setNeedsOnboarding] = useState(false);
   const [policiesLoading, setPoliciesLoading] = useState(true);
 
-  // Check if privacy consent and EULA have been accepted
+  // Check if user needs onboarding (policy acceptance)
   useEffect(() => {
-    const checkPolicies = async () => {
-      // Only check for authenticated users with a valid token
+    const checkOnboarding = async () => {
+      // Use backend as single source of truth for policy status
       if (user && user.token && user.confirmed_at) {
-        // Check if we have user-specific policy acceptance
-        const userPolicyKey = `user_${user.id}_policies_accepted`;
-        const userPoliciesAccepted = await AsyncStorage.getItem(userPolicyKey);
-        
-        // If no user-specific policy acceptance, this is a new user
-        if (!userPoliciesAccepted) {
-          // Show privacy consent first for new users
-          setShowPrivacyConsent(true);
-          setPoliciesLoading(false);
-          return;
-        }
-        
-        // Check privacy consent first
-        const privacyConsentDate = await AsyncStorage.getItem('privacyConsentDate');
-        const privacyConsentVersion = await AsyncStorage.getItem('privacyConsentVersion');
-        
-        if (!privacyConsentDate || privacyConsentVersion !== '1.0.0') {
-          // Show privacy consent first
-          setShowPrivacyConsent(true);
-          setPoliciesLoading(false);
-          return;
-        }
-        
-        // If privacy is accepted, check EULA
-        // First check if backend says user needs to accept policies
-        if (needsPolicyAcceptance) {
-          setShowEULA(true);
-          setPoliciesLoading(false);
-          return;
-        }
-        
-        // Also check local storage as fallback
-        const eulaAccepted = await AsyncStorage.getItem('eulaAcceptedDate');
-        const eulaVersion = await AsyncStorage.getItem('eulaVersion');
-        const policiesAccepted = await AsyncStorage.getItem('policies_accepted');
-        
-        // Check if EULA needs to be shown (not accepted or old version)
-        if (!eulaAccepted || eulaVersion !== '1.0.0') {
-          // Also check new policies format
-          if (!policiesAccepted) {
-            setShowEULA(true);
-          } else {
-            // Check if policies need to be synced
-            const policies = JSON.parse(policiesAccepted);
-            if (policies.pending_sync && !policies.synced_with_backend) {
-              // Policies were accepted locally but not synced, don't show modal
-              setShowEULA(false);
-            }
-          }
-        }
+        // Backend provides all_policies_accepted field
+        setNeedsOnboarding(!user.all_policies_accepted);
+      } else {
+        setNeedsOnboarding(false);
       }
       setPoliciesLoading(false);
     };
-    
-    checkPolicies();
-  }, [user, user?.token, user?.id]);
+
+    checkOnboarding();
+  }, [user?.all_policies_accepted, user?.confirmed_at]);
+
+  // Handle onboarding completion
+  const handleOnboardingComplete = async () => {
+    // Just update local state - backend is the source of truth
+    setNeedsOnboarding(false);
+    // Refresh user data to get updated policy status from backend
+    if (refreshUser) {
+      await refreshUser();
+    }
+  };
 
   // Handle notification responses for navigation
   useEffect(() => {
@@ -152,102 +115,69 @@ const AppNavigator = () => {
     );
   }
 
-  const handlePrivacyAccept = async () => {
-    // Privacy accepted, now show EULA
-    setShowPrivacyConsent(false);
-
-    // Check user-specific EULA acceptance first
-    if (user?.id) {
-      const userPolicyKey = `user_${user.id}_policies_accepted`;
-      const userPoliciesAccepted = await AsyncStorage.getItem(userPolicyKey);
-
-      // If user hasn't accepted policies yet, always show EULA
-      if (!userPoliciesAccepted) {
-        setShowEULA(true);
-        return;
-      }
+  // Determine the initial route based on user state
+  const getInitialRouteName = () => {
+    if (needsOnboarding) {
+      return 'Welcome';
     }
-
-    // Fallback to checking general EULA acceptance for compatibility
-    const eulaAccepted = await AsyncStorage.getItem('eulaAcceptedDate');
-    const eulaVersion = await AsyncStorage.getItem('eulaVersion');
-    if (!eulaAccepted || eulaVersion !== '1.0.0') {
-      setShowEULA(true);
-    }
-  };
-
-  const handlePrivacyDecline = async () => {
-    // Log user out if they decline privacy policy
-    await AsyncStorage.clear();
-    setShowPrivacyConsent(false);
-  };
-
-  const handleEULAAccept = async () => {
-    // Mark that this specific user has accepted policies
-    if (user?.id) {
-      const userPolicyKey = `user_${user.id}_policies_accepted`;
-      await AsyncStorage.setItem(userPolicyKey, 'true');
-    }
-    setShowEULA(false);
-  };
-
-  const handleEULADecline = async () => {
-    // Log user out if they decline EULA
-    await AsyncStorage.clear();
-    setShowEULA(false);
+    return '/';
   };
 
   return (
-    <>
-      {showPrivacyConsent && (
-        <PrivacyConsentModal
-          visible={showPrivacyConsent}
-          onAccept={handlePrivacyAccept}
-          onDecline={handlePrivacyDecline}
-          navigation={navigationRef.current}
-        />
-      )}
-      {showEULA && (
-        <EULAModal 
-          visible={showEULA}
-          onAccept={handleEULAAccept}
-          onDecline={handleEULADecline}
-        />
-      )}
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
-        <Stack.Screen
-          name="/"
-          component={
-            user 
-              ? (moderationStatus === 'suspended' || moderationStatus === 'banned' 
-                  ? SuspendedScreen 
-                  : HomeScreen)
-              : LandingScreen
-          }
-          key={user ? (moderationStatus ? 'suspended' : 'home') : 'login'}
-        />
+    <Stack.Navigator
+      screenOptions={{ headerShown: false }}
+      initialRouteName={getInitialRouteName()}
+    >
+      {/* Onboarding Screen */}
+      <Stack.Screen name="Welcome">
+        {(props) => (
+          <React.Suspense fallback={
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#201925' }}>
+              <ActivityIndicator size="large" color="#8e44ad" />
+            </View>
+          }>
+            <WelcomeScreen {...props} onComplete={needsOnboarding ? handleOnboardingComplete : undefined} />
+          </React.Suspense>
+        )}
+      </Stack.Screen>
+
+      {/* Main Home Screen */}
+      <Stack.Screen
+        name="/"
+        component={
+          user
+            ? (moderationStatus === 'suspended' || moderationStatus === 'banned'
+                ? SuspendedScreen
+                : HomeScreen)
+            : LandingScreen
+        }
+        key={user ? (moderationStatus ? 'suspended' : 'home') : 'login'}
+      />
+
+      {/* Authentication Screens */}
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="SignUp" component={SignUpScreen} />
       <Stack.Screen name="VerificationCode" component={VerificationCodeScreen} />
       <Stack.Screen name="TryVoxxy" component={TryVoxxScreen} />
+
+      {/* Main App Screens */}
       <Stack.Screen
         name="ActivityDetails"
         component={ActivityDetailsScreen}
-        options={{ 
+        options={{
           headerShown: false,
           animation: 'slide_from_right',
           gestureDirection: 'horizontal'
         }}
       />
       <Stack.Screen name="FAQ" component={FAQScreen} />
-      {/* TripDashboardScreen removed - now integrated as modal in HomeScreen */}
       <Stack.Screen name="Profile" component={ProfileScreen} />
+      <Stack.Screen name="Activities" component={ActivitiesScreen} />
       <Stack.Screen name="Favorites" component={FavoritesScreen} />
       <Stack.Screen name="Notifications" component={NotificationsScreen} />
       <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
       <Stack.Screen name="AccountCreated" component={ProfileScreen} />
-      </Stack.Navigator>
-    </>
+    </Stack.Navigator>
   );
 };
 

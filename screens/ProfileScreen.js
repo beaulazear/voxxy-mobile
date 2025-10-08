@@ -26,6 +26,7 @@ import * as ImagePicker from 'expo-image-picker';
 import LocationPicker from '../components/LocationPicker';
 import colors from '../styles/Colors';
 import BlockedUsersService from '../services/BlockedUsersService';
+import PreferencesModal from '../components/PreferencesModal';
 
 const ACTIVITY_CONFIG = {
   'Restaurant': {
@@ -79,11 +80,14 @@ export default function ProfileScreen() {
     const [showBlockedUsersModal, setShowBlockedUsersModal] = useState(false);
     const [blockedUsers, setBlockedUsers] = useState([]);
     const [loadingBlockedUsers, setLoadingBlockedUsers] = useState(false);
+    const [showPreferencesModal, setShowPreferencesModal] = useState(false);
 
     // Profile tab states
     const [isEditingName, setIsEditingName] = useState(false);
     const [newName, setNewName] = useState(user?.name || '');
     const [preferences, setPreferences] = useState(user?.preferences || '');
+    const [favoriteFood, setFavoriteFood] = useState(user?.favorite_food || '');
+    const [savingPreferences, setSavingPreferences] = useState(false);
     
     // Location state
     const [userLocation, setUserLocation] = useState(
@@ -131,6 +135,7 @@ export default function ProfileScreen() {
     useEffect(() => {
         setNewName(user?.name || '');
         setPreferences(user?.preferences || '');
+        setFavoriteFood(user?.favorite_food || '');
         setTextNotifications(user?.text_notifications ?? true);
         setEmailNotifications(user?.email_notifications ?? true);
         setPushNotifications(user?.push_notifications ?? true);
@@ -202,27 +207,40 @@ export default function ProfileScreen() {
         setIsEditingName(false);
     };
 
-    const handleSavePreferences = () => {
-        fetch(`${API_URL}/users/${user.id}`, {
-            method: 'PATCH',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`,
-            },
-            body: JSON.stringify({ preferences }),
-        })
-            .then((res) => {
-                if (!res.ok) throw new Error('Failed to update preferences');
-                return res.json();
-            })
-            .then((updatedUser) => {
-                setUser({ ...user, preferences: updatedUser.preferences });
-                Alert.alert('Success', 'Preferences saved!');
-            })
-            .catch((err) => {
-                logger.error('Update error:', err);
-                Alert.alert('Error', 'Failed to save preferences.');
+    const handleSavePreferences = async (favoritesString, dietaryString) => {
+        setSavingPreferences(true);
+
+        try {
+            logger.debug('Saving preferences:', { favoritesString, dietaryString });
+
+            const updatedUser = await updateUser({
+                preferences: dietaryString,
+                favorite_food: favoritesString,
             });
+
+            logger.debug('Updated user response:', updatedUser);
+
+            if (updatedUser) {
+                // Update local state with values from server
+                setPreferences(updatedUser.preferences || '');
+                setFavoriteFood(updatedUser.favorite_food || '');
+
+                logger.debug('Local state updated:', {
+                    preferences: updatedUser.preferences,
+                    favorite_food: updatedUser.favorite_food
+                });
+
+                setShowPreferencesModal(false);
+                Alert.alert('Success', 'Preferences saved!');
+            } else {
+                Alert.alert('Error', 'Failed to save preferences. Please try again.');
+            }
+        } catch (err) {
+            logger.error('Update error:', err);
+            Alert.alert('Error', 'Failed to save preferences. Please check your connection and try again.');
+        } finally {
+            setSavingPreferences(false);
+        }
     };
 
     // Location handlers
@@ -626,21 +644,45 @@ export default function ProfileScreen() {
                 )}
             </View>
 
-            {/* Preferences Section - No card */}
+            {/* Preferences Section */}
             <View style={styles.preferencesSection}>
-                <Text style={styles.sectionTitle}>Preferences</Text>
-                <Text style={styles.label}>Allergies or Restrictions</Text>
-                <TextInput
-                    style={styles.textArea}
-                    value={preferences}
-                    onChangeText={setPreferences}
-                    placeholder="e.g. Vegan, Gluten-free, None"
-                    placeholderTextColor="#bbb"
-                    multiline
-                    numberOfLines={3}
-                />
-                <TouchableOpacity style={styles.primaryButton} onPress={handleSavePreferences}>
-                    <Text style={styles.buttonText}>Save Preferences</Text>
+                <Text style={styles.sectionTitle}>Food Preferences</Text>
+
+                <TouchableOpacity
+                    style={styles.preferencesCard}
+                    onPress={() => {
+                        logger.debug('Opening preferences modal with:', { favoriteFood, preferences });
+                        setShowPreferencesModal(true);
+                    }}
+                    activeOpacity={0.8}
+                >
+                    <View style={styles.preferencesCardContent}>
+                        {favoriteFood || preferences ? (
+                            <>
+                                {favoriteFood && (
+                                    <View style={styles.preferencesRow}>
+                                        <Text style={styles.preferencesLabel}>Favorites:</Text>
+                                        <Text style={styles.preferencesValue} numberOfLines={2}>
+                                            {favoriteFood}
+                                        </Text>
+                                    </View>
+                                )}
+                                {preferences && (
+                                    <View style={styles.preferencesRow}>
+                                        <Text style={styles.preferencesLabel}>Dietary:</Text>
+                                        <Text style={styles.preferencesValue} numberOfLines={2}>
+                                            {preferences}
+                                        </Text>
+                                    </View>
+                                )}
+                            </>
+                        ) : (
+                            <Text style={styles.preferencesPlaceholder}>
+                                Tap to set your food preferences
+                            </Text>
+                        )}
+                    </View>
+                    <ChevronRight stroke="#9261E5" width={20} height={20} strokeWidth={2} />
                 </TouchableOpacity>
             </View>
 
@@ -669,7 +711,7 @@ export default function ProfileScreen() {
             {/* Legal & Privacy */}
             <View style={styles.section}>
                 <Text style={styles.headerSubtitle}>Legal & Privacy</Text>
-                <TouchableOpacity 
+                <TouchableOpacity
                     style={styles.privacyButton}
                     onPress={() => navigation.navigate('PrivacyPolicy')}
                 >
@@ -935,6 +977,16 @@ export default function ProfileScreen() {
                     )}
                 </SafeAreaView>
             </Modal>
+
+            {/* Preferences Modal */}
+            <PreferencesModal
+                visible={showPreferencesModal}
+                onClose={() => setShowPreferencesModal(false)}
+                onSave={handleSavePreferences}
+                initialFavorites={favoriteFood}
+                initialDietary={preferences}
+                saving={savingPreferences}
+            />
         </SafeAreaView>
     );
 }
@@ -1179,6 +1231,42 @@ const styles = StyleSheet.create({
     preferencesSection: {
         marginBottom: 24,
     },
+    preferencesCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        backgroundColor: colors.cardBackground,
+        paddingVertical: 16,
+        paddingHorizontal: 20,
+        borderRadius: 12,
+        marginTop: 8,
+        borderWidth: 1,
+        borderColor: colors.purple3,
+    },
+    preferencesCardContent: {
+        flex: 1,
+        marginRight: 12,
+    },
+    preferencesRow: {
+        marginBottom: 8,
+    },
+    preferencesLabel: {
+        fontSize: 12,
+        fontWeight: '600',
+        color: '#9261E5',
+        marginBottom: 4,
+    },
+    preferencesValue: {
+        fontSize: 14,
+        color: '#fff',
+        fontWeight: '500',
+        lineHeight: 20,
+    },
+    preferencesPlaceholder: {
+        fontSize: 14,
+        color: '#B8A5C4',
+        fontStyle: 'italic',
+    },
     
     sectionTitle: {
         fontSize: 18,
@@ -1242,6 +1330,10 @@ const styles = StyleSheet.create({
         borderRadius: 8,
         alignItems: 'center',
         marginTop: 16,
+    },
+    disabledButton: {
+        backgroundColor: '#6b6b6b',
+        opacity: 0.5,
     },
     saveButton: {
         backgroundColor: '#44617b',

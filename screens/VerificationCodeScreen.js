@@ -1,4 +1,15 @@
 import React, { useState, useRef, useEffect, useContext } from 'react';
+
+// Suppress React Navigation's useInsertionEffect warning in React 19
+if (__DEV__) {
+    const originalError = console.error;
+    console.error = (...args) => {
+        if (typeof args[0] === 'string' && args[0].includes('useInsertionEffect')) {
+            return;
+        }
+        originalError.apply(console, args);
+    };
+}
 import {
     SafeAreaView,
     View,
@@ -21,15 +32,16 @@ import { logger } from '../utils/logger';
 import { TOUCH_TARGETS, SPACING } from '../styles/AccessibilityStyles';
 
 export default function VerificationCodeScreen() {
-    const { user, setUser } = useContext(UserContext);
     const navigation = useNavigation();
-    
+    const context = useContext(UserContext);
+    const { user, setUser } = context || {};
+
     const [code, setCode] = useState(['', '', '', '', '', '']);
     const [isVerifying, setIsVerifying] = useState(false);
     const [isSending, setIsSending] = useState(false);
     const [timer, setTimer] = useState(0);
     const [error, setError] = useState('');
-    
+
     const inputRefs = useRef([]);
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const slideAnim = useRef(new Animated.Value(30)).current;
@@ -154,31 +166,56 @@ export default function VerificationCodeScreen() {
 
             if (response.ok) {
                 // Update user context with verified status and response data
-                const updatedUser = data.user || { ...user, confirmed_at: new Date().toISOString() };
-                
+                const updatedUser = data.user || { ...(user || {}), confirmed_at: new Date().toISOString() };
+
                 // Preserve the existing token or use the new one if provided
                 if (data.token) {
                     updatedUser.token = data.token;
-                } else if (user.token) {
+                } else if (user?.token) {
                     // Make sure we preserve the existing token
                     updatedUser.token = user.token;
                 }
-                
+
                 // Mark as newly verified to trigger policy modals
                 updatedUser.isNewlyVerified = true;
-                
-                setUser(updatedUser);
-                
+
+                if (setUser) {
+                    setUser(updatedUser);
+                }
+
                 // Success animation then navigate
                 Animated.timing(fadeAnim, {
                     toValue: 0,
                     duration: 300,
                     useNativeDriver: true,
                 }).start(() => {
-                    navigation.replace('/');
+                    // Use backend policy status (updatedUser should have all_policies_accepted from backend)
+                    // If backend doesn't provide it yet, assume policies not accepted for new users
+                    if (!updatedUser.all_policies_accepted) {
+                        navigation.replace('Welcome');
+                    } else {
+                        navigation.replace('/');
+                    }
                 });
             } else {
-                setError(data.error || 'Invalid verification code');
+                // Handle specific error cases with detailed messages
+                let errorMessage = 'Invalid verification code';
+
+                if (response.status === 410) {
+                    // 410 Gone - code expired
+                    errorMessage = 'Verification code expired. Please request a new one.';
+                } else if (response.status === 429) {
+                    // Too many attempts
+                    errorMessage = 'Too many attempts. Please wait a moment and try again.';
+                } else if (response.status === 422) {
+                    // Validation error
+                    errorMessage = data.error || 'Invalid verification code format';
+                } else if (data.error) {
+                    // Use server-provided error message
+                    errorMessage = data.error;
+                }
+
+                setError(errorMessage);
                 setCode(['', '', '', '', '', '']); // Clear code on error
                 // Focus first input after error
                 setTimeout(() => inputRefs.current[0]?.focus(), 100);
@@ -203,7 +240,7 @@ export default function VerificationCodeScreen() {
             const response = await fetch(`${API_URL}/resend_verification`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email: user.email }),
+                body: JSON.stringify({ email: user?.email || '' }),
             });
 
             const data = await response.json();
@@ -237,7 +274,9 @@ export default function VerificationCodeScreen() {
             logger.debug('Server logout failed, proceeding anyway:', error);
         } finally {
             await AsyncStorage.removeItem('jwt');
-            setUser(null);
+            if (setUser) {
+                setUser(null);
+            }
             navigation.replace('/');
         }
     };
