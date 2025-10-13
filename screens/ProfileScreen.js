@@ -119,10 +119,32 @@ export default function ProfileScreen() {
         const participantActivities = user?.participant_activities
             ?.filter(p => p.accepted && p.activity?.completed)
             .map(p => p.activity) || [];
-        
+
         // Remove duplicates by activity id
         const uniqueCompleted = [...new Map([...myActivities, ...participantActivities].map(a => [a.id, a])).values()];
         return uniqueCompleted;
+    }, [user]);
+
+    // Calculate profile completion
+    const profileCompletion = useMemo(() => {
+        let completed = 0;
+        const total = 5;
+
+        if (user?.name) completed++;
+        if (user?.email) completed++;
+        if (user?.city && user?.state) completed++;
+        if (user?.favorite_food) completed++;
+        if (user?.preferences) completed++;
+
+        const percentage = (completed / total) * 100;
+
+        // Determine missing items
+        const missing = [];
+        if (!user?.city || !user?.state) missing.push('Set your location');
+        if (!user?.favorite_food) missing.push('Add favorite foods');
+        if (!user?.preferences) missing.push('Set dietary preferences');
+
+        return { completed, total, percentage, missing };
     }, [user]);
 
 
@@ -540,6 +562,47 @@ export default function ProfileScreen() {
 
     const renderProfileTab = () => (
         <View>
+            {/* Profile Completion Banner */}
+            {profileCompletion.percentage < 100 && (
+                <View style={styles.completionBanner}>
+                    <View style={styles.completionHeader}>
+                        <Text style={styles.completionTitle}>
+                            Complete Your Profile ({profileCompletion.completed}/{profileCompletion.total})
+                        </Text>
+                        <Text style={styles.completionSubtitle}>
+                            Get better recommendations for your groups!
+                        </Text>
+                    </View>
+
+                    {/* Progress bar */}
+                    <View style={styles.completionBarContainer}>
+                        <View style={styles.completionBar}>
+                            <View
+                                style={[
+                                    styles.completionFill,
+                                    { width: `${profileCompletion.percentage}%` }
+                                ]}
+                            />
+                        </View>
+                        <Text style={styles.completionPercentage}>
+                            {Math.round(profileCompletion.percentage)}%
+                        </Text>
+                    </View>
+
+                    {/* Missing items */}
+                    {profileCompletion.missing.length > 0 && (
+                        <View style={styles.missingItems}>
+                            {profileCompletion.missing.map((item, index) => (
+                                <View key={index} style={styles.missingItem}>
+                                    <Text style={styles.missingItemBullet}>•</Text>
+                                    <Text style={styles.missingItemText}>{item}</Text>
+                                </View>
+                            ))}
+                        </View>
+                    )}
+                </View>
+            )}
+
             {/* Avatar and Name Card */}
             <View style={styles.profileCard}>
                 <TouchableOpacity
@@ -1665,5 +1728,97 @@ const styles = StyleSheet.create({
         fontSize: 16,
         color: '#B8A5C4',
         textAlign: 'center',
+    },
+
+    // Profile Completion Banner Styles
+    completionBanner: {
+        backgroundColor: 'rgba(185, 84, 236, 0.12)',
+        borderRadius: 16,
+        padding: 20,
+        marginBottom: 24,
+        borderWidth: 2,
+        borderColor: 'rgba(185, 84, 236, 0.3)',
+        shadowColor: '#B954EC',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 12,
+        elevation: 4,
+    },
+
+    completionHeader: {
+        marginBottom: 16,
+    },
+
+    completionTitle: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: '#fff',
+        marginBottom: 6,
+        fontFamily: 'Montserrat_700Bold',
+    },
+
+    completionSubtitle: {
+        fontSize: 14,
+        color: 'rgba(255, 255, 255, 0.8)',
+        fontWeight: '500',
+        lineHeight: 20,
+    },
+
+    completionBarContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        marginBottom: 16,
+    },
+
+    completionBar: {
+        flex: 1,
+        height: 8,
+        backgroundColor: 'rgba(255, 255, 255, 0.15)',
+        borderRadius: 4,
+        overflow: 'hidden',
+    },
+
+    completionFill: {
+        height: '100%',
+        backgroundColor: '#B954EC',
+        borderRadius: 4,
+        shadowColor: '#B954EC',
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.6,
+        shadowRadius: 4,
+    },
+
+    completionPercentage: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: '#B954EC',
+        minWidth: 45,
+        textAlign: 'right',
+        fontFamily: 'Montserrat_700Bold',
+    },
+
+    missingItems: {
+        gap: 8,
+    },
+
+    missingItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+
+    missingItemBullet: {
+        color: '#FFE66D',
+        fontSize: 18,
+        lineHeight: 20,
+        fontWeight: '700',
+    },
+
+    missingItemText: {
+        color: 'rgba(255, 255, 255, 0.9)',
+        fontSize: 14,
+        fontWeight: '500',
+        flex: 1,
     },
 });

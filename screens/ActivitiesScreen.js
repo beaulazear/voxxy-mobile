@@ -7,12 +7,15 @@ import {
     SafeAreaView,
     FlatList,
     ScrollView,
+    Image,
 } from 'react-native';
 import { UserContext } from '../context/UserContext';
 import { useNavigation } from '@react-navigation/native';
-import { ArrowLeft, Users, Activity, CheckCircle, Mail, Zap } from 'react-native-feather';
+import { ArrowLeft, Users, Activity, CheckCircle, Mail, Zap, User, MapPin } from 'react-native-feather';
 import { Hamburger, Martini } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
+import { API_URL } from '../config';
+import { getUserDisplayImage } from '../utils/avatarManager';
 
 const ACTIVITY_CONFIG = {
     'Restaurant': {
@@ -62,6 +65,26 @@ const formatDate = (dateString) => {
     return `${monthName} ${dayNum}${getOrdinalSuffix(dayNum)}`;
 };
 
+const parseLocation = (locationString) => {
+    if (!locationString) return 'Location TBD';
+
+    // If it's coordinates (lat, lng format), return generic text
+    if (locationString.match(/^-?\d+\.\d+,\s*-?\d+\.\d+$/)) {
+        return 'Near you';
+    }
+
+    // Otherwise, try to extract city/neighborhood
+    // Format might be: "123 Main St, New York, NY" or just "Brooklyn"
+    const parts = locationString.split(',').map(s => s.trim());
+
+    // Return the last meaningful part (usually city or neighborhood)
+    if (parts.length >= 2) {
+        return parts[parts.length - 2] || parts[0]; // City is usually second to last
+    }
+
+    return parts[0] || 'Location set';
+};
+
 const getEventDateTime = (activity) => {
     if (!activity.date_day || !activity.date_time) return null;
     const [Y, M, D] = activity.date_day.split('-').map(Number);
@@ -73,7 +96,7 @@ const getEventDateTime = (activity) => {
 export default function ActivitiesScreen() {
     const { user } = useContext(UserContext);
     const navigation = useNavigation();
-    const [filter, setFilter] = useState('active'); // 'active', 'finalized', 'invites'
+    const [filter, setFilter] = useState('groups'); // 'groups', 'solo', 'finalized'
 
     // Calculate activities
     const activities = useMemo(() => {
@@ -97,8 +120,10 @@ export default function ActivitiesScreen() {
     }, [user]);
 
     const inProgress = activities.filter(a => !a.completed);
-    const activeActivities = inProgress.filter(a => !a.finalized);
+    const soloActivities = inProgress.filter(a => !a.finalized && a.is_solo);
     const finalizedActivities = inProgress.filter(a => a.finalized);
+
+    // Get pending invites
     const invites = user?.participant_activities
         ?.filter(p => {
             const isValidActivity = p.activity && (
@@ -111,13 +136,16 @@ export default function ActivitiesScreen() {
         })
         .map(p => p.activity) || [];
 
+    // Group activities include all non-finalized non-solo activities
+    const groupActivities = inProgress.filter(a => !a.finalized && !a.is_solo);
+
     // Filter activities based on selected filter
     const filteredActivities = useMemo(() => {
-        const data = filter === 'invites'
-            ? invites
+        const data = filter === 'solo'
+            ? soloActivities
             : filter === 'finalized'
                 ? finalizedActivities
-                : activeActivities;
+                : [...invites, ...groupActivities]; // Invites at the top of groups tab
 
         return data.sort((a, b) => {
             const aUserResponse = a.responses?.find(r => r.user_id === user?.id);
@@ -135,13 +163,18 @@ export default function ActivitiesScreen() {
             const dateB = new Date(b.date_day || '9999-12-31');
             return dateA - dateB;
         });
-    }, [filter, activeActivities, finalizedActivities, invites, user?.id]);
+    }, [filter, groupActivities, soloActivities, finalizedActivities, invites, user?.id]);
 
     const renderActivityItem = ({ item, index }) => {
         const firstName = item.user?.name?.split(' ')[0] || '';
         const isInvite = invites.some(invite => invite.id === item.id);
         const displayInfo = getActivityDisplayInfo(item.activity_type);
         const isUserHost = item.user?.id === user?.id;
+
+        // Get all members (host + participants)
+        const allMembers = [item.user, ...(item.participants || [])].filter(Boolean);
+        // Remove duplicates by id
+        const uniqueMembers = [...new Map(allMembers.map(m => [m.id, m])).values()];
 
         const countdownTs = item.finalized && item.date_day && item.date_time
             ? getEventDateTime(item)
@@ -204,16 +237,6 @@ export default function ActivitiesScreen() {
                 }}
                 activeOpacity={0.7}
             >
-                <View style={styles.listItemIcon}>
-                    {displayInfo.icon && (
-                        <displayInfo.icon
-                            color={displayInfo.iconColor}
-                            size={24}
-                            strokeWidth={2.5}
-                        />
-                    )}
-                </View>
-
                 <View style={styles.listItemContent}>
                     <Text style={[
                         styles.listItemTitle,
@@ -221,33 +244,90 @@ export default function ActivitiesScreen() {
                     ]} numberOfLines={1}>
                         {item.finalized
                             ? item.activity_name
-                            : item.voting
-                                ? 'Choosing Venue'
-                                : 'Collecting'}
+                            : item.activity_name || 'Planning...'}
                     </Text>
                     <View style={styles.listItemMeta}>
-                        <Text style={styles.listItemType}>{displayInfo.displayText}</Text>
-                        <Text style={styles.listItemHost}>by {isUserHost ? 'you' : firstName}</Text>
-                        {item.finalized && item.date_day && (
-                            <Text style={styles.listItemDate}>{formatDate(item.date_day)}</Text>
-                        )}
+                        <MapPin color="#B8A5C4" size={12} strokeWidth={2} />
+                        <Text style={styles.listItemLocation} numberOfLines={1}>
+                            {parseLocation(item.activity_location)}
+                        </Text>
+                    </View>
+
+                    {/* Avatars row - for all activities */}
+                    <View style={styles.participantsRow}>
+                        {item.is_solo ? (
+                            // Solo: just show current user
+                            <>
+                                <Image
+                                    source={getUserDisplayImage(user, API_URL)}
+                                    style={styles.soloAvatar}
+                                />
+                                <Text style={styles.participantCount}>Just you</Text>
+                            </>
+                        ) : uniqueMembers && uniqueMembers.length > 0 ? (
+                            // Group: show stacked avatars
+                            <>
+                                <View style={styles.avatarStack}>
+                                    {uniqueMembers.slice(0, 4).map((member, idx) => (
+                                        <Image
+                                            key={member.id}
+                                            source={getUserDisplayImage(member, API_URL)}
+                                            style={[
+                                                styles.stackedAvatar,
+                                                { marginLeft: idx === 0 ? 0 : -10 }
+                                            ]}
+                                        />
+                                    ))}
+                                    {uniqueMembers.length > 4 && (
+                                        <View style={[styles.stackedAvatar, styles.avatarCount, { marginLeft: -10 }]}>
+                                            <Text style={styles.avatarCountText}>
+                                                +{uniqueMembers.length - 4}
+                                            </Text>
+                                        </View>
+                                    )}
+                                </View>
+                                <Text style={styles.participantCount}>
+                                    {uniqueMembers.length} {uniqueMembers.length === 1 ? 'person' : 'people'}
+                                </Text>
+                            </>
+                        ) : null}
                     </View>
                 </View>
 
-                <View style={styles.listItemStatus}>
-                    {isInvite && statusIcon && (
-                        <View style={[styles.listItemStatusIcon, { backgroundColor: statusColor + '20' }]}>
-                            {React.createElement(statusIcon, { color: statusColor, size: 16, strokeWidth: 2.5 })}
-                        </View>
-                    )}
-                    <Text style={[
-                        styles.listItemStatusText,
-                        { color: statusColor },
-                        isInvite && styles.listItemInviteStatusText
-                    ]}>
-                        {statusText}
-                    </Text>
-                </View>
+                {/* Right side - either countdown or icon */}
+                {countdownTs ? (
+                    <View style={styles.countdownContainer}>
+                        <Text style={styles.countdownText}>
+                            {(() => {
+                                const timeLeft = Math.max(countdownTs - Date.now(), 0);
+                                if (timeLeft <= 0) {
+                                    return 'Started';
+                                }
+                                const days = Math.floor(timeLeft / (24 * 3600000));
+                                const hrs = Math.floor((timeLeft % (24 * 3600000)) / 3600000);
+                                const mins = Math.floor((timeLeft % 3600000) / 60000);
+
+                                if (days > 0) {
+                                    return `${days}d ${hrs}h ${mins}m`;
+                                } else if (hrs > 0) {
+                                    return `${hrs}h ${mins}m`;
+                                } else {
+                                    return `${mins}m`;
+                                }
+                            })()}
+                        </Text>
+                    </View>
+                ) : (
+                    <View style={styles.listItemIcon}>
+                        {displayInfo.icon && (
+                            <displayInfo.icon
+                                color={displayInfo.iconColor}
+                                size={24}
+                                strokeWidth={2.5}
+                            />
+                        )}
+                    </View>
+                )}
             </TouchableOpacity>
         );
     };
@@ -271,14 +351,26 @@ export default function ActivitiesScreen() {
             {/* Filter Tabs */}
             <View style={styles.filterContainer}>
                 <TouchableOpacity
-                    style={[styles.filterTab, filter === 'active' && styles.filterTabActive]}
-                    onPress={() => setFilter('active')}
+                    style={[styles.filterTab, filter === 'groups' && styles.filterTabActive]}
+                    onPress={() => setFilter('groups')}
                 >
-                    <Text style={[styles.filterTabText, filter === 'active' && styles.filterTabTextActive]}>
-                        Active
+                    <Text style={[styles.filterTabText, filter === 'groups' && styles.filterTabTextActive]}>
+                        Groups
                     </Text>
-                    <View style={[styles.filterBadge, filter === 'active' && styles.filterBadgeActive]}>
-                        <Text style={styles.filterBadgeText}>{activeActivities.length}</Text>
+                    <View style={[styles.filterBadge, filter === 'groups' && styles.filterBadgeActive]}>
+                        <Text style={styles.filterBadgeText}>{groupActivities.length}</Text>
+                    </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                    style={[styles.filterTab, filter === 'solo' && styles.filterTabActive]}
+                    onPress={() => setFilter('solo')}
+                >
+                    <Text style={[styles.filterTabText, filter === 'solo' && styles.filterTabTextActive]}>
+                        Solo
+                    </Text>
+                    <View style={[styles.filterBadge, filter === 'solo' && styles.filterBadgeActive]}>
+                        <Text style={styles.filterBadgeText}>{soloActivities.length}</Text>
                     </View>
                 </TouchableOpacity>
 
@@ -291,18 +383,6 @@ export default function ActivitiesScreen() {
                     </Text>
                     <View style={[styles.filterBadge, filter === 'finalized' && styles.filterBadgeActive]}>
                         <Text style={styles.filterBadgeText}>{finalizedActivities.length}</Text>
-                    </View>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                    style={[styles.filterTab, filter === 'invites' && styles.filterTabActive]}
-                    onPress={() => setFilter('invites')}
-                >
-                    <Text style={[styles.filterTabText, filter === 'invites' && styles.filterTabTextActive]}>
-                        Invites
-                    </Text>
-                    <View style={[styles.filterBadge, filter === 'invites' && styles.filterBadgeActive]}>
-                        <Text style={styles.filterBadgeText}>{invites.length}</Text>
                     </View>
                 </TouchableOpacity>
             </View>
@@ -320,11 +400,11 @@ export default function ActivitiesScreen() {
                         <Activity stroke="#666" width={48} height={48} strokeWidth={1.5} />
                         <Text style={styles.emptyText}>No activities yet</Text>
                         <Text style={styles.emptySubtext}>
-                            {filter === 'invites'
-                                ? 'No pending invites'
+                            {filter === 'solo'
+                                ? 'No solo activities in planning'
                                 : filter === 'finalized'
                                     ? 'No finalized activities yet'
-                                    : 'No active activities in planning'}
+                                    : 'No group activities in planning'}
                         </Text>
                     </View>
                 )}
@@ -431,7 +511,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: 'rgba(42, 30, 46, 0.6)',
-        borderRadius: 12,
+        borderRadius: 16,
         padding: 16,
         borderWidth: 1,
         borderColor: 'rgba(185, 84, 236, 0.2)',
@@ -440,6 +520,7 @@ const styles = StyleSheet.create({
         shadowOpacity: 1,
         shadowRadius: 4,
         elevation: 3,
+        minHeight: 100,
     },
     listItemInvite: {
         borderColor: 'rgba(211, 148, 245, 0.6)',
@@ -467,13 +548,12 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(255, 255, 255, 0.08)',
         justifyContent: 'center',
         alignItems: 'center',
-        marginRight: 16,
+        marginLeft: 16,
         borderWidth: 1,
         borderColor: 'rgba(255, 255, 255, 0.1)',
     },
     listItemContent: {
         flex: 1,
-        marginRight: 12,
     },
     listItemTitle: {
         color: '#fff',
@@ -482,29 +562,122 @@ const styles = StyleSheet.create({
         marginBottom: 6,
         fontFamily: 'Montserrat_700Bold',
     },
-    listItemMeta: {
+    soloBadge: {
         flexDirection: 'row',
         alignItems: 'center',
-        flexWrap: 'wrap',
-        gap: 8,
+        backgroundColor: 'rgba(255, 230, 109, 0.15)',
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 10,
+        gap: 6,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 230, 109, 0.3)',
     },
-    listItemType: {
-        color: '#B8A5C4',
-        fontSize: 13,
-        fontWeight: '600',
+    soloBadgeText: {
+        color: '#FFE66D',
+        fontSize: 11,
+        fontWeight: '700',
+        fontFamily: 'Montserrat_700Bold',
         textTransform: 'uppercase',
         letterSpacing: 0.5,
     },
-    listItemHost: {
+    groupBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(185, 84, 236, 0.15)',
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 10,
+        gap: 6,
+        borderWidth: 1,
+        borderColor: 'rgba(185, 84, 236, 0.3)',
+    },
+    groupBadgeText: {
+        color: '#B954EC',
+        fontSize: 11,
+        fontWeight: '700',
+        fontFamily: 'Montserrat_700Bold',
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+    },
+    listItemMeta: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+    },
+    listItemLocation: {
+        color: '#B8A5C4',
+        fontSize: 13,
+        fontWeight: '500',
+        flexShrink: 1,
+    },
+    metaSeparator: {
+        color: '#B8A5C4',
+        fontSize: 13,
+        fontWeight: '500',
+        marginHorizontal: 2,
+    },
+    participantsRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: 10,
+        gap: 10,
+    },
+    soloAvatar: {
+        width: 28,
+        height: 28,
+        borderRadius: 14,
+        borderWidth: 2.5,
+        borderColor: '#2A1E30',
+        backgroundColor: '#2A1E30',
+    },
+    avatarStack: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    stackedAvatar: {
+        width: 28,
+        height: 28,
+        borderRadius: 14,
+        borderWidth: 2.5,
+        borderColor: '#2A1E30',
+        backgroundColor: '#2A1E30',
+    },
+    avatarCount: {
+        backgroundColor: '#B954EC',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    avatarCountText: {
+        color: '#fff',
+        fontSize: 10,
+        fontWeight: '700',
+        fontFamily: 'Montserrat_700Bold',
+    },
+    participantCount: {
         color: 'rgba(255, 255, 255, 0.7)',
         fontSize: 13,
-        fontWeight: '500',
-        fontStyle: 'italic',
+        fontWeight: '600',
+        fontFamily: 'Montserrat_600SemiBold',
     },
-    listItemDate: {
-        color: '#4ECDC4',
-        fontSize: 13,
-        fontWeight: '500',
+    countdownContainer: {
+        minWidth: 80,
+        backgroundColor: 'rgba(255, 230, 109, 0.15)',
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(255, 230, 109, 0.3)',
+        marginLeft: 16,
+    },
+    countdownText: {
+        color: '#FFE66D',
+        fontSize: 12,
+        fontWeight: '700',
+        fontFamily: 'Montserrat_700Bold',
+        textAlign: 'center',
     },
     listItemStatus: {
         alignItems: 'flex-end',

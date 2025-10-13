@@ -19,6 +19,7 @@ import { LinearGradient } from 'expo-linear-gradient'
 import {
     MapPin,
     Users,
+    User,
     Clock,
     Search,
     Coffee,
@@ -52,18 +53,18 @@ export default function UnifiedActivityChat({ visible, onClose }) {
     const { user, setUser } = useContext(UserContext)
     
     const [step, setStep] = useState(1)
-    const [totalSteps, setTotalSteps] = useState(3) // Will adjust based on activity type
+    const [totalSteps, setTotalSteps] = useState(4) // Type, Location, Who's joining, Time
     const [fadeAnim] = useState(new Animated.Value(0))
     const [successAnim] = useState(new Animated.Value(0))
     const [pulseAnim] = useState(new Animated.Value(1))
     const progressAnim = useRef(new Animated.Value(0)).current
     const [showSuccess, setShowSuccess] = useState(false)
     const [isSubmitting, setIsSubmitting] = useState(false)
-    const [loadingMessage, setLoadingMessage] = useState('Creating your plan...')
+    const [loadingMessage, setLoadingMessage] = useState('Creating your group...')
 
     // Step 1: Activity Type Selection
     const [selectedActivity, setSelectedActivity] = useState('')
-    
+
     // Step 2: Location (for all activities)
     const [location, setLocation] = useState('')
     const [coords, setCoords] = useState(null)
@@ -71,8 +72,11 @@ export default function UnifiedActivityChat({ visible, onClose }) {
     const [currentLocationUsed, setCurrentLocationUsed] = useState(false)
     const [showLocationSearch, setShowLocationSearch] = useState(false)
     const [savedLocationUsed, setSavedLocationUsed] = useState(false)
-    
-    // Step 3: Activity-specific options
+
+    // Step 3: Who's joining? (NEW)
+    const [groupType, setGroupType] = useState('') // 'solo' or 'group'
+
+    // Step 4: Time of day
     const [selectedTimeOfDay, setSelectedTimeOfDay] = useState('')
     const [selectedGroupSize, setSelectedGroupSize] = useState('')
 
@@ -121,7 +125,7 @@ export default function UnifiedActivityChat({ visible, onClose }) {
 
     // All restaurant/bar venues need location and time
     useEffect(() => {
-        setTotalSteps(3) // Type, Location, Time - same for both Restaurant and Bar
+        setTotalSteps(4) // Type, Location, Who's joining, Time
     }, [selectedActivity])
 
     // Calculate progress
@@ -135,6 +139,7 @@ export default function UnifiedActivityChat({ visible, onClose }) {
             setSelectedActivity('')
             setLocation('')
             setCoords(null)
+            setGroupType('')
             setSelectedTimeOfDay('')
             setSelectedGroupSize('')
             setCurrentLocationUsed(false)
@@ -231,6 +236,11 @@ export default function UnifiedActivityChat({ visible, onClose }) {
                     subtitle: 'Set your location'
                 }
             case 3:
+                return {
+                    title: "Who's joining?",
+                    subtitle: 'Planning solo or with friends?'
+                }
+            case 4:
                 if (selectedActivity === 'Restaurant') {
                     return {
                         title: 'When are we dining?',
@@ -430,7 +440,83 @@ export default function UnifiedActivityChat({ visible, onClose }) {
                     </View>
                 )}
 
-                {step === 3 && selectedActivity === 'Restaurant' && (
+                {step === 3 && (
+                    <View style={styles.optionsGrid}>
+                        <TouchableOpacity
+                            style={[
+                                styles.groupTypeOption,
+                                groupType === 'solo' && styles.groupTypeOptionSelected
+                            ]}
+                            onPress={() => {
+                                setGroupType('solo')
+                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+                            }}
+                            activeOpacity={0.7}
+                        >
+                            <View style={styles.groupTypeIconContainer}>
+                                <User
+                                    color={groupType === 'solo' ? '#fff' : '#B8A5C4'}
+                                    size={32}
+                                    strokeWidth={2}
+                                />
+                            </View>
+                            <View style={styles.groupTypeContent}>
+                                <Text style={[
+                                    styles.groupTypeLabel,
+                                    groupType === 'solo' && styles.groupTypeLabelSelected
+                                ]}>
+                                    Just me
+                                </Text>
+                                <Text style={styles.groupTypeDesc}>
+                                    Get personal recommendations
+                                </Text>
+                            </View>
+                            {groupType === 'solo' && (
+                                <View style={styles.groupTypeCheckmark}>
+                                    <Text style={styles.checkmarkText}>✓</Text>
+                                </View>
+                            )}
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={[
+                                styles.groupTypeOption,
+                                groupType === 'group' && styles.groupTypeOptionSelected
+                            ]}
+                            onPress={() => {
+                                setGroupType('group')
+                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+                            }}
+                            activeOpacity={0.7}
+                        >
+                            <View style={styles.groupTypeIconContainer}>
+                                <Users
+                                    color={groupType === 'group' ? '#fff' : '#B8A5C4'}
+                                    size={32}
+                                    strokeWidth={2}
+                                />
+                            </View>
+                            <View style={styles.groupTypeContent}>
+                                <Text style={[
+                                    styles.groupTypeLabel,
+                                    groupType === 'group' && styles.groupTypeLabelSelected
+                                ]}>
+                                    Invite others
+                                </Text>
+                                <Text style={styles.groupTypeDesc}>
+                                    Plan and coordinate with friends
+                                </Text>
+                            </View>
+                            {groupType === 'group' && (
+                                <View style={styles.groupTypeCheckmark}>
+                                    <Text style={styles.checkmarkText}>✓</Text>
+                                </View>
+                            )}
+                        </TouchableOpacity>
+                    </View>
+                )}
+
+                {step === 4 && selectedActivity === 'Restaurant' && (
                     <View style={styles.optionsGrid}>
                         {foodTimeOptions.map((option) => {
                             const IconComponent = option.icon
@@ -465,7 +551,7 @@ export default function UnifiedActivityChat({ visible, onClose }) {
                     </View>
                 )}
 
-                {step === 3 && selectedActivity === 'Cocktails' && (
+                {step === 4 && selectedActivity === 'Cocktails' && (
                     <View style={styles.optionsGrid}>
                         {drinksTimeOptions.map((option) => {
                             const IconComponent = option.icon
@@ -508,7 +594,7 @@ export default function UnifiedActivityChat({ visible, onClose }) {
     // Validation
     const isNextDisabled = () => {
         if (isSubmitting) return true
-        
+
         switch (step) {
             case 1:
                 return !selectedActivity
@@ -518,6 +604,8 @@ export default function UnifiedActivityChat({ visible, onClose }) {
                 const hasSaved = savedLocationUsed && location
                 return !hasTypedLocation && !hasCurrentLocation && !hasSaved
             case 3:
+                return !groupType
+            case 4:
                 if (selectedActivity === 'Restaurant' || selectedActivity === 'Cocktails') {
                     return !selectedTimeOfDay
                 }
@@ -567,21 +655,22 @@ export default function UnifiedActivityChat({ visible, onClose }) {
                 activity_type: selectedActivity,
                 activity_location: activityLocation,
                 radius: 10,
-                collecting: true
+                collecting: true,
+                is_solo: groupType === 'solo' // Track if this is a solo activity
             }
 
             // Add venue-specific fields
             if (selectedActivity === 'Restaurant') {
                 payload.time_of_day = selectedTimeOfDay
-                payload.responses = `Time of day: ${selectedTimeOfDay}`
-                payload.date_notes = `Looking for ${selectedTimeOfDay} restaurants`
+                payload.responses = `Time of day: ${selectedTimeOfDay}${groupType === 'solo' ? ' (Solo)' : ''}`
+                payload.date_notes = `Looking for ${selectedTimeOfDay} restaurants${groupType === 'solo' ? ' - personal picks' : ''}`
             } else if (selectedActivity === 'Cocktails') {
                 payload.time_of_day = selectedTimeOfDay
-                payload.responses = `Time: ${selectedTimeOfDay}`
-                payload.date_notes = `Looking for ${selectedTimeOfDay} bars and lounges`
+                payload.responses = `Time: ${selectedTimeOfDay}${groupType === 'solo' ? ' (Solo)' : ''}`
+                payload.date_notes = `Looking for ${selectedTimeOfDay} bars and lounges${groupType === 'solo' ? ' - personal picks' : ''}`
             }
 
-            logger.debug('Creating activity with payload:', payload)
+            logger.debug('Creating activity with payload:', payload, 'groupType:', groupType)
 
             const response = await fetch(`${API_URL}/activities`, {
                 method: 'POST',
@@ -1036,6 +1125,63 @@ const styles = StyleSheet.create({
         fontSize: 12,
         color: 'rgba(255, 255, 255, 0.5)',
         fontFamily: 'Montserrat_400Regular',
+    },
+    // Group Type Selection Styles
+    groupTypeOption: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(255, 255, 255, 0.04)',
+        borderRadius: 20,
+        padding: 20,
+        borderWidth: 1.5,
+        borderColor: 'rgba(255, 255, 255, 0.08)',
+        marginBottom: 12,
+        gap: 16,
+        position: 'relative',
+    },
+    groupTypeOptionSelected: {
+        backgroundColor: 'rgba(204, 49, 232, 0.12)',
+        borderColor: 'rgba(204, 49, 232, 0.5)',
+        borderWidth: 2,
+    },
+    groupTypeIconContainer: {
+        width: 56,
+        height: 56,
+        borderRadius: 28,
+        backgroundColor: 'rgba(255, 255, 255, 0.06)',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    groupTypeContent: {
+        flex: 1,
+    },
+    groupTypeLabel: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: '#fff',
+        marginBottom: 4,
+        fontFamily: 'Montserrat_700Bold',
+    },
+    groupTypeLabelSelected: {
+        color: '#fff',
+    },
+    groupTypeDesc: {
+        fontSize: 13,
+        color: 'rgba(255, 255, 255, 0.6)',
+        fontFamily: 'Montserrat_400Regular',
+    },
+    groupTypeCheckmark: {
+        width: 28,
+        height: 28,
+        borderRadius: 14,
+        backgroundColor: 'rgba(204, 49, 232, 0.3)',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    checkmarkText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '700',
     },
     locationContainer: {
         flex: 1,

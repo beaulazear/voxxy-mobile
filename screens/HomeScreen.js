@@ -563,10 +563,10 @@ export default function HomeScreen({ route }) {
             styles.listItemTitle,
             !item.finalized && { color: 'rgba(255, 255, 255, 0.6)' }
           ]} numberOfLines={1}>
-            {item.finalized 
-              ? item.activity_name 
-              : item.voting 
-                ? 'Choosing Venue' 
+            {item.finalized
+              ? item.activity_name
+              : item.voting
+                ? 'Choosing Venue'
                 : 'Collecting'}
           </Text>
           <View style={styles.listItemMeta}>
