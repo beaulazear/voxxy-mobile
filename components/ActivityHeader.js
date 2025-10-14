@@ -439,8 +439,8 @@ export default function ActivityHeader({
             {/* Main Content - only the scrollable parts */}
             <View style={styles.container}>
                 <View style={styles.mainContent}>
-                    {/* Title Section - Hide when voting (map view) */}
-                    {!activity.voting && (
+                    {/* Title Section - Hide when voting (map view) or solo collecting */}
+                    {!activity.voting && !(activity.collecting && activity.is_solo) && (
                         <View style={styles.titleWrapper}>
                             <View style={styles.titleSection}>
                                 <Text style={styles.activityTitle}>

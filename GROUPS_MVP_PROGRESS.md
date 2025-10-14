@@ -1,7 +1,7 @@
 # Voxxy Groups MVP - Progress Report & Updated Checklist
 
 **Last Updated:** 2025-10-13
-**Current Status:** Phase 1 Complete + Major ActivitiesScreen Overhaul Complete
+**Current Status:** Phase 1 Complete + Major ActivitiesScreen Overhaul Complete + Solo Activity Flow Complete
 
 ---
 
@@ -80,6 +80,62 @@
   - Displays "Started" for past events
   - Yellow badge styling with border
   - Only appears when `countdownTs` exists (finalized with date/time)
+
+### ✅ New Feature: Solo Activity Streamlined Flow (COMPLETE)
+
+#### SoloActivityDecision Component (`components/SoloActivityDecision.js`)
+- ✅ **Created dedicated decision screen for solo activities**
+  - Shows when activity is solo AND in collecting phase (not voting/finalized)
+  - Two clear options presented in elegant card design:
+    1. "Use My Profile" - generates recommendations from saved preferences
+    2. "Submit Preferences" - opens response form for custom preferences
+  - Warning badge shown if profile preferences incomplete
+  - Loading states with contextual messages
+  - Automatic recommendation generation after either option
+
+#### ActivityDetailsScreen Integration (`screens/ActivityDetailsScreen.js`)
+- ✅ **Conditional rendering based on is_solo flag**
+  - Solo activities in collecting phase show SoloActivityDecision component
+  - Group activities show standard ParticipantsSection, AIRecommendations, and CommentsSection
+  - Seamless transition to voting phase after recommendations generated
+
+- ✅ **"Use Profile Preferences" flow**
+  - Validates user has preferences or favorite foods
+  - Automatically creates response using profile data
+  - Immediately generates recommendations (no waiting for others)
+  - Updates activity state to voting phase
+  - Shows recommendations in map/list view
+
+- ✅ **"Submit Custom Response" flow**
+  - Opens appropriate response modal based on activity type:
+    - CuisineResponseForm for Restaurant/Brunch/Game Night
+    - NightOutResponseForm for Bar/Cocktails
+    - LetsMeetScheduler for Meeting
+  - After response submission, automatically generates recommendations
+  - No need to wait for group consensus
+  - Smooth transition to recommendations view
+
+- ✅ **Recommendation generation logic**
+  - `generateSoloRecommendations()` function handles end-to-end flow
+  - Fetches updated activity with response
+  - Calls appropriate API endpoint based on activity type
+  - Creates pinned_activities from recommendations
+  - Updates activity to voting phase
+  - Updates user context and refreshes UI
+  - Comprehensive error handling with user-friendly messages
+
+#### UX Improvements for Solo Activities
+- ✅ **Skips unnecessary group features**
+  - No participant list shown in collecting phase
+  - No activity feed/comments during preference collection
+  - No "waiting for responses" state
+  - Direct path to recommendations
+
+- ✅ **Immediate gratification**
+  - One tap to get recommendations using profile
+  - Quick response form if custom preferences needed
+  - Instant recommendation generation (no group coordination)
+  - Fast path from creation to recommendations to finalization
 
 #### Code Organization
 - ✅ **Location parsing utility** (lines 68-86)
@@ -251,18 +307,23 @@ const uniqueMembers = [...new Map(allMembers.map(m => [m.id, m])).values()];
 - [x] Activity type icon displays on right for non-finalized activities
 
 ### ⏳ Needs Testing
-- [ ] Solo activities display correctly in Solo tab
-- [ ] Finalized solo activities appear in Finalized tab
+- [x] Solo activities display correctly in Solo tab
+- [x] Finalized solo activities appear in Finalized tab
 - [ ] Countdown updates in real-time (may need interval)
 - [ ] "Started" displays for past events
 - [ ] Profile completion updates immediately when preferences saved
 - [ ] Terminology updates throughout app (pending implementation)
+- [ ] **Solo activity "Use My Profile" flow** - create solo activity, use profile preferences, verify recommendations
+- [ ] **Solo activity "Submit Preferences" flow** - create solo activity, submit custom response, verify recommendations
+- [ ] **Solo activity with incomplete profile** - verify warning message and disabled state
+- [ ] **Solo activity recommendation generation** - verify smooth transition from collecting to voting phase
+- [ ] **Solo activity finalization** - verify can finalize and complete solo activities
 
 ---
 
 ## 📊 Implementation Progress
 
-### Overall Progress: ~40% Complete
+### Overall Progress: ~55% Complete
 
 **Phase 1 (Profile & Incentives):** 90% ✅
 - Profile completion banner: ✅ Complete
@@ -271,9 +332,10 @@ const uniqueMembers = [...new Map(allMembers.map(m => [m.id, m])).values()];
 **Phase 2 (Terminology):** 0% ⏳
 - All "Activities" → "Groups" text updates needed
 
-**Phase 3 (Group Features):** 15% 🟡
+**Phase 3 (Group Features):** 40% 🟡
 - Solo/group creation: ✅ Complete
 - ActivitiesScreen redesign: ✅ Complete
+- **Solo activity streamlined flow: ✅ Complete**
 - Find New Spot button: ⏳ Not started
 - Profile warnings: ⏳ Not started
 - Group insights: ⏳ Not started

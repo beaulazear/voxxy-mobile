@@ -22,6 +22,8 @@ import ProfileSnippet from '../components/ProfileSnippet'
 import { useNavigation } from '@react-navigation/native'
 import UnifiedActivityChat from '../components/UnifiedActivityChat'
 import { logger } from '../utils/logger'
+import { API_URL } from '../config'
+import { getUserDisplayImage } from '../utils/avatarManager'
 
 const { width: screenWidth } = Dimensions.get('window')
 
@@ -148,7 +150,7 @@ function FloatingIcon({ icon: Icon, color, delay = 0, duration = 3000 }) {
 }
 
 // Animated Start New Activity Wide Button
-function AnimatedStartNewActivityButton({ navigation, onPress, userName }) {
+function AnimatedStartNewActivityButton({ navigation, onPress, userName, communityMembers = [] }) {
   // Background gradient animation
   const gradientAnim = useRef(new Animated.Value(0)).current
   const pulseAnim = useRef(new Animated.Value(1)).current
@@ -164,6 +166,9 @@ function AnimatedStartNewActivityButton({ navigation, onPress, userName }) {
 
   // Get first name only
   const firstName = userName ? userName.split(' ')[0] : 'there'
+
+  // Check if user has an established community (3+ members)
+  const hasEstablishedCommunity = communityMembers.length >= 3
 
   // Start animations
   useEffect(() => {
@@ -261,36 +266,62 @@ function AnimatedStartNewActivityButton({ navigation, onPress, userName }) {
                     Hey {firstName} ✨
                   </Text>
                   <Text style={styles.wideButtonTitle}>
-                    Lets get started!
+                    {hasEstablishedCommunity
+                      ? 'Your community awaits.'
+                      : 'Lets get started!'}
                   </Text>
                 </View>
 
                 <Text style={styles.wideButtonSubtitle}>
-                  Discover amazing {activityIcons[currentIconIndex].label.toLowerCase()} with friends
+                  {hasEstablishedCommunity
+                    ? 'Be the one to start the next plan!'
+                    : `Discover amazing ${activityIcons[currentIconIndex].label.toLowerCase()} with friends`}
                 </Text>
 
-                {/* Activity type indicators */}
-                <View style={styles.wideButtonMicroIcons}>
-                  {activityIcons.map((icon, index) => {
-                    const IconComponent = icon.component
-                    const isActive = index === currentIconIndex
-                    return (
-                      <Animated.View
-                        key={index}
+                {/* Activity type indicators OR Community member avatars */}
+                {hasEstablishedCommunity ? (
+                  <View style={styles.communityAvatarsContainer}>
+                    {communityMembers.slice(0, 5).map((member, idx) => (
+                      <Image
+                        key={member.id || idx}
+                        source={getUserDisplayImage(member, API_URL)}
                         style={[
-                          styles.wideMicroIcon,
-                          isActive && styles.wideMicroIconActive
+                          styles.communityAvatar,
+                          { marginLeft: idx === 0 ? 0 : -12 }
                         ]}
-                      >
-                        <IconComponent
-                          color={isActive ? '#ffffff' : 'rgba(255,255,255,0.4)'}
-                          size={24}
-                          strokeWidth={2}
-                        />
-                      </Animated.View>
-                    )
-                  })}
-                </View>
+                      />
+                    ))}
+                    {communityMembers.length > 5 && (
+                      <View style={[styles.communityAvatar, styles.communityAvatarCount, { marginLeft: -12 }]}>
+                        <Text style={styles.communityAvatarCountText}>
+                          +{communityMembers.length - 5}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                ) : (
+                  <View style={styles.wideButtonMicroIcons}>
+                    {activityIcons.map((icon, index) => {
+                      const IconComponent = icon.component
+                      const isActive = index === currentIconIndex
+                      return (
+                        <Animated.View
+                          key={index}
+                          style={[
+                            styles.wideMicroIcon,
+                            isActive && styles.wideMicroIconActive
+                          ]}
+                        >
+                          <IconComponent
+                            color={isActive ? '#ffffff' : 'rgba(255,255,255,0.4)'}
+                            size={24}
+                            strokeWidth={2}
+                          />
+                        </Animated.View>
+                      )
+                    })}
+                  </View>
+                )}
 
                 {/* CTA Button */}
                 <View style={styles.wideButtonCallToAction}>
@@ -609,6 +640,31 @@ export default function HomeScreen({ route }) {
     </View>
   )
 
+  // Calculate unique community members from all activities
+  const communityMembers = useMemo(() => {
+    if (!user || !activities.length) return []
+
+    const memberMap = new Map()
+
+    activities.forEach(activity => {
+      // Add activity host if not current user
+      if (activity.user && activity.user.id !== user.id) {
+        memberMap.set(activity.user.id, activity.user)
+      }
+
+      // Add all participants if not current user
+      if (activity.participants) {
+        activity.participants.forEach(participant => {
+          if (participant.id !== user.id) {
+            memberMap.set(participant.id, participant)
+          }
+        })
+      }
+    })
+
+    return Array.from(memberMap.values())
+  }, [user, activities])
+
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="light-content" />
@@ -623,6 +679,7 @@ export default function HomeScreen({ route }) {
           navigation={navigation}
           onPress={() => setShowActivityCreation(true)}
           userName={user?.name}
+          communityMembers={communityMembers}
         />
         <ListFooter />
       </ScrollView>
@@ -1644,6 +1701,36 @@ const styles = StyleSheet.create({
     gap: 16,
     marginTop: 12,
     marginBottom: 20,
+  },
+
+  communityAvatarsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 12,
+    marginBottom: 20,
+    justifyContent: 'center',
+  },
+
+  communityAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 3,
+    borderColor: '#2A1E30',
+    backgroundColor: '#2A1E30',
+  },
+
+  communityAvatarCount: {
+    backgroundColor: '#B954EC',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  communityAvatarCountText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '700',
+    fontFamily: 'Montserrat_700Bold',
   },
 
   wideMicroIcon: {

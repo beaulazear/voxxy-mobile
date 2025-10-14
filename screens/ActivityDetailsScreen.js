@@ -26,6 +26,7 @@ import CommentsSection from '../components/CommentsSection'
 import UpdateDetailsModal from '../components/UpdateDetailsModal'
 import FinalizeActivityModal from '../components/FinalizeActivityModal'
 import ReportModal from '../components/ReportModal'
+import SoloActivityDecision from '../components/SoloActivityDecision'
 import { API_URL } from '../config'
 import { logger } from '../utils/logger';
 import { TOUCH_TARGETS, SPACING } from '../styles/AccessibilityStyles';
@@ -103,6 +104,7 @@ export default function ActivityDetailsScreen({ route }) {
     const [pinnedActivities, setPinnedActivities] = useState([])
     const [isUpdating, setIsUpdating] = useState(false)
     const [lastRefreshTime, setLastRefreshTime] = useState(Date.now())
+    const [showSoloResponseModal, setShowSoloResponseModal] = useState(false)
     
     // Refs
     const scrollViewRef = useRef(null)
@@ -702,6 +704,245 @@ export default function ActivityDetailsScreen({ route }) {
         setShowFinalizeModal(false)
     }
 
+    const handleSoloResponseModalOpen = () => {
+        setShowSoloResponseModal(true)
+    }
+
+    const handleSoloRecommendationsGenerated = (newPinnedActivities) => {
+        // Update the activity in user context to voting phase
+        setUser(prevUser => ({
+            ...prevUser,
+            activities: prevUser.activities.map(act =>
+                act.id === currentActivity.id
+                    ? { ...act, collecting: false, voting: true, pinned_activities: newPinnedActivities }
+                    : act
+            ),
+            participant_activities: prevUser.participant_activities.map(p =>
+                p.activity.id === currentActivity.id
+                    ? { ...p, activity: { ...p.activity, collecting: false, voting: true, pinned_activities: newPinnedActivities } }
+                    : p
+            ),
+        }))
+
+        setPinnedActivities(newPinnedActivities)
+        setRefreshTrigger(prev => !prev)
+
+        // Refresh user data to ensure everything is in sync
+        if (refreshUser) {
+            setTimeout(() => refreshUser(), 1000)
+        }
+    }
+
+    const handleSoloResponseComplete = async () => {
+        setShowSoloResponseModal(false)
+
+        // After response is submitted, automatically generate recommendations
+        setIsUpdating(true)
+
+        try {
+            // Refresh to get the latest activity with the response
+            if (refreshUser) {
+                await refreshUser()
+            }
+
+            // Fetch the updated activity
+            const updatedActivity = await safeAuthApiCall(
+                `${API_URL}/activities/${activityId}`,
+                token,
+                { method: 'GET' }
+            )
+
+            // Now generate recommendations using the SoloActivityDecision component's logic
+            // We'll set a flag to trigger automatic generation
+            setCurrentActivity(updatedActivity)
+
+            // Generate recommendations
+            await generateSoloRecommendations(updatedActivity)
+
+        } catch (error) {
+            logger.error('Error in solo response completion flow:', error)
+            const userMessage = handleApiError(error, 'Failed to complete response submission.')
+            Alert.alert('Error', userMessage)
+        } finally {
+            setIsUpdating(false)
+        }
+    }
+
+    const generateSoloRecommendations = async (activity) => {
+        try {
+            // Determine the API endpoint based on activity type
+            let apiEndpoint
+            switch (activity.activity_type) {
+                case 'Restaurant':
+                case 'Brunch':
+                case 'Game Night':
+                    apiEndpoint = '/api/openai/restaurant_recommendations'
+                    break
+                case 'Bar':
+                case 'Cocktails':
+                    apiEndpoint = '/api/openai/bar_recommendations'
+                    break
+                case 'Meeting':
+                    // Meeting doesn't generate venue recommendations
+                    throw new Error('Meeting activities do not generate venue recommendations')
+                default:
+                    apiEndpoint = '/api/openai/restaurant_recommendations'
+            }
+
+            const responses = activity.responses || []
+            const responsesText = responses.map(r => r.notes).join('\n\n')
+
+            logger.debug('📍 Activity location:', activity.activity_location)
+            logger.debug('📝 Responses count:', responses.length)
+            logger.debug('📝 Responses text:', responsesText)
+
+            // Validate required parameters
+            if (!activity.activity_location) {
+                throw new Error('Activity location is required to generate recommendations')
+            }
+
+            if (responses.length === 0 || !responsesText.trim()) {
+                throw new Error('At least one response is required to generate recommendations')
+            }
+
+            // Generate recommendations
+            const recommendationsResponse = await safeAuthApiCall(
+                `${API_URL}${apiEndpoint}`,
+                token,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        responses: responsesText,
+                        activity_location: activity.activity_location,
+                        date_notes: activity.date_notes || '',
+                        activity_id: activity.id,
+                    }),
+                },
+                30000 // 30 second timeout
+            )
+
+            if (!recommendationsResponse || !recommendationsResponse.recommendations || !Array.isArray(recommendationsResponse.recommendations)) {
+                throw new Error('Invalid response format from recommendations API')
+            }
+
+            const recs = recommendationsResponse.recommendations
+
+            if (recs.length === 0) {
+                throw new Error('No recommendations were generated. Please try again.')
+            }
+
+            // Create pinned activities from recommendations
+            const pinnedActivityPromises = recs.map(rec =>
+                safeAuthApiCall(
+                    `${API_URL}/activities/${activity.id}/pinned_activities`,
+                    token,
+                    {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            pinned_activity: {
+                                title: rec.name,
+                                description: rec.description || '',
+                                hours: rec.hours || '',
+                                price_range: rec.price_range || '',
+                                address: rec.address || '',
+                                reason: rec.reason || '',
+                                website: rec.website || '',
+                            },
+                        }),
+                    }
+                )
+            )
+
+            const newPinnedActivities = await Promise.all(pinnedActivityPromises)
+
+            // Update activity to voting phase
+            await safeAuthApiCall(
+                `${API_URL}/activities/${activity.id}`,
+                token,
+                {
+                    method: 'PATCH',
+                    body: JSON.stringify({
+                        collecting: false,
+                        voting: true
+                    }),
+                }
+            )
+
+            logger.debug('✅ Recommendations generated successfully for solo activity')
+
+            // Update state
+            handleSoloRecommendationsGenerated(newPinnedActivities)
+
+        } catch (error) {
+            logger.error('❌ Error generating solo recommendations:', error)
+            const userMessage = handleApiError(error, 'Failed to generate recommendations.')
+            Alert.alert('Error', userMessage)
+            throw error
+        }
+    }
+
+    // Helper function to render appropriate response form based on activity type
+    const renderResponseForm = () => {
+        const CuisineResponseForm = require('../components/CuisineResponseForm').default;
+        const NightOutResponseForm = require('../components/NightOutResponseForm').default;
+        const LetsMeetScheduler = require('../components/LetsMeetScheduler').default;
+
+        switch (currentActivity.activity_type) {
+            case 'Bar':
+            case 'Cocktails':
+                return (
+                    <NightOutResponseForm
+                        visible={showSoloResponseModal}
+                        onClose={() => setShowSoloResponseModal(false)}
+                        activityId={currentActivity.id}
+                        onResponseComplete={handleSoloResponseComplete}
+                        guestMode={false}
+                    />
+                );
+
+            case 'Restaurant':
+            case 'Brunch':
+            case 'Game Night':
+                return (
+                    <CuisineResponseForm
+                        visible={showSoloResponseModal}
+                        onClose={() => setShowSoloResponseModal(false)}
+                        activityId={currentActivity.id}
+                        onResponseComplete={handleSoloResponseComplete}
+                        guestMode={false}
+                    />
+                );
+
+            case 'Meeting':
+                return (
+                    <LetsMeetScheduler
+                        visible={showSoloResponseModal}
+                        onClose={() => setShowSoloResponseModal(false)}
+                        activityId={currentActivity.id}
+                        currentActivity={currentActivity}
+                        responseSubmitted={false}
+                        isUpdate={false}
+                        onAvailabilityUpdate={handleSoloResponseComplete}
+                        guestMode={false}
+                        guestToken={null}
+                        guestEmail={null}
+                        onChatComplete={handleSoloResponseComplete}
+                    />
+                );
+
+            default:
+                return (
+                    <CuisineResponseForm
+                        visible={showSoloResponseModal}
+                        onClose={() => setShowSoloResponseModal(false)}
+                        activityId={currentActivity.id}
+                        onResponseComplete={handleSoloResponseComplete}
+                        guestMode={false}
+                    />
+                );
+        }
+    };
+
     if (!currentActivity) {
         return (
             <SafeAreaView style={styles.safe}>
@@ -818,25 +1059,36 @@ export default function ActivityDetailsScreen({ route }) {
                         />
 
                         <View style={[styles.contentSection, pendingInvite && styles.blurred]}>
-                            <AIRecommendations
-                                activity={currentActivity}
-                                pinnedActivities={pinnedActivities}
-                                setPinnedActivities={setPinnedActivities}
-                                setPinned={setPinned}
-                                setRefreshTrigger={setRefreshTrigger}
-                                isOwner={isOwner}
-                                onEdit={() => handleFinalize()}
-                            />
+                            {/* Show Solo Activity Decision for solo activities in collecting phase */}
+                            {currentActivity.is_solo && !currentActivity.voting && !currentActivity.finalized ? (
+                                <SoloActivityDecision
+                                    activity={currentActivity}
+                                    onResponseModalOpen={handleSoloResponseModalOpen}
+                                    onRecommendationsGenerated={handleSoloRecommendationsGenerated}
+                                />
+                            ) : (
+                                <>
+                                    <AIRecommendations
+                                        activity={currentActivity}
+                                        pinnedActivities={pinnedActivities}
+                                        setPinnedActivities={setPinnedActivities}
+                                        setPinned={setPinned}
+                                        setRefreshTrigger={setRefreshTrigger}
+                                        isOwner={isOwner}
+                                        onEdit={() => handleFinalize()}
+                                    />
 
-                            <ParticipantsSection
-                                activity={currentActivity}
-                                votes={currentActivity.activity_type === 'Meeting' ? pinned : pinnedActivities}
-                                isOwner={isOwner}
-                                onInvite={handleInvite}
-                                onRemoveParticipant={handleRemoveParticipant}
-                            />
+                                    <ParticipantsSection
+                                        activity={currentActivity}
+                                        votes={currentActivity.activity_type === 'Meeting' ? pinned : pinnedActivities}
+                                        isOwner={isOwner}
+                                        onInvite={handleInvite}
+                                        onRemoveParticipant={handleRemoveParticipant}
+                                    />
 
-                            <CommentsSection activity={currentActivity} />
+                                    <CommentsSection activity={currentActivity} />
+                                </>
+                            )}
                         </View>
                     </ScrollView>
                 </KeyboardAvoidingView>
@@ -936,6 +1188,13 @@ export default function ActivityDetailsScreen({ route }) {
                 reportableContent={currentActivity?.welcome_message}
                 onReportSubmitted={handleReportSubmitted}
             />
+
+            {/* Solo Activity Response Modal */}
+            {showSoloResponseModal && currentActivity && (
+                <>
+                    {renderResponseForm()}
+                </>
+            )}
         </SafeAreaView>
     )
 }
