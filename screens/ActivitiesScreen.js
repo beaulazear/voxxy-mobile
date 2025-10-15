@@ -237,6 +237,13 @@ export default function ActivitiesScreen() {
                 }}
                 activeOpacity={0.7}
             >
+                {/* Invite badge */}
+                {isInvite && (
+                    <View style={styles.inviteBadge}>
+                        <Mail color="#fff" size={16} strokeWidth={2.5} />
+                    </View>
+                )}
+
                 <View style={styles.listItemContent}>
                     <Text style={[
                         styles.listItemTitle,
@@ -531,6 +538,25 @@ const styles = StyleSheet.create({
         shadowOpacity: 1,
         shadowRadius: 12,
         elevation: 8,
+    },
+    inviteBadge: {
+        position: 'absolute',
+        top: -8,
+        right: -8,
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: '#d394f5',
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 3,
+        borderColor: '#201925',
+        shadowColor: '#d394f5',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.6,
+        shadowRadius: 8,
+        elevation: 10,
+        zIndex: 10,
     },
     userOwnedListItem: {
         borderColor: 'rgba(139, 92, 246, 0.5)',

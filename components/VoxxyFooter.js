@@ -5,8 +5,9 @@ import { useNavigation } from '@react-navigation/native';
 import { UserContext } from '../context/UserContext';
 import { API_URL } from '../config';
 import { avatarMap } from '../utils/avatarManager';
+import { Mail } from 'lucide-react-native';
 
-export default function VoxxyFooter({ onPlusPress }) {
+export default function VoxxyFooter({ onPlusPress, hasPendingInvites }) {
     const navigation = useNavigation();
     const { user } = useContext(UserContext);
 
@@ -47,6 +48,11 @@ export default function VoxxyFooter({ onPlusPress }) {
 
                 <TouchableOpacity style={styles.iconButton} onPress={() => navigation.navigate('Activities')}>
                     <Ionicons name="flash-outline" size={26} color="#fff" />
+                    {hasPendingInvites && (
+                        <View style={styles.inviteBadge}>
+                            <Mail color="#fff" size={12} strokeWidth={2.5} />
+                        </View>
+                    )}
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -160,5 +166,23 @@ const styles = StyleSheet.create({
         width: '100%',
         height: '100%',
         borderRadius: 22,
+    },
+    inviteBadge: {
+        position: 'absolute',
+        top: -4,
+        right: -4,
+        width: 22,
+        height: 22,
+        borderRadius: 11,
+        backgroundColor: '#d394f5',
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 2,
+        borderColor: 'rgba(32, 25, 37, 0.95)',
+        shadowColor: '#d394f5',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.8,
+        shadowRadius: 4,
+        elevation: 8,
     },
 });

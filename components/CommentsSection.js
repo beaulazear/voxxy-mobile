@@ -83,7 +83,8 @@ const CommentsSection = ({ activity }) => {
     const [showBlockConfirm, setShowBlockConfirm] = useState(false);
     const [userToBlock, setUserToBlock] = useState(null);
     const [wasCommentsModalOpen, setWasCommentsModalOpen] = useState(false);
-    
+    const [showAllComments, setShowAllComments] = useState(false);
+
     // Refs
     const modalScrollViewRef = useRef(null);
     const modalInputRef = useRef(null);
@@ -659,30 +660,7 @@ const CommentsSection = ({ activity }) => {
                 </View>
 
                 {/* Messages */}
-                <ScrollView
-                    ref={scrollViewRef}
-                    style={styles.messages}
-                    contentContainerStyle={styles.messagesContent}
-                    showsVerticalScrollIndicator={false}
-                    onContentSizeChange={() => {
-                        if (scrollViewRef.current) {
-                            scrollViewRef.current.scrollToEnd({ animated: true });
-                        }
-                    }}
-                    keyboardShouldPersistTaps="handled"
-                >
-                    {comments.length > 3 && (
-                        <TouchableOpacity 
-                            style={styles.viewAllButton}
-                            onPress={() => setShowAllCommentsModal(true)}
-                        >
-                            <Icons.ChevronUp size={16} color="#cc31e8" />
-                            <Text style={styles.viewAllText}>
-                                View all {comments.length} updates
-                            </Text>
-                        </TouchableOpacity>
-                    )}
-
+                <View style={styles.messagesContainer}>
                     {comments.length === 0 && (
                         <View style={styles.emptyState}>
                             <Icons.MessageCircle size={20} color="rgba(255, 255, 255, 0.4)" />
@@ -690,33 +668,55 @@ const CommentsSection = ({ activity }) => {
                         </View>
                     )}
 
-                    {Object.entries(groupedComments).slice(-2).map(([date, msgs]) => (
-                        <View key={date}>
-                            <View style={styles.dateSeparator}>
-                                <Text style={styles.dateSeparatorText}>{date}</Text>
+                    {/* Show newest comments first, reversed order */}
+                    {Object.entries(groupedComments)
+                        .reverse()
+                        .slice(0, showAllComments ? undefined : 5)
+                        .map(([date, msgs]) => (
+                            <View key={date}>
+                                <View style={styles.dateSeparator}>
+                                    <Text style={styles.dateSeparatorText}>{date}</Text>
+                                </View>
+                                {msgs.reverse().map(renderMessage)}
                             </View>
-                            {msgs.map(renderMessage)}
-                        </View>
-                    ))}
-                </ScrollView>
+                        ))
+                    }
+
+                    {comments.length > 10 && !showAllComments && (
+                        <TouchableOpacity
+                            style={styles.viewAllButton}
+                            onPress={() => setShowAllComments(true)}
+                        >
+                            <Text style={styles.viewAllText}>
+                                See {comments.length - 10} more updates
+                            </Text>
+                            <Icons.ChevronUp size={16} color="#8b5cf6" />
+                        </TouchableOpacity>
+                    )}
+                </View>
 
                 {/* Composer */}
                 <View style={styles.composer}>
-                    <TouchableOpacity 
-                        style={styles.fakeInputFull}
+                    <TextInput
+                        style={styles.input}
+                        placeholder="Type a message…"
+                        placeholderTextColor="rgba(255, 255, 255, 0.4)"
+                        value={newComment}
+                        onChangeText={setNewComment}
+                        multiline
+                        maxLength={500}
+                    />
+                    <TouchableOpacity
+                        style={[styles.sendButton, newComment.trim() ? styles.sendButtonActive : styles.sendButtonDisabled]}
                         onPress={() => {
-                            // Open modal when fake input is pressed
-                            setShowAllCommentsModal(true);
-                            // Focus modal input after a delay
-                            setTimeout(() => {
-                                if (modalInputRef.current) {
-                                    modalInputRef.current.focus();
-                                }
-                            }, 400);
+                            if (newComment.trim()) {
+                                handleCommentSubmit(newComment.trim());
+                                setNewComment('');
+                            }
                         }}
-                        activeOpacity={0.7}
+                        disabled={!newComment.trim()}
                     >
-                        <Text style={styles.fakeInputText}>Type a message…</Text>
+                        <Icons.Send size={18} color={newComment.trim() ? "#fff" : "rgba(255, 255, 255, 0.3)"} />
                     </TouchableOpacity>
                 </View>
             </View>
@@ -747,105 +747,6 @@ const CommentsSection = ({ activity }) => {
             )}
 
             {/* All Comments Modal */}
-            <Modal
-                visible={showAllCommentsModal}
-                animationType="slide"
-                presentationStyle="fullScreen"
-                onRequestClose={() => setShowAllCommentsModal(false)}
-            >
-                <View style={styles.modalContainer}>
-                    <View style={styles.modalHeader}>
-                        <Text style={styles.modalTitle}>{activity.activity_name}</Text>
-                        <TouchableOpacity 
-                            style={styles.modalCloseButton}
-                            onPress={() => setShowAllCommentsModal(false)}
-                        >
-                            <Icons.X size={24} color="#fff" />
-                        </TouchableOpacity>
-                    </View>
-                    
-                    <KeyboardAvoidingView 
-                        style={styles.modalKeyboardContainer}
-                        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
-                    >
-                        <ScrollView 
-                            ref={modalScrollViewRef}
-                            style={styles.modalScrollView} 
-                            contentContainerStyle={styles.modalContent}
-                            keyboardShouldPersistTaps="handled"
-                            showsVerticalScrollIndicator={false}
-                            onContentSizeChange={() => {
-                                if (modalScrollViewRef.current && showAllCommentsModal) {
-                                    modalScrollViewRef.current.scrollToEnd({ animated: true });
-                                }
-                            }}
-                        >
-                            {comments.length === 0 ? (
-                                <View style={styles.modalEmptyState}>
-                                    <View style={styles.modalEmptyIcon}>
-                                        <Icons.MessageCircle size={48} color="rgba(255, 255, 255, 0.3)" />
-                                    </View>
-                                    <Text style={styles.modalEmptyTitle}>No updates yet</Text>
-                                    <Text style={styles.modalEmptySubtitle}>
-                                        Be the first to share an update or ask a question about this activity!
-                                    </Text>
-                                    <View style={styles.modalEmptyHint}>
-                                        <Text style={styles.modalEmptyHintText}>💬 Start typing below to get the conversation going</Text>
-                                    </View>
-                                </View>
-                            ) : (
-                                Object.entries(groupedComments).map(([date, msgs]) => (
-                                    <View key={date}>
-                                        <View style={styles.dateSeparator}>
-                                            <Text style={styles.dateSeparatorText}>{date}</Text>
-                                        </View>
-                                        {msgs.map(renderMessage)}
-                                    </View>
-                                ))
-                            )}
-                        </ScrollView>
-
-                        {/* Modal Composer */}
-                        <View style={styles.modalComposer}>
-                            <TextInput
-                                ref={modalInputRef}
-                                style={styles.modalInput}
-                                placeholder="Type a message…"
-                                placeholderTextColor="#cbd5e1"
-                                value={modalNewComment}
-                                onChangeText={setModalNewComment}
-                                onSubmitEditing={() => {
-                                    if (modalNewComment.trim()) {
-                                        handleCommentSubmit(modalNewComment.trim());
-                                        setModalNewComment('');
-                                    }
-                                }}
-                                multiline
-                                maxLength={500}
-                                returnKeyType="send"
-                                blurOnSubmit={false}
-                                autoFocus={false}
-                            />
-                            <TouchableOpacity
-                                style={[
-                                    styles.modalSendButton,
-                                    modalNewComment.trim() ? styles.modalSendButtonActive : styles.modalSendButtonDisabled
-                                ]}
-                                onPress={() => {
-                                    if (modalNewComment.trim()) {
-                                        handleCommentSubmit(modalNewComment.trim());
-                                        setModalNewComment('');
-                                    }
-                                }}
-                                disabled={!modalNewComment.trim()}
-                            >
-                                <Icons.Send size={18} color={modalNewComment.trim() ? "#fff" : "#666"} />
-                            </TouchableOpacity>
-                        </View>
-                    </KeyboardAvoidingView>
-                </View>
-            </Modal>
 
             {/* Report Modal - Moved outside of comments modal to ensure proper layering */}
             <Modal
@@ -998,11 +899,9 @@ const styles = StyleSheet.create({
         position: 'relative',  // Ensure the wrapper is the positioning context
     },
     chatPanel: {
-        backgroundColor: 'rgba(255, 255, 255, 0.03)',
+        backgroundColor: 'transparent',
         borderRadius: 16,
-        borderWidth: 1,
-        borderColor: 'rgba(64, 51, 71, 0.3)',
-        overflow: 'hidden',
+        overflow: 'visible',
         maxWidth: 650,
         alignSelf: 'center',
         width: '100%',
@@ -1048,6 +947,11 @@ const styles = StyleSheet.create({
         color: '#28a745',
         fontSize: 11,
         fontWeight: '600',
+    },
+    messagesContainer: {
+        paddingHorizontal: 16,
+        paddingBottom: 16,
+        gap: 12,
     },
     messages: {
         maxHeight: 400,
@@ -1232,22 +1136,22 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     sendButton: {
-        minWidth: TOUCH_TARGETS.COMFORTABLE_SIZE,
-        minHeight: TOUCH_TARGETS.COMFORTABLE_SIZE,
-        width: TOUCH_TARGETS.COMFORTABLE_SIZE,
-        height: TOUCH_TARGETS.COMFORTABLE_SIZE,
+        minWidth: 44,
+        minHeight: 44,
+        width: 44,
+        height: 44,
         borderRadius: 12,
         justifyContent: 'center',
         alignItems: 'center',
         marginBottom: 2,
-        paddingLeft: 11,
-        paddingBottom: 4,
-        
+        backgroundColor: 'rgba(139, 92, 246, 0.1)',
+        borderWidth: 1,
+        borderColor: 'rgba(139, 92, 246, 0.3)',
     },
     sendButtonActive: {
-        backgroundColor: '#cc31e8',
-        // Add subtle glow effect
-        shadowColor: '#cc31e8',
+        backgroundColor: '#8b5cf6',
+        borderColor: '#8b5cf6',
+        shadowColor: '#8b5cf6',
         shadowOffset: {
             width: 0,
             height: 2,
@@ -1326,18 +1230,15 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        paddingVertical: 12,
+        paddingVertical: 10,
         paddingHorizontal: 16,
-        marginBottom: 16,
-        backgroundColor: 'rgba(102, 126, 234, 0.1)',
-        borderRadius: 8,
-        alignSelf: 'center',
+        marginTop: 8,
+        gap: 6,
     },
     viewAllText: {
-        color: '#cc31e8',
-        fontSize: 14,
+        color: '#8b5cf6',
+        fontSize: 13,
         fontWeight: '600',
-        marginLeft: 6,
     },
     // Modal styles
     modalContainer: {

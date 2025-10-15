@@ -6,7 +6,7 @@ module.exports = {
     name: IS_DEV ? "Voxxy" : "Voxxy",
     slug: "voxxy-mobile",
     description: "Connect with friends through shared activities. Organize dinners, meetings, and events with AI-powered recommendations and real-time coordination.",
-    version: "1.2.17",
+    version: "1.2.18",
     orientation: "portrait",
     icon: "./assets/icon.png",
     userInterfaceStyle: "light",
@@ -22,7 +22,7 @@ module.exports = {
     ios: {
       supportsTablet: true,
       bundleIdentifier: "com.beaulazear.voxxymobile",
-      buildNumber: "18",
+      buildNumber: "19",
       associatedDomains: [
         "applinks:heyvoxxy.com",
         "applinks:www.heyvoxxy.com",

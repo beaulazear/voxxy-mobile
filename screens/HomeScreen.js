@@ -683,7 +683,7 @@ export default function HomeScreen({ route }) {
         />
         <ListFooter />
       </ScrollView>
-      <VoxxyFooter onPlusPress={() => setShowActivityCreation(true)} />
+      <VoxxyFooter onPlusPress={() => setShowActivityCreation(true)} hasPendingInvites={invites.length > 0} />
 
       {/* Unified Activity Creation Modal */}
       <UnifiedActivityChat

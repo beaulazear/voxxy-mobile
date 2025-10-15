@@ -25,6 +25,8 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import styles from '../styles/AIRecommendationsStyles';
 import { modalStyles, modalColors } from '../styles/modalStyles';
 import NativeMapView from './NativeMapView';
+import DefaultIcon from '../assets/icon.png';
+import { avatarMap } from '../utils/avatarManager';
 
 
 // Updated Icons object using Feather icons
@@ -65,6 +67,58 @@ import { logger } from '../utils/logger';
 import { safeAuthApiCall, handleApiError } from '../utils/safeApiCall';
 
 // Removed unused screenWidth variable
+
+// Helper function to get avatar from map
+const getAvatarFromMap = (filename) => {
+    try {
+        return avatarMap[filename] || null;
+    } catch (error) {
+        logger.debug(`⚠️ Avatar ${filename} not found in mapping`);
+        return null;
+    }
+};
+
+// Helper function to get user's display image
+const getUserDisplayImage = (userObj) => {
+    if (!userObj) return DefaultIcon;
+
+    if (userObj?.profile_pic_url) {
+        const profilePicUrl = userObj.profile_pic_url.startsWith('http')
+            ? userObj.profile_pic_url
+            : `${API_URL}${userObj.profile_pic_url}`;
+        return { uri: profilePicUrl };
+    }
+
+    if (userObj?.avatar && userObj.avatar !== DefaultIcon) {
+        const avatarFilename = userObj.avatar.includes('/')
+            ? userObj.avatar.split('/').pop()
+            : userObj.avatar;
+
+        const mappedAvatar = getAvatarFromMap(avatarFilename);
+        if (mappedAvatar) return mappedAvatar;
+
+        if (userObj.avatar.startsWith('http')) {
+            return { uri: userObj.avatar };
+        }
+    }
+
+    return DefaultIcon;
+};
+
+// Helper function to check if user has profile preferences
+const userHasProfilePreferences = (user) => {
+    if (!user) return false;
+
+    const hasFavoriteFood = user.favorite_food && user.favorite_food.trim().length > 0;
+    const hasPreferencesField = user.preferences && user.preferences.trim().length > 0;
+    const hasDietaryPreferences = user.dairy_free === true ||
+        user.gluten_free === true ||
+        user.vegan === true ||
+        user.vegetarian === true ||
+        user.kosher === true;
+
+    return hasFavoriteFood || hasPreferencesField || hasDietaryPreferences;
+};
 
 const safeJsonParse = (data, fallback = []) => {
     if (!data) return fallback;
@@ -739,7 +793,53 @@ export default function AIRecommendations({
     const currentUserResponse = user ? responses.find(r =>
         r.user_id === user.id || r.email === user.email
     ) : null;
-    const responseRate = (responses.length / totalParticipants) * 100;
+
+    // Calculate participation based on responses OR profile preferences
+    // Create list of all members including host
+    const allMembers = [
+        { id: activity.user_id || activity.user?.id, user: activity.user, isHost: true },
+        ...allParticipants.map(p => ({ id: p.id, user: p, isHost: false }))
+    ];
+
+    // Count members who have either a response OR profile preferences
+    const membersWithInput = allMembers.filter(member => {
+        // Check if they have a response
+        const hasResponse = responses.some(r => r.user_id === member.id);
+
+        // Get the full user object with all preference data
+        // If it's the current logged-in user, use the user from context (has all data)
+        // Otherwise, use the member.user object
+        const fullUserObject = member.id === user?.id ? user : member.user;
+
+        const hasPreferences = userHasProfilePreferences(fullUserObject);
+
+        // Debug logging
+        logger.debug(`👤 Member ${fullUserObject?.name || member.id}:`, {
+            id: member.id,
+            isHost: member.isHost,
+            isCurrentUser: member.id === user?.id,
+            hasResponse,
+            hasPreferences,
+            hasFavoriteFood: fullUserObject?.favorite_food?.length > 0,
+            hasPreferencesField: fullUserObject?.preferences?.length > 0,
+            willCount: hasResponse || hasPreferences
+        });
+
+        if (hasResponse) return true;
+
+        // Check if they have profile preferences
+        return hasPreferences;
+    }).length;
+
+    const totalWithInput = membersWithInput;
+    const responseRate = (totalWithInput / totalParticipants) * 100;
+
+    logger.debug('📊 Participation summary:', {
+        totalMembers: totalParticipants,
+        membersWithInput: totalWithInput,
+        responseRate: Math.round(responseRate),
+        responsesCount: responses.length
+    });
 
     const handleStartChat = () => {
         setShowChat(true);
@@ -1208,7 +1308,7 @@ export default function AIRecommendations({
 
                     {/* User Action Section */}
                     {user && !currentUserResponse ? (
-                        <Animated.View 
+                        <Animated.View
                             style={[
                                 styles.actionCard,
                                 {
@@ -1216,39 +1316,183 @@ export default function AIRecommendations({
                                 }
                             ]}
                         >
-                            <View style={styles.actionGradient}>
-                                <View style={styles.actionIconBg}>
-                                    <Icon name="message-circle" size={24} color="#9333EA" />
+                            <View style={styles.socialActionContainer}>
+                                {/* Host Header with Avatar */}
+                                <View style={styles.userHeaderSection}>
+                                    <Image
+                                        source={getUserDisplayImage(activity.user)}
+                                        style={styles.userAvatar}
+                                        defaultSource={DefaultIcon}
+                                    />
+                                    <View style={styles.userInfoSection}>
+                                        <View style={styles.userNameRow}>
+                                            <Text style={styles.userNameText}>{activity.user?.name || 'Host'}</Text>
+                                            <Icon name="heart" size={16} color="#8b5cf6" />
+                                        </View>
+                                        <Text style={styles.hostRequestText}>
+                                            wants your help finding the perfect {
+                                                activity.activity_type === 'Bar' || activity.activity_type === 'Cocktails' ? 'bar' :
+                                                activity.activity_type === 'Restaurant' || activity.activity_type === 'Brunch' ? 'restaurant' :
+                                                activity.activity_type === 'Game Night' ? 'game night spot' :
+                                                activity.activity_type === 'Meeting' ? 'meeting time' :
+                                                'spot'
+                                            }
+                                        </Text>
+                                    </View>
                                 </View>
-                                <Text style={styles.actionTitle}>Your Input Matters!</Text>
-                                <Text style={styles.actionText}>
-                                    {activityText.submitDescription}
-                                    {activity.allow_participant_time_selection && ' and select your availability'}
-                                </Text>
-                                <TouchableOpacity style={styles.modernActionButton} onPress={handleStartChat}>
-                                    <Text style={styles.modernActionButtonText}>
-                                        {activity.allow_participant_time_selection ? 'Share Preferences & Times' : 'Share Your Preferences'}
-                                    </Text>
-                                    <Icon name="arrow-right" size={18} color="#FFFFFF" />
-                                </TouchableOpacity>
+
+                                {/* Two Options */}
+                                <View style={styles.optionsContainer}>
+                                    {/* Option 1: Use Profile - Active by default if user has preferences */}
+                                    <View
+                                        style={[
+                                            styles.optionCard,
+                                            !userHasProfilePreferences(user) && styles.optionCardDisabled,
+                                            userHasProfilePreferences(user) && styles.optionCardActive
+                                        ]}
+                                    >
+                                        <View style={[
+                                            styles.optionIconContainer,
+                                            userHasProfilePreferences(user) && styles.optionIconActive
+                                        ]}>
+                                            <Icon
+                                                name="user"
+                                                size={20}
+                                                color={userHasProfilePreferences(user) ? "#ffffff" : "#6b7280"}
+                                            />
+                                        </View>
+                                        <Text style={[
+                                            styles.optionTitle,
+                                            !userHasProfilePreferences(user) && styles.optionTitleDisabled
+                                        ]}>
+                                            Use My Profile
+                                        </Text>
+                                        {userHasProfilePreferences(user) && (
+                                            <View style={styles.activeIndicator}>
+                                                <Icon name="check" size={14} color="#8b5cf6" />
+                                                <Text style={styles.activeIndicatorText}>Selected by default</Text>
+                                            </View>
+                                        )}
+                                    </View>
+
+                                    {/* Option 2: Custom Preferences */}
+                                    <TouchableOpacity
+                                        style={styles.optionCard}
+                                        onPress={handleStartChat}
+                                    >
+                                        <View style={styles.optionIconContainer}>
+                                            <Icon name="edit-3" size={20} color="#8b5cf6" />
+                                        </View>
+                                        <Text style={styles.optionTitle}>Submit New Preferences</Text>
+                                    </TouchableOpacity>
+                                </View>
                             </View>
                         </Animated.View>
                     ) : user && currentUserResponse ? (
-                        <View style={styles.submittedCard}>
-                            <View style={styles.submittedHeader}>
-                                <View style={styles.checkCircle}>
-                                    <Icon name="check" size={20} color="#10B981" />
+                        <View style={styles.actionCard}>
+                            <View style={styles.socialActionContainer}>
+                                {/* Host Header with Avatar */}
+                                <View style={styles.userHeaderSection}>
+                                    <Image
+                                        source={getUserDisplayImage(activity.user)}
+                                        style={styles.userAvatar}
+                                        defaultSource={DefaultIcon}
+                                    />
+                                    <View style={styles.userInfoSection}>
+                                        <Text style={styles.userNameText}>{activity.user?.name || 'Host'}</Text>
+                                        <View style={styles.preferencesStatusRow}>
+                                            <Icon name="heart" size={14} color="#8b5cf6" />
+                                            <Text style={styles.preferencesStatusTextPurple}>wants your input</Text>
+                                        </View>
+                                    </View>
                                 </View>
-                                <Text style={styles.submittedTitle}>You're All Set!</Text>
+
+                                {/* Action Title */}
+                                <Text style={styles.socialActionTitle}>Help them find the perfect venue</Text>
+
+                                {/* Two Options - Show which one is active */}
+                                <View style={styles.optionsContainer}>
+                                    {/* Option 1: Use Profile - Show if NO custom response */}
+                                    <View
+                                        style={[
+                                            styles.optionCard,
+                                            !currentUserResponse.notes && userHasProfilePreferences(user) && styles.optionCardActive
+                                        ]}
+                                    >
+                                        <View style={[
+                                            styles.optionIconContainer,
+                                            !currentUserResponse.notes && userHasProfilePreferences(user) && styles.optionIconActive
+                                        ]}>
+                                            <Icon
+                                                name="user"
+                                                size={20}
+                                                color={!currentUserResponse.notes && userHasProfilePreferences(user) ? "#ffffff" : "#6b7280"}
+                                            />
+                                        </View>
+                                        <Text style={[
+                                            styles.optionTitle,
+                                            (currentUserResponse.notes || !userHasProfilePreferences(user)) && styles.optionTitleDisabled
+                                        ]}>
+                                            Use My Profile
+                                        </Text>
+                                        <Text style={[
+                                            styles.optionDescription,
+                                            (currentUserResponse.notes || !userHasProfilePreferences(user)) && styles.optionDescriptionDisabled
+                                        ]}>
+                                            Use saved preferences from your profile
+                                        </Text>
+                                        {!currentUserResponse.notes && userHasProfilePreferences(user) && (
+                                            <View style={styles.activeIndicator}>
+                                                <Icon name="check" size={14} color="#8b5cf6" />
+                                                <Text style={styles.activeIndicatorText}>Currently using</Text>
+                                            </View>
+                                        )}
+                                    </View>
+
+                                    {/* Option 2: Custom Preferences - Show if custom response exists */}
+                                    <View
+                                        style={[
+                                            styles.optionCard,
+                                            currentUserResponse.notes && styles.optionCardActive
+                                        ]}
+                                    >
+                                        <View style={[
+                                            styles.optionIconContainer,
+                                            currentUserResponse.notes && styles.optionIconActive
+                                        ]}>
+                                            <Icon
+                                                name="edit-3"
+                                                size={20}
+                                                color={currentUserResponse.notes ? "#ffffff" : "#6b7280"}
+                                            />
+                                        </View>
+                                        <Text style={[
+                                            styles.optionTitle,
+                                            !currentUserResponse.notes && styles.optionTitleDisabled
+                                        ]}>
+                                            Feeling Something Different?
+                                        </Text>
+                                        <Text style={[
+                                            styles.optionDescription,
+                                            !currentUserResponse.notes && styles.optionDescriptionDisabled
+                                        ]}>
+                                            Take a quick survey and let us know the vibe
+                                        </Text>
+                                        {currentUserResponse.notes && (
+                                            <View style={styles.activeIndicator}>
+                                                <Icon name="check" size={14} color="#8b5cf6" />
+                                                <Text style={styles.activeIndicatorText}>Currently using</Text>
+                                            </View>
+                                        )}
+                                    </View>
+                                </View>
+
+                                {/* Update Button */}
+                                <TouchableOpacity style={styles.updateButtonFull} onPress={handleStartChat}>
+                                    <Icon name="refresh-cw" size={16} color="#A855F7" />
+                                    <Text style={styles.updateButtonText}>Update Response</Text>
+                                </TouchableOpacity>
                             </View>
-                            <Text style={styles.submittedText}>
-                                Your preferences have been recorded
-                                {activity.allow_participant_time_selection && ' along with your availability'}.
-                            </Text>
-                            <TouchableOpacity style={styles.updateButton} onPress={handleStartChat}>
-                                <Icon name="refresh-cw" size={16} color="#A855F7" />
-                                <Text style={styles.updateButtonText}>Update Response</Text>
-                            </TouchableOpacity>
                         </View>
                     ) : null}
 
@@ -1256,39 +1500,68 @@ export default function AIRecommendations({
 
                     {/* Generate Recommendations Button */}
                     {isOwner && (
-                        <View style={styles.generateButtonContainer}>
-                            {/* Pulse Ring */}
-                            <Animated.View 
-                                style={[
-                                    styles.pulseRing,
-                                    {
-                                        opacity: pulseOpacity,
-                                        transform: [{
-                                            scale: pulseValue
-                                        }]
-                                    }
-                                ]}
-                            />
-                            
-                            {/* Main Button */}
-                            <TouchableOpacity
-                                style={[styles.generateButtonTouchable, responses.length === 0 && styles.generateButtonDisabled]}
-                                onPress={() => responses.length > 0 && setShowGenerateModal(true)}
-                                activeOpacity={responses.length > 0 ? 0.9 : 1}
-                                disabled={responses.length === 0}
+                        <TouchableOpacity
+                            onPress={() => responses.length > 0 && setShowGenerateModal(true)}
+                            activeOpacity={0.85}
+                            disabled={responses.length === 0}
+                            style={styles.generateButtonContainer}
+                        >
+                            {/* Gradient Border */}
+                            <LinearGradient
+                                colors={responses.length === 0 ? ['#4b5563', '#374151'] : ['#cc31e8', '#667eea', '#cc31e8']}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 1 }}
+                                style={styles.generateButtonGradientBorder}
                             >
-                                <LinearGradient
-                                    colors={['#6B73FF', '#9D50BB']}
-                                    start={{ x: 0, y: 0 }}
-                                    end={{ x: 1, y: 1 }}
-                                    style={styles.generateButtonGradient}
-                                >
-                                    <View style={styles.buttonInnerGlow} />
-                                    <Icons.Zap color="#fff" size={20} style={styles.buttonIcon} />
-                                    <Text style={styles.generateButtonText}>Generate Recommendations</Text>
-                                </LinearGradient>
-                            </TouchableOpacity>
-                        </View>
+                                <View style={styles.generateButtonInner}>
+                                    <View style={styles.generateButtonContent}>
+                                        {/* Icon with glow */}
+                                        <View style={styles.generateButtonIconContainer}>
+                                            <View style={styles.generateIconGlow} />
+                                            <Icons.Zap color="#ffffff" size={28} />
+                                        </View>
+
+                                        {/* Text */}
+                                        <View style={styles.generateTextContainer}>
+                                            <Text style={styles.generateButtonText}>
+                                                Generate Recommendations
+                                            </Text>
+                                            {(() => {
+                                                // Check if any participant is missing both response and profile preferences
+                                                const participantsWithoutPreferences = (activity?.activity_participants || []).filter(ap => {
+                                                    if (!ap.confirmed) return false; // Skip unconfirmed invites
+
+                                                    // Check if they have a response
+                                                    const hasResponse = responses.some(r => r.user_id === ap.apId);
+                                                    if (hasResponse) return false;
+
+                                                    // Check if they have profile preferences
+                                                    const participant = activity.participants?.find(p => p.id === ap.apId);
+                                                    if (userHasProfilePreferences(participant)) return false;
+
+                                                    return true; // Missing both
+                                                });
+
+                                                if (responses.length === 0) {
+                                                    return (
+                                                        <Text style={styles.generateButtonSubtext}>
+                                                            Waiting for preferences...
+                                                        </Text>
+                                                    );
+                                                } else if (participantsWithoutPreferences.length > 0) {
+                                                    return (
+                                                        <Text style={styles.generateButtonSubtext}>
+                                                            ⚠️ {participantsWithoutPreferences.length} participant{participantsWithoutPreferences.length === 1 ? '' : 's'} missing preferences
+                                                        </Text>
+                                                    );
+                                                }
+                                                return null; // No subtitle when ready
+                                            })()}
+                                        </View>
+                                    </View>
+                                </View>
+                            </LinearGradient>
+                        </TouchableOpacity>
                     )}
 
                     {/* Generate Recommendations Modal */}
@@ -1359,9 +1632,9 @@ export default function AIRecommendations({
                                     
                                     {/* Text Content */}
                                     <View style={modalStyles.modalContent}>
-                                        <Text style={modalStyles.modernTitle}>Ready to Discover?</Text>
+                                        <Text style={modalStyles.modernTitle}>Ready for recommendations?</Text>
                                         <Text style={modalStyles.modernDescription}>
-                                            Let Voxxy create personalized recommendations based on your group's preferences
+                                            We'll use everyone's input to find the perfect spots
                                         </Text>
                                         
                                         {/* Progress Section */}
@@ -1384,11 +1657,78 @@ export default function AIRecommendations({
                                             
                                             <View style={styles.progressInfo}>
                                                 <Text style={styles.progressText}>
-                                                    {responses.length} of {totalParticipants} responses
+                                                    {totalWithInput} of {totalParticipants} members ready
                                                 </Text>
                                                 <View style={styles.percentageBadge}>
                                                     <Text style={styles.percentageText}>{Math.round(responseRate)}%</Text>
                                                 </View>
+                                            </View>
+
+                                            {/* Member Status Overview */}
+                                            <View style={{ marginTop: 12, gap: 6 }}>
+                                                {allMembers.map((m, i) => {
+                                                    const hasResp = responses.some(r => r.user_id === m.id);
+                                                    const fullUser = m.id === user?.id ? user : m.user;
+                                                    const hasPref = userHasProfilePreferences(fullUser);
+                                                    const hasInput = hasResp || hasPref;
+
+                                                    return (
+                                                        <View key={i} style={{
+                                                            flexDirection: 'row',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'space-between',
+                                                            paddingHorizontal: 12,
+                                                            paddingVertical: 8,
+                                                            backgroundColor: hasInput ? 'rgba(139, 92, 246, 0.1)' : 'rgba(255, 255, 255, 0.05)',
+                                                            borderRadius: 8,
+                                                            borderWidth: 1,
+                                                            borderColor: hasInput ? 'rgba(139, 92, 246, 0.3)' : 'rgba(255, 255, 255, 0.1)'
+                                                        }}>
+                                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                                                <Icon
+                                                                    name={hasInput ? "check-circle" : "circle"}
+                                                                    size={16}
+                                                                    color={hasInput ? "#8b5cf6" : "rgba(255,255,255,0.3)"}
+                                                                />
+                                                                <Text style={{ color: '#fff', fontSize: 13, fontWeight: '500' }}>
+                                                                    {fullUser?.name}
+                                                                </Text>
+                                                            </View>
+                                                            <View style={{ flexDirection: 'row', gap: 4 }}>
+                                                                {hasResp && (
+                                                                    <View style={{
+                                                                        backgroundColor: 'rgba(139, 92, 246, 0.2)',
+                                                                        paddingHorizontal: 6,
+                                                                        paddingVertical: 2,
+                                                                        borderRadius: 4
+                                                                    }}>
+                                                                        <Text style={{ color: '#8b5cf6', fontSize: 10, fontWeight: '600' }}>Response</Text>
+                                                                    </View>
+                                                                )}
+                                                                {hasPref && (
+                                                                    <View style={{
+                                                                        backgroundColor: 'rgba(139, 92, 246, 0.2)',
+                                                                        paddingHorizontal: 6,
+                                                                        paddingVertical: 2,
+                                                                        borderRadius: 4
+                                                                    }}>
+                                                                        <Text style={{ color: '#8b5cf6', fontSize: 10, fontWeight: '600' }}>Profile</Text>
+                                                                    </View>
+                                                                )}
+                                                                {!hasInput && (
+                                                                    <View style={{
+                                                                        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                                                                        paddingHorizontal: 6,
+                                                                        paddingVertical: 2,
+                                                                        borderRadius: 4
+                                                                    }}>
+                                                                        <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, fontWeight: '600' }}>Pending</Text>
+                                                                    </View>
+                                                                )}
+                                                            </View>
+                                                        </View>
+                                                    );
+                                                })}
                                             </View>
                                         </View>
                                         
@@ -1399,7 +1739,7 @@ export default function AIRecommendations({
                                                     <Icon name="alert-triangle" size={16} color="#FBBF24" />
                                                 </View>
                                                 <Text style={styles.modernWarningText}>
-                                                    More responses = better recommendations
+                                                    More input = better results
                                                 </Text>
                                             </View>
                                         )}

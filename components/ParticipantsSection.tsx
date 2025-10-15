@@ -27,7 +27,10 @@ import {
     Mail,
     Phone,
     Heart,
+    AlertTriangle,
+    Zap,
 } from 'react-native-feather'
+import { LinearGradient } from 'expo-linear-gradient'
 import * as Contacts from 'expo-contacts'
 import { UserContext } from '../context/UserContext'
 import { API_URL } from '../config'
@@ -53,7 +56,8 @@ export default function ParticipantsSection({
     votes = [],
     isOwner,
     onInvite,
-    onRemoveParticipant
+    onRemoveParticipant,
+    footerButton
 }) {
     const { user } = useContext(UserContext)
     const [showInviteModal, setShowInviteModal] = useState(false)
@@ -304,6 +308,28 @@ export default function ParticipantsSection({
     const hasResponded = (participant) =>
         participant.confirmed && responses.some(r => r.user_id === participant.apId)
 
+    // Helper function to check if user has profile preferences saved
+    const hasProfilePreferences = (participant) => {
+        if (!participant.confirmed || !participant.apId) return false
+
+        // Get the full user object from context if available
+        const participantUser = participant.apId === user?.id
+            ? user
+            : activity.participants?.find(p => p.id === participant.apId)
+
+        if (!participantUser) return false
+
+        // Check if user has either favorite_food or any dietary preferences set
+        const hasFavoriteFood = participantUser.favorite_food && participantUser.favorite_food.trim().length > 0
+        const hasDietaryPreferences = participantUser.dairy_free === true ||
+            participantUser.gluten_free === true ||
+            participantUser.vegan === true ||
+            participantUser.vegetarian === true ||
+            participantUser.kosher === true
+
+        return hasFavoriteFood || hasDietaryPreferences
+    }
+
     const totalToRespond = allParticipants.length
     const responsesCount = allParticipants.filter(p =>
         responses.some(r => r.user_id === p.apId)
@@ -423,6 +449,9 @@ export default function ParticipantsSection({
     }
 
     const renderParticipantAvatar = ({ item, index }) => {
+        // Check if user has completed at least one requirement (response OR preferences)
+        const hasCompletedRequirement = item.confirmed && (hasResponded(item) || hasProfilePreferences(item))
+
         return (
             <View style={[styles.participantAvatar, item.isHost && styles.hostAvatar, !item.confirmed && styles.pendingAvatar]}>
                 <Image
@@ -439,7 +468,7 @@ export default function ParticipantsSection({
                     </View>
                 )}
 
-                {item.confirmed && hasResponded(item) && (
+                {hasCompletedRequirement && (
                     <View style={styles.responseIndicator}>
                         <CheckCircle stroke="#fff" width={12} height={12} />
                     </View>
@@ -513,16 +542,28 @@ export default function ParticipantsSection({
                             </Text>
                         )}
 
-                        <View style={styles.statusRow}>
-                            {hasResponded(item) ? (
-                                <CheckCircle stroke="#10b981" width={14} height={14} />
-                            ) : (
-                                <XCircle stroke="#6b7280" width={14} height={14} />
-                            )}
-                            <Text style={styles.statusText}>
-                                {hasResponded(item) ? 'Response submitted' : 'Waiting for response'}
-                            </Text>
+                        <View style={styles.statusColumn}>
+                            <View style={styles.statusRow}>
+                                {hasResponded(item) ? (
+                                    <CheckCircle stroke="#10b981" width={14} height={14} />
+                                ) : (
+                                    <XCircle stroke="#6b7280" width={14} height={14} />
+                                )}
+                                <Text style={styles.statusText}>
+                                    {hasResponded(item) ? 'Response submitted' : 'Waiting for response'}
+                                </Text>
+                            </View>
 
+                            <View style={styles.statusRow}>
+                                {hasProfilePreferences(item) ? (
+                                    <CheckCircle stroke="#10b981" width={14} height={14} />
+                                ) : (
+                                    <XCircle stroke="#6b7280" width={14} height={14} />
+                                )}
+                                <Text style={styles.statusText}>
+                                    {hasProfilePreferences(item) ? 'Preferences saved' : 'No preferences saved'}
+                                </Text>
+                            </View>
                         </View>
                     </View>
                 </View>
@@ -838,60 +879,105 @@ export default function ParticipantsSection({
                         {allParticipants.length === 1 ? 'Invite Your Friends' : `${allParticipants.length} Community Member${allParticipants.length === 1 ? '' : 's'}`}
                     </Text>
                 </View>
-
-                {responsesCount > 0 && (
-                    <View style={styles.responseBadge}>
-                        <CheckCircle stroke="#10b981" width={12} height={12} />
-                        <Text style={styles.responseBadgeText}>
-                            {responsesCount}/{totalToRespond} submissions
-                        </Text>
-                    </View>
+                {/* Invite Button - only show during collecting phase */}
+                {isOwner && !activity?.finalized && !activity?.completed && !activity?.voting && (
+                    <TouchableOpacity style={styles.inviteButtonCompact} onPress={handleInviteClick}>
+                        <Plus stroke="#8b5cf6" width={18} height={18} />
+                        <Text style={styles.inviteButtonCompactText}>Invite</Text>
+                    </TouchableOpacity>
                 )}
             </View>
 
-            {/* Participants Grid */}
-            <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.participantsGrid}
-            >
-                {/* Invite Button - only show during collecting phase */}
-                {isOwner && !activity?.finalized && !activity?.completed && !activity?.voting && (
-                    <TouchableOpacity style={styles.inviteButton} onPress={handleInviteClick}>
-                        <Plus stroke="#fff" width={24} height={24} />
-                        <Text style={styles.inviteButtonText}>Invite</Text>
-                    </TouchableOpacity>
-                )}
+            {/* All Participants List - Show all members inline */}
+            <View style={styles.participantsListInline}>
+                {allParticipants.map((participant, index) => {
+                    // Determine the user's status
+                    const hasResponse = hasResponded(participant)
+                    const hasPreferences = hasProfilePreferences(participant)
 
-                {/* View All Button */}
-                <TouchableOpacity style={styles.viewAllButton} onPress={() => setShowAllParticipants(true)}>
-                    <Eye stroke="#fff" width={24} height={24} />
-                    <Text style={styles.viewAllButtonText}>View</Text>
-                </TouchableOpacity>
+                    let statusConfig
+                    if (hasResponse) {
+                        // Priority 1: Response submitted
+                        statusConfig = {
+                            icon: <CheckCircle stroke="#10b981" width={14} height={14} />,
+                            text: 'Response submitted',
+                            style: styles.statusBadgeSuccess
+                        }
+                    } else if (hasPreferences) {
+                        // Priority 2: Using profile preferences
+                        statusConfig = {
+                            icon: <CheckCircle stroke="#10b981" width={14} height={14} />,
+                            text: 'Using profile',
+                            style: styles.statusBadgeSuccess
+                        }
+                    } else {
+                        // Priority 3: No data available
+                        statusConfig = {
+                            icon: <AlertTriangle stroke="#f59e0b" width={14} height={14} />,
+                            text: 'No preferences',
+                            style: styles.statusBadgeWarning
+                        }
+                    }
 
-                {/* Confirmed Participants */}
-                {allParticipants
-                    .filter(p => p.confirmed)
-                    .slice(0, 8)
-                    .map((participant, index) => (
-                        <View key={`confirmed-${index}`}>
-                            {renderParticipantAvatar({ item: participant, index })}
-                        </View>
-                    ))}
+                    return (
+                        <View key={`participant-${index}`} style={styles.participantRowInline}>
+                            <View style={styles.participantLeftSection}>
+                                {/* Avatar */}
+                                <Image
+                                    source={getDisplayImage(participant)}
+                                    style={styles.participantAvatarInline}
+                                    onError={() => logger.debug(`❌ Avatar failed to load for ${participant.name}`)}
+                                    onLoad={() => logger.debug(`✅ Avatar loaded for ${participant.name}`)}
+                                    defaultSource={DefaultIcon}
+                                />
 
-                {/* Pending Invites (for owners only) */}
-                {isOwner &&
-                    allParticipants
-                        .filter(p => !p.confirmed)
-                        .slice(0, 3)
-                        .map((participant, index) => (
-                            <View key={`pending-${index}`}>
-                                {renderParticipantAvatar({ item: participant, index })}
+                                {/* Name */}
+                                <View style={styles.participantNameSection}>
+                                    {!participant.confirmed ? (
+                                        // Show email for pending invites
+                                        <>
+                                            <Text style={styles.participantNameInline}>
+                                                {participant.email || 'Pending Invite'}
+                                            </Text>
+                                            <Text style={styles.pendingLabel}>Pending invite</Text>
+                                        </>
+                                    ) : (
+                                        // Show name and status for confirmed users
+                                        <>
+                                            <Text style={styles.participantNameInline}>
+                                                {participant.isHost ? `${participant.name} (Host)` : participant.name}
+                                            </Text>
+                                            <View style={[styles.statusBadge, statusConfig.style]}>
+                                                {statusConfig.icon}
+                                                <Text style={styles.statusBadgeText}>{statusConfig.text}</Text>
+                                            </View>
+                                        </>
+                                    )}
+                                </View>
                             </View>
-                        ))}
-            </ScrollView>
 
-            {/* Modern Full-Screen Invite Modal */}
+                            {/* Remove button for owner */}
+                            {isOwner && !participant.isHost && (
+                                <TouchableOpacity
+                                    style={styles.removeButtonInline}
+                                    onPress={() => handleRemoveParticipant(participant)}
+                                >
+                                    <X stroke="#ef4444" width={14} height={14} />
+                                </TouchableOpacity>
+                            )}
+                        </View>
+                    )
+                })}
+            </View>
+
+            {/* Custom Footer Button */}
+            {footerButton && (
+                <View style={styles.footerButtonContainer}>
+                    {footerButton}
+                </View>
+            )}
+
+            {/* Invite Modal */}
             <Modal
                 visible={showInviteModal}
                 transparent={true}
@@ -945,61 +1031,6 @@ export default function ParticipantsSection({
                                 </TouchableOpacity>
                             </View>
                         )}
-                    </View>
-                </View>
-            </Modal>
-
-            <Modal
-                visible={showAllParticipants}
-                transparent={true}
-                animationType="slide"
-                onRequestClose={() => setShowAllParticipants(false)}
-            >
-                <View style={styles.modalOverlay}>
-                    <View style={styles.viewAllModal}>
-                        <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>All Participants</Text>
-                            <TouchableOpacity onPress={() => setShowAllParticipants(false)}>
-                                <X stroke="#fff" width={20} height={20} />
-                            </TouchableOpacity>
-                        </View>
-
-                        {allParticipants.length > 0 && (
-                            <View style={styles.progressContainer}>
-                                <Text style={styles.progressText}>
-                                    {responsesCount}/{totalToRespond} preferences collected
-                                </Text>
-                                <View style={styles.progressBarContainer}>
-                                    <View
-                                        style={[
-                                            styles.progressBar,
-                                            { width: `${(responsesCount / totalToRespond) * 100}%` }
-                                        ]}
-                                    />
-                                </View>
-                            </View>
-                        )}
-
-                        <View style={styles.participantsListContainer}>
-                            {allParticipants.length > 0 ? (
-                                <FlatList
-                                    data={allParticipants}
-                                    renderItem={renderParticipantListItem}
-                                    keyExtractor={(item, index) => `participant-${item.email || index}`}
-                                    style={styles.participantsList}
-                                    contentContainerStyle={styles.participantsListContent}
-                                    showsVerticalScrollIndicator={true}
-                                    scrollIndicatorInsets={{ right: 1 }}
-                                    bounces={true}
-                                    removeClippedSubviews={false}
-                                    nestedScrollEnabled={true}
-                                />
-                            ) : (
-                                <View style={styles.emptyState}>
-                                    <Text style={styles.emptyStateText}>No participants found</Text>
-                                </View>
-                            )}
-                        </View>
                     </View>
                 </View>
             </Modal>
@@ -1058,7 +1089,123 @@ const styles = StyleSheet.create({
         color: '#10b981',
     },
 
-    // Grid Styles
+    inviteButtonCompact: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        backgroundColor: 'rgba(139, 92, 246, 0.1)',
+        borderWidth: 1,
+        borderColor: 'rgba(139, 92, 246, 0.3)',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 8,
+    },
+
+    inviteButtonCompactText: {
+        fontSize: 12,
+        fontWeight: '600',
+        color: '#8b5cf6',
+    },
+
+    // Inline Participants List Styles
+    participantsListInline: {
+        gap: 8,
+    },
+
+    participantRowInline: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingVertical: 10,
+        paddingHorizontal: 8,
+        backgroundColor: 'rgba(255, 255, 255, 0.02)',
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: 'rgba(64, 51, 71, 0.2)',
+    },
+
+    participantLeftSection: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        flex: 1,
+    },
+
+    participantAvatarInline: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        borderWidth: 2,
+        borderColor: '#8b5cf6',
+    },
+
+    participantNameSection: {
+        flex: 1,
+    },
+
+    participantNameInline: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#fff',
+        marginBottom: 2,
+    },
+
+    pendingLabel: {
+        fontSize: 11,
+        color: '#f59e0b',
+        fontWeight: '500',
+    },
+
+    statusBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+        borderRadius: 6,
+        marginTop: 4,
+        alignSelf: 'flex-start',
+    },
+
+    statusBadgeSuccess: {
+        backgroundColor: 'rgba(16, 185, 129, 0.15)',
+        borderWidth: 1,
+        borderColor: 'rgba(16, 185, 129, 0.3)',
+    },
+
+    statusBadgeWarning: {
+        backgroundColor: 'rgba(245, 158, 11, 0.15)',
+        borderWidth: 1,
+        borderColor: 'rgba(245, 158, 11, 0.3)',
+    },
+
+    statusBadgeText: {
+        fontSize: 10,
+        fontWeight: '600',
+        color: '#fff',
+    },
+
+    participantStatusSection: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        marginRight: 8,
+    },
+
+    removeButtonInline: {
+        padding: 6,
+        borderRadius: 8,
+        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    },
+
+    footerButtonContainer: {
+        marginTop: 16,
+        paddingTop: 16,
+        borderTopWidth: 1,
+        borderTopColor: 'rgba(64, 51, 71, 0.3)',
+    },
+
+    // Grid Styles (legacy - keeping for invite modal)
     participantsGrid: {
         flexDirection: 'row',
         gap: 12,
@@ -1791,6 +1938,11 @@ const styles = StyleSheet.create({
         color: '#8b5cf6',
         marginBottom: 6,
         fontStyle: 'italic',
+    },
+
+    statusColumn: {
+        flexDirection: 'column',
+        gap: 6,
     },
 
     statusRow: {

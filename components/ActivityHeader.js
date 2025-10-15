@@ -263,76 +263,40 @@ export function ActivityStickyHeader({ activity, isOwner, onBack, onEdit, onDele
                         <TouchableOpacity style={styles.actionButton} onPress={onBack}>
                             <ArrowLeft stroke="#fff" width={20} height={20} />
                         </TouchableOpacity>
+                    </View>
 
+                    <View style={styles.centerContent}>
+                        <TouchableOpacity
+                            style={styles.activityNameContainer}
+                            onPress={onEdit}
+                            disabled={activity.completed}
+                            activeOpacity={0.7}
+                        >
+                            <Text style={styles.activityNameHeader} numberOfLines={1} ellipsizeMode="tail">
+                                {activity.activity_name || 'Untitled Activity'}
+                            </Text>
+                            {!activity.completed && (
+                                <Edit stroke="#8b5cf6" width={16} height={16} style={styles.editIconFloating} />
+                            )}
+                        </TouchableOpacity>
+                    </View>
+
+                    <View style={styles.rightActions}>
                         {onReport && (
                             <TouchableOpacity
                                 style={[
-                                    styles.reportButtonLeft,
+                                    styles.reportButtonRight,
                                     !activity.finalized && styles.reportButtonDisabled
                                 ]}
                                 onPress={activity.finalized ? onReport : null}
                                 disabled={!activity.finalized}
                             >
-                                <Flag 
-                                    stroke={activity.finalized ? "#FFA500" : "rgba(255, 165, 0, 0.3)"} 
-                                    width={20} 
-                                    height={20} 
+                                <Flag
+                                    stroke={activity.finalized ? "#FFA500" : "rgba(255, 165, 0, 0.3)"}
+                                    width={20}
+                                    height={20}
                                 />
                             </TouchableOpacity>
-                        )}
-                    </View>
-
-                    <View style={styles.centerContent}>
-                        <View style={[
-                            styles.activityStatusChip,
-                            {
-                                backgroundColor: statusInfo.bgColor,
-                                borderColor: statusInfo.color
-                            }
-                        ]}>
-                            <statusInfo.icon
-                                color={statusInfo.color}
-                                size={16}
-                                strokeWidth={2}
-                                style={styles.statusIcon}
-                            />
-                            <Text style={[
-                                styles.activityStatusText,
-                                { color: statusInfo.color }
-                            ]}>
-                                {statusInfo.text}
-                            </Text>
-                        </View>
-                    </View>
-
-                    <View style={styles.rightActions}>
-                        {isOwner ? (
-                            <>
-                                <TouchableOpacity
-                                    style={[
-                                        styles.editButton,
-                                        activity.completed && styles.editButtonDisabled
-                                    ]}
-                                    onPress={activity.completed ? undefined : onEdit}
-                                    disabled={activity.completed}
-                                >
-                                    <Edit
-                                        stroke={activity.completed ? "#6c757d" : "#8b5cf6"}
-                                        width={20}
-                                        height={20}
-                                    />
-                                </TouchableOpacity>
-                                <TouchableOpacity style={styles.deleteButton} onPress={onDelete}>
-                                    <Trash stroke="#ef4444" width={20} height={20} />
-                                </TouchableOpacity>
-                            </>
-                        ) : (
-                            <>
-                                <TouchableOpacity style={styles.leaveButton} onPress={onLeave}>
-                                    <LogOut stroke="#ef4444" width={18} height={18} />
-                                    <Text style={styles.leaveButtonText}>Leave</Text>
-                                </TouchableOpacity>
-                            </>
                         )}
                     </View>
                 </View>
@@ -439,28 +403,6 @@ export default function ActivityHeader({
             {/* Main Content - only the scrollable parts */}
             <View style={styles.container}>
                 <View style={styles.mainContent}>
-                    {/* Title Section - Hide when voting (map view) or solo collecting */}
-                    {!activity.voting && !(activity.collecting && activity.is_solo) && (
-                        <View style={styles.titleWrapper}>
-                            <View style={styles.titleSection}>
-                                <Text style={styles.activityTitle}>
-                                    {activity.finalized ? 'Activity Finalized' :
-                                        activity.collecting ? `${activity.responses?.length || 0} Response${activity.responses?.length === 1 ? '' : 's'} Submitted` :
-                                            activity.activity_name}
-                                </Text>
-                            </View>
-                            {/* Subtitle based on activity state */}
-                            {activity.finalized ? (
-                                <Text style={styles.collectingSubtitle}>
-                                    We hope you have a great time! 🎉
-                                </Text>
-                            ) : activity.collecting ? (
-                                <Text style={styles.collectingSubtitle}>
-                                    Share your preferences to get personalized recommendations
-                                </Text>
-                            ) : null}
-                        </View>
-                    )}
 
                     {/* Finalized Date/Time Section */}
                     {activity.finalized && (activity.date_day || activity.date_time) && (
@@ -566,10 +508,8 @@ const styles = StyleSheet.create({
     actionButton: {
         width: 40,
         height: 40,
-        borderRadius: 12,
-        backgroundColor: 'rgba(139, 92, 246, 0.9)',
-        borderWidth: 1,
-        borderColor: '#8b5cf6',
+        borderRadius: 20,
+        backgroundColor: 'rgba(255, 255, 255, 0.1)',
         alignItems: 'center',
         justifyContent: 'center',
     },
@@ -589,7 +529,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
 
-    reportButtonLeft: {
+    reportButtonRight: {
         width: 40,
         height: 40,
         borderRadius: 12,
@@ -603,6 +543,27 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(255, 165, 0, 0.03)',
         borderColor: 'rgba(255, 165, 0, 0.1)',
         opacity: 0.5,
+    },
+
+    activityNameContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        maxWidth: '100%',
+    },
+
+    activityNameHeader: {
+        fontSize: 24,
+        fontWeight: '700',
+        color: '#fff',
+        textAlign: 'center',
+        fontFamily: 'Montserrat_700Bold',
+        flexShrink: 1,
+        lineHeight: 32,
+    },
+
+    editIconFloating: {
+        opacity: 0.7,
     },
 
     activityStatusChip: {

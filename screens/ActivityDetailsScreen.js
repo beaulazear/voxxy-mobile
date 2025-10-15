@@ -90,7 +90,7 @@ const getActivityDetails = (activityType) => {
 }
 
 export default function ActivityDetailsScreen({ route }) {
-    const { activityId, forceRefresh } = route.params
+    const { activityId, forceRefresh } = route?.params || {}
     const { user, setUser, refreshUser } = useContext(UserContext)
     const navigation = useNavigation()
 
@@ -118,6 +118,20 @@ export default function ActivityDetailsScreen({ route }) {
 
     logger.debug('💬 User in ActivityDetailsScreen:', user?.id)
     logger.debug('💬 Token in ActivityDetailsScreen:', !!token)
+    logger.debug('💬 Activity ID:', activityId)
+
+    // Early return if no activityId
+    if (!activityId) {
+        return (
+            <View style={styles.safe}>
+                <View style={styles.loadingOverlay}>
+                    <View style={styles.loadingContainer}>
+                        <Text style={styles.loadingText}>Missing activity ID</Text>
+                    </View>
+                </View>
+            </View>
+        )
+    }
 
     // Find the activity from user context
     const pendingInvite = user?.participant_activities?.find(
@@ -1030,6 +1044,7 @@ export default function ActivityDetailsScreen({ route }) {
                         contentContainerStyle={styles.contentContainer}
                         stickyHeaderIndices={[0]}
                         keyboardShouldPersistTaps="handled"
+                        keyboardDismissMode="on-drag"
                     >
                         {/* Sticky header - only the top buttons */}
                         <View>
@@ -1087,6 +1102,25 @@ export default function ActivityDetailsScreen({ route }) {
                                     />
 
                                     <CommentsSection activity={currentActivity} />
+
+                                    {/* Delete/Leave Activity Button Section */}
+                                    <View style={styles.deleteActivitySection}>
+                                        {isOwner ? (
+                                            <TouchableOpacity
+                                                style={styles.deleteActivityButton}
+                                                onPress={() => handleDelete(currentActivity.id)}
+                                            >
+                                                <Text style={styles.deleteActivityButtonText}>Delete Activity</Text>
+                                            </TouchableOpacity>
+                                        ) : (
+                                            <TouchableOpacity
+                                                style={styles.leaveActivityButton}
+                                                onPress={handleLeaveActivity}
+                                            >
+                                                <Text style={styles.leaveActivityButtonText}>Leave Activity</Text>
+                                            </TouchableOpacity>
+                                        )}
+                                    </View>
                                 </>
                             )}
                         </View>
@@ -1354,6 +1388,45 @@ const styles = StyleSheet.create({
         fontSize: 16,
         textAlign: 'center',
         fontStyle: 'italic',
+    },
+
+    // Delete Activity Button Styles
+    deleteActivitySection: {
+        margin: 16,
+        marginTop: 24,
+        marginBottom: 32,
+    },
+
+    deleteActivityButton: {
+        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+        borderWidth: 1,
+        borderColor: 'rgba(239, 68, 68, 0.3)',
+        paddingVertical: 14,
+        paddingHorizontal: 20,
+        borderRadius: 12,
+        alignItems: 'center',
+    },
+
+    deleteActivityButtonText: {
+        color: '#ef4444',
+        fontSize: 15,
+        fontWeight: '600',
+    },
+
+    leaveActivityButton: {
+        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+        borderWidth: 1,
+        borderColor: 'rgba(239, 68, 68, 0.3)',
+        paddingVertical: 14,
+        paddingHorizontal: 20,
+        borderRadius: 12,
+        alignItems: 'center',
+    },
+
+    leaveActivityButtonText: {
+        color: '#ef4444',
+        fontSize: 15,
+        fontWeight: '600',
     },
 
     // Modal Styles
