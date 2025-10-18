@@ -34,7 +34,7 @@ export default function VoxxyFooter({ onPlusPress, hasPendingInvites }) {
             }
         }
 
-        return require('../assets/voxxy-triangle.png');
+        return require('../assets/pfp-placeholder.png');
     };
 
     return (
@@ -72,15 +72,7 @@ export default function VoxxyFooter({ onPlusPress, hasPendingInvites }) {
                 >
                     <Image
                         source={getDisplayImage()}
-                        style={[
-                            styles.profileImage,
-                            // Special styling for voxxy triangle
-                            (getDisplayImage() === require('../assets/voxxy-triangle.png')) && {
-                                width: '70%',
-                                height: '70%',
-                                resizeMode: 'contain',
-                            }
-                        ]}
+                        style={styles.profileImage}
                     />
                 </TouchableOpacity>
             </View>

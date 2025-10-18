@@ -14,6 +14,7 @@ import SignUpScreen from './screens/SignUpScreen';
 import VerificationCodeScreen from './screens/VerificationCodeScreen';
 import FAQScreen from './screens/FAQScreen';
 import ProfileScreen from './screens/ProfileScreen';
+import SettingsScreen from './screens/SettingsScreen';
 import LandingScreen from './screens/LandingScreen';
 import ActivityDetailsScreen from './screens/ActivityDetailsScreen';
 import ActivitiesScreen from './screens/ActivitiesScreen';
@@ -26,7 +27,8 @@ const WelcomeScreen = React.lazy(() => import('./screens/WelcomeScreen'));
 
 import { InvitationNotificationProvider } from './services/InvitationNotificationService';
 
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, View, Text, StyleSheet } from 'react-native';
+import { IS_PRODUCTION, API_URL, APP_ENV_VALUE } from './config';
 
 import {
   useFonts,
@@ -172,12 +174,41 @@ const AppNavigator = () => {
       />
       <Stack.Screen name="FAQ" component={FAQScreen} />
       <Stack.Screen name="Profile" component={ProfileScreen} />
+      <Stack.Screen name="Settings" component={SettingsScreen} />
       <Stack.Screen name="Activities" component={ActivitiesScreen} />
       <Stack.Screen name="Favorites" component={FavoritesScreen} />
       <Stack.Screen name="Notifications" component={NotificationsScreen} />
       <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
       <Stack.Screen name="AccountCreated" component={ProfileScreen} />
     </Stack.Navigator>
+  );
+};
+
+// Environment Indicator Banner Component
+const EnvironmentBanner = () => {
+  const [isVisible, setIsVisible] = useState(true);
+
+  useEffect(() => {
+    if (!IS_PRODUCTION) {
+      const timer = setTimeout(() => {
+        setIsVisible(false);
+      }, 3000); // Hide after 3 seconds
+
+      return () => clearTimeout(timer);
+    }
+  }, []);
+
+  if (IS_PRODUCTION || !isVisible) return null;
+
+  return (
+    <View style={styles.environmentBanner}>
+      <Text style={styles.environmentText}>
+        {APP_ENV_VALUE.toUpperCase()} MODE
+      </Text>
+      <Text style={styles.apiText}>
+        API: {API_URL}
+      </Text>
+    </View>
   );
 };
 
@@ -206,11 +237,37 @@ export default function App() {
     <ErrorBoundary>
       <UserProvider>
         <InvitationNotificationProvider>
-          <NavigationContainer ref={navigationRef}>
-            <AppNavigator />
-          </NavigationContainer>
+          <View style={{ flex: 1 }}>
+            <EnvironmentBanner />
+            <NavigationContainer ref={navigationRef}>
+              <AppNavigator />
+            </NavigationContainer>
+          </View>
         </InvitationNotificationProvider>
       </UserProvider>
     </ErrorBoundary>
   );
 }
+
+const styles = StyleSheet.create({
+  environmentBanner: {
+    backgroundColor: '#ff9800',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    paddingTop: 40, // Extra padding for status bar
+    alignItems: 'center',
+    zIndex: 9999,
+  },
+  environmentText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 14,
+    fontFamily: 'Montserrat_700Bold',
+  },
+  apiText: {
+    color: '#fff',
+    fontSize: 10,
+    marginTop: 2,
+    fontFamily: 'Montserrat_400Regular',
+  },
+});

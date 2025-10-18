@@ -150,7 +150,7 @@ function FloatingIcon({ icon: Icon, color, delay = 0, duration = 3000 }) {
 }
 
 // Animated Start New Activity Wide Button
-function AnimatedStartNewActivityButton({ navigation, onPress, userName, communityMembers = [] }) {
+function AnimatedStartNewActivityButton({ navigation, onPress, userName, communityMembers = [], hasIncompleteProfile = false }) {
   // Background gradient animation
   const gradientAnim = useRef(new Animated.Value(0)).current
   const pulseAnim = useRef(new Animated.Value(1)).current
@@ -238,7 +238,10 @@ function AnimatedStartNewActivityButton({ navigation, onPress, userName, communi
       {/* Main CTA */}
       <Animated.View style={[styles.ctaWrapper, { transform: [{ scale: pulseAnim }] }]}>
         <TouchableOpacity
-          style={styles.wideStartActivityButton}
+          style={[
+            styles.wideStartActivityButton,
+            hasIncompleteProfile && styles.wideStartActivityButtonCompact
+          ]}
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
             onPress()
@@ -253,11 +256,20 @@ function AnimatedStartNewActivityButton({ navigation, onPress, userName, communi
             style={styles.wideButtonGradientBorder}
           >
             <View style={styles.wideButtonInner}>
-              <View style={styles.wideButtonContent}>
+              <View style={[
+                styles.wideButtonContent,
+                hasIncompleteProfile && styles.wideButtonContentCompact
+              ]}>
                 {/* Main Icon with glow */}
-                <View style={styles.wideButtonMainIconContainer}>
-                  <View style={styles.iconGlow} />
-                  <CurrentIcon color="#ffffff" size={40} strokeWidth={2.5} />
+                <View style={[
+                  styles.wideButtonMainIconContainer,
+                  hasIncompleteProfile && styles.wideButtonMainIconContainerCompact
+                ]}>
+                  <View style={[
+                    styles.iconGlow,
+                    hasIncompleteProfile && styles.iconGlowCompact
+                  ]} />
+                  <CurrentIcon color="#ffffff" size={hasIncompleteProfile ? 32 : 40} strokeWidth={2.5} />
                 </View>
 
                 {/* Combined greeting and title */}
@@ -381,6 +393,27 @@ export default function HomeScreen({ route }) {
       setShowActivityCreation(false)
     }
   }
+
+  // Calculate profile completion
+  const profileCompletion = useMemo(() => {
+    let completed = 0
+    const total = 5
+
+    if (user?.name) completed++
+    if (user?.email) completed++
+    if (user?.city && user?.state) completed++
+    if (user?.favorite_food) completed++
+    if (user?.preferences) completed++
+
+    const percentage = (completed / total) * 100
+
+    const missing = []
+    if (!user?.city || !user?.state) missing.push('Set your location')
+    if (!user?.favorite_food) missing.push('Add favorite foods')
+    if (!user?.preferences) missing.push('Set dietary preferences')
+
+    return { completed, total, percentage, missing }
+  }, [user])
 
   const activities = useMemo(() => {
     if (!user) return []
@@ -674,12 +707,47 @@ export default function HomeScreen({ route }) {
         showsVerticalScrollIndicator={false}
       >
         <ListHeader />
+
+        {/* Profile Completion Notice */}
+        {profileCompletion.percentage < 100 && (
+          <TouchableOpacity
+            style={styles.homeCompletionBanner}
+            onPress={() => navigation.navigate('Profile')}
+            activeOpacity={0.8}
+          >
+            <View style={styles.homeCompletionHeader}>
+              <Text style={styles.homeCompletionTitle}>
+                Complete Your Profile
+              </Text>
+              <Text style={styles.homeCompletionSubtitle}>
+                Get better recommendations!
+              </Text>
+            </View>
+
+            {/* Progress bar */}
+            <View style={styles.homeCompletionBarContainer}>
+              <View style={styles.homeCompletionBar}>
+                <View
+                  style={[
+                    styles.homeCompletionFill,
+                    { width: `${profileCompletion.percentage}%` }
+                  ]}
+                />
+              </View>
+              <Text style={styles.homeCompletionPercentage}>
+                {Math.round(profileCompletion.percentage)}%
+              </Text>
+            </View>
+          </TouchableOpacity>
+        )}
+
         {/* Animated Start New Activity Button - Wide Version */}
         <AnimatedStartNewActivityButton
           navigation={navigation}
           onPress={() => setShowActivityCreation(true)}
           userName={user?.name}
           communityMembers={communityMembers}
+          hasIncompleteProfile={profileCompletion.percentage < 100}
         />
         <ListFooter />
       </ScrollView>
@@ -1565,6 +1633,63 @@ const styles = StyleSheet.create({
   },
 
   // Wide Start Activity Button Styles
+  // Home Completion Banner Styles
+  homeCompletionBanner: {
+    backgroundColor: 'rgba(255, 230, 109, 0.08)',
+    borderRadius: 16,
+    padding: 16,
+    marginHorizontal: 20,
+    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 230, 109, 0.3)',
+  },
+
+  homeCompletionHeader: {
+    marginBottom: 12,
+  },
+
+  homeCompletionTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFE66D',
+    marginBottom: 4,
+    fontFamily: 'Montserrat_700Bold',
+  },
+
+  homeCompletionSubtitle: {
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontWeight: '500',
+  },
+
+  homeCompletionBarContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+
+  homeCompletionBar: {
+    flex: 1,
+    height: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+
+  homeCompletionFill: {
+    height: '100%',
+    backgroundColor: '#FFE66D',
+    borderRadius: 3,
+  },
+
+  homeCompletionPercentage: {
+    color: '#FFE66D',
+    fontSize: 13,
+    fontWeight: '700',
+    fontFamily: 'Montserrat_700Bold',
+    minWidth: 40,
+  },
+
   // Full Screen CTA Styles
   fullScreenCTAContainer: {
     flex: 1,
@@ -1615,6 +1740,10 @@ const styles = StyleSheet.create({
     minHeight: 320,
   },
 
+  wideStartActivityButtonCompact: {
+    minHeight: 240,
+  },
+
   wideButtonGradientBorder: {
     flex: 1,
     borderRadius: 32,
@@ -1644,6 +1773,11 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
 
+  wideButtonContentCompact: {
+    paddingVertical: 32,
+    gap: 12,
+  },
+
   titleContainer: {
     alignItems: 'center',
     gap: 4,
@@ -1662,6 +1796,13 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
 
+  wideButtonMainIconContainerCompact: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    marginBottom: 4,
+  },
+
   iconGlow: {
     position: 'absolute',
     width: 88,
@@ -1672,6 +1813,12 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.8,
     shadowRadius: 20,
+  },
+
+  iconGlowCompact: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
   },
 
   wideButtonTitle: {

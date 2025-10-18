@@ -228,7 +228,7 @@ export default function UnifiedActivityChat({ visible, onClose }) {
             case 1:
                 return {
                     title: "What's the vibe?",
-                    subtitle: 'Pick your scene for tonight'
+                    subtitle: 'Pick your scene for moment'
                 }
             case 2:
                 return {

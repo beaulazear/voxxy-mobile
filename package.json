@@ -6,7 +6,6 @@
   "scripts": {
     "start": "expo start",
     "start:dev": "node scripts/set-env.js development && expo start",
-    "start:staging": "node scripts/set-env.js staging && expo start",
     "start:prod": "node scripts/set-env.js production && expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",

@@ -1,18 +1,19 @@
 import { Image } from 'react-native';
 import { logger } from './logger';
 
-// Using voxxy-triangle.png as the default avatar
+// Using pfp-placeholder.png as the default avatar
 const avatarMap = {
     'Weird5.jpg': require('../assets/Weird5.jpg'),
     'voxxy-triangle.png': require('../assets/voxxy-triangle.png'),
+    'pfp-placeholder.png': require('../assets/pfp-placeholder.png'),
 };
 
 // Cache for prefetched images
 const imageCache = new Map();
 
-// Get avatar source - now returns voxxy-triangle.png as default
+// Get avatar source - now returns pfp-placeholder.png as default
 export const getAvatarSource = (_filename) => {
-    return avatarMap['voxxy-triangle.png'];
+    return avatarMap['pfp-placeholder.png'];
 };
 
 // Prefetch images to prevent loading delays
@@ -62,5 +63,5 @@ export const getUserDisplayImage = (userObj, API_URL) => {
     }
     
     // Default avatar
-    return avatarMap['voxxy-triangle.png'];
+    return avatarMap['pfp-placeholder.png'];
 };

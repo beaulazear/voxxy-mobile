@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 
 const environment = process.argv[2] || 'development';
-const envFile = environment === 'development' ? '.env' : `.env.${environment}`;
+const envFile = `.env.${environment}`;
 const envPath = path.join(__dirname, '..', envFile);
 const targetPath = path.join(__dirname, '..', '.env');
 
