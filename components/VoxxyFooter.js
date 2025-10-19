@@ -1,7 +1,7 @@
 import React, { useContext } from 'react';
 import { View, TouchableOpacity, StyleSheet, Platform, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { UserContext } from '../context/UserContext';
 import { API_URL } from '../config';
 import { avatarMap } from '../utils/avatarManager';
@@ -9,7 +9,11 @@ import { Mail } from 'lucide-react-native';
 
 export default function VoxxyFooter({ onPlusPress, hasPendingInvites }) {
     const navigation = useNavigation();
+    const route = useRoute();
     const { user } = useContext(UserContext);
+
+    // Check which screen is active
+    const isActive = (screenName) => route.name === screenName;
 
     // Get profile image - matching ProfileSnippet logic
     const getDisplayImage = () => {
@@ -42,12 +46,26 @@ export default function VoxxyFooter({ onPlusPress, hasPendingInvites }) {
             <View style={styles.topBorder} />
 
             <View style={styles.content}>
-                <TouchableOpacity style={styles.iconButton} onPress={() => navigation.navigate('FAQ')}>
-                    <Ionicons name="help-circle-outline" size={26} color="#fff" />
+                <TouchableOpacity
+                    style={[styles.iconButton, isActive('FAQ') && styles.iconButtonActive]}
+                    onPress={() => navigation.navigate('FAQ')}
+                >
+                    <Ionicons
+                        name={isActive('FAQ') ? "help-circle" : "help-circle-outline"}
+                        size={26}
+                        color={isActive('FAQ') ? "#CC31E8" : "#fff"}
+                    />
                 </TouchableOpacity>
 
-                <TouchableOpacity style={styles.iconButton} onPress={() => navigation.navigate('Activities')}>
-                    <Ionicons name="flash-outline" size={26} color="#fff" />
+                <TouchableOpacity
+                    style={[styles.iconButton, isActive('Activities') && styles.iconButtonActive]}
+                    onPress={() => navigation.navigate('Activities')}
+                >
+                    <Ionicons
+                        name={isActive('Activities') ? "flash" : "flash-outline"}
+                        size={26}
+                        color={isActive('Activities') ? "#CC31E8" : "#fff"}
+                    />
                     {hasPendingInvites && (
                         <View style={styles.inviteBadge}>
                             <Mail color="#fff" size={12} strokeWidth={2.5} />
@@ -56,14 +74,25 @@ export default function VoxxyFooter({ onPlusPress, hasPendingInvites }) {
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                    style={styles.plusButton}
-                    onPress={onPlusPress || (() => navigation.navigate('TripDashboardScreen'))}
+                    style={[styles.plusButton, isActive('/') && styles.plusButtonActive]}
+                    onPress={() => navigation.navigate('/')}
                 >
-                    <Ionicons name="add" size={28} color="#fff" />
+                    <Ionicons
+                        name={isActive('/') ? "home" : "home-outline"}
+                        size={26}
+                        color={isActive('/') ? "#CC31E8" : "#fff"}
+                    />
                 </TouchableOpacity>
 
-                <TouchableOpacity style={styles.iconButton} onPress={() => navigation.navigate('Favorites')}>
-                    <Ionicons name="heart-outline" size={26} color="#fff" />
+                <TouchableOpacity
+                    style={[styles.iconButton, isActive('Favorites') && styles.iconButtonActive]}
+                    onPress={() => navigation.navigate('Favorites')}
+                >
+                    <Ionicons
+                        name={isActive('Favorites') ? "heart" : "heart-outline"}
+                        size={26}
+                        color={isActive('Favorites') ? "#CC31E8" : "#fff"}
+                    />
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -123,20 +152,33 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: 'rgba(255, 255, 255, 0.1)',
     },
+    iconButtonActive: {
+        backgroundColor: 'rgba(204, 49, 232, 0.15)',
+        borderColor: 'rgba(204, 49, 232, 0.4)',
+        shadowColor: '#CC31E8',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.4,
+        shadowRadius: 4,
+        elevation: 4,
+    },
     plusButton: {
         width: 50,
         height: 50,
         alignItems: 'center',
         justifyContent: 'center',
         borderRadius: 25,
-        backgroundColor: '#CC31E8',
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+    },
+    plusButtonActive: {
+        backgroundColor: 'rgba(204, 49, 232, 0.15)',
+        borderColor: 'rgba(204, 49, 232, 0.4)',
         shadowColor: '#CC31E8',
-        shadowOffset: { width: 0, height: 4 },
+        shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.4,
-        shadowRadius: 8,
-        elevation: 8,
-        borderWidth: 2,
-        borderColor: 'rgba(255, 255, 255, 0.2)',
+        shadowRadius: 4,
+        elevation: 4,
     },
     profileButton: {
         width: 44,
@@ -176,5 +218,16 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.8,
         shadowRadius: 4,
         elevation: 8,
+    },
+    triangleIconContainer: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.6,
+        shadowRadius: 6,
+        elevation: 8,
+    },
+    triangleIcon: {
+        width: 28,
+        height: 28,
     },
 });

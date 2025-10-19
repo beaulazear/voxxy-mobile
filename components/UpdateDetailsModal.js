@@ -241,28 +241,31 @@ export default function UpdateDetailsModal({ activity, visible, onClose, onUpdat
                                 />
                             </View>
 
-                            <View style={styles.inputSection}>
-                                <View style={styles.inputHeader}>
-                                    <View style={styles.iconWrapper}>
-                                        <MessageSquare stroke={modalColors.purple500} width={16} height={16} />
+                            {/* Welcome Message (only for group activities) */}
+                            {!activity.is_solo && (
+                                <View style={styles.inputSection}>
+                                    <View style={styles.inputHeader}>
+                                        <View style={styles.iconWrapper}>
+                                            <MessageSquare stroke={modalColors.purple500} width={16} height={16} />
+                                        </View>
+                                        <Text style={styles.inputLabel}>Message For Group</Text>
                                     </View>
-                                    <Text style={styles.inputLabel}>Message For Group</Text>
+                                    <TextInput
+                                        style={styles.textarea}
+                                        placeholder="Welcome message..."
+                                        placeholderTextColor={modalColors.textDim}
+                                        value={welcomeMessage}
+                                        onChangeText={setWelcomeMessage}
+                                        multiline
+                                        numberOfLines={4}
+                                        textAlignVertical="top"
+                                        autoCapitalize="sentences"
+                                        returnKeyType="done"
+                                        onSubmitEditing={() => Keyboard.dismiss()}
+                                        blurOnSubmit={true}
+                                    />
                                 </View>
-                                <TextInput
-                                    style={styles.textarea}
-                                    placeholder="Welcome message..."
-                                    placeholderTextColor={modalColors.textDim}
-                                    value={welcomeMessage}
-                                    onChangeText={setWelcomeMessage}
-                                    multiline
-                                    numberOfLines={4}
-                                    textAlignVertical="top"
-                                    autoCapitalize="sentences"
-                                    returnKeyType="done"
-                                    onSubmitEditing={() => Keyboard.dismiss()}
-                                    blurOnSubmit={true}
-                                />
-                            </View>
+                            )}
 
                             {/* Location (for Restaurant & Cocktails) */}
                             {(activity.activity_type === 'Restaurant' || activity.activity_type === 'Cocktails') && (
@@ -273,7 +276,7 @@ export default function UpdateDetailsModal({ activity, visible, onClose, onUpdat
                                         </View>
                                         <Text style={styles.inputLabel}>Location</Text>
                                         {!editableFields.location && (
-                                            <Text style={styles.lockedLabel}>(Locked after collecting phase)</Text>
+                                            <Text style={styles.lockedLabel}>(Locked after recommendations)</Text>
                                         )}
                                     </View>
 
@@ -297,7 +300,6 @@ export default function UpdateDetailsModal({ activity, visible, onClose, onUpdat
                                                 onPress={handleClearLocation}
                                             >
                                                 <X stroke="#ef4444" width={16} height={16} />
-                                                <Text style={styles.clearLocationText}>Clear</Text>
                                             </TouchableOpacity>
                                         </View>
                                     ) : (

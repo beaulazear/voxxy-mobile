@@ -35,7 +35,7 @@ import * as Contacts from 'expo-contacts'
 import { UserContext } from '../context/UserContext'
 import { API_URL } from '../config'
 
-import DefaultIcon from '../assets/icon.png'
+import DefaultIcon from '../assets/pfp-placeholder.png'
 import { logger } from '../utils/logger';
 import { avatarMap, getUserDisplayImage, getAvatarSource } from '../utils/avatarManager';
 
@@ -57,10 +57,15 @@ export default function ParticipantsSection({
     isOwner,
     onInvite,
     onRemoveParticipant,
-    footerButton
+    footerButton,
+    externalShowInviteModal,
+    externalSetShowInviteModal
 }) {
     const { user } = useContext(UserContext)
-    const [showInviteModal, setShowInviteModal] = useState(false)
+    // Use external state if provided, otherwise use internal state
+    const [internalShowInviteModal, setInternalShowInviteModal] = useState(false)
+    const showInviteModal = externalShowInviteModal !== undefined ? externalShowInviteModal : internalShowInviteModal
+    const setShowInviteModal = externalSetShowInviteModal !== undefined ? externalSetShowInviteModal : setInternalShowInviteModal
     const [showAllParticipants, setShowAllParticipants] = useState(false)
     const [manualInput, setManualInput] = useState('')
     const [manualEmails, setManualEmails] = useState([])

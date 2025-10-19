@@ -6,6 +6,9 @@ import {
     TouchableOpacity,
     Alert,
     ActivityIndicator,
+    Modal,
+    Animated,
+    Image,
 } from 'react-native';
 import { UserContext } from '../context/UserContext';
 import { User, MessageCircle } from 'lucide-react-native';
@@ -25,6 +28,117 @@ export default function SoloActivityDecision({
     // Check if user has complete preferences
     const hasPreferences = user?.preferences && user.preferences.trim().length > 0;
     const hasFavoriteFoods = user?.favorite_food && user.favorite_food.trim().length > 0;
+
+    // Loading animations
+    const spinValue1 = React.useRef(new Animated.Value(0)).current;
+    const pulseValue = React.useRef(new Animated.Value(0.8)).current;
+    const pulseOpacity = React.useRef(new Animated.Value(0.8)).current;
+    const bounceValue1 = React.useRef(new Animated.Value(0)).current;
+    const bounceValue2 = React.useRef(new Animated.Value(0)).current;
+    const bounceValue3 = React.useRef(new Animated.Value(0)).current;
+
+    // Start animations when loading
+    React.useEffect(() => {
+        if (loading) {
+            // Spinning and pulsing triangle
+            const spinAnimation1 = Animated.loop(
+                Animated.timing(spinValue1, {
+                    toValue: 1,
+                    duration: 2000,
+                    useNativeDriver: true,
+                })
+            );
+
+            const pulseAnimation = Animated.loop(
+                Animated.sequence([
+                    Animated.parallel([
+                        Animated.timing(pulseValue, {
+                            toValue: 1.2,
+                            duration: 1000,
+                            useNativeDriver: true,
+                        }),
+                        Animated.timing(pulseOpacity, {
+                            toValue: 1,
+                            duration: 1000,
+                            useNativeDriver: true,
+                        }),
+                    ]),
+                    Animated.parallel([
+                        Animated.timing(pulseValue, {
+                            toValue: 0.8,
+                            duration: 1000,
+                            useNativeDriver: true,
+                        }),
+                        Animated.timing(pulseOpacity, {
+                            toValue: 0.5,
+                            duration: 1000,
+                            useNativeDriver: true,
+                        }),
+                    ]),
+                ])
+            );
+
+            // Bouncing dots
+            const bounceAnimation1 = Animated.loop(
+                Animated.sequence([
+                    Animated.timing(bounceValue1, {
+                        toValue: -10,
+                        duration: 400,
+                        useNativeDriver: true,
+                    }),
+                    Animated.timing(bounceValue1, {
+                        toValue: 0,
+                        duration: 400,
+                        useNativeDriver: true,
+                    }),
+                ])
+            );
+            const bounceAnimation2 = Animated.loop(
+                Animated.sequence([
+                    Animated.delay(200),
+                    Animated.timing(bounceValue2, {
+                        toValue: -10,
+                        duration: 400,
+                        useNativeDriver: true,
+                    }),
+                    Animated.timing(bounceValue2, {
+                        toValue: 0,
+                        duration: 400,
+                        useNativeDriver: true,
+                    }),
+                ])
+            );
+            const bounceAnimation3 = Animated.loop(
+                Animated.sequence([
+                    Animated.delay(400),
+                    Animated.timing(bounceValue3, {
+                        toValue: -10,
+                        duration: 400,
+                        useNativeDriver: true,
+                    }),
+                    Animated.timing(bounceValue3, {
+                        toValue: 0,
+                        duration: 400,
+                        useNativeDriver: true,
+                    }),
+                ])
+            );
+
+            spinAnimation1.start();
+            pulseAnimation.start();
+            bounceAnimation1.start();
+            bounceAnimation2.start();
+            bounceAnimation3.start();
+
+            return () => {
+                spinAnimation1.stop();
+                pulseAnimation.stop();
+                bounceAnimation1.stop();
+                bounceAnimation2.stop();
+                bounceAnimation3.stop();
+            };
+        }
+    }, [loading]);
 
     const handleUseProfilePreferences = async () => {
         if (!hasPreferences && !hasFavoriteFoods) {
@@ -114,8 +228,8 @@ export default function SoloActivityDecision({
             // Use the notes passed in (either from profile or custom response)
             const responsesText = notesText;
 
-            console.log('📍 SOLO ACTIVITY - Using activity location:', activity.activity_location);
-            console.log('📝 SOLO ACTIVITY - Using submitted response:', responsesText);
+            logger.debug('SOLO ACTIVITY - Using activity location:', activity.activity_location);
+            logger.debug('SOLO ACTIVITY - Using submitted response:', responsesText);
 
             // Validate required parameters
             if (!activity.activity_location) {
@@ -215,30 +329,80 @@ export default function SoloActivityDecision({
         }
     };
 
-    if (loading) {
-        return (
-            <View style={styles.container}>
-                <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="large" color="#cc31e8" />
-                    <Text style={styles.loadingText}>
-                        {loadingType === 'profile'
-                            ? 'Generating recommendations from your profile...'
-                            : 'Generating recommendations...'}
-                    </Text>
-                </View>
-            </View>
-        );
-    }
-
     return (
         <View style={styles.container}>
-            <View style={styles.card}>
-                <Text style={styles.title}>Ready for recommendations?</Text>
-                <Text style={styles.subtitle}>
-                    Since you're flying solo, let's get you some great options right away!
-                </Text>
+            {/* Exciting Loading Modal */}
+            <Modal
+                visible={loading}
+                transparent
+                animationType="fade"
+            >
+                <View style={styles.loadingModalOverlay}>
+                    <View style={styles.loadingModalContainer}>
+                        <View style={styles.loadingAnimation}>
+                            <Animated.View
+                                style={[
+                                    styles.voxxyTriangleContainer,
+                                    {
+                                        transform: [
+                                            {
+                                                scale: pulseValue
+                                            },
+                                            {
+                                                rotate: spinValue1.interpolate({
+                                                    inputRange: [0, 1],
+                                                    outputRange: ['0deg', '360deg']
+                                                })
+                                            }
+                                        ],
+                                        opacity: pulseOpacity
+                                    }
+                                ]}
+                            >
+                                <Image
+                                    source={require('../assets/voxxy-triangle.png')}
+                                    style={styles.voxxyTriangle}
+                                    resizeMode="contain"
+                                />
+                            </Animated.View>
+                        </View>
+                        <Text style={styles.loadingModalTitle}>Crafting Your Perfect Experience</Text>
+                        <Text style={styles.loadingModalSubtitle}>
+                            {loadingType === 'profile'
+                                ? 'Voxxy is using your profile preferences to find the best venues...'
+                                : 'Voxxy is analyzing venues and personalizing recommendations...'}
+                        </Text>
+                        <Text style={styles.loadingModalTimeEstimate}>
+                            This may take 10-20 seconds
+                        </Text>
+                        <View style={styles.loadingDots}>
+                            <Animated.View
+                                style={[
+                                    styles.loadingDot,
+                                    styles.loadingDot1,
+                                    { transform: [{ translateY: bounceValue1 }] }
+                                ]}
+                            />
+                            <Animated.View
+                                style={[
+                                    styles.loadingDot,
+                                    styles.loadingDot2,
+                                    { transform: [{ translateY: bounceValue2 }] }
+                                ]}
+                            />
+                            <Animated.View
+                                style={[
+                                    styles.loadingDot,
+                                    styles.loadingDot3,
+                                    { transform: [{ translateY: bounceValue3 }] }
+                                ]}
+                            />
+                        </View>
+                    </View>
+                </View>
+            </Modal>
 
-                <View style={styles.optionsContainer}>
+            <View style={styles.optionsContainer}>
                     {/* Use Profile Preferences Option */}
                     <TouchableOpacity
                         style={[
@@ -247,9 +411,10 @@ export default function SoloActivityDecision({
                         ]}
                         onPress={handleUseProfilePreferences}
                         disabled={loading}
+                        activeOpacity={0.8}
                     >
                         <View style={styles.iconContainer}>
-                            <User stroke="#cc31e8" width={32} height={32} />
+                            <User stroke="#cc31e8" width={40} height={40} strokeWidth={2} />
                         </View>
                         <Text style={styles.optionTitle}>Use My Profile</Text>
                         <Text style={styles.optionDescription}>
@@ -267,9 +432,10 @@ export default function SoloActivityDecision({
                         style={styles.optionCard}
                         onPress={handleSubmitCustomResponse}
                         disabled={loading}
+                        activeOpacity={0.8}
                     >
                         <View style={styles.iconContainer}>
-                            <MessageCircle stroke="#cc31e8" width={32} height={32} />
+                            <MessageCircle stroke="#cc31e8" width={40} height={40} strokeWidth={2} />
                         </View>
                         <Text style={styles.optionTitle}>Submit Preferences</Text>
                         <Text style={styles.optionDescription}>
@@ -277,7 +443,6 @@ export default function SoloActivityDecision({
                         </Text>
                     </TouchableOpacity>
                 </View>
-            </View>
         </View>
     );
 }
@@ -285,9 +450,10 @@ export default function SoloActivityDecision({
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#201925',
-        padding: 20,
-        justifyContent: 'center',
+        backgroundColor: 'transparent',
+        paddingHorizontal: 24,
+        paddingVertical: 40,
+        justifyContent: 'flex-start',
     },
     card: {
         backgroundColor: '#2C1E33',
@@ -311,40 +477,50 @@ const styles = StyleSheet.create({
         lineHeight: 22,
     },
     optionsContainer: {
-        gap: 16,
+        gap: 20,
     },
     optionCard: {
-        backgroundColor: 'rgba(42, 30, 46, 0.8)',
-        borderRadius: 16,
-        padding: 20,
-        borderWidth: 1,
-        borderColor: 'rgba(204, 49, 232, 0.3)',
+        backgroundColor: 'rgba(44, 30, 51, 0.95)',
+        borderRadius: 20,
+        padding: 32,
+        borderWidth: 2,
+        borderColor: 'rgba(204, 49, 232, 0.4)',
         alignItems: 'center',
+        shadowColor: '#cc31e8',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.3,
+        shadowRadius: 16,
+        elevation: 8,
     },
     optionCardDisabled: {
-        opacity: 0.5,
-        borderColor: 'rgba(255, 255, 255, 0.1)',
+        opacity: 0.6,
+        borderColor: 'rgba(255, 255, 255, 0.15)',
+        shadowOpacity: 0.1,
     },
     iconContainer: {
-        width: 64,
-        height: 64,
-        borderRadius: 32,
-        backgroundColor: 'rgba(204, 49, 232, 0.15)',
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+        backgroundColor: 'rgba(204, 49, 232, 0.2)',
         justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: 16,
+        marginBottom: 20,
+        borderWidth: 2,
+        borderColor: 'rgba(204, 49, 232, 0.4)',
     },
     optionTitle: {
-        fontSize: 18,
-        fontWeight: '600',
+        fontSize: 22,
+        fontWeight: '700',
         color: '#fff',
-        marginBottom: 8,
+        marginBottom: 10,
+        letterSpacing: 0.5,
     },
     optionDescription: {
-        fontSize: 14,
-        color: 'rgba(255, 255, 255, 0.6)',
+        fontSize: 15,
+        color: 'rgba(255, 255, 255, 0.7)',
         textAlign: 'center',
-        lineHeight: 20,
+        lineHeight: 22,
+        paddingHorizontal: 10,
     },
     warningBadge: {
         marginTop: 12,
@@ -358,19 +534,83 @@ const styles = StyleSheet.create({
         color: '#ff9800',
         fontWeight: '600',
     },
-    loadingContainer: {
-        backgroundColor: 'rgba(32, 25, 37, 0.95)',
-        borderRadius: 16,
-        padding: 32,
+    // Loading Modal Styles
+    loadingModalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.85)',
+        justifyContent: 'center',
         alignItems: 'center',
-        borderWidth: 1,
-        borderColor: 'rgba(204, 49, 232, 0.3)',
     },
-    loadingText: {
+    loadingModalContainer: {
+        backgroundColor: 'rgba(44, 30, 51, 0.98)',
+        borderRadius: 32,
+        padding: 48,
+        alignItems: 'center',
+        width: '85%',
+        maxWidth: 400,
+        borderWidth: 2,
+        borderColor: 'rgba(204, 49, 232, 0.4)',
+        shadowColor: '#cc31e8',
+        shadowOffset: { width: 0, height: 12 },
+        shadowOpacity: 0.6,
+        shadowRadius: 24,
+        elevation: 12,
+    },
+    loadingAnimation: {
+        marginBottom: 32,
+    },
+    voxxyTriangleContainer: {
+        width: 120,
+        height: 120,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    voxxyTriangle: {
+        width: 100,
+        height: 100,
+    },
+    loadingModalTitle: {
+        fontSize: 24,
+        fontWeight: '700',
         color: '#fff',
-        fontSize: 16,
-        fontWeight: '600',
-        marginTop: 16,
         textAlign: 'center',
+        marginBottom: 16,
+        letterSpacing: 0.5,
+    },
+    loadingModalSubtitle: {
+        fontSize: 16,
+        color: 'rgba(255, 255, 255, 0.8)',
+        textAlign: 'center',
+        lineHeight: 24,
+        marginBottom: 12,
+        paddingHorizontal: 8,
+    },
+    loadingModalTimeEstimate: {
+        fontSize: 14,
+        color: 'rgba(204, 49, 232, 0.9)',
+        textAlign: 'center',
+        fontWeight: '600',
+        marginBottom: 24,
+    },
+    loadingDots: {
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+        gap: 12,
+    },
+    loadingDot: {
+        width: 12,
+        height: 12,
+        borderRadius: 6,
+        backgroundColor: '#cc31e8',
+    },
+    loadingDot1: {
+        backgroundColor: '#cc31e8',
+    },
+    loadingDot2: {
+        backgroundColor: '#9f25b3',
+    },
+    loadingDot3: {
+        backgroundColor: '#721a7f',
     },
 });

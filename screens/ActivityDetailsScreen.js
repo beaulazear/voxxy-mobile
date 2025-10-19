@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useContext, useRef } from 'react'
 import {
-    SafeAreaView,
     View,
     Text,
     StatusBar,
@@ -16,6 +15,7 @@ import {
     Keyboard,
     AppState,
 } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
 import { UserContext } from '../context/UserContext'
 import { useNavigation } from '@react-navigation/native'
 import { X } from 'react-native-feather'
@@ -112,6 +112,10 @@ export default function ActivityDetailsScreen({ route }) {
     const [loadingPinned, setLoadingPinned] = useState(false)
     const [loadingTimeSlots, setLoadingTimeSlots] = useState(false)
     const pollingRef = useRef(null)
+    const hasAutoShownInviteModal = useRef(false)
+
+    // State for controlling invite modal from parent
+    const [showInviteModal, setShowInviteModal] = useState(false)
 
     // Token - match ProfileScreen pattern exactly
     const token = user?.token
@@ -257,6 +261,56 @@ export default function ActivityDetailsScreen({ route }) {
             setRefreshTrigger(prev => !prev);
         }
     }, [forceRefresh, refreshUser]);
+
+    // Auto-show invite modal for group activities with no participants
+    useEffect(() => {
+        // Only run this once per screen load
+        if (hasAutoShownInviteModal.current) {
+            return;
+        }
+
+        // Check if we have a valid activity
+        if (!currentActivity) {
+            return;
+        }
+
+        // Only for group activities (not solo)
+        if (currentActivity.is_solo) {
+            logger.debug('⏭️ Skipping auto-invite modal - activity is solo');
+            return;
+        }
+
+        // Only for owners
+        if (!isOwner) {
+            logger.debug('⏭️ Skipping auto-invite modal - user is not owner');
+            return;
+        }
+
+        // Don't show during voting or finalized phases
+        if (currentActivity.voting || currentActivity.finalized || currentActivity.completed) {
+            logger.debug('⏭️ Skipping auto-invite modal - activity is in voting/finalized/completed phase');
+            return;
+        }
+
+        // Check if there are any participants or pending invites
+        const participantsArray = Array.isArray(currentActivity.participants) ? currentActivity.participants : [];
+        const pendingInvitesArray = Array.isArray(currentActivity.activity_participants)
+            ? currentActivity.activity_participants.filter(p => !p.accepted)
+            : [];
+
+        const hasNoInvitedUsers = participantsArray.length === 0 && pendingInvitesArray.length === 0;
+
+        if (hasNoInvitedUsers) {
+            logger.debug('🎉 Auto-showing invite modal - group activity with no participants');
+            // Small delay to ensure the screen is fully loaded
+            setTimeout(() => {
+                setShowInviteModal(true);
+                hasAutoShownInviteModal.current = true;
+            }, 500);
+        } else {
+            logger.debug('✅ Not showing auto-invite modal - activity already has participants or pending invites');
+        }
+    }, [currentActivity, isOwner]);
 
     // Set up polling for real-time updates
     useEffect(() => {
@@ -699,6 +753,55 @@ export default function ActivityDetailsScreen({ route }) {
         setShowFinalizeModal(true)
     }
 
+    const handleSoloComplete = async () => {
+        // Mark solo activity as completed
+        if (!token || !currentActivity) return;
+
+        try {
+            setIsUpdating(true);
+
+            // Update activity to completed state
+            const updatedActivity = await safeAuthApiCall(
+                `${API_URL}/activities/${currentActivity.id}`,
+                token,
+                {
+                    method: 'PATCH',
+                    body: JSON.stringify({
+                        completed: true
+                    }),
+                }
+            );
+
+            // Update user context
+            setUser(prevUser => ({
+                ...prevUser,
+                activities: prevUser.activities.map(act =>
+                    act.id === updatedActivity.id ? updatedActivity : act
+                ),
+                participant_activities: prevUser.participant_activities.map(p =>
+                    p.activity.id === updatedActivity.id
+                        ? { ...p, activity: updatedActivity }
+                        : p
+                ),
+            }));
+
+            setCurrentActivity(updatedActivity);
+            setRefreshTrigger(prev => !prev);
+
+            Alert.alert(
+                'Activity Completed!',
+                'Your activity has been marked as completed. You can view your saved favorites anytime in your Favorites tab.',
+                [{ text: 'OK' }]
+            );
+        } catch (error) {
+            logger.error('Error completing solo activity:', error);
+            const userMessage = handleApiError(error, 'Failed to complete activity.');
+            Alert.alert('Error', userMessage);
+        } finally {
+            setIsUpdating(false);
+        }
+    };
+
     const handleFinalizeSuccess = (finalizedActivity) => {
         // Update the activity in user context
         setUser(prevUser => ({
@@ -959,7 +1062,7 @@ export default function ActivityDetailsScreen({ route }) {
 
     if (!currentActivity) {
         return (
-            <SafeAreaView style={styles.safe}>
+            <SafeAreaView style={styles.safe} edges={['top']}>
                 <StatusBar backgroundColor="#201925" barStyle="light-content" />
                 
                 <View style={styles.loadingContainer}>
@@ -986,7 +1089,7 @@ export default function ActivityDetailsScreen({ route }) {
     // Don't render if we have invalid activity data
     if (currentActivity && !isValidActivity) {
         return (
-            <SafeAreaView style={styles.safe}>
+            <SafeAreaView style={styles.safe} edges={['top']}>
                 <StatusBar backgroundColor="#201925" barStyle="light-content" />
                 <View style={styles.errorContainer}>
                     <Text style={styles.errorText}>Unable to load activity</Text>
@@ -1002,7 +1105,7 @@ export default function ActivityDetailsScreen({ route }) {
     }
 
     return (
-        <SafeAreaView style={styles.safe}>
+        <SafeAreaView style={styles.safe} edges={['top']}>
             <StatusBar backgroundColor="#201925" barStyle="light-content" />
             
             {/* When in voting phase (map view), don't use ScrollView */}
@@ -1017,6 +1120,8 @@ export default function ActivityDetailsScreen({ route }) {
                         onDelete={() => handleDelete(currentActivity.id)}
                         onLeave={handleLeaveActivity}
                         onReport={handleReportActivity}
+                        onComplete={handleFinalize}
+                        onSoloComplete={handleSoloComplete}
                     />
                     
                     {/* Map view takes remaining space */}
@@ -1056,6 +1161,8 @@ export default function ActivityDetailsScreen({ route }) {
                                 onDelete={() => handleDelete(currentActivity.id)}
                                 onLeave={handleLeaveActivity}
                                 onReport={handleReportActivity}
+                                onComplete={handleFinalize}
+                                onSoloComplete={handleSoloComplete}
                             />
                         </View>
 
@@ -1099,25 +1206,37 @@ export default function ActivityDetailsScreen({ route }) {
                                         isOwner={isOwner}
                                         onInvite={handleInvite}
                                         onRemoveParticipant={handleRemoveParticipant}
+                                        externalShowInviteModal={showInviteModal}
+                                        externalSetShowInviteModal={setShowInviteModal}
                                     />
 
                                     <CommentsSection activity={currentActivity} />
 
                                     {/* Delete/Leave Activity Button Section */}
                                     <View style={styles.deleteActivitySection}>
+                                        {/* Report/Flag Activity Button */}
+                                        <TouchableOpacity
+                                            style={styles.reportActivityButton}
+                                            onPress={handleReportActivity}
+                                        >
+                                            <Text style={styles.reportActivityButtonText}>
+                                                Report
+                                            </Text>
+                                        </TouchableOpacity>
+
                                         {isOwner ? (
                                             <TouchableOpacity
                                                 style={styles.deleteActivityButton}
                                                 onPress={() => handleDelete(currentActivity.id)}
                                             >
-                                                <Text style={styles.deleteActivityButtonText}>Delete Activity</Text>
+                                                <Text style={styles.deleteActivityButtonText}>Delete</Text>
                                             </TouchableOpacity>
                                         ) : (
                                             <TouchableOpacity
                                                 style={styles.leaveActivityButton}
                                                 onPress={handleLeaveActivity}
                                             >
-                                                <Text style={styles.leaveActivityButtonText}>Leave Activity</Text>
+                                                <Text style={styles.leaveActivityButtonText}>Leave</Text>
                                             </TouchableOpacity>
                                         )}
                                     </View>
@@ -1295,7 +1414,7 @@ const styles = StyleSheet.create({
     },
 
     contentContainer: {
-        paddingBottom: 20,
+        paddingBottom: 0,
         flexGrow: 1,
     },
 
@@ -1392,41 +1511,72 @@ const styles = StyleSheet.create({
 
     // Delete Activity Button Styles
     deleteActivitySection: {
-        margin: 16,
+        flexDirection: 'row',
+        justifyContent: 'space-around',
+        alignItems: 'center',
+        borderTopWidth: 1,
+        borderTopColor: 'rgba(255, 255, 255, 0.1)',
+        paddingVertical: 16,
+        paddingHorizontal: 20,
         marginTop: 24,
-        marginBottom: 32,
     },
 
     deleteActivityButton: {
-        backgroundColor: 'rgba(239, 68, 68, 0.1)',
-        borderWidth: 1,
-        borderColor: 'rgba(239, 68, 68, 0.3)',
-        paddingVertical: 14,
-        paddingHorizontal: 20,
-        borderRadius: 12,
+        paddingVertical: 12,
+        paddingHorizontal: 24,
         alignItems: 'center',
+        flex: 1,
+        backgroundColor: 'rgba(239, 68, 68, 0.05)',
+        borderRadius: 8,
+        marginHorizontal: 6,
     },
 
     deleteActivityButtonText: {
         color: '#ef4444',
-        fontSize: 15,
+        fontSize: 14,
         fontWeight: '600',
     },
 
     leaveActivityButton: {
-        backgroundColor: 'rgba(239, 68, 68, 0.1)',
-        borderWidth: 1,
-        borderColor: 'rgba(239, 68, 68, 0.3)',
-        paddingVertical: 14,
-        paddingHorizontal: 20,
-        borderRadius: 12,
+        paddingVertical: 12,
+        paddingHorizontal: 24,
         alignItems: 'center',
+        flex: 1,
+        backgroundColor: 'rgba(239, 68, 68, 0.05)',
+        borderRadius: 8,
+        marginHorizontal: 6,
     },
 
     leaveActivityButtonText: {
         color: '#ef4444',
-        fontSize: 15,
+        fontSize: 14,
         fontWeight: '600',
+    },
+
+    reportActivityButton: {
+        paddingVertical: 12,
+        paddingHorizontal: 24,
+        alignItems: 'center',
+        flex: 1,
+        backgroundColor: 'rgba(255, 165, 0, 0.05)',
+        borderRadius: 8,
+        marginHorizontal: 6,
+    },
+
+    reportActivityButtonDisabled: {
+        backgroundColor: 'rgba(255, 165, 0, 0.03)',
+        borderColor: 'rgba(255, 165, 0, 0.1)',
+        opacity: 0.5,
+    },
+
+    reportActivityButtonText: {
+        color: '#FFA500',
+        fontSize: 14,
+        fontWeight: '600',
+    },
+
+    reportActivityButtonTextDisabled: {
+        color: 'rgba(255, 165, 0, 0.5)',
     },
 
     // Modal Styles

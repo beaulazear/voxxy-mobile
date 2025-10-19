@@ -12,6 +12,7 @@ import { MapPin, Search, ChevronRight } from 'lucide-react-native';
 import colors from '../styles/Colors';
 import SearchLocationModal from './SearchLocationModal';
 import { logger } from '../utils/logger';
+import { API_URL } from '../config';
 
 const LocationPicker = ({ onLocationSelect, currentLocation }) => {
     const [isLoading, setIsLoading] = useState(false);
@@ -33,29 +34,139 @@ const LocationPicker = ({ onLocationSelect, currentLocation }) => {
                 return;
             }
 
-            // Get current location
+            // Get current location coordinates
             const location = await Location.getCurrentPositionAsync({
                 accuracy: Location.Accuracy.Balanced,
             });
 
-            // Reverse geocode to get address
-            const [address] = await Location.reverseGeocodeAsync({
-                latitude: location.coords.latitude,
-                longitude: location.coords.longitude,
-            });
+            logger.debug('Got coordinates:', location.coords);
 
-            if (address) {
-                const locationData = {
-                    neighborhood: address.district || address.subregion || '',
-                    city: address.city || '',
-                    state: address.region || '',
-                    country: address.country || '',
-                    formatted: `${address.city}, ${address.region}, ${address.country}`,
+            // Use Google Places Geocoding API for better neighborhood resolution
+            try {
+                const url = `${API_URL}/api/places/reverse_geocode?lat=${location.coords.latitude}&lng=${location.coords.longitude}`;
+                logger.debug('Calling reverse geocode API:', url);
+
+                const response = await fetch(url, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Mobile-App': 'true'
+                    }
+                });
+
+                const data = await response.json();
+                logger.debug('Reverse geocode response:', data);
+
+                if (response.ok && data.results && data.results.length > 0) {
+                    // Parse the first result (most specific location)
+                    const result = data.results[0];
+                    const components = result.address_components || [];
+
+                    let neighborhood = '';
+                    let city = '';
+                    let state = '';
+                    let country = '';
+                    let politicalArea = ''; // For places like Brooklyn that are political but not locality
+
+                    logger.debug('Raw address components:', components);
+
+                    // Extract location components with priority for neighborhoods
+                    components.forEach((component) => {
+                        const types = component.types;
+                        const name = component.long_name;
+
+                        if (types.includes('neighborhood')) {
+                            neighborhood = name;
+                        } else if (types.includes('sublocality') || types.includes('sublocality_level_1')) {
+                            if (!neighborhood) neighborhood = name;
+                        } else if (types.includes('locality')) {
+                            city = name;
+                        } else if (types.includes('political') && !types.includes('administrative_area_level_1')) {
+                            // Brooklyn, Queens, etc. are often marked as political
+                            if (!politicalArea) politicalArea = name;
+                        } else if (types.includes('administrative_area_level_1')) {
+                            state = component.short_name;
+                        } else if (types.includes('country')) {
+                            country = component.short_name;
+                        }
+                    });
+
+                    // Smart fallback logic
+                    // If we have a neighborhood but no city, check if politicalArea can be the city
+                    if (neighborhood && !city && politicalArea) {
+                        // Case: Bed-Stuy (neighborhood) in Brooklyn (political)
+                        city = politicalArea;
+                        logger.debug('Using political area as city:', city);
+                    } else if (!neighborhood && city) {
+                        // If we only have a city, that's fine - no neighborhood
+                        logger.debug('No neighborhood, only city:', city);
+                    } else if (!neighborhood && !city && politicalArea) {
+                        // If we only have political area and nothing else, use it as city
+                        city = politicalArea;
+                        logger.debug('Using political area as only location:', city);
+                    }
+
+                    // If still no city, try to extract from formatted_address
+                    if (!city && result.formatted_address) {
+                        // Try to parse city from formatted address (e.g., "Bed-Stuy, Brooklyn, NY 11216, USA")
+                        const parts = result.formatted_address.split(',').map(p => p.trim());
+                        if (parts.length >= 2) {
+                            // Second part is usually the city
+                            if (!city) city = parts[1];
+                        }
+                    }
+
+                    // Create formatted address
+                    let formattedAddress = '';
+                    if (neighborhood && city) {
+                        formattedAddress = `${neighborhood}, ${city}${state ? ', ' + state : ''}`;
+                    } else if (city) {
+                        formattedAddress = `${city}${state ? ', ' + state : ''}`;
+                    } else if (neighborhood) {
+                        formattedAddress = `${neighborhood}${state ? ', ' + state : ''}`;
+                    } else {
+                        formattedAddress = result.formatted_address || 'Your Location';
+                    }
+
+                    const locationData = {
+                        neighborhood: neighborhood,
+                        city: city,
+                        state: state,
+                        country: country,
+                        formatted: formattedAddress,
+                        latitude: location.coords.latitude,
+                        longitude: location.coords.longitude
+                    };
+
+                    logger.debug('Parsed location data:', locationData);
+                    onLocationSelect(locationData);
+                } else {
+                    throw new Error('No results from reverse geocoding');
+                }
+            } catch (apiError) {
+                // Fallback to Expo's reverse geocoding if API fails
+                logger.warn('Google Places API failed, using Expo fallback:', apiError);
+
+                const [address] = await Location.reverseGeocodeAsync({
                     latitude: location.coords.latitude,
-                    longitude: location.coords.longitude
-                };
+                    longitude: location.coords.longitude,
+                });
 
-                onLocationSelect(locationData);
+                if (address) {
+                    const locationData = {
+                        neighborhood: address.district || address.subregion || address.street || '',
+                        city: address.city || '',
+                        state: address.region || '',
+                        country: address.country || '',
+                        formatted: `${address.city || 'Your Location'}${address.region ? ', ' + address.region : ''}`,
+                        latitude: location.coords.latitude,
+                        longitude: location.coords.longitude
+                    };
+
+                    onLocationSelect(locationData);
+                } else {
+                    throw new Error('No address data available');
+                }
             }
         } catch (error) {
             logger.error('Location error:', error);

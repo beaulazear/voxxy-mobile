@@ -4,6 +4,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { UserProvider, UserContext } from './context/UserContext';
 import * as Notifications from 'expo-notifications';
+import * as Linking from 'expo-linking';
 import { logger } from './utils/logger';
 import ErrorBoundary from './components/ErrorBoundary';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -109,6 +110,49 @@ const AppNavigator = () => {
     return () => subscription.remove();
   }, []);
 
+  // Handle deep links for shared favorites
+  useEffect(() => {
+    const handleDeepLink = (event) => {
+      const { path, queryParams } = Linking.parse(event.url);
+
+      logger.info('Deep link received:', { path, queryParams });
+
+      // Handle share/favorite deep links
+      if (path === 'share/favorite' || path?.includes('share/favorite')) {
+        // Extract favorite ID from path or query params
+        const favoriteId = queryParams?.id || path.split('/').pop();
+
+        // Navigate to Favorites screen with the shared favorite
+        // The FavoritesScreen can show a modal with the favorite details
+        setTimeout(() => {
+          navigate('Favorites', {
+            sharedFavorite: {
+              id: favoriteId,
+              name: queryParams?.name,
+              address: queryParams?.address,
+              latitude: queryParams?.lat,
+              longitude: queryParams?.lng,
+            },
+          });
+        }, 500);
+      }
+    };
+
+    // Handle deep links when app is already open
+    const linkingSubscription = Linking.addEventListener('url', handleDeepLink);
+
+    // Handle deep links when app opens from a link
+    Linking.getInitialURL().then((url) => {
+      if (url) {
+        handleDeepLink({ url });
+      }
+    });
+
+    return () => {
+      linkingSubscription.remove();
+    };
+  }, []);
+
   if (loading || policiesLoading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#201925' }}>
@@ -127,7 +171,11 @@ const AppNavigator = () => {
 
   return (
     <Stack.Navigator
-      screenOptions={{ headerShown: false }}
+      screenOptions={{
+        headerShown: false,
+        animation: 'fade',
+        animationDuration: 200
+      }}
       initialRouteName={getInitialRouteName()}
     >
       {/* Onboarding Screen */}
@@ -172,12 +220,57 @@ const AppNavigator = () => {
           gestureDirection: 'horizontal'
         }}
       />
-      <Stack.Screen name="FAQ" component={FAQScreen} />
-      <Stack.Screen name="Profile" component={ProfileScreen} />
-      <Stack.Screen name="Settings" component={SettingsScreen} />
-      <Stack.Screen name="Activities" component={ActivitiesScreen} />
-      <Stack.Screen name="Favorites" component={FavoritesScreen} />
-      <Stack.Screen name="Notifications" component={NotificationsScreen} />
+      <Stack.Screen
+        name="FAQ"
+        component={FAQScreen}
+        options={{
+          animation: 'fade',
+          animationDuration: 150
+        }}
+      />
+      <Stack.Screen
+        name="Profile"
+        component={ProfileScreen}
+        options={{
+          animation: 'slide_from_right',
+          animationDuration: 250,
+          gestureDirection: 'horizontal'
+        }}
+      />
+      <Stack.Screen
+        name="Settings"
+        component={SettingsScreen}
+        options={{
+          animation: 'slide_from_right',
+          animationDuration: 250,
+          gestureDirection: 'horizontal'
+        }}
+      />
+      <Stack.Screen
+        name="Activities"
+        component={ActivitiesScreen}
+        options={{
+          animation: 'fade',
+          animationDuration: 150
+        }}
+      />
+      <Stack.Screen
+        name="Favorites"
+        component={FavoritesScreen}
+        options={{
+          animation: 'fade',
+          animationDuration: 150
+        }}
+      />
+      <Stack.Screen
+        name="Notifications"
+        component={NotificationsScreen}
+        options={{
+          animation: 'slide_from_right',
+          animationDuration: 250,
+          gestureDirection: 'horizontal'
+        }}
+      />
       <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
       <Stack.Screen name="AccountCreated" component={ProfileScreen} />
     </Stack.Navigator>

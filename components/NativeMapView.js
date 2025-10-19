@@ -5,11 +5,9 @@ import {
     TouchableOpacity,
     ScrollView,
     ActivityIndicator,
-    Alert,
-    Linking,
-    Platform,
     Dimensions,
-    Image
+    Image,
+    StyleSheet
 } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import Icon from 'react-native-vector-icons/Feather';
@@ -43,14 +41,14 @@ const ACTIVITY_ICONS = {
     default: '📍'
 };
 
-export default function NativeMapView({ 
-    recommendations = [], 
+export default function NativeMapView({
+    recommendations = [],
     activityType = 'Restaurant',
-    onRecommendationSelect 
+    onMarkerPress,
+    initialRegion = null
 }) {
     const mapRef = useRef(null);
     const mapReadyTimeoutRef = useRef(null);
-    const [selectedMarker, setSelectedMarker] = useState(null);
     const [mapRegion, setMapRegion] = useState(null);
     const [loading, setLoading] = useState(true);
     const [geocodedRecommendations, setGeocodedRecommendations] = useState([]);
@@ -93,7 +91,7 @@ export default function NativeMapView({
             logger.debug('Starting geocoding for', recommendations.length, 'recommendations');
             setLoading(true);
             const geocoded = [];
-            
+
             for (const rec of recommendations) {
                 // Check if coordinates already exist
                 if (rec.coordinate && rec.coordinate.latitude && rec.coordinate.longitude) {
@@ -103,7 +101,7 @@ export default function NativeMapView({
                     try {
                         // Try to geocode using Expo Location
                         const geocodeResult = await Location.geocodeAsync(rec.address);
-                        
+
                         if (geocodeResult && geocodeResult.length > 0) {
                             geocoded.push({
                                 ...rec,
@@ -116,7 +114,7 @@ export default function NativeMapView({
                             // Fallback: generate demo coordinates for testing
                             const latOffset = (Math.random() - 0.5) * 0.1;
                             const lonOffset = (Math.random() - 0.5) * 0.1;
-                            
+
                             geocoded.push({
                                 ...rec,
                                 coordinate: {
@@ -130,7 +128,7 @@ export default function NativeMapView({
                         // Fallback coordinates
                         const latOffset = (Math.random() - 0.5) * 0.1;
                         const lonOffset = (Math.random() - 0.5) * 0.1;
-                        
+
                         geocoded.push({
                             ...rec,
                             coordinate: {
@@ -141,29 +139,37 @@ export default function NativeMapView({
                     }
                 }
             }
-            
+
             logger.debug('Geocoded', geocoded.length, 'locations');
             setGeocodedRecommendations(geocoded);
-            
-            // Set initial map region based on geocoded locations
-            if (geocoded.length > 0) {
+
+            // Set initial map region based on priority:
+            // 1. Use initialRegion prop if provided (e.g., user location from parent)
+            // 2. Calculate region from geocoded locations
+            // 3. Fall back to user location
+            // 4. Default to San Francisco
+            if (initialRegion) {
+                logger.debug('Using provided initialRegion');
+                setMapRegion(initialRegion);
+                // Don't auto-animate when initialRegion is provided
+            } else if (geocoded.length > 0) {
                 const latitudes = geocoded.map(r => r.coordinate.latitude);
                 const longitudes = geocoded.map(r => r.coordinate.longitude);
-                
+
                 const minLat = Math.min(...latitudes);
                 const maxLat = Math.max(...latitudes);
                 const minLon = Math.min(...longitudes);
                 const maxLon = Math.max(...longitudes);
-                
+
                 const region = {
                     latitude: (minLat + maxLat) / 2,
                     longitude: (minLon + maxLon) / 2,
                     latitudeDelta: Math.max(0.01, (maxLat - minLat) * 1.2),
                     longitudeDelta: Math.max(0.01, (maxLon - minLon) * 1.2)
                 };
-                
+
                 setMapRegion(region);
-                
+
                 // Animate to region after map loads
                 setTimeout(() => {
                     if (mapRef.current) {
@@ -187,7 +193,7 @@ export default function NativeMapView({
                     longitudeDelta: 0.0421
                 });
             }
-            
+
             setLoading(false);
         };
 
@@ -195,7 +201,10 @@ export default function NativeMapView({
             geocodeAddresses();
         } else {
             // Set default region when no recommendations
-            if (userLocation) {
+            // Prioritize initialRegion prop if provided
+            if (initialRegion) {
+                setMapRegion(initialRegion);
+            } else if (userLocation) {
                 setMapRegion({
                     latitude: userLocation.latitude,
                     longitude: userLocation.longitude,
@@ -213,7 +222,7 @@ export default function NativeMapView({
             }
             setLoading(false);
         }
-    }, [recommendations]);
+    }, [recommendations, initialRegion]);
 
     // Categories for filtering
     const categories = [...new Set(recommendations.map(r => r.category).filter(Boolean))];
@@ -224,42 +233,14 @@ export default function NativeMapView({
         : geocodedRecommendations.filter(rec => rec.category === selectedCategory);
 
     const handleMarkerPress = (recommendation) => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        setSelectedMarker(recommendation);
-        
-        // Animate to selected marker
-        if (mapRef.current && recommendation.coordinate) {
-            mapRef.current.animateToRegion({
-                ...recommendation.coordinate,
-                latitudeDelta: 0.01,
-                longitudeDelta: 0.01
-            }, 1000);
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+        // Call parent callback
+        if (onMarkerPress) {
+            onMarkerPress(recommendation);
         }
     };
 
-    const handleGetDirections = (recommendation) => {
-        if (!recommendation.coordinate) return;
-        
-        const scheme = Platform.select({ 
-            ios: 'maps:', 
-            android: 'geo:' 
-        });
-        
-        const url = Platform.select({
-            ios: `${scheme}${recommendation.coordinate.latitude},${recommendation.coordinate.longitude}?q=${encodeURIComponent(recommendation.address || recommendation.title)}`,
-            android: `${scheme}${recommendation.coordinate.latitude},${recommendation.coordinate.longitude}?q=${encodeURIComponent(recommendation.address || recommendation.title)}`
-        });
-        
-        Linking.openURL(url).catch(err => {
-            Alert.alert('Error', 'Unable to open maps');
-        });
-    };
-
-    const handleViewDetails = (recommendation) => {
-        if (onRecommendationSelect) {
-            onRecommendationSelect(recommendation);
-        }
-    };
 
     if (loading) {
         return (
@@ -341,14 +322,16 @@ export default function NativeMapView({
                     longitudeDelta: 0.0421,
                 }}
                 onMapReady={() => {
-                    logger.debug('Map ready - animating to show all markers');
-                    // Fit to show all markers after map loads
-                    if (mapRef.current && filteredRecommendations.length > 0) {
+                    logger.debug('Map ready');
+                    // Only fit to show all markers if initialRegion was NOT provided
+                    // If initialRegion is provided, respect that zoom level (user location centered)
+                    if (!initialRegion && mapRef.current && filteredRecommendations.length > 0) {
+                        logger.debug('Animating to show all markers');
                         // Clear any existing timeout
                         if (mapReadyTimeoutRef.current) {
                             clearTimeout(mapReadyTimeoutRef.current);
                         }
-                        
+
                         mapReadyTimeoutRef.current = setTimeout(() => {
                             // Check again if mapRef still exists (component might have unmounted)
                             if (mapRef.current && filteredRecommendations.length > 0) {
@@ -415,69 +398,6 @@ export default function NativeMapView({
                 ))}
             </MapView>
 
-            {/* Selected Place Card */}
-            {selectedMarker && (
-                <View style={styles.selectedCard}>
-                    <TouchableOpacity
-                        style={styles.selectedCardClose}
-                        onPress={() => {
-                            setSelectedMarker(null);
-                            // Zoom out and re-center on all markers
-                            if (mapRef.current && filteredRecommendations.length > 0) {
-                                mapRef.current.fitToCoordinates(
-                                    filteredRecommendations.map(r => r.coordinate),
-                                    {
-                                        edgePadding: { top: 150, right: 50, bottom: 100, left: 50 },
-                                        animated: true,
-                                    }
-                                );
-                            }
-                        }}
-                    >
-                        <Icon name="x" size={24} color="#666" />
-                    </TouchableOpacity>
-                    
-                    <Text style={styles.selectedCardTitle}>
-                        {selectedMarker.title || selectedMarker.name}
-                    </Text>
-                    
-                    {selectedMarker.address && (
-                        <View style={styles.selectedCardRow}>
-                            <Icon name="map-pin" size={14} color="#666" />
-                            <Text style={styles.selectedCardText} numberOfLines={2}>
-                                {selectedMarker.address}
-                            </Text>
-                        </View>
-                    )}
-                    
-                    {selectedMarker.price_range && (
-                        <View style={styles.selectedCardRow}>
-                            <Icon name="dollar-sign" size={14} color="#666" />
-                            <Text style={styles.selectedCardText}>
-                                {selectedMarker.price_range}
-                            </Text>
-                        </View>
-                    )}
-                    
-                    <View style={styles.selectedCardActions}>
-                        <TouchableOpacity
-                            style={[styles.selectedCardButton, { backgroundColor: color }]}
-                            onPress={() => handleGetDirections(selectedMarker)}
-                        >
-                            <Icon name="navigation" size={16} color="#FFF" />
-                            <Text style={styles.selectedCardButtonText}>Directions</Text>
-                        </TouchableOpacity>
-                        
-                        <TouchableOpacity
-                            style={[styles.selectedCardButton, styles.selectedCardButtonSecondary]}
-                            onPress={() => handleViewDetails(selectedMarker)}
-                        >
-                            <Icon name="info" size={16} color={color} />
-                            <Text style={[styles.selectedCardButtonText, { color }]}>Details</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-            )}
 
             {/* Map Controls */}
             <View style={styles.mapControls}>
@@ -517,13 +437,15 @@ export default function NativeMapView({
                     </TouchableOpacity>
                 )}
             </View>
+
         </View>
     );
 }
 
-const styles = {
+const styles = StyleSheet.create({
     container: {
-        flex: 1
+        flex: 1,
+        overflow: 'visible'
     },
     loadingContainer: {
         flex: 1,
@@ -707,102 +629,6 @@ const styles = {
         borderWidth: 2,
         borderColor: '#FFD700',
     },
-    calloutContainer: {
-        width: 200,
-        padding: 10
-    },
-    calloutTitle: {
-        fontSize: 14,
-        fontWeight: '600',
-        marginBottom: 4
-    },
-    calloutPrice: {
-        fontSize: 12,
-        color: '#748FFC',
-        marginBottom: 4
-    },
-    calloutAddress: {
-        fontSize: 11,
-        color: '#666',
-        marginBottom: 8
-    },
-    calloutButton: {
-        backgroundColor: '#748FFC',
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 12,
-        alignItems: 'center'
-    },
-    calloutButtonText: {
-        color: 'white',
-        fontSize: 12,
-        fontWeight: '600'
-    },
-    selectedCard: {
-        position: 'absolute',
-        bottom: 25,
-        left: 20,
-        right: 20,
-        backgroundColor: 'white',
-        borderRadius: 20,
-        padding: 20,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.2,
-        shadowRadius: 20,
-        elevation: 15,
-        borderWidth: 1,
-        borderColor: 'rgba(0,0,0,0.05)'
-    },
-    selectedCardClose: {
-        position: 'absolute',
-        top: 12,
-        right: 12,
-        zIndex: 1
-    },
-    selectedCardTitle: {
-        fontSize: 18,
-        fontWeight: '600',
-        color: '#1A1A1A',
-        marginBottom: 12,
-        paddingRight: 30
-    },
-    selectedCardRow: {
-        flexDirection: 'row',
-        alignItems: 'flex-start',
-        marginBottom: 8,
-        gap: 8
-    },
-    selectedCardText: {
-        flex: 1,
-        fontSize: 14,
-        color: '#666',
-        lineHeight: 20
-    },
-    selectedCardActions: {
-        flexDirection: 'row',
-        gap: 8,
-        marginTop: 12
-    },
-    selectedCardButton: {
-        flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: 12,
-        borderRadius: 12,
-        gap: 6
-    },
-    selectedCardButtonSecondary: {
-        backgroundColor: '#F0F2F5',
-        borderWidth: 1,
-        borderColor: '#E0E0E0'
-    },
-    selectedCardButtonText: {
-        fontSize: 14,
-        fontWeight: '600',
-        color: '#FFF'
-    },
     resultsCount: {
         position: 'absolute',
         top: 120,
@@ -844,4 +670,4 @@ const styles = {
         borderWidth: 1,
         borderColor: 'rgba(0,0,0,0.05)'
     }
-};
+});

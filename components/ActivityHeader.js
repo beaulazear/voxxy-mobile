@@ -5,16 +5,23 @@ import {
     StyleSheet,
     TouchableOpacity,
     Image,
-    Animated
+    Animated,
+    Alert,
+    ActivityIndicator
 } from 'react-native'
+import { safeAuthApiCall } from '../utils/safeApiCall';
+import { API_URL } from '../config';
 import {
     ArrowLeft,
-    Edit,
+    Edit3,
     Trash,
     LogOut,
     Star,
     Clock,
-    Flag
+    Flag,
+    Heart,
+    Check,
+    CheckCircle
 } from 'react-native-feather'
 import {
     Hamburger,
@@ -26,7 +33,6 @@ import { useNavigation } from '@react-navigation/native'
 import { UserContext } from '../context/UserContext'
 
 import DefaultIcon from '../assets/icon.png'
-import { API_URL } from '../config'
 import { logger } from '../utils/logger';
 import { avatarMap } from '../utils/avatarManager';
 
@@ -138,14 +144,83 @@ const getAvatarFromMap = (filename) => {
 }
 
 // Export sticky header component
-export function ActivityStickyHeader({ activity, isOwner, onBack, onEdit, onDelete, onLeave, onReport }) {
+export function ActivityStickyHeader({ activity, isOwner, onBack, onEdit, onDelete, onLeave, onReport, onComplete, onSoloComplete }) {
     const { user } = useContext(UserContext)
     const [isBouncing, setIsBouncing] = useState(true)
+    const [isCheckingFavorites, setIsCheckingFavorites] = useState(false)
     const bounceAnim = useRef(new Animated.Value(0)).current
+    const checkmarkPulseAnim = useRef(new Animated.Value(1)).current
+    const checkmarkGlowAnim = useRef(new Animated.Value(0)).current
     const navigation = useNavigation()
+
+    // Early return if activity is null/undefined
+    if (!activity) {
+        return null;
+    }
 
     const activityInfo = getActivityDisplayInfo(activity.activity_type)
     const statusInfo = getActivityStatusInfo(activity)
+
+    // Handler for solo activity completion
+    const handleSoloComplete = async () => {
+        if (!onSoloComplete || !user?.token || isCheckingFavorites) return;
+
+        setIsCheckingFavorites(true);
+
+        try {
+            // Fetch all favorites for the user
+            const favorites = await safeAuthApiCall(
+                `${API_URL}/user_activities/favorited`,
+                user.token,
+                { method: 'GET' }
+            );
+
+            // Filter favorites for this specific activity
+            const favoritesForActivity = (favorites || []).filter(fav => {
+                // Check if the favorite's activity matches the current activity
+                const activityId = fav.activity?.id || fav.pinned_activity?.activity_id;
+                return activityId === activity.id && fav.favorited === true;
+            });
+
+            const favoriteCount = favoritesForActivity.length;
+
+            let message = '';
+            let title = '';
+
+            if (favoriteCount === 0) {
+                title = 'No favorites saved yet';
+                message = 'You haven\'t saved any favorites from your recommendations. Are you sure you want to mark this activity as completed?';
+            } else if (favoriteCount === 1) {
+                title = 'Ready to finish?';
+                message = 'You\'ve saved 1 favorite! Would you like to mark this activity as completed?';
+            } else {
+                title = 'Ready to finish?';
+                message = `You've saved ${favoriteCount} favorites! Would you like to mark this activity as completed?`;
+            }
+
+            Alert.alert(
+                title,
+                message,
+                [
+                    {
+                        text: 'Not yet',
+                        style: 'cancel'
+                    },
+                    {
+                        text: 'Complete Activity',
+                        style: 'default',
+                        onPress: onSoloComplete
+                    }
+                ],
+                { cancelable: true }
+            );
+        } catch (error) {
+            logger.error('Error fetching favorites:', error);
+            Alert.alert('Error', 'Unable to check favorites. Please try again.');
+        } finally {
+            setIsCheckingFavorites(false);
+        }
+    };
 
     // Generic steps for all activity types
     // Status logic based on activity states: collecting, voting, finalized, completed
@@ -254,6 +329,57 @@ export function ActivityStickyHeader({ activity, isOwner, onBack, onEdit, onDele
         }
     }, [])
 
+    // Checkmark pulse animation effect
+    useEffect(() => {
+        // Only animate if button should be visible (voting phase only, not finalized or completed)
+        if (!isOwner || !activity.voting || activity.finalized || activity.completed) {
+            return;
+        }
+
+        // Pulse animation - scale up and down
+        const pulseAnimation = Animated.loop(
+            Animated.sequence([
+                Animated.timing(checkmarkPulseAnim, {
+                    toValue: 1.15,
+                    duration: 800,
+                    useNativeDriver: true,
+                }),
+                Animated.timing(checkmarkPulseAnim, {
+                    toValue: 1,
+                    duration: 800,
+                    useNativeDriver: true,
+                }),
+            ])
+        );
+
+        // Glow animation - opacity pulsing
+        const glowAnimation = Animated.loop(
+            Animated.sequence([
+                Animated.timing(checkmarkGlowAnim, {
+                    toValue: 1,
+                    duration: 1200,
+                    useNativeDriver: true,
+                }),
+                Animated.timing(checkmarkGlowAnim, {
+                    toValue: 0,
+                    duration: 1200,
+                    useNativeDriver: true,
+                }),
+            ])
+        );
+
+        pulseAnimation.start();
+        glowAnimation.start();
+
+        return () => {
+            pulseAnimation.stop();
+            glowAnimation.stop();
+            // Reset animation values to prevent visual glitches
+            checkmarkPulseAnim.setValue(1);
+            checkmarkGlowAnim.setValue(0);
+        };
+    }, [isOwner, activity.voting, activity.finalized, activity.completed])
+
 
     return (
         <>
@@ -266,37 +392,71 @@ export function ActivityStickyHeader({ activity, isOwner, onBack, onEdit, onDele
                     </View>
 
                     <View style={styles.centerContent}>
-                        <TouchableOpacity
-                            style={styles.activityNameContainer}
-                            onPress={onEdit}
-                            disabled={activity.completed}
-                            activeOpacity={0.7}
-                        >
-                            <Text style={styles.activityNameHeader} numberOfLines={1} ellipsizeMode="tail">
+                        <View style={styles.activityNameContainer}>
+                            <Text style={styles.activityNameHeader} numberOfLines={2} ellipsizeMode="tail">
                                 {activity.activity_name || 'Untitled Activity'}
                             </Text>
-                            {!activity.completed && (
-                                <Edit stroke="#8b5cf6" width={16} height={16} style={styles.editIconFloating} />
+                            {isOwner && !activity.completed && (
+                                <TouchableOpacity
+                                    style={styles.editActivityButton}
+                                    onPress={onEdit}
+                                    activeOpacity={0.7}
+                                >
+                                    <Edit3 stroke="#8b5cf6" width={14} height={14} />
+                                </TouchableOpacity>
                             )}
-                        </TouchableOpacity>
+                        </View>
                     </View>
 
                     <View style={styles.rightActions}>
-                        {onReport && (
-                            <TouchableOpacity
-                                style={[
-                                    styles.reportButtonRight,
-                                    !activity.finalized && styles.reportButtonDisabled
-                                ]}
-                                onPress={activity.finalized ? onReport : null}
-                                disabled={!activity.finalized}
-                            >
-                                <Flag
-                                    stroke={activity.finalized ? "#FFA500" : "rgba(255, 165, 0, 0.3)"}
-                                    width={20}
-                                    height={20}
-                                />
-                            </TouchableOpacity>
+                        {/* Different completion buttons for solo vs group activities - only show in voting phase */}
+                        {isOwner && activity.voting && !activity.finalized && !activity.completed && (
+                            activity.is_solo ? (
+                                // Solo: CheckCircle for completion confirmation
+                                onSoloComplete && (
+                                    <Animated.View style={{
+                                        transform: [{ scale: checkmarkPulseAnim }]
+                                    }}>
+                                        {/* Glow effect behind button */}
+                                        <Animated.View style={[
+                                            styles.checkmarkGlow,
+                                            { opacity: checkmarkGlowAnim }
+                                        ]} />
+                                        <TouchableOpacity
+                                            style={styles.completeButton}
+                                            onPress={handleSoloComplete}
+                                            activeOpacity={0.7}
+                                            disabled={isCheckingFavorites}
+                                        >
+                                            {isCheckingFavorites ? (
+                                                <ActivityIndicator size="small" color="#10b981" />
+                                            ) : (
+                                                <CheckCircle stroke="#10b981" width={20} height={20} />
+                                            )}
+                                        </TouchableOpacity>
+                                    </Animated.View>
+                                )
+                            ) : (
+                                // Group: CheckCircle for finalize modal
+                                onComplete && (
+                                    <Animated.View style={{
+                                        transform: [{ scale: checkmarkPulseAnim }]
+                                    }}>
+                                        {/* Glow effect behind button */}
+                                        <Animated.View style={[
+                                            styles.checkmarkGlow,
+                                            { opacity: checkmarkGlowAnim }
+                                        ]} />
+                                        <TouchableOpacity
+                                            style={styles.completeButton}
+                                            onPress={onComplete}
+                                            activeOpacity={0.7}
+                                        >
+                                            <CheckCircle stroke="#10b981" width={20} height={20} />
+                                        </TouchableOpacity>
+                                    </Animated.View>
+                                )
+                            )
                         )}
                     </View>
                 </View>
@@ -423,8 +583,8 @@ export default function ActivityHeader({
                         </View>
                     )}
 
-                    {/* Host Section - show welcome message when not collecting */}
-                    {(!isOwner || activity.finalized) && !activity.collecting && (
+                    {/* Host Section - show welcome message (hide for solo activities) */}
+                    {!activity.is_solo && (
                         <View style={styles.hostSection}>
                             <View style={styles.hostAvatarContainer}>
                                 <View style={styles.hostAvatar}>
@@ -445,9 +605,33 @@ export default function ActivityHeader({
                             </View>
 
                             <View style={styles.hostInfo}>
-                                <Text style={styles.welcomeMessageTitle}>Welcome message</Text>
-                                <Text style={styles.welcomeMessage}>
-                                    {activity.welcome_message || "Welcome to this activity! Let's make it amazing together 🎉"}
+                                <View style={styles.welcomeMessageHeader}>
+                                    <View style={styles.welcomeMessageTitleRow}>
+                                        <Heart stroke="#8b5cf6" fill="#8b5cf6" width={14} height={14} />
+                                        <Text style={styles.welcomeMessageTitle}>Welcome message</Text>
+                                    </View>
+                                    {isOwner && onEdit && (
+                                        <TouchableOpacity
+                                            style={styles.editWelcomeButton}
+                                            onPress={onEdit}
+                                            activeOpacity={0.7}
+                                        >
+                                            <Edit3 stroke="#8b5cf6" width={14} height={14} />
+                                        </TouchableOpacity>
+                                    )}
+                                </View>
+                                <Text style={[
+                                    styles.welcomeMessage,
+                                    !activity.welcome_message && styles.welcomeMessagePlaceholder
+                                ]}>
+                                    {activity.welcome_message ||
+                                        (activity.activity_type === 'Restaurant' ?
+                                            `${activity.user?.name || 'Someone'} wants your help finding the perfect restaurant` :
+                                        activity.activity_type === 'Cocktails' || activity.activity_type === 'Bar' ?
+                                            `${activity.user?.name || 'Someone'} wants your help finding the perfect bar` :
+                                        "Welcome to this activity! Let's make it amazing together 🎉"
+                                        )
+                                    }
                                 </Text>
                             </View>
                         </View>
@@ -461,8 +645,8 @@ export default function ActivityHeader({
 const styles = StyleSheet.create({
     container: {
         paddingHorizontal: 8,
-        paddingTop: 8,
-        paddingBottom: 16,
+        paddingTop: 4,
+        paddingBottom: 8,
     },
 
     stickyContainer: {
@@ -480,28 +664,26 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'center',
         gap: 10,
-        minHeight: 52, // Increased for better mobile tap targets
+        minHeight: 52,
     },
 
     leftActions: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 10,
-        flex: 0.3, // Much smaller to give more room to center
     },
 
     centerContent: {
-        flex: 1, // Main content area
+        flex: 1, // Main content area - takes up all remaining space
         alignItems: 'center',
         justifyContent: 'center',
-        paddingHorizontal: 4,
+        paddingHorizontal: 8,
     },
 
     rightActions: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 8,
-        flex: 0.3, // Much smaller to give more room to center
         justifyContent: 'flex-end',
     },
 
@@ -512,6 +694,33 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(255, 255, 255, 0.1)',
         alignItems: 'center',
         justifyContent: 'center',
+    },
+
+    completeButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: 'rgba(16, 185, 129, 0.15)',
+        borderWidth: 1,
+        borderColor: 'rgba(16, 185, 129, 0.3)',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+
+    checkmarkGlow: {
+        position: 'absolute',
+        width: 50,
+        height: 50,
+        borderRadius: 25,
+        backgroundColor: '#10b981',
+        top: -5,
+        left: -5,
+        zIndex: -1,
+        shadowColor: '#10b981',
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.8,
+        shadowRadius: 10,
+        elevation: 8,
     },
 
     helpButtonContainer: {
@@ -550,6 +759,8 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         gap: 8,
         maxWidth: '100%',
+        flex: 1,
+        justifyContent: 'center',
     },
 
     activityNameHeader: {
@@ -559,11 +770,13 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         fontFamily: 'Montserrat_700Bold',
         flexShrink: 1,
-        lineHeight: 32,
+        lineHeight: 28,
+        flexWrap: 'wrap',
     },
 
-    editIconFloating: {
-        opacity: 0.7,
+    editActivityButton: {
+        padding: 4,
+        flexShrink: 0,
     },
 
     activityStatusChip: {
@@ -729,6 +942,7 @@ const styles = StyleSheet.create({
         alignItems: 'flex-start',
         gap: 16,
         paddingHorizontal: 8,
+        marginTop: 8,
     },
 
     hostAvatarContainer: {
@@ -765,6 +979,7 @@ const styles = StyleSheet.create({
     hostInfo: {
         flex: 1,
         minWidth: 0,
+        justifyContent: 'center',
     },
 
     hostName: {
@@ -783,18 +998,40 @@ const styles = StyleSheet.create({
         letterSpacing: 0.3,
     },
 
+    welcomeMessageHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 6,
+    },
+
+    welcomeMessageTitleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+    },
+
     welcomeMessageTitle: {
         fontSize: 11,
         color: 'rgba(255, 255, 255, 0.4)',
         textTransform: 'uppercase',
         letterSpacing: 0.5,
-        marginBottom: 6,
         fontWeight: '500',
     },
+
+    editWelcomeButton: {
+        padding: 4,
+    },
+
     welcomeMessage: {
         fontSize: 14,
         color: '#e2e8f0',
         lineHeight: 20,
+        fontStyle: 'italic',
+    },
+
+    welcomeMessagePlaceholder: {
+        color: 'rgba(255, 255, 255, 0.5)',
         fontStyle: 'italic',
     },
 

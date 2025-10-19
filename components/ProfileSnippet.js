@@ -26,8 +26,8 @@ export default function ProfileSnippet() {
   const insets = useSafeAreaInsets();
   const [localUnreadCount, setLocalUnreadCount] = useState(0);
 
-  // Calculate dynamic padding based on safe area and platform
-  const HEADER_PADDING_TOP = insets.top + (Platform.OS === 'ios' ? 4 : 8);
+  // Use only the safe area inset without extra padding
+  const HEADER_PADDING_TOP = insets.top;
   
   // Fetch unread notification count
   useEffect(() => {
@@ -103,7 +103,7 @@ export default function ProfileSnippet() {
           style={styles.logoContainer}
         >
           <View style={styles.logoWrapper}>
-            <VoxxyLogo width={110} height={34} />
+            <VoxxyLogo width={120} height={36} />
           </View>
         </TouchableOpacity>
 

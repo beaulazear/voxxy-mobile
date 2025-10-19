@@ -650,13 +650,62 @@ export default function UnifiedActivityChat({ visible, onClose }) {
             }
 
             // Build payload based on activity type
+            // Generate activity name based on group type, activity, and time of day
+            let activityName = ''
+            if (selectedActivity === 'Restaurant') {
+                const prefix = groupType === 'solo' ? 'Solo' : 'Group'
+                // Map time of day to meal name
+                const mealMap = {
+                    'brunch': 'Brunch',
+                    'lunch': 'Lunch',
+                    'dinner': 'Dinner',
+                    'late-night': 'Late Night'
+                }
+                const mealName = mealMap[selectedTimeOfDay] || 'Dinner'
+                activityName = `${prefix} ${mealName}`
+            } else if (selectedActivity === 'Cocktails') {
+                const prefix = groupType === 'solo' ? 'Solo' : 'Group'
+                // Map time of day to drinks name
+                const drinksMap = {
+                    'brunch': 'Day Drinks',
+                    'lunch': 'Happy Hour',
+                    'dinner': 'Evening Drinks',
+                    'late-night': 'Night Out'
+                }
+                const drinksName = drinksMap[selectedTimeOfDay] || 'Drinks'
+                activityName = `${prefix} ${drinksName}`
+            }
+
             let payload = {
-                activity_name: activities.find(a => a.type === selectedActivity)?.name || selectedActivity,
+                activity_name: activityName,
                 activity_type: selectedActivity,
                 activity_location: activityLocation,
                 radius: 10,
                 collecting: true,
                 is_solo: groupType === 'solo' // Track if this is a solo activity
+            }
+
+            // Generate welcome message based on activity type and group type
+            let welcomeMessage = ''
+            if (groupType === 'solo') {
+                // Solo activity messages
+                if (selectedActivity === 'Restaurant') {
+                    welcomeMessage = `${user?.name || 'Someone'} is looking for the perfect restaurant`
+                } else if (selectedActivity === 'Cocktails') {
+                    welcomeMessage = `${user?.name || 'Someone'} is looking for the perfect bar`
+                }
+            } else {
+                // Group activity messages
+                if (selectedActivity === 'Restaurant') {
+                    welcomeMessage = `${user?.name || 'Someone'} wants your help finding the perfect restaurant`
+                } else if (selectedActivity === 'Cocktails') {
+                    welcomeMessage = `${user?.name || 'Someone'} wants your help finding the perfect bar`
+                }
+            }
+
+            // Add welcome message to payload
+            if (welcomeMessage) {
+                payload.welcome_message = welcomeMessage
             }
 
             // Add venue-specific fields

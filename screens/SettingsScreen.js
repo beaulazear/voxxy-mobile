@@ -6,12 +6,12 @@ import {
     StyleSheet,
     Alert,
     ScrollView,
-    SafeAreaView,
     StatusBar,
     ActivityIndicator,
     Modal,
     Image,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { UserContext } from '../context/UserContext';
 import { useNavigation } from '@react-navigation/native';
 import { API_URL } from '../config';
@@ -158,7 +158,7 @@ export default function SettingsScreen() {
     };
 
     return (
-        <SafeAreaView style={styles.safe}>
+        <SafeAreaView style={styles.safe} edges={['top']}>
             <StatusBar barStyle="light-content" />
 
             {/* Header */}
@@ -240,7 +240,7 @@ export default function SettingsScreen() {
                 presentationStyle="pageSheet"
                 onRequestClose={() => setShowBlockedUsersModal(false)}
             >
-                <SafeAreaView style={styles.modalContainer}>
+                <SafeAreaView style={styles.modalContainer} edges={['top']}>
                     <View style={styles.modalHeader}>
                         <TouchableOpacity
                             style={styles.modalCloseButton}

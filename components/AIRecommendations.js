@@ -1,4 +1,4 @@
-import React, { useState, useContext, useEffect } from 'react';
+import React, { useState, useContext, useEffect, useMemo } from 'react';
 import {
     View,
     Text,
@@ -25,6 +25,8 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import styles from '../styles/AIRecommendationsStyles';
 import { modalStyles, modalColors } from '../styles/modalStyles';
 import NativeMapView from './NativeMapView';
+import DraggableBottomSheet from './DraggableBottomSheet';
+import RecommendationDetails from './RecommendationDetails';
 import DefaultIcon from '../assets/icon.png';
 import { avatarMap } from '../utils/avatarManager';
 
@@ -534,7 +536,19 @@ export default function AIRecommendations({
     const [viewMode, setViewMode] = useState(
         activity?.activity_type === 'Game Night' ? 'cards' : 'map'
     ); // 'map' or 'cards'
-    
+
+    // Bottom sheet state for map markers
+    const [selectedMapMarker, setSelectedMapMarker] = useState(null);
+    const [showMapBottomSheet, setShowMapBottomSheet] = useState(false);
+
+    // Close bottom sheet when view mode changes
+    useEffect(() => {
+        if (showMapBottomSheet) {
+            setShowMapBottomSheet(false);
+            setSelectedMapMarker(null);
+        }
+    }, [viewMode]);
+
     // Fetch user favorites from API
     const fetchUserFavorites = async () => {
         if (!user?.token) {
@@ -600,6 +614,25 @@ export default function AIRecommendations({
     // Generate button pulse animation
     const pulseValue = React.useRef(new Animated.Value(1)).current;
     const pulseOpacity = React.useRef(new Animated.Value(0.8)).current;
+
+    // Helper function to check if a recommendation is favorited
+    const isRecommendationFavorited = (recommendationId) => {
+        if (!recommendationId || !userFavorites || userFavorites.length === 0) return false;
+        return userFavorites.some(fav => {
+            const pinnedActivityId = fav.pinned_activity?.id || fav.pinned_activity_id;
+            return pinnedActivityId === recommendationId;
+        });
+    };
+
+    // Memoize map recommendations to prevent map resets on re-renders
+    const mapRecommendations = useMemo(() => {
+        return pinnedActivities.map(rec => ({
+            ...rec,
+            name: rec.title || rec.name,
+            id: rec.id || `${rec.title}-${rec.address}`,
+            isFavorite: isRecommendationFavorited(rec.id)
+        }));
+    }, [pinnedActivities, userFavorites]); // Only recalculate when pinnedActivities or favorites change
 
     // Start animations when loading
     React.useEffect(() => {
@@ -1113,16 +1146,6 @@ export default function AIRecommendations({
         }
     };
 
-
-    // Helper function to check if a recommendation is favorited
-    const isRecommendationFavorited = (recommendationId) => {
-        if (!recommendationId || !userFavorites || userFavorites.length === 0) return false;
-        return userFavorites.some(fav => {
-            const pinnedActivityId = fav.pinned_activity?.id || fav.pinned_activity_id;
-            return pinnedActivityId === recommendationId;
-        });
-    };
-
     // Get count of favorited recommendations from current pinned activities
     const getFavoritedRecommendationsFromCurrent = () => {
         if (!pinnedActivities || pinnedActivities.length === 0) return [];
@@ -1317,30 +1340,6 @@ export default function AIRecommendations({
                             ]}
                         >
                             <View style={styles.socialActionContainer}>
-                                {/* Host Header with Avatar */}
-                                <View style={styles.userHeaderSection}>
-                                    <Image
-                                        source={getUserDisplayImage(activity.user)}
-                                        style={styles.userAvatar}
-                                        defaultSource={DefaultIcon}
-                                    />
-                                    <View style={styles.userInfoSection}>
-                                        <View style={styles.userNameRow}>
-                                            <Text style={styles.userNameText}>{activity.user?.name || 'Host'}</Text>
-                                            <Icon name="heart" size={16} color="#8b5cf6" />
-                                        </View>
-                                        <Text style={styles.hostRequestText}>
-                                            wants your help finding the perfect {
-                                                activity.activity_type === 'Bar' || activity.activity_type === 'Cocktails' ? 'bar' :
-                                                activity.activity_type === 'Restaurant' || activity.activity_type === 'Brunch' ? 'restaurant' :
-                                                activity.activity_type === 'Game Night' ? 'game night spot' :
-                                                activity.activity_type === 'Meeting' ? 'meeting time' :
-                                                'spot'
-                                            }
-                                        </Text>
-                                    </View>
-                                </View>
-
                                 {/* Two Options */}
                                 <View style={styles.optionsContainer}>
                                     {/* Option 1: Use Profile - Active by default if user has preferences */}
@@ -1391,25 +1390,6 @@ export default function AIRecommendations({
                     ) : user && currentUserResponse ? (
                         <View style={styles.actionCard}>
                             <View style={styles.socialActionContainer}>
-                                {/* Host Header with Avatar */}
-                                <View style={styles.userHeaderSection}>
-                                    <Image
-                                        source={getUserDisplayImage(activity.user)}
-                                        style={styles.userAvatar}
-                                        defaultSource={DefaultIcon}
-                                    />
-                                    <View style={styles.userInfoSection}>
-                                        <Text style={styles.userNameText}>{activity.user?.name || 'Host'}</Text>
-                                        <View style={styles.preferencesStatusRow}>
-                                            <Icon name="heart" size={14} color="#8b5cf6" />
-                                            <Text style={styles.preferencesStatusTextPurple}>wants your input</Text>
-                                        </View>
-                                    </View>
-                                </View>
-
-                                {/* Action Title */}
-                                <Text style={styles.socialActionTitle}>Help them find the perfect venue</Text>
-
                                 {/* Two Options - Show which one is active */}
                                 <View style={styles.optionsContainer}>
                                     {/* Option 1: Use Profile - Show if NO custom response */}
@@ -1450,11 +1430,13 @@ export default function AIRecommendations({
                                     </View>
 
                                     {/* Option 2: Custom Preferences - Show if custom response exists */}
-                                    <View
+                                    <TouchableOpacity
                                         style={[
                                             styles.optionCard,
                                             currentUserResponse.notes && styles.optionCardActive
                                         ]}
+                                        onPress={handleStartChat}
+                                        activeOpacity={0.7}
                                     >
                                         <View style={[
                                             styles.optionIconContainer,
@@ -1470,13 +1452,13 @@ export default function AIRecommendations({
                                             styles.optionTitle,
                                             !currentUserResponse.notes && styles.optionTitleDisabled
                                         ]}>
-                                            Feeling Something Different?
+                                            {currentUserResponse.notes ? "Custom Preferences" : "Feeling Something Different?"}
                                         </Text>
                                         <Text style={[
                                             styles.optionDescription,
                                             !currentUserResponse.notes && styles.optionDescriptionDisabled
                                         ]}>
-                                            Take a quick survey and let us know the vibe
+                                            {currentUserResponse.notes ? "Tap to resubmit preferences" : "Take a quick survey and let us know the vibe"}
                                         </Text>
                                         {currentUserResponse.notes && (
                                             <View style={styles.activeIndicator}>
@@ -1484,14 +1466,8 @@ export default function AIRecommendations({
                                                 <Text style={styles.activeIndicatorText}>Currently using</Text>
                                             </View>
                                         )}
-                                    </View>
+                                    </TouchableOpacity>
                                 </View>
-
-                                {/* Update Button */}
-                                <TouchableOpacity style={styles.updateButtonFull} onPress={handleStartChat}>
-                                    <Icon name="refresh-cw" size={16} color="#A855F7" />
-                                    <Text style={styles.updateButtonText}>Update Response</Text>
-                                </TouchableOpacity>
                             </View>
                         </View>
                     ) : null}
@@ -1545,7 +1521,7 @@ export default function AIRecommendations({
                                                 if (responses.length === 0) {
                                                     return (
                                                         <Text style={styles.generateButtonSubtext}>
-                                                            Waiting for preferences...
+                                                            Invite your friends and gather their preferences to get your group's recommendations ✨
                                                         </Text>
                                                     );
                                                 } else if (participantsWithoutPreferences.length > 0) {
@@ -1622,7 +1598,7 @@ export default function AIRecommendations({
                                         ]}
                                     >
                                         <View style={styles.logoCircle}>
-                                            <Image 
+                                            <Image
                                                 source={require('../assets/voxxy-triangle.png')}
                                                 style={styles.logoImage}
                                                 resizeMode="contain"
@@ -1960,121 +1936,32 @@ export default function AIRecommendations({
                     </View>
                 </ScrollView>
 
-                {/* Detail Modal for participants */}
-                <Modal
+                {/* Detail Modal for list items - using same bottom sheet as map */}
+                <DraggableBottomSheet
                     visible={showDetailModal}
-                    animationType="slide"
-                    onRequestClose={() => setShowDetailModal(false)}
+                    onClose={closeDetail}
+                    title={selectedRec?.title || selectedRec?.name || "Details"}
                 >
-                    <SafeAreaView style={styles.detailModal}>
-                        <View style={styles.detailModalHeader}>
-                            <Text style={styles.detailModalTitle}>{selectedRec?.title || selectedRec?.name}</Text>
-                            <TouchableOpacity style={styles.detailCloseButton} onPress={() => setShowDetailModal(false)}>
-                                <Icons.X />
-                            </TouchableOpacity>
-                        </View>
-
-                        <ScrollView style={styles.detailModalBody}>
-                            {(() => {
-                                const activityType = activity.activity_type || 'Meeting';
-                                const isGameNightActivity = false; // Game Night removed - keeping for legacy code
-                                const activityText = {
-                                    reasonTitle: isGameNightActivity ? 'Why this game?' : 'Why this place?'
-                                };
-
-                                return (
-                                    <>
-                                        <View style={styles.detailGrid}>
-                                            {isGameNightActivity ? (
-                                                <>
-                                                    <View style={styles.detailItem}>
-                                                        <Icons.Users />
-                                                        <Text style={styles.detailLabel}>Players:</Text>
-                                                        <Text style={styles.detailValue}>{selectedRec?.address || 'N/A'}</Text>
-                                                    </View>
-                                                    <View style={styles.detailItem}>
-                                                        <Icons.Clock />
-                                                        <Text style={styles.detailLabel}>Play Time:</Text>
-                                                        <HoursDisplay hours={selectedRec?.hours} style={styles.detailValue} />
-                                                    </View>
-                                                    <View style={styles.detailItem}>
-                                                        <Icons.DollarSign />
-                                                        <Text style={styles.detailLabel}>Price:</Text>
-                                                        <Text style={styles.detailValue}>{selectedRec?.price_range || 'N/A'}</Text>
-                                                    </View>
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <View style={styles.detailItem}>
-                                                        <Icons.DollarSign />
-                                                        <Text style={styles.detailLabel}>Price:</Text>
-                                                        <Text style={styles.detailValue}>{selectedRec?.price_range || 'N/A'}</Text>
-                                                    </View>
-                                                    <View style={styles.detailItem}>
-                                                        <Icons.Clock />
-                                                        <Text style={styles.detailLabel}>Hours:</Text>
-                                                        <HoursDisplay hours={selectedRec?.hours} style={styles.detailValue} />
-                                                    </View>
-                                                </>
-                                            )}
-                                        </View>
-
-                                        {selectedRec?.description && (
-                                            <View style={styles.section}>
-                                                <View style={styles.sectionHeader}>
-                                                    <Icons.HelpCircle />
-                                                    <Text style={styles.sectionTitle}>About</Text>
-                                                </View>
-                                                <Text style={styles.description}>{selectedRec.description}</Text>
-                                                {selectedRec.website && (
-                                                    <TouchableOpacity
-                                                        style={styles.websiteLink}
-                                                        onPress={() => Linking.openURL(selectedRec.website)}
-                                                    >
-                                                        <Icons.Globe />
-                                                        <Text style={styles.websiteLinkText}>Visit Website</Text>
-                                                        <Icons.ExternalLink />
-                                                    </TouchableOpacity>
-                                                )}
-                                            </View>
-                                        )}
-
-                                        {selectedRec?.reason && (
-                                            <View style={styles.reason}>
-                                                {isKeywordFormat(selectedRec.reason) ? (
-                                                    <KeywordTags keywords={selectedRec.reason} style={styles.detailTags} />
-                                                ) : (
-                                                    <>
-                                                        <Text style={styles.reasonTitle}>{activityText.reasonTitle}</Text>
-                                                        <Text style={styles.reasonText}>{selectedRec.reason}</Text>
-                                                    </>
-                                                )}
-                                            </View>
-                                        )}
-
-                                        {!isGameNightActivity && selectedRec?.address && (
-                                            <View style={styles.section}>
-                                                <View style={styles.sectionHeader}>
-                                                    <Icons.MapPin />
-                                                    <Text style={styles.sectionTitle}>Location</Text>
-                                                </View>
-                                                <TouchableOpacity onPress={() => openMapWithAddress(selectedRec.address)}>
-                                                    <Text style={[styles.description, styles.addressLink]}>
-                                                        {selectedRec.address}
-                                                    </Text>
-                                                </TouchableOpacity>
-                                            </View>
-                                        )}
-
-                                        {!isGameNightActivity && selectedRec?.photos && (
-                                            <PhotoGallery photos={safeJsonParse(selectedRec.photos, [])} />
-                                        )}
-                                    </>
+                    <RecommendationDetails
+                        recommendation={selectedRec}
+                        onClose={closeDetail}
+                        onFavorite={handleFavorite}
+                        isFavorited={isRecommendationFavorited(selectedRec?.id)}
+                        favoriteLoading={favoriteLoading[selectedRec?.id]}
+                        onFlag={(rec) => {
+                            const isFlagged = flaggedRecommendations.some(r => r.id === rec?.id);
+                            if (isFlagged) {
+                                setFlaggedRecommendations(prev =>
+                                    prev.filter(item => item.id !== rec?.id)
                                 );
-                            })()}
-                        </ScrollView>
-                    </SafeAreaView>
-                </Modal>
+                            } else {
+                                setFlaggedRecommendations(prev => [...prev, rec]);
+                                Alert.alert('Flagged', 'This recommendation has been flagged.');
+                            }
+                        }}
+                        isFlagged={flaggedRecommendations.some(r => r.id === selectedRec?.id)}
+                    />
+                </DraggableBottomSheet>
                 </>
             );
         }
@@ -2200,16 +2087,11 @@ export default function AIRecommendations({
                     /* Map View - takes up most of screen */
                     <View style={styles.mapViewContainer}>
                         <NativeMapView
-                            recommendations={pinnedActivities.map(rec => ({
-                                ...rec,
-                                name: rec.title || rec.name,
-                                id: rec.id || `${rec.title}-${rec.address}`,
-                                isFavorite: isRecommendationFavorited(rec.id)
-                            }))}
+                            recommendations={mapRecommendations}
                             activityType={activity?.activity_type || 'Restaurant'}
-                            onRecommendationSelect={(rec) => {
-                                setSelectedRec(rec);
-                                setShowDetailModal(true);
+                            onMarkerPress={(marker) => {
+                                setSelectedMapMarker(marker);
+                                setShowMapBottomSheet(true);
                             }}
                         />
                         
@@ -2239,41 +2121,6 @@ export default function AIRecommendations({
                                     <Text style={[styles.viewModeButtonText, viewMode === 'cards' && styles.viewModeButtonTextActive]}>
                                         List
                                     </Text>
-                                </TouchableOpacity>
-                            </View>
-                        )}
-                        
-                        {/* Bottom actions for map view */}
-                        {isOwner && (
-                            <View style={styles.bottomActionsContainer}>
-                                <TouchableOpacity 
-                                    style={styles.primaryActionButton} 
-                                    onPress={() => {
-                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                                        Alert.alert(
-                                            'What would you like to do?',
-                                            '',
-                                            [
-                                                {
-                                                    text: "I'm done here",
-                                                    onPress: handleCompleteActivity,
-                                                    style: 'default'
-                                                },
-                                                {
-                                                    text: 'Share plan with friends',
-                                                    onPress: onEdit,
-                                                    style: 'default'
-                                                },
-                                                {
-                                                    text: 'Cancel',
-                                                    style: 'cancel'
-                                                }
-                                            ]
-                                        );
-                                    }}
-                                >
-                                    <Text style={styles.primaryActionButtonText}>Continue Planning</Text>
-                                    <Icons.ChevronRight color="#fff" size={20} />
                                 </TouchableOpacity>
                             </View>
                         )}
@@ -2586,21 +2433,48 @@ export default function AIRecommendations({
                             </View>
                         </SafeAreaView>
                     </Modal>
+
+                    {/* Map Marker Bottom Sheet - rendered at component level to avoid clipping */}
+                    <DraggableBottomSheet
+                        visible={showMapBottomSheet}
+                        onClose={() => setShowMapBottomSheet(false)}
+                        title={selectedMapMarker?.title || selectedMapMarker?.name || "Details"}
+                    >
+                        <RecommendationDetails
+                            recommendation={selectedMapMarker}
+                            onClose={() => setShowMapBottomSheet(false)}
+                            onFavorite={handleFavorite}
+                            isFavorited={isRecommendationFavorited(selectedMapMarker?.id)}
+                            favoriteLoading={favoriteLoading[selectedMapMarker?.id]}
+                            onFlag={(rec) => {
+                                const isFlagged = flaggedRecommendations.some(r => r.id === rec?.id);
+                                if (isFlagged) {
+                                    setFlaggedRecommendations(prev =>
+                                        prev.filter(item => item.id !== rec?.id)
+                                    );
+                                } else {
+                                    setFlaggedRecommendations(prev => [...prev, rec]);
+                                    Alert.alert('Flagged', 'This recommendation has been flagged.');
+                                }
+                            }}
+                            isFlagged={flaggedRecommendations.some(r => r.id === selectedMapMarker?.id)}
+                        />
+                    </DraggableBottomSheet>
             </View>
         );
     }
 
     // FINALIZED PHASE
     if (finalized) {
-        const selectedPlace = pinnedActivities && pinnedActivities.length > 0 
-            ? pinnedActivities.filter(p => p.selected)[0] 
+        const selectedPlace = pinnedActivities && pinnedActivities.length > 0
+            ? pinnedActivities.filter(p => p.selected)[0]
             : null;
-        
+
         return (
             <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
                 {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-                {/* Main Activity Card */}
+                {/* Main Activity Finalized Card */}
                 <View style={styles.finalizedPlanCard}>
                     <View style={styles.finalizedIconContainer}>
                         <View style={styles.finalizedIconCircle}>
@@ -2611,7 +2485,7 @@ export default function AIRecommendations({
                         {activity.activity_name}
                     </Text>
                     <Text style={styles.finalizedStatusSubtext}>Plan Finalized</Text>
-                    
+
                     {/* Date and Time if available */}
                     {(activity.date_day || activity.date_time) && (
                         <View style={styles.eventDateBanner}>
@@ -2639,7 +2513,7 @@ export default function AIRecommendations({
                             </View>
                         </View>
                     )}
-                    
+
                     {/* Action Buttons */}
                     <View style={styles.actionButtons}>
                         <TouchableOpacity style={styles.primaryButton} onPress={sharePlanUrlClick}>
@@ -2649,54 +2523,98 @@ export default function AIRecommendations({
                     </View>
                 </View>
 
-                {/* Location Details Card */}
+                {/* Selected Venue Card - Styled Like Favorites */}
                 {selectedPlace && (
-                    <View style={styles.finalizedPlanCard}>
-                        <View style={styles.sectionHeader}>
-                            <Icons.MapPin color="#9333ea" size={20} />
-                            <Text style={styles.sectionTitle}>Location Details</Text>
-                        </View>
-                        <Text style={styles.placeName}>{selectedPlace.title}</Text>
-                        
-                        {selectedPlace.description && (
-                            <Text style={styles.placeDescription}>{selectedPlace.description}</Text>
-                        )}
-                        
-                        <View style={styles.placeDetailRow}>
-                            <Icons.Navigation color="rgba(255, 255, 255, 0.6)" size={16} />
-                            <Text style={styles.placeAddress}>{selectedPlace.address}</Text>
-                        </View>
-                        
-                        {selectedPlace.price_range && (
-                            <View style={styles.placeDetailRow}>
-                                <Icons.DollarSign color="#fbbf24" size={16} />
-                                <Text style={styles.placePrice}>{selectedPlace.price_range}</Text>
+                    <View style={styles.finalizedVenueCard}>
+                            {/* Section Header */}
+                            <View style={styles.finalizedVenueHeaderRow}>
+                                <Icons.MapPin color="#9333ea" size={20} />
+                                <Text style={styles.finalizedVenueSectionTitle}>Location Details</Text>
                             </View>
-                        )}
-                        
-                        <View style={styles.actionButtons}>
-                            {selectedPlace.website && (
-                                <TouchableOpacity 
-                                    style={styles.secondaryButton}
-                                    onPress={() => Linking.openURL(selectedPlace.website)}
-                                >
-                                    <Icons.Globe color="#9333ea" size={18} />
-                                    <Text style={styles.secondaryButtonText}>Website</Text>
-                                </TouchableOpacity>
+
+                            {/* Venue Header with Title and Price */}
+                            <View style={styles.finalizedVenueHeader}>
+                                <Text style={styles.finalizedVenueTitle} numberOfLines={2}>
+                                    {selectedPlace.title}
+                                </Text>
+                                {selectedPlace.price_range && (
+                                    <View style={styles.finalizedPriceTag}>
+                                        <Text style={styles.finalizedPriceText}>{selectedPlace.price_range}</Text>
+                                    </View>
+                                )}
+                            </View>
+
+                            {/* Description */}
+                            {selectedPlace.description && (
+                                <Text style={styles.finalizedVenueDescription} numberOfLines={2}>
+                                    {selectedPlace.description}
+                                </Text>
                             )}
+
+                            {/* Address Meta */}
                             {selectedPlace.address && (
-                                <TouchableOpacity 
-                                    style={styles.primaryButton}
+                                <View style={styles.finalizedVenueMeta}>
+                                    <Icons.Navigation color="rgba(255, 255, 255, 0.5)" size={14} />
+                                    <Text style={styles.finalizedVenueAddress} numberOfLines={1}>
+                                        {selectedPlace.address.split(',').slice(0, 2).join(',')}
+                                    </Text>
+                                </View>
+                            )}
+
+                            {/* Action Buttons Row */}
+                            <View style={styles.finalizedVenueActions}>
+                                <TouchableOpacity
+                                    style={styles.finalizedActionButton}
                                     onPress={() => {
-                                        const encodedAddress = encodeURIComponent(selectedPlace.address);
-                                        Linking.openURL(`https://maps.google.com?q=${encodedAddress}`);
+                                        if (selectedPlace.latitude && selectedPlace.longitude) {
+                                            const url = `https://maps.apple.com/?daddr=${selectedPlace.latitude},${selectedPlace.longitude}`;
+                                            Linking.openURL(url);
+                                        } else if (selectedPlace.address) {
+                                            const encodedAddress = encodeURIComponent(selectedPlace.address);
+                                            Linking.openURL(`https://maps.apple.com/?address=${encodedAddress}`);
+                                        }
                                     }}
                                 >
-                                    <Icons.Map color="#fff" size={18} />
-                                    <Text style={styles.primaryButtonText}>Directions</Text>
+                                    <Icons.Navigation color="#9333ea" size={18} />
                                 </TouchableOpacity>
-                            )}
-                        </View>
+
+                                {selectedPlace.website && (
+                                    <TouchableOpacity
+                                        style={styles.finalizedActionButton}
+                                        onPress={() => {
+                                            let url = selectedPlace.website;
+                                            if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                                                url = 'https://' + url;
+                                            }
+                                            Linking.openURL(url).catch(() => {
+                                                Alert.alert('Error', 'Could not open website');
+                                            });
+                                        }}
+                                    >
+                                        <Icons.Globe color="#10b981" size={18} />
+                                    </TouchableOpacity>
+                                )}
+
+                                <TouchableOpacity
+                                    style={styles.finalizedActionButton}
+                                    onPress={async () => {
+                                        try {
+                                            const message = selectedPlace.address
+                                                ? `Check out ${selectedPlace.title}!\n\n${selectedPlace.address}`
+                                                : `Check out ${selectedPlace.title}!`;
+
+                                            await Share.share({
+                                                message: message,
+                                                title: selectedPlace.title,
+                                            });
+                                        } catch (error) {
+                                            logger.error('Error sharing venue:', error);
+                                        }
+                                    }}
+                                >
+                                    <Icons.Share color="#3b82f6" size={18} />
+                                </TouchableOpacity>
+                            </View>
                     </View>
                 )}
 

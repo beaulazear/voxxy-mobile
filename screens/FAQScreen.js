@@ -1,7 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, StatusBar } from 'react-native';
-import { ArrowLeft, HelpCircle, BookOpen, ChevronDown, ChevronUp } from 'react-native-feather';
-import { useNavigation } from '@react-navigation/native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { HelpCircle, BookOpen, ChevronDown, ChevronUp, Mail } from 'react-native-feather';
+import { LinearGradient } from 'expo-linear-gradient';
+import VoxxyFooter from '../components/VoxxyFooter';
+import VoxxyLogo from '../assets/header.svg';
+import ContactModal from '../components/ContactModal';
 
 const colors = {
     background: '#201925',
@@ -16,106 +20,97 @@ const colors = {
 
 const faqs = [
     {
-        question: 'How do I find the perfect bar or restaurant?',
-        answer:
-            'Tap the "+" button on the home screen, choose between Restaurant or Bar, select your location and preferred time. You can either invite friends to collaborate on finding the perfect spot, or use Voxxy solo to discover your personal favorites.',
+        question: 'How do I create an activity?',
+        answer: 'Tap the "+" button, choose Restaurant or Bar, set location and time, then add friends or go solo.',
     },
     {
-        question: 'How does Voxxy find personalized recommendations?',
-        answer:
-            'After setting up your outing, you and any invited friends share preferences through a quick chat. Voxxy analyzes everyone\'s input - dietary needs, atmosphere preferences, budget - then searches real venues near you to generate perfectly matched recommendations.',
+        question: 'What are profile preferences?',
+        answer: 'Profile preferences are your saved dining preferences (cuisine, atmosphere, budget, etc.) that save you time. Set them once in your Profile, and use them instantly in any group activity.',
     },
     {
-        question: 'What are the different phases of planning?',
-        answer:
-            'Your plans have 4 phases: 1) Collecting - gathering everyone\'s preferences, 2) Reviewing - browsing through Voxxy\'s personalized recommendations, 3) Finalized - your selected venue is confirmed, 4) Completed - after your visit, you can rate and save favorites.',
+        question: 'How does Voxxy find recommendations?',
+        answer: 'Use your saved profile preferences for quick searches, or chat custom preferences for specific occasions. In groups, everyone\'s preferences combine to find places you\'ll all love.',
     },
     {
-        question: 'Can I use Voxxy by myself or with friends?',
-        answer:
-            'Both! Use Voxxy solo to discover personal favorite spots based on your preferences alone, or invite friends by selecting contacts or entering emails. When planning with others, everyone submits preferences and Voxxy finds places everyone will love.',
+        question: 'Can I use Voxxy solo or with friends?',
+        answer: 'Both! Go solo to find personal favorites, or invite friends to find places everyone will love based on everyone\'s preferences.',
     },
     {
-        question: 'How do I track my favorite spots?',
-        answer:
-            'Your profile saves all your dining and drinking history. View past visits, save your favorite venues for future reference, and see which friends you\'ve gone out with. You can also tap on any past outing to leave reviews or revisit details.',
+        question: 'How do I save favorite places?',
+        answer: 'Tap the heart icon on any venue to save it. View all saved favorites in your Favorites tab.',
     },
     {
-        question: 'What preferences can I share with Voxxy?',
-        answer:
-            'When finding a restaurant or bar, share any preferences that matter: cuisine types, dietary restrictions, atmosphere (romantic, lively, LGBTQ+ friendly), budget, drink preferences, or any special requests. The more specific you are, the better Voxxy\'s recommendations.',
+        question: 'Where can I see my past activities?',
+        answer: 'Check your Profile to view completed activities and your dining history.',
     },
     {
-        question: 'How do I choose from Voxxy\'s recommendations?',
-        answer:
-            'After preferences are submitted, Voxxy generates personalized venue recommendations. Browse through detailed options with hours, prices, and descriptions. Save favorites, compare choices, then select your final pick. Everyone invited can see the final selection.',
-    },
-    {
-        question: 'Can I save and share my favorite venues?',
-        answer:
-            'Yes! Save venues you love to your favorites for easy access later. Share final plans with friends via text or social media. Your saved favorites also help Voxxy learn your preferences for even better future recommendations.',
-    },
-    {
-        question: 'What makes Voxxy different from other apps?',
-        answer:
-            'Voxxy is the only app that combines group preference matching with intelligent venue discovery. Whether finding a compromise for a group or discovering your perfect personal spot, Voxxy considers everyone\'s needs to find places you\'ll actually love.',
-    },
-    {
-        question: 'Where can I report bugs or request features?',
-        answer:
-            'Use the Feedback option in your Profile settings to send bug reports or feature suggestions. We appreciate your input in making Voxxy better!',
+        question: 'How do I report bugs or suggest features?',
+        answer: 'Use the Feedback option in Profile settings.',
     },
 ];
 
 const steps = [
     {
-        title: 'Start Your Search',
-        description: 'Tap the "+" button and choose between finding a Restaurant or Bar. Select your location and preferred time - whether it\'s dinner tonight or drinks this weekend.',
+        title: 'Set Up Your Profile',
+        description: 'Save your dining preferences in your Profile to use them instantly in any activity.',
     },
     {
-        title: 'Go Solo or Invite Friends',
-        description: 'Use Voxxy solo to discover your personal favorite spots, or invite friends to find places everyone will love. Add participants from contacts or enter their email addresses.',
+        title: 'Create Activity',
+        description: 'Tap "+" and choose Restaurant or Bar. Set your location and time.',
     },
     {
-        title: 'Share Your Preferences',
-        description: 'Chat with Voxxy about what you\'re looking for - cuisine type, atmosphere, dietary needs, budget, or any special requests. Friends do the same if you\'ve invited them.',
+        title: 'Add Friends or Go Solo',
+        description: 'Invite friends for group planning, or go solo to find personal favorites.',
     },
     {
-        title: 'Browse Personalized Recommendations',
-        description: 'Voxxy searches real venues near you and generates perfectly matched recommendations with hours, prices, and descriptions. Save favorites as you browse.',
+        title: 'Submit Preferences',
+        description: 'Use your saved profile preferences for quick submission, or chat custom preferences for specific occasions.',
     },
     {
-        title: 'Pick Your Spot & Go!',
-        description: 'Select your favorite venue to finalize the plan. Share details with friends, save to your favorites for next time, and enjoy your perfectly matched outing!',
+        title: 'Browse Recommendations',
+        description: 'Review matched venues with details, hours, and prices. In groups, see venues that match everyone.',
+    },
+    {
+        title: 'Pick Your Spot',
+        description: 'Select a venue, share with friends, and save it to favorites.',
     }
 ];
 
 export default function FAQScreen() {
-    const navigation = useNavigation();
     const [selectedTab, setSelectedTab] = useState('faq');
     const [expanded, setExpanded] = useState({});
+    const [showContactModal, setShowContactModal] = useState(false);
 
     const toggleExpand = idx => {
         setExpanded(prev => ({ ...prev, [idx]: !prev[idx] }));
     };
 
     return (
-        <SafeAreaView style={styles.safe}>
+        <SafeAreaView style={styles.safe} edges={['top']}>
             <StatusBar barStyle="light-content" />
-            
-            {/* Header with back button */}
-            <View style={styles.header}>
-                <TouchableOpacity 
-                    style={styles.backButton}
-                    onPress={() => navigation.goBack()}
-                    activeOpacity={0.7}
-                >
-                    <ArrowLeft stroke="#fff" width={24} height={24} strokeWidth={2} />
-                </TouchableOpacity>
-                <View style={styles.headerContent}>
-                    <Text style={styles.headerTitle}>Help & FAQ</Text>
-                    <Text style={styles.headerSubtitle}>Get answers to common questions</Text>
+
+            {/* Header */}
+            <View style={styles.headerContainer}>
+                <View style={styles.header}>
+                    <View style={styles.logoContainer}>
+                        <View style={styles.logoGlow}>
+                            <VoxxyLogo height={36} width={120} />
+                        </View>
+                    </View>
+                    <TouchableOpacity
+                        style={styles.contactButton}
+                        onPress={() => setShowContactModal(true)}
+                        activeOpacity={0.7}
+                    >
+                        <Mail color="#fff" size={20} strokeWidth={2} />
+                    </TouchableOpacity>
                 </View>
+                <LinearGradient
+                    colors={['#B954EC', '#667eea', '#B954EC']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.headerBorder}
+                />
             </View>
 
             <View style={styles.container}>
@@ -128,14 +123,14 @@ export default function FAQScreen() {
                         onPress={() => setSelectedTab('faq')}
                     >
                         <View style={styles.tabContent}>
-                            <HelpCircle 
-                                stroke={selectedTab === 'faq' ? colors.foreground : colors.muted} 
-                                width={16} 
-                                height={16} 
+                            <HelpCircle
+                                stroke={selectedTab === 'faq' ? colors.foreground : colors.muted}
+                                width={16}
+                                height={16}
                                 strokeWidth={2}
                             />
                             <Text style={[styles.tabText, selectedTab === 'faq' && styles.activeTabText]}>
-                                FAQs
+                                FAQ
                             </Text>
                         </View>
                     </TouchableOpacity>
@@ -147,14 +142,14 @@ export default function FAQScreen() {
                         onPress={() => setSelectedTab('steps')}
                     >
                         <View style={styles.tabContent}>
-                            <BookOpen 
-                                stroke={selectedTab === 'steps' ? colors.foreground : colors.muted} 
-                                width={16} 
-                                height={16} 
+                            <BookOpen
+                                stroke={selectedTab === 'steps' ? colors.foreground : colors.muted}
+                                width={16}
+                                height={16}
                                 strokeWidth={2}
                             />
                             <Text style={[styles.tabText, selectedTab === 'steps' && styles.activeTabText]}>
-                                Guide
+                                Quick Start
                             </Text>
                         </View>
                     </TouchableOpacity>
@@ -196,6 +191,14 @@ export default function FAQScreen() {
                     ))}
                 </ScrollView>
             </View>
+
+            <VoxxyFooter />
+
+            {/* Contact Modal */}
+            <ContactModal
+                visible={showContactModal}
+                onClose={() => setShowContactModal(false)}
+            />
         </SafeAreaView>
     );
 }
@@ -203,155 +206,181 @@ export default function FAQScreen() {
 const styles = StyleSheet.create({
     safe: {
         flex: 1,
-        backgroundColor: colors.background,
+        backgroundColor: '#201925',
     },
-    
+
+    headerContainer: {
+        backgroundColor: '#201925',
+    },
+
     header: {
         flexDirection: 'row',
         alignItems: 'center',
+        justifyContent: 'space-between',
+        height: 60,
         paddingHorizontal: 20,
-        paddingVertical: 16,
-        paddingTop: 20,
-        backgroundColor: colors.background,
+        backgroundColor: '#201925',
     },
-    
-    backButton: {
+
+    logoContainer: {
+        justifyContent: 'center',
+        alignItems: 'flex-start',
+    },
+
+    contactButton: {
         width: 40,
         height: 40,
         borderRadius: 20,
-        backgroundColor: 'rgba(255, 255, 255, 0.1)',
-        justifyContent: 'center',
+        backgroundColor: 'rgba(204, 49, 232, 0.3)',
         alignItems: 'center',
-        marginRight: 16,
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(204, 49, 232, 0.5)',
     },
-    
-    headerContent: {
-        flex: 1,
+
+    logoGlow: {
+        shadowColor: '#9f2fce',
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.6,
+        shadowRadius: 12,
+        elevation: 12,
     },
-    
-    headerTitle: {
-        fontSize: 24,
-        fontWeight: '700',
-        color: '#fff',
-        marginBottom: 4,
-        fontFamily: 'Montserrat_700Bold',
-    },
-    
-    headerSubtitle: {
-        fontSize: 14,
-        color: '#B8A5C4',
-        fontWeight: '500',
+
+    headerBorder: {
+        height: 2,
+        shadowColor: '#B954EC',
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.8,
+        shadowRadius: 8,
+        elevation: 8,
     },
 
     container: {
         flex: 1,
-        backgroundColor: colors.background,
+        backgroundColor: '#201925',
     },
     tabContainer: {
         flexDirection: 'row',
-        marginTop: 20,
+        marginTop: 16,
         marginHorizontal: 20,
-        borderBottomWidth: 1,
-        borderColor: colors.lightBorder,
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        borderRadius: 12,
+        padding: 4,
     },
     tabButton: {
         flex: 1,
         paddingVertical: 10,
         alignItems: 'center',
+        borderRadius: 8,
     },
-    
+
     tabContent: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 8,
     },
     activeTab: {
-        borderBottomWidth: 3,
-        borderColor: colors.primary,
+        backgroundColor: 'rgba(146, 97, 229, 0.2)',
     },
     tabText: {
-        fontSize: 16,
-        color: colors.muted,
+        fontSize: 15,
+        color: 'rgba(255, 255, 255, 0.6)',
+        fontWeight: '600',
     },
     activeTabText: {
-        color: colors.foreground,
+        color: '#fff',
         fontWeight: '700',
     },
     scrollContainer: {
         padding: 20,
-        paddingBottom: 40,
+        paddingBottom: 120,
     },
     card: {
-        backgroundColor: colors.cardBackground,
-        borderRadius: 12,
-        padding: 15,
-        marginBottom: 15,
+        backgroundColor: '#2A1E30',
+        borderRadius: 16,
+        padding: 18,
+        marginBottom: 12,
+        borderWidth: 1,
+        borderColor: 'rgba(185, 84, 236, 0.15)',
     },
     cardHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
+        alignItems: 'center',
     },
     question: {
         fontSize: 16,
-        fontWeight: '600',
-        color: colors.foreground,
+        fontWeight: '700',
+        color: '#fff',
         flex: 1,
+        fontFamily: 'Montserrat_700Bold',
     },
     indicatorContainer: {
-        width: 24,
-        height: 24,
+        width: 28,
+        height: 28,
         justifyContent: 'center',
         alignItems: 'center',
-        marginLeft: 10,
+        marginLeft: 12,
+        backgroundColor: 'rgba(146, 97, 229, 0.15)',
+        borderRadius: 14,
     },
     answer: {
-        marginTop: 10,
+        marginTop: 12,
         fontSize: 14,
-        color: colors.muted,
+        color: '#B8A5C4',
         lineHeight: 20,
+        fontWeight: '500',
     },
     stepCard: {
         flexDirection: 'row',
-        backgroundColor: colors.cardBackground,
-        borderRadius: 12,
-        marginBottom: 15,
+        backgroundColor: '#2A1E30',
+        borderRadius: 16,
+        marginBottom: 12,
         overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: 'rgba(185, 84, 236, 0.15)',
     },
     accentBar: {
-        width: 6,
-        backgroundColor: colors.primary,
+        width: 4,
+        backgroundColor: '#9261E5',
     },
     stepContent: {
         flex: 1,
         flexDirection: 'row',
-        padding: 15,
+        padding: 18,
         alignItems: 'flex-start',
     },
     stepIcon: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        backgroundColor: colors.primary,
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: 'rgba(146, 97, 229, 0.2)',
         alignItems: 'center',
         justifyContent: 'center',
-        marginRight: 12,
+        marginRight: 14,
+        borderWidth: 2,
+        borderColor: '#9261E5',
     },
     stepIconText: {
-        color: '#fff',
+        color: '#9261E5',
         fontWeight: '700',
+        fontSize: 16,
+        fontFamily: 'Montserrat_700Bold',
     },
     stepTextGroup: {
         flex: 1,
     },
     stepTitle: {
-        color: colors.foreground,
+        color: '#fff',
         fontSize: 16,
         fontWeight: '700',
-        marginBottom: 4,
+        marginBottom: 6,
+        fontFamily: 'Montserrat_700Bold',
     },
     stepDescription: {
-        color: colors.muted,
+        color: '#B8A5C4',
         fontSize: 14,
         lineHeight: 20,
+        fontWeight: '500',
     },
 });

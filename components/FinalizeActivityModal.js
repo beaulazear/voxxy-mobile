@@ -51,8 +51,8 @@ export default function FinalizeActivityModal({
     const { user } = useContext(UserContext)
 
     const [formData, setFormData] = useState({
-        activity_name: '',
-        welcome_message: '',
+        activity_name: activity.activity_name || '',
+        welcome_message: activity.welcome_message || '',
         date_day: activity.date_day ? new Date(activity.date_day + 'T00:00:00') : new Date(),
         date_time: activity.date_time ? new Date(activity.date_time) : new Date(),
         activity_location: activity.activity_location || '',
@@ -476,9 +476,9 @@ export default function FinalizeActivityModal({
             onRequestClose={onClose}
         >
             <SafeAreaView style={modalStyles.modalOverlay}>
-                <KeyboardAvoidingView 
+                <KeyboardAvoidingView
                     behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                    style={{ flex: 1 }}
+                    style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}
                 >
                 <View style={modalStyles.modalContainer}>
                     {/* Gradient Background */}

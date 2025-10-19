@@ -8,15 +8,15 @@ import {
     Image,
     Alert,
     ScrollView,
-    SafeAreaView,
     StatusBar,
     ActivityIndicator,
     Modal,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { UserContext } from '../context/UserContext'
 import { useNavigation } from '@react-navigation/native';
 import { API_URL } from '../config';
-import { ArrowLeft, Settings, Edit3, Camera, MapPin, Calendar, X, Activity, Users, ChevronRight } from 'react-native-feather';
+import { ArrowLeft, Settings, Edit3, Camera, MapPin, Calendar, X, Activity, Users, ChevronRight, Heart } from 'react-native-feather';
 import { Hamburger, Martini, Dices, Pizza, Coffee, Beef, Fish, Salad, Soup, Sandwich } from 'lucide-react-native';
 import { logger } from '../utils/logger';
 import { getUserDisplayImage } from '../utils/avatarManager';
@@ -135,6 +135,7 @@ export default function ProfileScreen() {
     const { user, setUser, updateUser } = useContext(UserContext);
     const navigation = useNavigation();
     const [showPastActivitiesModal, setShowPastActivitiesModal] = useState(false);
+    const [showCommunityModal, setShowCommunityModal] = useState(false);
     const [showPreferencesModal, setShowPreferencesModal] = useState(false);
 
     // Profile editing states
@@ -170,6 +171,63 @@ export default function ProfileScreen() {
         const uniqueCompleted = [...new Map([...myActivities, ...participantActivities].map(a => [a.id, a])).values()];
         return uniqueCompleted;
     }, [user]);
+
+    // Calculate community members - unique users from all activities
+    const communityMembers = useMemo(() => {
+        const membersMap = new Map();
+        const allActivities = [
+            ...(user?.activities || []),
+            ...(user?.participant_activities?.map(p => p.activity) || [])
+        ];
+
+        allActivities.forEach(activity => {
+            if (!activity) return;
+
+            // Add activity owner
+            if (activity.user && activity.user.id !== user?.id) {
+                const userId = activity.user.id;
+                if (!membersMap.has(userId)) {
+                    membersMap.set(userId, {
+                        id: userId,
+                        name: activity.user.name,
+                        email: activity.user.email,
+                        avatar: activity.user.avatar,
+                        profile_image: activity.user.profile_image,
+                        city: activity.user.city,
+                        state: activity.user.state,
+                        created_at: activity.user.created_at,
+                        activitiesTogether: 0
+                    });
+                }
+                membersMap.get(userId).activitiesTogether += 1;
+            }
+
+            // Add participants
+            activity.activity_participants?.forEach(ap => {
+                if (ap.user && ap.user.id !== user?.id && ap.accepted) {
+                    const userId = ap.user.id;
+                    if (!membersMap.has(userId)) {
+                        membersMap.set(userId, {
+                            id: userId,
+                            name: ap.user.name,
+                            email: ap.user.email,
+                            avatar: ap.user.avatar,
+                            profile_image: ap.user.profile_image,
+                            city: ap.user.city,
+                            state: ap.user.state,
+                            created_at: ap.user.created_at,
+                            activitiesTogether: 0
+                        });
+                    }
+                    membersMap.get(userId).activitiesTogether += 1;
+                }
+            });
+        });
+
+        return Array.from(membersMap.values()).sort((a, b) =>
+            b.activitiesTogether - a.activitiesTogether
+        );
+    }, [user?.activities, user?.participant_activities, user?.id]);
 
     // Calculate profile completion
     const profileCompletion = useMemo(() => {
@@ -438,7 +496,7 @@ export default function ProfileScreen() {
     };
 
     return (
-        <SafeAreaView style={styles.safe}>
+        <SafeAreaView style={styles.safe} edges={['top']}>
             <StatusBar barStyle="light-content" />
 
             {/* Header with back and settings button */}
@@ -538,15 +596,9 @@ export default function ProfileScreen() {
                                 </View>
                                 <View style={styles.locationRow}>
                                     {userLocation?.formatted ? (
-                                        <View style={styles.detailItem}>
-                                            <MapPin stroke="#B8A5C4" width={14} height={14} strokeWidth={2} />
-                                            <Text style={styles.detailText}>{userLocation.formatted}</Text>
-                                        </View>
+                                        <Text style={styles.detailText}>{userLocation.formatted}</Text>
                                     ) : (
-                                        <View style={styles.detailItem}>
-                                            <MapPin stroke="#9261E5" width={14} height={14} strokeWidth={2} />
-                                            <Text style={[styles.detailText, { color: '#9261E5' }]}>Add location</Text>
-                                        </View>
+                                        <Text style={[styles.detailText, { color: '#9261E5' }]}>Add location</Text>
                                     )}
                                     <TouchableOpacity
                                         style={styles.locationEditButton}
@@ -639,54 +691,6 @@ export default function ProfileScreen() {
                     </View>
                 )}
 
-                {/* About Section */}
-                <View style={styles.sectionCard}>
-                    <Text style={styles.sectionTitle}>About</Text>
-
-                    {/* Location */}
-                    <View style={styles.aboutItem}>
-                        <MapPin stroke="#9261E5" width={20} height={20} strokeWidth={2} />
-                        {!isEditingLocation ? (
-                            <View style={styles.aboutItemContent}>
-                                <Text style={styles.aboutItemLabel}>Location</Text>
-                                <Text style={styles.aboutItemValue}>
-                                    {userLocation?.formatted || 'Not set'}
-                                </Text>
-                            </View>
-                        ) : (
-                            <View style={styles.locationEditContainer}>
-                                <LocationPicker
-                                    onLocationSelect={handleLocationSelect}
-                                    currentLocation={userLocation}
-                                />
-                                <View style={styles.editButtonGroup}>
-                                    <TouchableOpacity
-                                        style={styles.saveButton}
-                                        onPress={handleSaveLocation}
-                                        disabled={!userLocation}
-                                    >
-                                        <Text style={styles.saveButtonText}>Save</Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity
-                                        style={styles.cancelButton}
-                                        onPress={handleCancelLocationEdit}
-                                    >
-                                        <Text style={styles.cancelButtonText}>Cancel</Text>
-                                    </TouchableOpacity>
-                                </View>
-                            </View>
-                        )}
-                        {!isEditingLocation && (
-                            <TouchableOpacity
-                                style={styles.editIconButton}
-                                onPress={() => setIsEditingLocation(true)}
-                            >
-                                <Edit3 stroke="#9261E5" width={16} height={16} strokeWidth={2} />
-                            </TouchableOpacity>
-                        )}
-                    </View>
-                </View>
-
                 {/* Food Preferences Section */}
                 <TouchableOpacity
                     style={styles.sectionCard}
@@ -773,6 +777,36 @@ export default function ProfileScreen() {
                     )}
                 </TouchableOpacity>
 
+                {/* Community Members Section */}
+                <TouchableOpacity
+                    style={styles.sectionCard}
+                    onPress={() => setShowCommunityModal(true)}
+                    activeOpacity={0.8}
+                >
+                    <View style={styles.sectionHeader}>
+                        <Users stroke="#FF6B6B" width={20} height={20} strokeWidth={2} />
+                        <Text style={[styles.sectionTitle, { marginLeft: 12, flex: 1 }]}>Your Community</Text>
+                        <View style={styles.activityBadge}>
+                            <Text style={styles.activityBadgeText}>{communityMembers.length}</Text>
+                        </View>
+                        {communityMembers.length > 0 && (
+                            <View style={styles.avatarPreviewContainer}>
+                                {communityMembers.slice(0, 3).map((member, index) => (
+                                    <Image
+                                        key={member.id}
+                                        source={getUserDisplayImage(member)}
+                                        style={[styles.avatarPreview, { marginLeft: index > 0 ? -8 : 0 }]}
+                                    />
+                                ))}
+                            </View>
+                        )}
+                        <ChevronRight stroke="#FF6B6B" width={20} height={20} strokeWidth={2} />
+                    </View>
+                    <Text style={styles.sectionSubtitle}>
+                        See everyone you've connected with on Voxxy
+                    </Text>
+                </TouchableOpacity>
+
                 {/* Past Activities Section */}
                 <TouchableOpacity
                     style={styles.sectionCard}
@@ -815,7 +849,7 @@ export default function ProfileScreen() {
                 presentationStyle="pageSheet"
                 onRequestClose={() => setShowPastActivitiesModal(false)}
             >
-                <SafeAreaView style={styles.modalContainer}>
+                <SafeAreaView style={styles.modalContainer} edges={['top']}>
                     <View style={styles.modalHeader}>
                         <TouchableOpacity
                             style={styles.modalCloseButton}
@@ -838,7 +872,7 @@ export default function ProfileScreen() {
                                     style={styles.modalButton}
                                     onPress={() => {
                                         setShowPastActivitiesModal(false)
-                                        navigation.navigate('Home')
+                                        navigation.navigate('/', { openChat: true })
                                     }}
                                     activeOpacity={0.8}
                                 >
@@ -889,6 +923,96 @@ export default function ProfileScreen() {
                                             </TouchableOpacity>
                                         );
                                     })}
+                            </View>
+                        )}
+                    </ScrollView>
+                </SafeAreaView>
+            </Modal>
+
+            {/* Community Members Modal */}
+            <Modal
+                visible={showCommunityModal}
+                animationType="slide"
+                presentationStyle="pageSheet"
+                onRequestClose={() => setShowCommunityModal(false)}
+            >
+                <SafeAreaView style={styles.modalContainer} edges={['top']}>
+                    <View style={styles.modalHeader}>
+                        <TouchableOpacity
+                            style={styles.modalCloseButton}
+                            onPress={() => setShowCommunityModal(false)}
+                        >
+                            <X stroke="#fff" width={20} height={20} strokeWidth={2.5} />
+                        </TouchableOpacity>
+                        <Text style={styles.modalTitle}>Your Community</Text>
+                        <View style={styles.modalHeaderSpacer} />
+                    </View>
+
+                    <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
+                        {communityMembers.length === 0 ? (
+                            <View style={styles.modalCard}>
+                                <Text style={styles.modalCardTitle}>No Community Members Yet</Text>
+                                <Text style={styles.modalCardText}>
+                                    Start creating activities and inviting friends to build your Voxxy community!
+                                </Text>
+                                <TouchableOpacity
+                                    style={styles.modalButton}
+                                    onPress={() => {
+                                        setShowCommunityModal(false);
+                                        navigation.navigate('/', { openChat: true });
+                                    }}
+                                    activeOpacity={0.8}
+                                >
+                                    <Text style={styles.modalButtonText}>Create Your First Activity</Text>
+                                </TouchableOpacity>
+                            </View>
+                        ) : (
+                            <View style={styles.modalListContainer}>
+                                {communityMembers.map((member, index) => {
+                                    const memberSince = member.created_at
+                                        ? `Joined ${new Date(member.created_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}`
+                                        : 'New member';
+
+                                    const location = member.city && member.state
+                                        ? `${member.city}, ${member.state}`
+                                        : member.city || member.state || 'Location not set';
+
+                                    return (
+                                        <View
+                                            key={member.id}
+                                            style={[
+                                                styles.communityMemberItem,
+                                                index === communityMembers.length - 1 && { marginBottom: 0 }
+                                            ]}
+                                        >
+                                            <Image
+                                                source={getUserDisplayImage(member)}
+                                                style={styles.communityMemberAvatar}
+                                            />
+                                            <View style={styles.communityMemberContent}>
+                                                <Text style={styles.communityMemberName}>{member.name}</Text>
+                                                <View style={styles.communityMemberMeta}>
+                                                    <MapPin stroke="#B8A5C4" width={12} height={12} />
+                                                    <Text style={styles.communityMemberMetaText}>{location}</Text>
+                                                </View>
+                                                <View style={styles.communityMemberStats}>
+                                                    <View style={styles.communityMemberStat}>
+                                                        <Activity stroke="#FF6B6B" width={14} height={14} />
+                                                        <Text style={styles.communityMemberStatText}>
+                                                            {member.activitiesTogether} {member.activitiesTogether === 1 ? 'activity' : 'activities'} together
+                                                        </Text>
+                                                    </View>
+                                                    <View style={styles.communityMemberStat}>
+                                                        <Calendar stroke="#4ECDC4" width={14} height={14} />
+                                                        <Text style={styles.communityMemberStatText}>
+                                                            {memberSince}
+                                                        </Text>
+                                                    </View>
+                                                </View>
+                                            </View>
+                                        </View>
+                                    );
+                                })}
                             </View>
                         )}
                     </ScrollView>
@@ -1563,6 +1687,82 @@ const styles = StyleSheet.create({
 
     pastActivityParticipantText: {
         color: '#B8A5C4',
+        fontSize: 12,
+        fontWeight: '500',
+    },
+
+    // Community Members Styles
+    avatarPreviewContainer: {
+        flexDirection: 'row',
+        marginLeft: 8,
+        marginRight: 8,
+    },
+
+    avatarPreview: {
+        width: 28,
+        height: 28,
+        borderRadius: 14,
+        borderWidth: 2,
+        borderColor: '#201925',
+    },
+
+    communityMemberItem: {
+        flexDirection: 'row',
+        padding: 16,
+        backgroundColor: '#2C1E33',
+        borderRadius: 12,
+        marginBottom: 12,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.05)',
+    },
+
+    communityMemberAvatar: {
+        width: 60,
+        height: 60,
+        borderRadius: 30,
+        marginRight: 16,
+        borderWidth: 2,
+        borderColor: '#FF6B6B',
+    },
+
+    communityMemberContent: {
+        flex: 1,
+        justifyContent: 'center',
+    },
+
+    communityMemberName: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '700',
+        marginBottom: 6,
+        fontFamily: 'Montserrat_700Bold',
+    },
+
+    communityMemberMeta: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        marginBottom: 8,
+    },
+
+    communityMemberMetaText: {
+        color: '#B8A5C4',
+        fontSize: 13,
+        fontWeight: '500',
+    },
+
+    communityMemberStats: {
+        gap: 6,
+    },
+
+    communityMemberStat: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+    },
+
+    communityMemberStatText: {
+        color: 'rgba(255, 255, 255, 0.7)',
         fontSize: 12,
         fontWeight: '500',
     },

@@ -384,6 +384,15 @@ export default function HomeScreen({ route }) {
   const navigation = useNavigation()
   const [showActivityCreation, setShowActivityCreation] = useState(false)
 
+  // Check if we should open the unified chat from navigation params
+  useEffect(() => {
+    if (route?.params?.openChat) {
+      setShowActivityCreation(true)
+      // Clear the param so it doesn't reopen if user navigates back
+      navigation.setParams({ openChat: undefined })
+    }
+  }, [route?.params?.openChat])
+
   // Handle activity creation completion
   const handleActivityCreated = (newActivityId) => {
     if (newActivityId) {
@@ -417,7 +426,7 @@ export default function HomeScreen({ route }) {
 
   const activities = useMemo(() => {
     if (!user) return []
-    
+
     // Helper function to validate activity structure
     const isValidActivity = (activity) => {
       return activity && (
@@ -427,15 +436,15 @@ export default function HomeScreen({ route }) {
         activity.user_id !== undefined
       ) && !activity.email // User objects have email, activities don't
     }
-    
+
     // Filter out invalid activities from user.activities
     const mine = (user?.activities || []).filter(isValidActivity)
-    
+
     // Filter and validate participant activities
     const theirs = user?.participant_activities
       ?.filter(p => p.accepted && p.activity && isValidActivity(p.activity))
       .map(p => p.activity) || []
-    
+
     return [...new Map([...mine, ...theirs].map(a => [a.id, a])).values()]
   }, [user])
 
@@ -453,6 +462,31 @@ export default function HomeScreen({ route }) {
       return !p.accepted && isValidActivity
     })
     .map(p => p.activity) || []
+
+  // Calculate unique community members from all activities
+  const communityMembers = useMemo(() => {
+    if (!user || !activities.length) return []
+
+    const memberMap = new Map()
+
+    activities.forEach(activity => {
+      // Add activity host if not current user
+      if (activity.user && activity.user.id !== user.id) {
+        memberMap.set(activity.user.id, activity.user)
+      }
+
+      // Add all participants if not current user
+      if (activity.participants) {
+        activity.participants.forEach(participant => {
+          if (participant.id !== user.id) {
+            memberMap.set(participant.id, participant)
+          }
+        })
+      }
+    })
+
+    return Array.from(memberMap.values())
+  }, [user, activities])
 
   if (user && !user.confirmed_at) {
     return <AccountCreatedScreen />
@@ -672,31 +706,6 @@ export default function HomeScreen({ route }) {
     <View style={styles.footerContainer}>
     </View>
   )
-
-  // Calculate unique community members from all activities
-  const communityMembers = useMemo(() => {
-    if (!user || !activities.length) return []
-
-    const memberMap = new Map()
-
-    activities.forEach(activity => {
-      // Add activity host if not current user
-      if (activity.user && activity.user.id !== user.id) {
-        memberMap.set(activity.user.id, activity.user)
-      }
-
-      // Add all participants if not current user
-      if (activity.participants) {
-        activity.participants.forEach(participant => {
-          if (participant.id !== user.id) {
-            memberMap.set(participant.id, participant)
-          }
-        })
-      }
-    })
-
-    return Array.from(memberMap.values())
-  }, [user, activities])
 
   return (
     <SafeAreaView style={styles.safe}>

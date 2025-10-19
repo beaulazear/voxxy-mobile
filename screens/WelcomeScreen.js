@@ -177,19 +177,22 @@ export default function WelcomeScreen({ onComplete }) {
                     }
                 );
 
+                // Keep track of the current user with token
+                let currentUser = user;
+
                 if (response) {
                     logger.debug('Policies accepted on backend successfully');
 
                     // Update user context with new policy status from backend
                     if (response.user) {
-                        const updatedUser = {
+                        currentUser = {
                             ...user,
                             all_policies_accepted: response.user.all_policies_accepted,
                             terms_accepted: response.user.terms_accepted,
                             privacy_policy_accepted: response.user.privacy_policy_accepted,
                             community_guidelines_accepted: response.user.community_guidelines_accepted
                         };
-                        setUser(updatedUser);
+                        setUser(currentUser);
                     }
 
                     // Optional: Store a simple cache flag for offline mode only
@@ -202,6 +205,9 @@ export default function WelcomeScreen({ onComplete }) {
                 // Save profile data if any was provided
                 if (userLocation || selectedFoods.length > 0 || selectedDietary.length > 0) {
                     logger.debug('Saving profile preferences from onboarding');
+                    logger.debug('userLocation state:', userLocation);
+                    logger.debug('selectedFoods:', selectedFoods);
+                    logger.debug('selectedDietary:', selectedDietary);
 
                     const profileData = {};
 
@@ -212,6 +218,7 @@ export default function WelcomeScreen({ onComplete }) {
                         profileData.state = userLocation.state || '';
                         profileData.latitude = userLocation.latitude || null;
                         profileData.longitude = userLocation.longitude || null;
+                        logger.debug('Location data being saved:', profileData);
                     }
 
                     // Add favorite foods if selected
@@ -224,11 +231,40 @@ export default function WelcomeScreen({ onComplete }) {
                         profileData.preferences = selectedDietary.join(', ');
                     }
 
-                    // Use updateUser from context to save profile data
-                    const updatedProfile = await updateUser(profileData);
+                    logger.debug('Complete profileData being sent to backend:', profileData);
+                    logger.debug('Using user with ID:', currentUser.id, 'and token present:', !!currentUser.token);
 
-                    if (updatedProfile) {
+                    // Make direct API call instead of using updateUser from context
+                    // to avoid stale closure issues with user state
+                    const updatedUserData = await safeAuthApiCall(
+                        `${API_URL}/users/${currentUser.id}`,
+                        currentUser.token,
+                        {
+                            method: 'PATCH',
+                            body: JSON.stringify({
+                                user: profileData
+                            }),
+                        }
+                    );
+
+                    logger.debug('Response from profile update:', updatedUserData);
+
+                    if (updatedUserData) {
+                        // Update context with the complete user data including location
+                        const finalUser = { ...updatedUserData, token: currentUser.token };
+                        setUser(finalUser);
+
                         logger.debug('Profile preferences saved successfully');
+                        logger.debug('Updated user location fields:', {
+                            neighborhood: updatedUserData.neighborhood,
+                            city: updatedUserData.city,
+                            state: updatedUserData.state,
+                            latitude: updatedUserData.latitude,
+                            longitude: updatedUserData.longitude,
+                            full_location: updatedUserData.full_location
+                        });
+                    } else {
+                        logger.error('Profile update returned null or undefined!');
                     }
                 }
             }
@@ -396,20 +432,18 @@ export default function WelcomeScreen({ onComplete }) {
                 Help us keep Voxxy safe and welcoming for everyone
             </Text>
 
-            <View style={styles.warningBox}>
-                <AlertTriangle size={24} color="#FF6B6B" />
-                <Text style={styles.warningTitle}>Zero Tolerance Policy</Text>
-                <Text style={styles.warningText}>
-                    We have zero tolerance for harassment, hate speech, or inappropriate content.
-                    Violations result in immediate action.
-                </Text>
-            </View>
-
             <View style={styles.guidelinesBox}>
                 <Text style={styles.guidelineItem}>✓ Be respectful and kind to others</Text>
                 <Text style={styles.guidelineItem}>✓ No harassment or bullying</Text>
                 <Text style={styles.guidelineItem}>✓ Keep content appropriate for all users</Text>
                 <Text style={styles.guidelineItem}>✓ Report violations to keep our community safe</Text>
+            </View>
+
+            <View style={styles.vibeCheckBox}>
+                <Sparkles size={20} color="#9261E5" style={styles.vibeCheckIcon} />
+                <Text style={styles.vibeCheckText}>
+                    We don't tolerate hate speech or harassment. Keep it respectful, keep the good vibes flowing ✨
+                </Text>
             </View>
 
             <TouchableOpacity
@@ -793,26 +827,24 @@ const styles = StyleSheet.create({
         color: colors.textSecondary,
         lineHeight: 20,
     },
-    warningBox: {
-        backgroundColor: 'rgba(255, 107, 107, 0.1)',
+    vibeCheckBox: {
+        backgroundColor: 'rgba(146, 97, 229, 0.1)',
         borderRadius: 16,
         padding: 20,
         marginBottom: 20,
         borderWidth: 1,
-        borderColor: 'rgba(255, 107, 107, 0.3)',
-        alignItems: 'center',
+        borderColor: 'rgba(146, 97, 229, 0.3)',
+        flexDirection: 'row',
+        alignItems: 'flex-start',
     },
-    warningTitle: {
-        fontSize: 18,
-        fontWeight: '600',
-        color: '#FF6B6B',
-        marginTop: 10,
-        marginBottom: 8,
+    vibeCheckIcon: {
+        marginRight: 12,
+        marginTop: 2,
     },
-    warningText: {
-        fontSize: 14,
+    vibeCheckText: {
+        flex: 1,
+        fontSize: 15,
         color: colors.textPrimary,
-        textAlign: 'center',
         lineHeight: 22,
     },
     guidelinesBox: {
