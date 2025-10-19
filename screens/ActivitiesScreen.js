@@ -663,8 +663,8 @@ const styles = StyleSheet.create({
     },
     inviteBadge: {
         position: 'absolute',
-        top: -8,
-        right: -8,
+        top: 8,
+        right: 8,
         width: 36,
         height: 36,
         borderRadius: 18,

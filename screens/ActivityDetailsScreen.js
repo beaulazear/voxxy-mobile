@@ -1196,7 +1196,10 @@ export default function ActivityDetailsScreen({ route }) {
                                         externalSetShowInviteModal={setShowInviteModal}
                                     />
 
-                                    <CommentsSection activity={currentActivity} />
+                                    <CommentsSection
+                                        activity={currentActivity}
+                                        parentScrollRef={scrollViewRef}
+                                    />
 
                                     {/* Delete/Leave Activity Button Section */}
                                     <View style={styles.deleteActivitySection}>

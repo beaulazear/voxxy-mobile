@@ -18,6 +18,9 @@ import * as Feather from 'react-native-feather';
 import { MoreVertical } from 'lucide-react-native';
 import { UserContext } from '../context/UserContext';
 import { API_URL } from '../config';
+
+// Import Voxxy mascot
+const VoxxyTriangle = require('../assets/voxxy-triangle.png');
 import { logger } from '../utils/logger';
 import { safeAuthApiCall, handleApiError } from '../utils/safeApiCall';
 import BlockedUsersService from '../services/BlockedUsersService';
@@ -61,7 +64,7 @@ const Icons = {
     ChevronUp: ({ size = 16, color = "#cc31e8" }) => <Feather.ChevronUp size={size} color={color} />,
 };
 
-const CommentsSection = ({ activity }) => {
+const CommentsSection = ({ activity, parentScrollRef }) => {
     const [comments, setComments] = useState(activity.comments || []);
     const [newComment, setNewComment] = useState('');
     const [showNewMessageToast, setShowNewMessageToast] = useState(false);
@@ -109,9 +112,31 @@ const CommentsSection = ({ activity }) => {
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const pollingRef = useRef(null);
     const inputRef = useRef(null);
+    const composerRef = useRef(null);
 
     // Toast animation values
     const toastAnim = useRef(new Animated.Value(-100)).current;
+
+    // Scroll to input when focused
+    const scrollToInput = () => {
+        if (composerRef.current && parentScrollRef?.current) {
+            setTimeout(() => {
+                composerRef.current.measureLayout(
+                    parentScrollRef.current,
+                    (x, y) => {
+                        // Scroll to position the input near the top with some padding
+                        parentScrollRef.current.scrollTo({
+                            y: y - 20, // 20px padding from top
+                            animated: true
+                        });
+                    },
+                    () => {
+                        logger.debug('Failed to measure composer position');
+                    }
+                );
+            }, 100);
+        }
+    };
 
     // Show toast notification for new messages
     const showToast = (count, authorName) => {
@@ -571,16 +596,17 @@ const CommentsSection = ({ activity }) => {
         <Animated.View style={[styles.wrapper, { opacity: fadeAnim }]}>
                 <View style={styles.chatPanel}>
                     {/* Composer at top */}
-                    <View style={styles.composer}>
+                    <View ref={composerRef} style={styles.composer}>
                         <TextInput
                             ref={inputRef}
                             style={styles.input}
-                            placeholder="Type a message…"
-                            placeholderTextColor="rgba(255, 255, 255, 0.4)"
+                            placeholder="Leave a message…"
+                            placeholderTextColor="rgba(139, 92, 246, 0.5)"
                             value={newComment}
                             onChangeText={setNewComment}
                             multiline
                             maxLength={500}
+                            onFocus={scrollToInput}
                         />
                         <TouchableOpacity
                             style={[styles.sendButton, newComment.trim() ? styles.sendButtonActive : styles.sendButtonDisabled]}
@@ -605,8 +631,17 @@ const CommentsSection = ({ activity }) => {
                     >
                         {comments.length === 0 && (
                             <View style={styles.emptyState}>
-                                <Icons.MessageCircle size={20} color="rgba(255, 255, 255, 0.4)" />
-                                <Text style={styles.emptyStateText}>No messages yet. Start the conversation!</Text>
+                                <Image
+                                    source={VoxxyTriangle}
+                                    style={styles.voxxyImage}
+                                    resizeMode="contain"
+                                />
+                                <View style={styles.emptyStateTextContainer}>
+                                    <Text style={styles.emptyStateTitle}>Skip the group chat! 💬</Text>
+                                    <Text style={styles.emptyStateSubtitle}>
+                                        Leave a message and Voxxy will notify your group
+                                    </Text>
+                                </View>
                             </View>
                         )}
 
@@ -811,19 +846,18 @@ const CommentsSection = ({ activity }) => {
 const styles = StyleSheet.create({
     wrapper: {
         width: '100%',
-        paddingHorizontal: 16,
-        paddingVertical: 16,
-        position: 'relative',  // Ensure the wrapper is the positioning context
+        paddingHorizontal: 0,
+        paddingVertical: 0,
+        position: 'relative',
     },
     chatPanel: {
         backgroundColor: 'transparent',
         borderRadius: 16,
         overflow: 'visible',
-        maxWidth: 650,
-        alignSelf: 'center',
         width: '100%',
     },
     messagesContainer: {
+        marginHorizontal: 16,
         paddingHorizontal: 16,
         paddingTop: 16,
         paddingBottom: 16,
@@ -833,16 +867,36 @@ const styles = StyleSheet.create({
     },
     emptyState: {
         flex: 1,
-        flexDirection: 'row',
+        flexDirection: 'column',
         justifyContent: 'center',
         alignItems: 'center',
-        paddingVertical: 40,
+        paddingVertical: 30,
+        paddingHorizontal: 20,
+        gap: 20,
+    },
+    voxxyImage: {
+        width: 80,
+        height: 80,
+        opacity: 0.9,
+    },
+    emptyStateTextContainer: {
+        alignItems: 'center',
         gap: 8,
     },
-    emptyStateText: {
-        color: '#e2e8f0',
+    emptyStateTitle: {
+        color: '#fff',
+        fontSize: 18,
+        fontWeight: '700',
+        fontFamily: 'Montserrat_700Bold',
+        textAlign: 'center',
+    },
+    emptyStateSubtitle: {
+        color: 'rgba(139, 92, 246, 0.8)',
         fontSize: 14,
-        fontStyle: 'italic',
+        fontWeight: '500',
+        textAlign: 'center',
+        lineHeight: 20,
+        maxWidth: 280,
     },
     dateSeparator: {
         alignSelf: 'center',
@@ -956,25 +1010,35 @@ const styles = StyleSheet.create({
     },
     composer: {
         flexDirection: 'row',
-        paddingHorizontal: 20,
-        paddingVertical: 16,
-        borderBottomWidth: 1,
-        borderBottomColor: 'rgba(64, 51, 71, 0.3)',
-        backgroundColor: 'transparent',
+        backgroundColor: 'rgba(255, 255, 255, 0.03)',
+        padding: 12,
+        borderRadius: 16,
+        borderWidth: 1.5,
+        borderColor: 'rgba(139, 92, 246, 0.4)', // Purple accent border
+        margin: 16,
         alignItems: 'flex-end',
+        gap: 10,
+        // Add subtle purple glow
+        shadowColor: '#8b5cf6',
+        shadowOffset: {
+            width: 0,
+            height: 0,
+        },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        elevation: 4,
     },
     input: {
         flex: 1,
-        backgroundColor: 'rgba(255, 255, 255, 0.03)',
+        backgroundColor: 'rgba(139, 92, 246, 0.05)', // Subtle purple tint
         borderWidth: 1,
-        borderColor: 'rgba(64, 51, 71, 0.3)',
+        borderColor: 'rgba(139, 92, 246, 0.2)',
         borderRadius: 12,
-        paddingHorizontal: 16,
-        paddingVertical: 12,
+        paddingHorizontal: 14,
+        paddingVertical: 10,
         color: '#fff',
         fontSize: 14,
         maxHeight: 100,
-        marginRight: 12,
         textAlignVertical: 'top',
     },
     sendButton: {
@@ -985,27 +1049,28 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: 2,
-        backgroundColor: 'rgba(139, 92, 246, 0.1)',
-        borderWidth: 1,
+        backgroundColor: 'rgba(139, 92, 246, 0.15)',
+        borderWidth: 1.5,
         borderColor: 'rgba(139, 92, 246, 0.3)',
     },
     sendButtonActive: {
         backgroundColor: '#8b5cf6',
-        borderColor: '#8b5cf6',
+        borderColor: '#a78bfa',
         shadowColor: '#8b5cf6',
         shadowOffset: {
             width: 0,
-            height: 2,
+            height: 4,
         },
-        shadowOpacity: 0.4,
-        shadowRadius: 4,
-        elevation: 4,
+        shadowOpacity: 0.5,
+        shadowRadius: 8,
+        elevation: 6,
+        // Subtle scale effect via transform would be in the component
     },
     sendButtonDisabled: {
-        backgroundColor: 'rgba(255, 255, 255, 0.03)',
+        backgroundColor: 'rgba(139, 92, 246, 0.08)',
         borderWidth: 1,
-        borderColor: 'rgba(64, 51, 71, 0.3)',
+        borderColor: 'rgba(139, 92, 246, 0.15)',
+        opacity: 0.5,
     },
     // Toast notification styles
     toastContainer: {
