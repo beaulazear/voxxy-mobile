@@ -439,20 +439,6 @@ export default function ActivityDetailsScreen({ route }) {
         };
     }, [activityId, user?.token]); // Only depend on essential values, not modal states
 
-    // Auto-scroll to bottom when keyboard opens
-    useEffect(() => {
-        const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => {
-            setTimeout(() => {
-                if (scrollViewRef.current) {
-                    scrollViewRef.current.scrollToEnd({ animated: true });
-                }
-            }, 100);
-        });
-
-        return () => {
-            keyboardDidShowListener?.remove();
-        };
-    }, []);
 
     const handleAcceptInvite = async () => {
         if (!pendingInvite || !token) return

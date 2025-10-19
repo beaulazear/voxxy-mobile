@@ -1648,7 +1648,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 16,
     marginHorizontal: 20,
-    marginBottom: 16,
+    marginBottom: 8,
     borderWidth: 2,
     borderColor: 'rgba(255, 230, 109, 0.3)',
   },
@@ -2456,7 +2456,7 @@ const styles = StyleSheet.create({
   },
 
   listItemStatus: {
-    alignItems: 'flex-end',
+    alignItems: 'center',
     justifyContent: 'center',
     minWidth: 80,
     gap: 4,

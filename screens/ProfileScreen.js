@@ -175,15 +175,40 @@ export default function ProfileScreen() {
     // Calculate community members - unique users from all activities
     const communityMembers = useMemo(() => {
         const membersMap = new Map();
-        const allActivities = [
-            ...(user?.activities || []),
-            ...(user?.participant_activities?.map(p => p.activity) || [])
-        ];
 
-        allActivities.forEach(activity => {
+        // Process activities you created
+        user?.activities?.forEach(activity => {
             if (!activity) return;
 
-            // Add activity owner
+            // Add participants from your activities (using participants array)
+            activity.participants?.forEach(p => {
+                if (p.id !== user?.id) {
+                    const userId = p.id;
+                    if (!membersMap.has(userId)) {
+                        membersMap.set(userId, {
+                            id: userId,
+                            name: p.name,
+                            email: p.email,
+                            avatar: p.avatar,
+                            profile_image: p.profile_image,
+                            profile_pic_url: p.profile_pic_url,
+                            city: p.city,
+                            state: p.state,
+                            created_at: p.created_at,
+                            activitiesTogether: 0
+                        });
+                    }
+                    membersMap.get(userId).activitiesTogether += 1;
+                }
+            });
+        });
+
+        // Process activities where you're a participant
+        user?.participant_activities?.forEach(pa => {
+            const activity = pa.activity;
+            if (!activity) return;
+
+            // Add the host/owner of the activity
             if (activity.user && activity.user.id !== user?.id) {
                 const userId = activity.user.id;
                 if (!membersMap.has(userId)) {
@@ -193,6 +218,7 @@ export default function ProfileScreen() {
                         email: activity.user.email,
                         avatar: activity.user.avatar,
                         profile_image: activity.user.profile_image,
+                        profile_pic_url: activity.user.profile_pic_url,
                         city: activity.user.city,
                         state: activity.user.state,
                         created_at: activity.user.created_at,
@@ -202,20 +228,21 @@ export default function ProfileScreen() {
                 membersMap.get(userId).activitiesTogether += 1;
             }
 
-            // Add participants
-            activity.activity_participants?.forEach(ap => {
-                if (ap.user && ap.user.id !== user?.id && ap.accepted) {
-                    const userId = ap.user.id;
+            // Add other participants from these activities
+            activity.participants?.forEach(p => {
+                if (p.id !== user?.id) {
+                    const userId = p.id;
                     if (!membersMap.has(userId)) {
                         membersMap.set(userId, {
                             id: userId,
-                            name: ap.user.name,
-                            email: ap.user.email,
-                            avatar: ap.user.avatar,
-                            profile_image: ap.user.profile_image,
-                            city: ap.user.city,
-                            state: ap.user.state,
-                            created_at: ap.user.created_at,
+                            name: p.name,
+                            email: p.email,
+                            avatar: p.avatar,
+                            profile_image: p.profile_image,
+                            profile_pic_url: p.profile_pic_url,
+                            city: p.city,
+                            state: p.state,
+                            created_at: p.created_at,
                             activitiesTogether: 0
                         });
                     }
@@ -794,7 +821,7 @@ export default function ProfileScreen() {
                                 {communityMembers.slice(0, 3).map((member, index) => (
                                     <Image
                                         key={member.id}
-                                        source={getUserDisplayImage(member)}
+                                        source={getUserDisplayImage(member, API_URL)}
                                         style={[styles.avatarPreview, { marginLeft: index > 0 ? -8 : 0 }]}
                                     />
                                 ))}
@@ -986,7 +1013,7 @@ export default function ProfileScreen() {
                                             ]}
                                         >
                                             <Image
-                                                source={getUserDisplayImage(member)}
+                                                source={getUserDisplayImage(member, API_URL)}
                                                 style={styles.communityMemberAvatar}
                                             />
                                             <View style={styles.communityMemberContent}>

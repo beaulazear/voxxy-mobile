@@ -7,26 +7,21 @@ import {
     ScrollView,
     Image,
     StyleSheet,
-    Dimensions,
     Alert,
     Animated,
     AppState,
     Modal,
-    KeyboardAvoidingView,
     Platform,
     Keyboard,
 } from 'react-native';
 import * as Feather from 'react-native-feather';
-import { Flag, MoreVertical } from 'lucide-react-native';
+import { MoreVertical } from 'lucide-react-native';
 import { UserContext } from '../context/UserContext';
 import { API_URL } from '../config';
 import { logger } from '../utils/logger';
 import { safeAuthApiCall, handleApiError } from '../utils/safeApiCall';
-import { TOUCH_TARGETS, SPACING } from '../styles/AccessibilityStyles';
 import BlockedUsersService from '../services/BlockedUsersService';
 import ContentFilterService from '../services/ContentFilterService';
-
-const { width: screenWidth } = Dimensions.get('window');
 
 // Helper function to get proper display image (prioritizing profile_pic_url over avatar)
 const getDisplayImage = (user) => {
@@ -73,8 +68,6 @@ const CommentsSection = ({ activity }) => {
     const [newMessageCount, setNewMessageCount] = useState(0);
     const [lastNewCommentId, setLastNewCommentId] = useState(null);
     const [isMounted, setIsMounted] = useState(true);
-    const [showAllCommentsModal, setShowAllCommentsModal] = useState(false);
-    const [modalNewComment, setModalNewComment] = useState('');
     const [reportModalVisible, setReportModalVisible] = useState(false);
     const [selectedComment, setSelectedComment] = useState(null);
     const [reportReason, setReportReason] = useState('');
@@ -82,12 +75,7 @@ const CommentsSection = ({ activity }) => {
     const [blockedUsers, setBlockedUsers] = useState([]);
     const [showBlockConfirm, setShowBlockConfirm] = useState(false);
     const [userToBlock, setUserToBlock] = useState(null);
-    const [wasCommentsModalOpen, setWasCommentsModalOpen] = useState(false);
     const [showAllComments, setShowAllComments] = useState(false);
-
-    // Refs
-    const modalScrollViewRef = useRef(null);
-    const modalInputRef = useRef(null);
 
     // Load blocked users on mount and set auth token
     useEffect(() => {
@@ -118,13 +106,12 @@ const CommentsSection = ({ activity }) => {
     });
 
     const { user } = useContext(UserContext);
-    const scrollViewRef = useRef(null);
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const pollingRef = useRef(null);
+    const inputRef = useRef(null);
 
     // Toast animation values
     const toastAnim = useRef(new Animated.Value(-100)).current;
-    const pulseAnim = useRef(new Animated.Value(1)).current;
 
     // Show toast notification for new messages
     const showToast = (count, authorName) => {
@@ -147,28 +134,7 @@ const CommentsSection = ({ activity }) => {
         ]).start(() => {
             setShowNewMessageToast(false);
         });
-
-        // Pulse animation for the live indicator
-        Animated.sequence([
-            Animated.timing(pulseAnim, {
-                toValue: 1.2,
-                duration: 200,
-                useNativeDriver: true,
-            }),
-            Animated.timing(pulseAnim, {
-                toValue: 1,
-                duration: 200,
-                useNativeDriver: true,
-            })
-        ]).start();
     };
-    useEffect(() => {
-        if (scrollViewRef.current && comments.length > 0) {
-            setTimeout(() => {
-                scrollViewRef.current?.scrollToEnd({ animated: true });
-            }, 100);
-        }
-    }, [comments]);
 
     // Fade in animation
     useEffect(() => {
@@ -177,6 +143,20 @@ const CommentsSection = ({ activity }) => {
             duration: 400,
             useNativeDriver: true,
         }).start();
+    }, []);
+
+    // Handle keyboard dismiss to prevent blank screen
+    useEffect(() => {
+        const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
+            // Blur the input to help reset scroll position
+            if (inputRef.current) {
+                inputRef.current.blur();
+            }
+        });
+
+        return () => {
+            keyboardDidHideListener?.remove();
+        };
     }, []);
 
     // Polling for new comments with proper duplicate prevention and race condition handling
@@ -287,42 +267,6 @@ const CommentsSection = ({ activity }) => {
         };
     }, []);
 
-    // Scroll to bottom on first render
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            if (scrollViewRef.current) {
-                scrollViewRef.current.scrollToEnd({ animated: false });
-            }
-        }, 200);
-        return () => clearTimeout(timer);
-    }, []);
-
-    // Handle keyboard events for modal scrolling
-    useEffect(() => {
-        if (!showAllCommentsModal) return;
-
-        const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => {
-            setTimeout(() => {
-                if (modalScrollViewRef.current) {
-                    modalScrollViewRef.current.scrollToEnd({ animated: true });
-                }
-            }, 100);
-        });
-
-        const keyboardWillShowListener = Keyboard.addListener('keyboardWillShow', () => {
-            setTimeout(() => {
-                if (modalScrollViewRef.current) {
-                    modalScrollViewRef.current.scrollToEnd({ animated: true });
-                }
-            }, 0);
-        });
-
-        return () => {
-            keyboardDidShowListener?.remove();
-            keyboardWillShowListener?.remove();
-        };
-    }, [showAllCommentsModal]);
-
     // Post a new comment
     const handleCommentSubmit = async (commentText = null) => {
         const textToSubmit = commentText || newComment.trim();
@@ -418,40 +362,19 @@ const CommentsSection = ({ activity }) => {
         setCustomReportReason('');
         setShowBlockConfirm(false);
         setUserToBlock(null);
-        
-        // Reopen comments modal if it was open before
-        if (wasCommentsModalOpen) {
-            setTimeout(() => {
-                setShowAllCommentsModal(true);
-                setWasCommentsModalOpen(false);
-            }, 300);
-        }
     };
 
     const handleReportComment = (comment) => {
-        logger.debug('Opening report modal for comment:', { 
-            commentId: comment.id, 
+        logger.debug('Opening report modal for comment:', {
+            commentId: comment.id,
             userId: comment.user?.id,
             userName: comment.user?.name,
-            currentUserId: user?.id 
+            currentUserId: user?.id
         });
         setSelectedComment(comment);
         setReportReason('');
         setCustomReportReason('');
-        
-        // Remember if comments modal was open and close it first
-        if (showAllCommentsModal) {
-            setWasCommentsModalOpen(true);
-            setShowAllCommentsModal(false);
-            // Wait for modal to close before opening report modal
-            setTimeout(() => {
-                setReportModalVisible(true);
-            }, 300);
-        } else {
-            setWasCommentsModalOpen(false);
-            // If comments modal isn't open, just show report modal
-            setReportModalVisible(true);
-        }
+        setReportModalVisible(true);
     };
 
     const handleBlockUser = async (userId, userName) => {
@@ -646,85 +569,73 @@ const CommentsSection = ({ activity }) => {
 
     return (
         <Animated.View style={[styles.wrapper, { opacity: fadeAnim }]}>
-            <View style={styles.chatPanel}>
-                {/* Header */}
-                <View style={styles.header}>
-                    <View style={styles.headerContent}>
-                        <Icons.MessageCircle />
-                        <Text style={styles.title}>Activity Updates</Text>
-                        {/* Show live indicator when polling is active */}
-                        {pollingRef.current && (
-                            <Animated.View style={[
-                                styles.liveIndicator,
-                                { transform: [{ scale: pulseAnim }] }
-                            ]}>
-                                <View style={styles.liveDot} />
-                                <Text style={styles.liveText}>Live</Text>
-                            </Animated.View>
+                <View style={styles.chatPanel}>
+                    {/* Composer at top */}
+                    <View style={styles.composer}>
+                        <TextInput
+                            ref={inputRef}
+                            style={styles.input}
+                            placeholder="Type a message…"
+                            placeholderTextColor="rgba(255, 255, 255, 0.4)"
+                            value={newComment}
+                            onChangeText={setNewComment}
+                            multiline
+                            maxLength={500}
+                        />
+                        <TouchableOpacity
+                            style={[styles.sendButton, newComment.trim() ? styles.sendButtonActive : styles.sendButtonDisabled]}
+                            onPress={() => {
+                                if (newComment.trim()) {
+                                    handleCommentSubmit(newComment.trim());
+                                    setNewComment('');
+                                }
+                            }}
+                            disabled={!newComment.trim()}
+                        >
+                            <Icons.Send size={18} color={newComment.trim() ? "#fff" : "rgba(255, 255, 255, 0.3)"} />
+                        </TouchableOpacity>
+                    </View>
+
+                    {/* Messages */}
+                    <View
+                        style={[
+                            styles.messagesContainer,
+                            comments.length === 0 && styles.messagesContainerEmpty
+                        ]}
+                    >
+                        {comments.length === 0 && (
+                            <View style={styles.emptyState}>
+                                <Icons.MessageCircle size={20} color="rgba(255, 255, 255, 0.4)" />
+                                <Text style={styles.emptyStateText}>No messages yet. Start the conversation!</Text>
+                            </View>
+                        )}
+
+                        {/* Show newest comments first, reversed order */}
+                        {Object.entries(groupedComments)
+                            .reverse()
+                            .slice(0, showAllComments ? undefined : 5)
+                            .map(([date, msgs]) => (
+                                <View key={date}>
+                                    <View style={styles.dateSeparator}>
+                                        <Text style={styles.dateSeparatorText}>{date}</Text>
+                                    </View>
+                                    {msgs.reverse().map(renderMessage)}
+                                </View>
+                            ))
+                        }
+
+                        {comments.length > 10 && !showAllComments && (
+                            <TouchableOpacity
+                                style={styles.viewAllButton}
+                                onPress={() => setShowAllComments(true)}
+                            >
+                                <Text style={styles.viewAllText}>
+                                    See {comments.length - 10} more updates
+                                </Text>
+                                <Icons.ChevronUp size={16} color="#8b5cf6" />
+                            </TouchableOpacity>
                         )}
                     </View>
-                </View>
-
-                {/* Messages */}
-                <View style={styles.messagesContainer}>
-                    {comments.length === 0 && (
-                        <View style={styles.emptyState}>
-                            <Icons.MessageCircle size={20} color="rgba(255, 255, 255, 0.4)" />
-                            <Text style={styles.emptyStateText}>No messages yet. Start the conversation!</Text>
-                        </View>
-                    )}
-
-                    {/* Show newest comments first, reversed order */}
-                    {Object.entries(groupedComments)
-                        .reverse()
-                        .slice(0, showAllComments ? undefined : 5)
-                        .map(([date, msgs]) => (
-                            <View key={date}>
-                                <View style={styles.dateSeparator}>
-                                    <Text style={styles.dateSeparatorText}>{date}</Text>
-                                </View>
-                                {msgs.reverse().map(renderMessage)}
-                            </View>
-                        ))
-                    }
-
-                    {comments.length > 10 && !showAllComments && (
-                        <TouchableOpacity
-                            style={styles.viewAllButton}
-                            onPress={() => setShowAllComments(true)}
-                        >
-                            <Text style={styles.viewAllText}>
-                                See {comments.length - 10} more updates
-                            </Text>
-                            <Icons.ChevronUp size={16} color="#8b5cf6" />
-                        </TouchableOpacity>
-                    )}
-                </View>
-
-                {/* Composer */}
-                <View style={styles.composer}>
-                    <TextInput
-                        style={styles.input}
-                        placeholder="Type a message…"
-                        placeholderTextColor="rgba(255, 255, 255, 0.4)"
-                        value={newComment}
-                        onChangeText={setNewComment}
-                        multiline
-                        maxLength={500}
-                    />
-                    <TouchableOpacity
-                        style={[styles.sendButton, newComment.trim() ? styles.sendButtonActive : styles.sendButtonDisabled]}
-                        onPress={() => {
-                            if (newComment.trim()) {
-                                handleCommentSubmit(newComment.trim());
-                                setNewComment('');
-                            }
-                        }}
-                        disabled={!newComment.trim()}
-                    >
-                        <Icons.Send size={18} color={newComment.trim() ? "#fff" : "rgba(255, 255, 255, 0.3)"} />
-                    </TouchableOpacity>
-                </View>
             </View>
 
             {/* Toast Notification for New Messages */}
@@ -912,61 +823,13 @@ const styles = StyleSheet.create({
         alignSelf: 'center',
         width: '100%',
     },
-    header: {
-        paddingHorizontal: 20,
-        paddingTop: 16,
-        paddingBottom: 12,
-        borderBottomWidth: 1,
-        borderBottomColor: 'rgba(64, 51, 71, 0.3)',
-    },
-    headerContent: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-    },
-    title: {
-        fontFamily: 'System',
-        fontSize: 18,
-        fontWeight: '600',
-        color: '#fff',
-        flex: 1,
-    },
-    // Live indicator styles
-    liveIndicator: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: 'rgba(40, 167, 69, 0.2)',
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: 'rgba(40, 167, 69, 0.4)',
-    },
-    liveDot: {
-        width: 6,
-        height: 6,
-        borderRadius: 3,
-        backgroundColor: '#28a745',
-        marginRight: 4,
-    },
-    liveText: {
-        color: '#28a745',
-        fontSize: 11,
-        fontWeight: '600',
-    },
     messagesContainer: {
         paddingHorizontal: 16,
+        paddingTop: 16,
         paddingBottom: 16,
-        gap: 12,
     },
-    messages: {
-        maxHeight: 400,
-        minHeight: 200,
-    },
-    messagesContent: {
-        paddingHorizontal: 20,
-        paddingVertical: 16,
-        flexGrow: 1,
+    messagesContainerEmpty: {
+        minHeight: 250,
     },
     emptyState: {
         flex: 1,
@@ -1095,8 +958,8 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         paddingHorizontal: 20,
         paddingVertical: 16,
-        borderTopWidth: 1,
-        borderTopColor: 'rgba(64, 51, 71, 0.3)',
+        borderBottomWidth: 1,
+        borderBottomColor: 'rgba(64, 51, 71, 0.3)',
         backgroundColor: 'transparent',
         alignItems: 'flex-end',
     },
@@ -1113,33 +976,6 @@ const styles = StyleSheet.create({
         maxHeight: 100,
         marginRight: 12,
         textAlignVertical: 'top',
-    },
-    fakeInput: {
-        flex: 1,
-        backgroundColor: 'rgba(255, 255, 255, 0.03)',
-        borderWidth: 1,
-        borderColor: 'rgba(64, 51, 71, 0.3)',
-        borderRadius: 12,
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        minHeight: 48,
-        marginRight: 12,
-        justifyContent: 'center',
-    },
-    fakeInputText: {
-        fontSize: 14,
-        color: '#cbd5e1',
-    },
-    fakeInputFull: {
-        flex: 1,
-        backgroundColor: 'rgba(255, 255, 255, 0.03)',
-        borderWidth: 1,
-        borderColor: 'rgba(64, 51, 71, 0.3)',
-        borderRadius: 12,
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        minHeight: 48,
-        justifyContent: 'center',
     },
     sendButton: {
         minWidth: 44,
@@ -1245,124 +1081,6 @@ const styles = StyleSheet.create({
         color: '#8b5cf6',
         fontSize: 13,
         fontWeight: '600',
-    },
-    // Modal styles
-    modalContainer: {
-        flex: 1,
-        backgroundColor: '#201925',
-    },
-    modalHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingHorizontal: 20,
-        paddingTop: 60,
-        paddingBottom: 20,
-        borderBottomWidth: 1,
-        borderBottomColor: 'rgba(64, 51, 71, 0.3)',
-    },
-    modalTitle: {
-        color: '#fff',
-        fontSize: 20,
-        fontWeight: '700',
-        fontFamily: 'Montserrat_700Bold',
-    },
-    modalCloseButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: 'rgba(255, 255, 255, 0.1)',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    modalScrollView: {
-        flex: 1,
-    },
-    modalContent: {
-        paddingHorizontal: 20,
-        paddingVertical: 16,
-    },
-    modalEmptyState: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        paddingVertical: 60,
-        paddingHorizontal: 40,
-    },
-    modalEmptyIcon: {
-        marginBottom: 24,
-        opacity: 0.6,
-    },
-    modalEmptyTitle: {
-        color: '#fff',
-        fontSize: 22,
-        fontWeight: '600',
-        textAlign: 'center',
-        marginBottom: 12,
-    },
-    modalEmptySubtitle: {
-        color: 'rgba(255, 255, 255, 0.7)',
-        fontSize: 16,
-        textAlign: 'center',
-        lineHeight: 24,
-        marginBottom: 32,
-    },
-    modalEmptyHint: {
-        backgroundColor: 'rgba(102, 126, 234, 0.1)',
-        borderRadius: 20,
-        paddingHorizontal: 20,
-        paddingVertical: 12,
-        borderWidth: 1,
-        borderColor: 'rgba(102, 126, 234, 0.2)',
-    },
-    modalEmptyHintText: {
-        color: '#cc31e8',
-        fontSize: 14,
-        textAlign: 'center',
-        fontWeight: '500',
-    },
-    modalKeyboardContainer: {
-        flex: 1,
-    },
-    modalComposer: {
-        flexDirection: 'row',
-        alignItems: 'flex-end',
-        paddingHorizontal: 16,
-        paddingTop: 12,
-        paddingBottom: Platform.OS === 'ios' ? 24 : 20,
-        borderTopWidth: 1,
-        borderTopColor: 'rgba(64, 51, 71, 0.3)',
-        backgroundColor: '#201925',
-        gap: 12,
-    },
-    modalInput: {
-        flex: 1,
-        backgroundColor: 'rgba(255, 255, 255, 0.05)',
-        borderRadius: 20,
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        fontSize: 16,
-        color: '#fff',
-        maxHeight: 100,
-        textAlignVertical: 'top',
-        borderWidth: 1,
-        borderColor: 'rgba(64, 51, 71, 0.3)',
-    },
-    modalSendButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: 2,
-    },
-    modalSendButtonActive: {
-        backgroundColor: '#cc31e8',
-    },
-    modalSendButtonDisabled: {
-        backgroundColor: 'rgba(255, 255, 255, 0.05)',
-        borderWidth: 1,
-        borderColor: 'rgba(64, 51, 71, 0.3)',
     },
     // Report button styles
     reportButton: {
