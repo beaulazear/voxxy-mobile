@@ -201,20 +201,37 @@ export default function ActivitiesScreen() {
                 : [...invites, ...groupActivities]; // Invites at the top of groups tab
 
         return data.sort((a, b) => {
+            // For finalized activities, sort by start date (soonest first)
+            if (filter === 'finalized') {
+                const dateA = new Date(a.date_day || '9999-12-31');
+                const dateB = new Date(b.date_day || '9999-12-31');
+                return dateA - dateB;
+            }
+
+            // For non-finalized activities (groups and solo)
+            // First, prioritize invites and action needed items
             const aUserResponse = a.responses?.find(r => r.user_id === user?.id);
             const bUserResponse = b.responses?.find(r => r.user_id === user?.id);
             const aIsHost = a.user_id === user?.id;
             const bIsHost = b.user_id === user?.id;
 
+            const aIsInvite = invites.some(invite => invite.id === a.id);
+            const bIsInvite = invites.some(invite => invite.id === b.id);
             const aActionNeeded = !aIsHost && !aUserResponse;
             const bActionNeeded = !bIsHost && !bUserResponse;
 
+            // Invites come first
+            if (aIsInvite && !bIsInvite) return -1;
+            if (!aIsInvite && bIsInvite) return 1;
+
+            // Then action needed items
             if (aActionNeeded && !bActionNeeded) return -1;
             if (!aActionNeeded && bActionNeeded) return 1;
 
-            const dateA = new Date(a.date_day || '9999-12-31');
-            const dateB = new Date(b.date_day || '9999-12-31');
-            return dateA - dateB;
+            // Finally, sort by created_at date (newest first)
+            const createdA = new Date(a.created_at || '1970-01-01');
+            const createdB = new Date(b.created_at || '1970-01-01');
+            return createdB - createdA; // Descending order (newest first)
         });
     }, [filter, groupActivities, soloActivities, finalizedActivities, invites, user?.id]);
 
