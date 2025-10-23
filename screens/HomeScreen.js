@@ -21,11 +21,13 @@ import { Users, Zap, CheckCircle, Mail, Coffee, Activity, Hamburger, Martini } f
 import ProfileSnippet from '../components/ProfileSnippet'
 import { useNavigation } from '@react-navigation/native'
 import UnifiedActivityChat from '../components/UnifiedActivityChat'
+import CommunityFeed from '../components/CommunityFeed'
+import FavoriteDetailModal from '../components/FavoriteDetailModal'
 import { logger } from '../utils/logger'
 import { API_URL } from '../config'
 import { getUserDisplayImage } from '../utils/avatarManager'
 
-const { width: screenWidth } = Dimensions.get('window')
+const { width: screenWidth, height: screenHeight } = Dimensions.get('window')
 
 const HEADER_HEIGHT = 60 // Matches ProfileSnippet height
 const HEADER_SPACING = 16 // Space between ProfileSnippet and content
@@ -149,203 +151,102 @@ function FloatingIcon({ icon: Icon, color, delay = 0, duration = 3000 }) {
   )
 }
 
-// Animated Start New Activity Wide Button
-function AnimatedStartNewActivityButton({ navigation, onPress, userName, communityMembers = [], hasIncompleteProfile = false }) {
-  // Background gradient animation
-  const gradientAnim = useRef(new Animated.Value(0)).current
-  const pulseAnim = useRef(new Animated.Value(1)).current
-
-  // Cycling icons for dining options
-  const activityIcons = [
-    { component: Hamburger, color: '#FF6B6B', name: 'restaurant', label: 'Restaurants' },
-    { component: Martini, color: '#4ECDC4', name: 'bar', label: 'Bars & Lounges' }
-  ]
-
-  const [currentIconIndex, setCurrentIconIndex] = useState(0)
-  const CurrentIcon = activityIcons[currentIconIndex].component
-
-  // Get first name only
+// Compact Twitter-style CTA Card
+function CompactStartActivityCard({ onPress, userName, communityMembers = [] }) {
   const firstName = userName ? userName.split(' ')[0] : 'there'
-
-  // Check if user has an established community (3+ members)
   const hasEstablishedCommunity = communityMembers.length >= 3
 
-  // Start animations
-  useEffect(() => {
-    // Gradient shimmer animation
-    const gradientAnimation = Animated.loop(
-      Animated.sequence([
-        Animated.timing(gradientAnim, {
-          toValue: 1,
-          duration: 3000,
-          useNativeDriver: false,
-        }),
-        Animated.timing(gradientAnim, {
-          toValue: 0,
-          duration: 3000,
-          useNativeDriver: false,
-        }),
-      ])
-    )
+  // Pulsing glow animation for icon
+  const glowAnim = useRef(new Animated.Value(0)).current
 
-    // Subtle pulse animation
+  useEffect(() => {
     const pulseAnimation = Animated.loop(
       Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.02,
-          duration: 2000,
+        Animated.timing(glowAnim, {
+          toValue: 1,
+          duration: 1500,
           useNativeDriver: true,
         }),
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 2000,
+        Animated.timing(glowAnim, {
+          toValue: 0,
+          duration: 1500,
           useNativeDriver: true,
         }),
       ])
     )
 
-    gradientAnimation.start()
     pulseAnimation.start()
 
-    // Icon cycling every 4 seconds
-    const iconInterval = setInterval(() => {
-      setCurrentIconIndex((prev) => (prev + 1) % activityIcons.length)
-    }, 4000)
-
-    return () => {
-      gradientAnimation.stop()
-      pulseAnimation.stop()
-      clearInterval(iconInterval)
-    }
+    return () => pulseAnimation.stop()
   }, [])
 
+  const glowOpacity = glowAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.3, 1]
+  })
+
   return (
-    <View style={styles.fullScreenCTAContainer}>
-      {/* Floating decorative icons */}
-      <View style={styles.floatingIconTopLeft}>
-        <FloatingIcon icon={Hamburger} color="#FF6B6B" delay={0} duration={3000} />
-      </View>
-      <View style={styles.floatingIconTopRight}>
-        <FloatingIcon icon={Martini} color="#4ECDC4" delay={500} duration={3500} />
-      </View>
-      <View style={styles.floatingIconBottomLeft}>
-        <FloatingIcon icon={Coffee} color="#FFA500" delay={1000} duration={4000} />
-      </View>
-      <View style={styles.floatingIconBottomRight}>
-        <FloatingIcon icon={Users} color="#B954EC" delay={1500} duration={3200} />
+    <TouchableOpacity
+      style={styles.compactCTACard}
+      onPress={() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+        onPress()
+      }}
+      activeOpacity={0.8}
+    >
+      {/* Smaller animated icon in top left */}
+      <View style={styles.compactCTAIconCircle}>
+        <Animated.View style={[
+          styles.compactCTAIconGlow,
+          { opacity: glowOpacity }
+        ]} />
+        <Image
+          source={require('../assets/voxxy-triangle.png')}
+          style={styles.compactCTAIcon}
+          resizeMode="contain"
+        />
       </View>
 
-      {/* Main CTA */}
-      <Animated.View style={[styles.ctaWrapper, { transform: [{ scale: pulseAnim }] }]}>
-        <TouchableOpacity
-          style={[
-            styles.wideStartActivityButton,
-            hasIncompleteProfile && styles.wideStartActivityButtonCompact
-          ]}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
-            onPress()
-          }}
-          activeOpacity={0.85}
-        >
-          {/* Animated Gradient Border */}
-          <LinearGradient
-            colors={['#cc31e8', '#667eea', '#cc31e8']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.wideButtonGradientBorder}
-          >
-            <View style={styles.wideButtonInner}>
-              <View style={[
-                styles.wideButtonContent,
-                hasIncompleteProfile && styles.wideButtonContentCompact
-              ]}>
-                {/* Main Icon with glow */}
-                <View style={[
-                  styles.wideButtonMainIconContainer,
-                  hasIncompleteProfile && styles.wideButtonMainIconContainerCompact
-                ]}>
-                  <View style={[
-                    styles.iconGlow,
-                    hasIncompleteProfile && styles.iconGlowCompact
-                  ]} />
-                  <CurrentIcon color="#ffffff" size={hasIncompleteProfile ? 32 : 40} strokeWidth={2.5} />
-                </View>
-
-                {/* Combined greeting and title */}
-                <View style={styles.titleContainer}>
-                  <Text style={styles.wideButtonTitle}>
-                    Hey {firstName} ✨
-                  </Text>
-                  <Text style={styles.wideButtonTitle}>
-                    {hasEstablishedCommunity
-                      ? 'Your community awaits.'
-                      : 'Lets get started!'}
-                  </Text>
-                </View>
-
-                <Text style={styles.wideButtonSubtitle}>
-                  {hasEstablishedCommunity
-                    ? 'Be the one to start the next plan!'
-                    : `Discover amazing ${activityIcons[currentIconIndex].label.toLowerCase()} with friends`}
+      <View style={styles.compactCTAContent}>
+        <Text style={styles.compactCTAPrompt}>
+          {hasEstablishedCommunity
+            ? `Let's get started, ${firstName}!`
+            : `Start something fun, ${firstName}!`}
+        </Text>
+        <Text style={styles.compactCTASubtext}>
+          {hasEstablishedCommunity
+            ? 'Find your next favorite spot for you & your group'
+            : 'Discover amazing places together'}
+        </Text>
+        {hasEstablishedCommunity && communityMembers.length > 0 && (
+          <View style={styles.compactCTAAvatars}>
+            {communityMembers.slice(0, 4).map((member, idx) => (
+              <Image
+                key={member.id || idx}
+                source={getUserDisplayImage(member, API_URL)}
+                style={[
+                  styles.compactCTAAvatar,
+                  { marginLeft: idx === 0 ? 0 : -8 }
+                ]}
+              />
+            ))}
+            {communityMembers.length > 4 && (
+              <View style={[styles.compactCTAAvatar, styles.compactCTAAvatarCount, { marginLeft: -8 }]}>
+                <Text style={styles.compactCTAAvatarCountText}>
+                  +{communityMembers.length - 4}
                 </Text>
-
-                {/* Activity type indicators OR Community member avatars */}
-                {hasEstablishedCommunity ? (
-                  <View style={styles.communityAvatarsContainer}>
-                    {communityMembers.slice(0, 5).map((member, idx) => (
-                      <Image
-                        key={member.id || idx}
-                        source={getUserDisplayImage(member, API_URL)}
-                        style={[
-                          styles.communityAvatar,
-                          { marginLeft: idx === 0 ? 0 : -12 }
-                        ]}
-                      />
-                    ))}
-                    {communityMembers.length > 5 && (
-                      <View style={[styles.communityAvatar, styles.communityAvatarCount, { marginLeft: -12 }]}>
-                        <Text style={styles.communityAvatarCountText}>
-                          +{communityMembers.length - 5}
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-                ) : (
-                  <View style={styles.wideButtonMicroIcons}>
-                    {activityIcons.map((icon, index) => {
-                      const IconComponent = icon.component
-                      const isActive = index === currentIconIndex
-                      return (
-                        <Animated.View
-                          key={index}
-                          style={[
-                            styles.wideMicroIcon,
-                            isActive && styles.wideMicroIconActive
-                          ]}
-                        >
-                          <IconComponent
-                            color={isActive ? '#ffffff' : 'rgba(255,255,255,0.4)'}
-                            size={24}
-                            strokeWidth={2}
-                          />
-                        </Animated.View>
-                      )
-                    })}
-                  </View>
-                )}
-
-                {/* CTA Button */}
-                <View style={styles.wideButtonCallToAction}>
-                  <Zap color="#ffffff" size={20} strokeWidth={2.5} />
-                  <Text style={styles.wideButtonActionText}>Let's Go!</Text>
-                </View>
               </View>
-            </View>
-          </LinearGradient>
-        </TouchableOpacity>
-      </Animated.View>
-    </View>
+            )}
+          </View>
+        )}
+
+        {/* Button with Zap icon */}
+        <View style={styles.compactCTAButton}>
+          <Zap color="#ffffff" size={18} strokeWidth={2.5} />
+          <Text style={styles.compactCTAButtonText}>Let's go</Text>
+        </View>
+      </View>
+    </TouchableOpacity>
   )
 }
 
@@ -383,6 +284,7 @@ export default function HomeScreen({ route }) {
   const { user } = useContext(UserContext)
   const navigation = useNavigation()
   const [showActivityCreation, setShowActivityCreation] = useState(false)
+  const [selectedFavorite, setSelectedFavorite] = useState(null)
 
   // Check if we should open the unified chat from navigation params
   useEffect(() => {
@@ -750,13 +652,19 @@ export default function HomeScreen({ route }) {
           </TouchableOpacity>
         )}
 
-        {/* Animated Start New Activity Button - Wide Version */}
-        <AnimatedStartNewActivityButton
-          navigation={navigation}
+        {/* Compact Start Activity Card - Twitter-style */}
+        <CompactStartActivityCard
           onPress={() => setShowActivityCreation(true)}
           userName={user?.name}
           communityMembers={communityMembers}
-          hasIncompleteProfile={profileCompletion.percentage < 100}
+        />
+
+        {/* Community Feed */}
+        <CommunityFeed
+          communityMembers={communityMembers}
+          onFavoritePress={(favorite) => {
+            setSelectedFavorite(favorite);
+          }}
         />
         <ListFooter />
       </ScrollView>
@@ -766,6 +674,18 @@ export default function HomeScreen({ route }) {
       <UnifiedActivityChat
         visible={showActivityCreation}
         onClose={handleActivityCreated}
+      />
+
+      {/* Favorite Detail Modal */}
+      <FavoriteDetailModal
+        visible={selectedFavorite !== null}
+        onClose={() => setSelectedFavorite(null)}
+        favorite={selectedFavorite}
+        isFavorited={false}
+        onToggleFavorite={() => {
+          // Optional: Allow user to save this favorite themselves
+          logger.debug('Toggle favorite from community feed');
+        }}
       />
 
     </SafeAreaView>
@@ -1699,13 +1619,133 @@ const styles = StyleSheet.create({
     minWidth: 40,
   },
 
-  // Full Screen CTA Styles
+  // Compact CTA Card Styles (Twitter-style)
+  compactCTACard: {
+    backgroundColor: 'rgba(42, 30, 46, 0.6)',
+    borderRadius: 0,
+    paddingVertical: 24,
+    paddingHorizontal: 24,
+    marginBottom: 0,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: 'rgba(185, 84, 236, 0.25)',
+    position: 'relative',
+  },
+
+  compactCTAIconCircle: {
+    position: 'absolute',
+    top: 16,
+    left: 16,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(185, 84, 236, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(185, 84, 236, 0.4)',
+  },
+
+  compactCTAIconGlow: {
+    position: 'absolute',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#ffffff',
+    shadowColor: '#ffffff',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+
+  compactCTAIcon: {
+    width: 24,
+    height: 24,
+    tintColor: '#B954EC',
+  },
+
+  compactCTAContent: {
+    paddingLeft: 64,
+  },
+
+  compactCTAPrompt: {
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 6,
+    fontFamily: 'Montserrat_700Bold',
+    lineHeight: 26,
+  },
+
+  compactCTASubtext: {
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: 15,
+    fontWeight: '500',
+    marginBottom: 10,
+    fontFamily: 'Montserrat_500Medium',
+    lineHeight: 20,
+  },
+
+  compactCTAAvatars: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+
+  compactCTAAvatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: 'rgba(42, 30, 46, 0.9)',
+  },
+
+  compactCTAAvatarCount: {
+    backgroundColor: 'rgba(185, 84, 236, 0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  compactCTAAvatarCountText: {
+    color: '#B954EC',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+
+  compactCTAButton: {
+    backgroundColor: '#B954EC',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 24,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+    shadowColor: '#B954EC',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 12,
+    elevation: 8,
+    alignSelf: 'flex-start',
+    marginTop: 4,
+  },
+
+  compactCTAButtonText: {
+    color: '#ffffff',
+    fontSize: 15,
+    fontWeight: '700',
+    fontFamily: 'Montserrat_700Bold',
+    letterSpacing: 0.3,
+  },
+
+  // Full Screen CTA Styles (Legacy - can be removed if not needed elsewhere)
   fullScreenCTAContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 40,
+    paddingVertical: 24,
     position: 'relative',
   },
 
@@ -1787,6 +1827,12 @@ const styles = StyleSheet.create({
     gap: 12,
   },
 
+  wideButtonContentExtraCompact: {
+    paddingVertical: 20,
+    paddingHorizontal: 24,
+    gap: 8,
+  },
+
   titleContainer: {
     alignItems: 'center',
     gap: 4,
@@ -1812,6 +1858,13 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
 
+  wideButtonMainIconContainerExtraCompact: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    marginBottom: 2,
+  },
+
   iconGlow: {
     position: 'absolute',
     width: 88,
@@ -1828,6 +1881,12 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
+  },
+
+  iconGlowExtraCompact: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
   },
 
   wideButtonTitle: {

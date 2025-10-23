@@ -777,7 +777,13 @@ export default function ActivityDetailsScreen({ route }) {
             Alert.alert(
                 'Activity Completed!',
                 'Your activity has been marked as completed. You can view your saved favorites anytime in your Favorites tab.',
-                [{ text: 'OK' }]
+                [{
+                    text: 'OK',
+                    onPress: () => {
+                        logger.debug('🔙 Navigating back after solo activity completion');
+                        navigation.goBack();
+                    }
+                }]
             );
         } catch (error) {
             logger.error('Error completing solo activity:', error);

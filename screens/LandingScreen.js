@@ -60,13 +60,6 @@ export default function LandingScreen() {
                 >
                     <Text style={styles.secondaryButtonText}>Sign In</Text>
                 </TouchableOpacity>
-                <TouchableOpacity
-                    style={styles.ghostButton}
-                    onPress={() => navigation.navigate('TryVoxxy')}
-                    activeOpacity={0.7}
-                >
-                    <Text style={styles.ghostButtonText}>✨ Try Voxxy First</Text>
-                </TouchableOpacity>
             </Animated.View>
         </SafeAreaView>
     );
@@ -135,19 +128,5 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 18,
         fontWeight: '600',
-    },
-    ghostButton: {
-        width: '100%',
-        minHeight: TOUCH_TARGETS.MIN_SIZE,
-        paddingVertical: 14,
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginTop: 8,
-    },
-    ghostButtonText: {
-        color: 'rgba(255, 255, 255, 0.7)',
-        fontSize: 17,
-        fontWeight: '600',
-        textDecorationLine: 'underline',
     },
 });

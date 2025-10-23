@@ -359,10 +359,10 @@ export default function NativeMapView({
             >
                 {filteredRecommendations.map((recommendation, index) => (
                     <Marker
-                        key={recommendation.id || index}
+                        key={`${recommendation.id || index}-${recommendation.isFavorite ? 'fav' : 'unfav'}`}
                         coordinate={recommendation.coordinate}
                         onPress={() => handleMarkerPress(recommendation)}
-                        tracksViewChanges={false}
+                        tracksViewChanges={recommendation.isFavorite}
                         stopPropagation={true}
                     >
                         <View style={[

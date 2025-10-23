@@ -20,7 +20,6 @@ import LandingScreen from './screens/LandingScreen';
 import ActivityDetailsScreen from './screens/ActivityDetailsScreen';
 import ActivitiesScreen from './screens/ActivitiesScreen';
 import FavoritesScreen from './screens/FavoritesScreen';
-import TryVoxxScreen from './screens/TryVoxxScreen';
 import NotificationsScreen from './screens/NotificationsScreen';
 import PrivacyPolicyScreen from './screens/PrivacyPolicyScreen';
 import SuspendedScreen from './screens/SuspendedScreen';
@@ -208,7 +207,6 @@ const AppNavigator = () => {
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="SignUp" component={SignUpScreen} />
       <Stack.Screen name="VerificationCode" component={VerificationCodeScreen} />
-      <Stack.Screen name="TryVoxxy" component={TryVoxxScreen} />
 
       {/* Main App Screens */}
       <Stack.Screen

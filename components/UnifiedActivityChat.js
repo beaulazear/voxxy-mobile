@@ -898,21 +898,22 @@ export default function UnifiedActivityChat({ visible, onClose }) {
                 <SearchLocationModal
                     visible={showLocationSearch}
                     onClose={() => setShowLocationSearch(false)}
-                    onLocationSelect={(loc) => {
-                        // Use formatted address or construct from parts
-                        const locationText = loc.formatted || 
-                            [loc.neighborhood, loc.city, loc.state].filter(Boolean).join(', ')
-                        
+                    onLocationSelect={(locationData) => {
+                        // Use formatted address which includes neighborhood when available
+                        // e.g., "West Village, Manhattan, NY" instead of just "Manhattan, NY"
+                        const locationText = locationData.formatted ||
+                            [locationData.neighborhood, locationData.city, locationData.state].filter(Boolean).join(', ')
+
                         setLocation(locationText)
-                        
+
                         // Set coordinates if available
-                        if (loc.latitude && loc.longitude) {
+                        if (locationData.latitude && locationData.longitude) {
                             setCoords({
-                                lat: loc.latitude,
-                                lng: loc.longitude
+                                lat: locationData.latitude,
+                                lng: locationData.longitude
                             })
                         }
-                        
+
                         setCurrentLocationUsed(false)
                         setSavedLocationUsed(false)
                         setShowLocationSearch(false)

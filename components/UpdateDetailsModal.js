@@ -98,9 +98,21 @@ export default function UpdateDetailsModal({ activity, visible, onClose, onUpdat
         setCoords(null)
     }
 
-    const handleLocationSelect = (selectedLocation, selectedCoords) => {
-        setLocation(selectedLocation)
-        setCoords(selectedCoords)
+    const handleLocationSelect = (locationData) => {
+        // Extract formatted location text, preferring neighborhood over city
+        const locationText = locationData.formatted ||
+            [locationData.neighborhood, locationData.city, locationData.state].filter(Boolean).join(', ')
+
+        setLocation(locationText)
+
+        // Set coordinates if available
+        if (locationData.latitude && locationData.longitude) {
+            setCoords({
+                lat: locationData.latitude,
+                lng: locationData.longitude
+            })
+        }
+
         setUsingCurrentLocation(false)
         setShowLocationSearch(false)
     }
@@ -360,7 +372,7 @@ export default function UpdateDetailsModal({ activity, visible, onClose, onUpdat
             <SearchLocationModal
                 visible={showLocationSearch}
                 onClose={() => setShowLocationSearch(false)}
-                onSelectLocation={handleLocationSelect}
+                onLocationSelect={handleLocationSelect}
             />
         </Modal>
     )

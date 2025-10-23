@@ -29,46 +29,27 @@ import DraggableBottomSheet from './DraggableBottomSheet';
 import RecommendationDetails from './RecommendationDetails';
 import DefaultIcon from '../assets/icon.png';
 import { avatarMap } from '../utils/avatarManager';
-
-
-// Updated Icons object using Feather icons
-const Icons = {
-    Users: (props) => <Icon name="users" size={16} color="#cc31e8" {...props} />,
-    Share: (props) => <Icon name="share" size={16} color="#cc31e8" {...props} />,
-    MoreHorizontal: (props) => <Icon name="more-horizontal" size={16} color="#cc31e8" {...props} />,
-    ChevronRight: (props) => <Icon name="chevron-right" size={16} color="#cc31e8" {...props} />,
-    ArrowRight: (props) => <Icon name="arrow-right" size={16} color="#cc31e8" {...props} />,
-    HelpCircle: (props) => <Icon name="help-circle" size={16} color="#cc31e8" {...props} />,
-    CheckCircle: (props) => <Icon name="check-circle" size={16} color="#cc31e8" {...props} />,
-    Clock: (props) => <Icon name="clock" size={16} color="#cc31e8" {...props} />,
-    Vote: (props) => <Icon name="check-square" size={16} color="#cc31e8" {...props} />,
-    BookHeart: (props) => <Icon name="book" size={16} color="#cc31e8" {...props} />,
-    Flag: (props) => <Icon name="flag" size={16} color="#cc31e8" {...props} />,
-    X: (props) => <Icon name="x" size={16} color="#cc31e8" {...props} />,
-    ExternalLink: (props) => <Icon name="external-link" size={16} color="#cc31e8" {...props} />,
-    MapPin: (props) => <Icon name="map-pin" size={16} color="#cc31e8" {...props} />,
-    DollarSign: (props) => <Icon name="dollar-sign" size={16} color="#cc31e8" {...props} />,
-    Globe: (props) => <Icon name="globe" size={16} color="#cc31e8" {...props} />,
-    Zap: (props) => <Icon name="zap" size={16} color="#cc31e8" {...props} />,
-    Calendar: (props) => <Icon name="calendar" size={16} color="#cc31e8" {...props} />,
-    Star: (props) => <Icon name="star" size={16} color="#cc31e8" {...props} />,
-    RotateCcw: (props) => <Icon name="rotate-ccw" size={16} color="#cc31e8" {...props} />,
-    FastForward: (props) => <Icon name="fast-forward" size={16} color="#cc31e8" {...props} />,
-    Map: (props) => <Icon name="map" size={16} color="#cc31e8" {...props} />,
-    Grid: (props) => <Icon name="grid" size={16} color="#cc31e8" {...props} />,
-    Crown: (props) => <Icon name="award" size={16} color="#cc31e8" {...props} />,
-    Check: (props) => <Icon name="check" size={16} color="#cc31e8" {...props} />,
-    MessageCircle: (props) => <Icon name="message-circle" size={16} color="#cc31e8" {...props} />,
-    Navigation: (props) => <Icon name="navigation" size={16} color="#cc31e8" {...props} />,
-};
-
+import { Icons } from '../constants/featherIcons';
 import CuisineResponseForm from './CuisineResponseForm';
 import NightOutResponseForm from './NightOutResponseForm';
 import LetsMeetScheduler from './LetsMeetScheduler';
 import { logger } from '../utils/logger';
 import { safeAuthApiCall, handleApiError } from '../utils/safeApiCall';
-
-// Removed unused screenWidth variable
+import {
+    safeJsonParse,
+    userHasProfilePreferences,
+    isKeywordFormat,
+    formatHours,
+    analyzeAvailability
+} from '../utils/recommendationsUtils';
+import KeywordTags from './AIRecommendations/KeywordTags';
+import TruncatedReview from './AIRecommendations/TruncatedReview';
+import PhotoGallery from './AIRecommendations/PhotoGallery';
+import HoursDisplay from './AIRecommendations/HoursDisplay';
+import AvailabilityDisplay from './AIRecommendations/AvailabilityDisplay';
+import RecommendationCard from './AIRecommendations/RecommendationCard';
+import RecommendationDetailModal from './AIRecommendations/RecommendationDetailModal';
+import MapViewContainer from './AIRecommendations/MapViewContainer';
 
 // Helper function to get avatar from map
 const getAvatarFromMap = (filename) => {
@@ -105,407 +86,6 @@ const getUserDisplayImage = (userObj) => {
     }
 
     return DefaultIcon;
-};
-
-// Helper function to check if user has profile preferences
-const userHasProfilePreferences = (user) => {
-    if (!user) return false;
-
-    const hasFavoriteFood = user.favorite_food && user.favorite_food.trim().length > 0;
-    const hasPreferencesField = user.preferences && user.preferences.trim().length > 0;
-    const hasDietaryPreferences = user.dairy_free === true ||
-        user.gluten_free === true ||
-        user.vegan === true ||
-        user.vegetarian === true ||
-        user.kosher === true;
-
-    return hasFavoriteFood || hasPreferencesField || hasDietaryPreferences;
-};
-
-const safeJsonParse = (data, fallback = []) => {
-    if (!data) return fallback;
-    if (typeof data === 'object') return data;
-    if (typeof data === 'string') {
-        try {
-            return JSON.parse(data);
-        } catch (e) {
-            logger.warn('Failed to parse JSON data:', e);
-            return fallback;
-        }
-    }
-    return fallback;
-};
-
-// Helper function to determine if reason field contains keywords or paragraph
-const isKeywordFormat = (reason) => {
-    if (!reason || typeof reason !== 'string') return false;
-
-    // Check if it's likely keywords: short phrases separated by commas
-    const parts = reason.split(',');
-
-    // If we have multiple parts and they're all relatively short, it's likely keywords
-    if (parts.length > 1) {
-        // Check if all parts are short (less than 30 chars) and don't contain sentence-ending punctuation
-        const allShort = parts.every(part => {
-            const trimmed = part.trim();
-            return trimmed.length < 30 && !trimmed.match(/[.!?]$/);
-        });
-        return allShort;
-    }
-
-    // Single item or long text is likely a paragraph
-    return false;
-};
-
-// Component to render keyword tags
-const KeywordTags = ({ keywords, style }) => {
-    const tags = keywords.split(',').map(tag => tag.trim()).filter(tag => tag);
-
-    return (
-        <View style={[styles.tagsContainer, style]}>
-            {tags.map((tag, index) => (
-                <View key={index} style={styles.tagPill}>
-                    <Text style={styles.tagText}>{tag}</Text>
-                </View>
-            ))}
-        </View>
-    );
-};
-
-const analyzeAvailability = (responses) => {
-    const availabilityData = {};
-    const participantCount = {};
-
-    (responses || []).forEach(response => {
-        const availability = response.availability || {};
-        const participantName = response.user?.name || response.email || 'Anonymous';
-
-        Object.entries(availability).forEach(([date, times]) => {
-            if (!availabilityData[date]) {
-                availabilityData[date] = {};
-                participantCount[date] = 0;
-            }
-            participantCount[date]++;
-
-            times.forEach(time => {
-                if (!availabilityData[date][time]) {
-                    availabilityData[date][time] = [];
-                }
-                availabilityData[date][time].push(participantName);
-            });
-        });
-    });
-
-    return { availabilityData, participantCount };
-};
-
-// Availability Display Component
-const AvailabilityDisplay = ({ responses, activity }) => {
-    if (!activity.allow_participant_time_selection) return null;
-
-    const responsesWithAvailability = (responses || []).filter(r =>
-        r.availability && Object.keys(r.availability).length > 0
-    );
-
-    if (responsesWithAvailability.length === 0) {
-        return (
-            <View style={styles.availabilitySection}>
-                <View style={styles.availabilityHeader}>
-                    <Icons.Calendar />
-                    <Text style={styles.availabilityTitle}>Time Preferences</Text>
-                </View>
-                <Text style={styles.availabilityEmptyText}>
-                    No availability submitted yet. Participants will share their preferred times along with their preferences.
-                </Text>
-            </View>
-        );
-    }
-
-    const { availabilityData, participantCount } = analyzeAvailability(responsesWithAvailability);
-
-    return (
-        <View style={styles.availabilitySection}>
-            <View style={styles.availabilityHeader}>
-                <Icons.Calendar />
-                <Text style={styles.availabilityTitle}>
-                    Group Availability ({responsesWithAvailability.length} responses)
-                </Text>
-            </View>
-
-            {responsesWithAvailability.map((response, index) => (
-                <View key={index} style={styles.participantAvailability}>
-                    <Text style={styles.participantName}>
-                        {response.user?.name || response.email || 'Anonymous'}
-                    </Text>
-                    <View style={styles.availabilityGrid}>
-                        {Object.entries(response.availability || {}).map(([date, times]) => (
-                            <View key={date} style={styles.dateCard}>
-                                <Text style={styles.dateHeader}>
-                                    {new Date(date).toLocaleDateString()}
-                                </Text>
-                                <View style={styles.timeSlots}>
-                                    {times.map((time, i) => (
-                                        <View key={i} style={styles.timeSlot}>
-                                            <Text style={styles.timeSlotText}>{time}</Text>
-                                        </View>
-                                    ))}
-                                </View>
-                            </View>
-                        ))}
-                    </View>
-                </View>
-            ))}
-
-            {Object.keys(availabilityData).length > 0 && (
-                <View style={styles.overlapAnalysis}>
-                    <View style={styles.overlapTitleContainer}>
-                        <Icon name="bar-chart-2" size={16} color="#fff" />
-                        <Text style={styles.overlapTitle}>Best Times (Most Available)</Text>
-                    </View>
-                    {Object.entries(availabilityData).map(([date, timeData]) => {
-                        const sortedTimes = Object.entries(timeData)
-                            .sort(([, a], [, b]) => b.length - a.length)
-                            .slice(0, 5);
-
-                        return (
-                            <View key={date} style={styles.bestTimeCard}>
-                                <Text style={styles.bestTimeDateHeader}>
-                                    {new Date(date).toLocaleDateString()}
-                                    <Text style={styles.participantCountText}>
-                                        {' '}({participantCount[date]} participant{participantCount[date] !== 1 ? 's' : ''})
-                                    </Text>
-                                </Text>
-                                {sortedTimes.map(([time, participants]) => {
-                                    const percentage = (participants.length / responsesWithAvailability.length) * 100;
-                                    return (
-                                        <View key={time} style={styles.timeOverlapItem}>
-                                            <Text style={styles.timeText}>{time}</Text>
-                                            <View style={[
-                                                styles.availabilityBadge,
-                                                { backgroundColor: percentage > 75 ? '#28a745' : percentage > 50 ? '#ffc107' : '#dc3545' }
-                                            ]}>
-                                                <Text style={styles.availabilityBadgeText}>
-                                                    {participants.length}/{responsesWithAvailability.length} available ({Math.round(percentage)}%)
-                                                </Text>
-                                            </View>
-                                        </View>
-                                    );
-                                })}
-                            </View>
-                        );
-                    })}
-                </View>
-            )}
-        </View>
-    );
-};
-
-// Truncated Review Component
-const TruncatedReview = ({ review, maxLength = 150 }) => {
-    const [isExpanded, setIsExpanded] = useState(false);
-    const shouldTruncate = review.text && review.text.length > maxLength;
-
-    const displayText = shouldTruncate && !isExpanded
-        ? review.text.substring(0, maxLength) + '...'
-        : review.text;
-
-    return (
-        <View style={styles.reviewItem}>
-            <View style={styles.reviewHeader}>
-                <Text style={styles.reviewAuthor}>{review.author_name || 'Anonymous'}</Text>
-                {review.rating && (
-                    <View style={styles.reviewRating}>
-                        <Icons.Star color="#D4AF37" />
-                        <Text style={styles.reviewRatingText}>{review.rating}/5</Text>
-                    </View>
-                )}
-            </View>
-            <Text style={styles.reviewText}>
-                {displayText}
-                {shouldTruncate && (
-                    <Text
-                        style={styles.reviewToggleButton}
-                        onPress={() => setIsExpanded(!isExpanded)}
-                    >
-                        {isExpanded ? ' Show less' : ' Show more'}
-                    </Text>
-                )}
-            </Text>
-        </View>
-    );
-};
-
-// Photo Gallery Component
-const PhotoGallery = ({ photos }) => {
-    const validPhotos = photos.filter(photo => photo.photo_url || (typeof photo === 'string' && photo.startsWith('http')));
-
-    if (validPhotos.length === 0) return null;
-
-    return (
-        <View style={styles.photoSection}>
-            <View style={styles.sectionHeader}>
-                <Icon name="camera" size={16} color="#fff" />
-                <Text style={styles.sectionHeaderText}>Photos ({validPhotos.length})</Text>
-            </View>
-            <FlatList
-                data={validPhotos}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                keyExtractor={(item, index) => index.toString()}
-                renderItem={({ item }) => (
-                    <Image
-                        source={{ uri: item.photo_url || item }}
-                        style={styles.photo}
-                        resizeMode="cover"
-                    />
-                )}
-            />
-        </View>
-    );
-};
-
-
-
-// Component for rendering hours in a stylish way
-const HoursDisplay = ({ hours, style, compact = false }) => {
-    const hoursData = formatHours(hours);
-    
-    if (hoursData.type === 'simple') {
-        return <Text style={style}>{hoursData.text}</Text>;
-    }
-    
-    if (compact) {
-        // For compact view, just show the first group
-        const firstGroup = hoursData.groups[0];
-        const moreCount = hoursData.groups.length - 1;
-        return (
-            <Text style={style}>
-                {firstGroup.days}: {firstGroup.hours}
-                {moreCount > 0 && ` +${moreCount}`}
-            </Text>
-        );
-    }
-    
-    return (
-        <View style={styles.hoursContainer}>
-            {hoursData.groups.map((group, index) => (
-                <View key={index} style={styles.hoursRow}>
-                    <Text style={styles.hoursDays}>{group.days}:</Text>
-                    <Text style={styles.hoursTime}>{group.hours}</Text>
-                </View>
-            ))}
-        </View>
-    );
-};
-
-// Helper function to format hours for display - returns an object with formatted data
-const formatHours = (hoursString) => {
-    if (!hoursString || hoursString === 'N/A') return { type: 'simple', text: 'Hours not available' };
-    
-    // If it's already a simple string (old format), return as is
-    if (!hoursString.includes('Mon') && !hoursString.includes('Tue') && !hoursString.includes('Wed')) {
-        return { type: 'simple', text: hoursString };
-    }
-    
-    try {
-        // Parse the hours string - expecting format like "Mon: Closed, Tue: Closed, Wed: 12:00 – 8:00 PM..."
-        const dayAbbrevs = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-        const hoursData = [];
-        
-        // Split by comma and parse each day
-        const parts = hoursString.split(',').map(p => p.trim());
-        
-        parts.forEach(part => {
-            const colonIndex = part.indexOf(':');
-            if (colonIndex > -1) {
-                const day = part.substring(0, colonIndex).trim();
-                const hours = part.substring(colonIndex + 1).trim();
-                
-                // Find the day index
-                const dayIndex = dayAbbrevs.findIndex(d => part.startsWith(d));
-                if (dayIndex !== -1) {
-                    hoursData.push({
-                        day: dayAbbrevs[dayIndex],
-                        dayIndex,
-                        hours: hours
-                    });
-                }
-            }
-        });
-        
-        // Group consecutive days with same hours
-        const groups = [];
-        let currentGroup = null;
-        
-        hoursData.forEach(data => {
-            if (data.hours.toLowerCase() === 'closed') {
-                // Skip closed days for cleaner display
-                return;
-            }
-            
-            // Clean up the hours format (remove extra spaces, standardize dash)
-            const cleanHours = data.hours.replace(/\s+/g, ' ').replace(/[–—]/g, '-').trim();
-            
-            if (!currentGroup || currentGroup.hours !== cleanHours) {
-                currentGroup = {
-                    startDay: data.day,
-                    endDay: data.day,
-                    startIndex: data.dayIndex,
-                    endIndex: data.dayIndex,
-                    hours: cleanHours
-                };
-                groups.push(currentGroup);
-            } else if (data.dayIndex === currentGroup.endIndex + 1) {
-                // Consecutive day with same hours
-                currentGroup.endDay = data.day;
-                currentGroup.endIndex = data.dayIndex;
-            } else {
-                // Non-consecutive day with same hours - start new group
-                currentGroup = {
-                    startDay: data.day,
-                    endDay: data.day,
-                    startIndex: data.dayIndex,
-                    endIndex: data.dayIndex,
-                    hours: cleanHours
-                };
-                groups.push(currentGroup);
-            }
-        });
-        
-        // Format the groups
-        if (groups.length === 0) {
-            return { type: 'simple', text: 'Closed' };
-        }
-        
-        // Check if all open days have the same hours
-        if (groups.length === 1) {
-            const group = groups[0];
-            if (group.startIndex === 0 && group.endIndex === 6) {
-                return { type: 'simple', text: `Daily: ${group.hours}` };
-            } else if (group.startDay === group.endDay) {
-                return { type: 'simple', text: `${group.startDay}: ${group.hours}` };
-            } else {
-                return { type: 'simple', text: `${group.startDay}-${group.endDay}: ${group.hours}` };
-            }
-        }
-        
-        // For multiple groups, return structured data for better display
-        return {
-            type: 'structured',
-            groups: groups.map(group => ({
-                days: group.startDay === group.endDay ? group.startDay : `${group.startDay}-${group.endDay}`,
-                hours: group.hours
-            }))
-        };
-        
-    } catch (e) {
-        // If parsing fails, try to extract just the hours
-        const timeMatch = hoursString.match(/\d{1,2}:\d{2}\s*[–-]\s*\d{1,2}:\d{2}\s*[AP]M/i);
-        if (timeMatch) {
-            return { type: 'simple', text: timeMatch[0] };
-        }
-        return { type: 'simple', text: 'See details' };
-    }
 };
 
 export default function AIRecommendations({
@@ -573,7 +153,17 @@ export default function AIRecommendations({
                 }
                 return hasActivity;
             });
-            
+
+            logger.debug('⭐ Fetched user favorites:', {
+                totalFavorites: validFavorites.length,
+                favorites: validFavorites.map(fav => ({
+                    id: fav.id,
+                    pinnedActivityId: fav.pinned_activity?.id || fav.pinned_activity_id,
+                    title: fav.pinned_activity?.title || fav.title,
+                    activityName: fav.activity?.activity_name
+                }))
+            });
+
             setUserFavorites(validFavorites);
         } catch (error) {
             logger.error('Error fetching favorites:', error);
@@ -616,22 +206,68 @@ export default function AIRecommendations({
     const pulseOpacity = React.useRef(new Animated.Value(0.8)).current;
 
     // Helper function to check if a recommendation is favorited
-    const isRecommendationFavorited = (recommendationId) => {
-        if (!recommendationId || !userFavorites || userFavorites.length === 0) return false;
-        return userFavorites.some(fav => {
-            const pinnedActivityId = fav.pinned_activity?.id || fav.pinned_activity_id;
-            return pinnedActivityId === recommendationId;
+    const isRecommendationFavorited = (recommendation) => {
+        if (!recommendation || !userFavorites || userFavorites.length === 0) {
+            logger.debug('isRecommendationFavorited: No recommendation or no favorites', {
+                hasRecommendation: !!recommendation,
+                favoritesCount: userFavorites?.length || 0
+            });
+            return false;
+        }
+
+        // Get the recommendation name (could be title or name)
+        const recName = recommendation.title || recommendation.name;
+
+        if (!recName) {
+            logger.debug('isRecommendationFavorited: No name found for recommendation', recommendation);
+            return false;
+        }
+
+        const result = userFavorites.some(fav => {
+            // Get the favorite's name from pinned_activity
+            const favName = fav.pinned_activity?.title || fav.pinned_activity?.name || fav.title || fav.name;
+            const matches = favName && recName && favName.toLowerCase().trim() === recName.toLowerCase().trim();
+
+            if (matches) {
+                logger.debug('✅ Found favorited recommendation by name:', {
+                    recName,
+                    favName,
+                    pinnedActivityId: fav.pinned_activity?.id || fav.pinned_activity_id
+                });
+            }
+            return matches;
         });
+
+        if (!result) {
+            logger.debug('❌ Recommendation not favorited:', {
+                recName,
+                availableFavoriteNames: userFavorites.map(f => f.pinned_activity?.title || f.pinned_activity?.name || f.title || f.name)
+            });
+        }
+
+        return result;
     };
 
     // Memoize map recommendations to prevent map resets on re-renders
     const mapRecommendations = useMemo(() => {
-        return pinnedActivities.map(rec => ({
+        const result = pinnedActivities.map(rec => ({
             ...rec,
             name: rec.title || rec.name,
             id: rec.id || `${rec.title}-${rec.address}`,
-            isFavorite: isRecommendationFavorited(rec.id)
+            isFavorite: isRecommendationFavorited(rec)
         }));
+
+        logger.debug('🗺️ Map recommendations created:', {
+            total: result.length,
+            favorited: result.filter(r => r.isFavorite).length,
+            recommendations: result.map(r => ({
+                id: r.id,
+                title: r.title,
+                isFavorite: r.isFavorite
+            }))
+        });
+
+        return result;
     }, [pinnedActivities, userFavorites]); // Only recalculate when pinnedActivities or favorites change
 
     // Start animations when loading
@@ -1149,22 +785,41 @@ export default function AIRecommendations({
     // Get count of favorited recommendations from current pinned activities
     const getFavoritedRecommendationsFromCurrent = () => {
         if (!pinnedActivities || pinnedActivities.length === 0) return [];
-        return pinnedActivities.filter(rec => isRecommendationFavorited(rec.id));
+        return pinnedActivities.filter(rec => isRecommendationFavorited(rec));
     };
 
     const handleFavorite = async (recommendation) => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+        logger.debug('💖 handleFavorite called:', {
+            recommendationId: recommendation.id,
+            recommendationTitle: recommendation.title,
+            hasId: !!recommendation.id
+        });
+
         if (!recommendation.id) {
             Alert.alert('Error', 'Unable to favorite this recommendation');
             return;
         }
 
         // Check if already favorited by looking through user's actual favorites
+        // Match by name since IDs may differ between recommendations and favorites
+        const recName = recommendation.title || recommendation.name;
         const isAlreadyFavorited = userFavorites.some(fav => {
-            const pinnedActivityId = fav.pinned_activity?.id || fav.pinned_activity_id;
-            return pinnedActivityId === recommendation.id;
+            const favName = fav.pinned_activity?.title || fav.pinned_activity?.name || fav.title || fav.name;
+            return favName && recName && favName.toLowerCase().trim() === recName.toLowerCase().trim();
         });
-        
+
+        logger.debug('Checking if already favorited:', {
+            recommendationId: recommendation.id,
+            recommendationName: recName,
+            isAlreadyFavorited,
+            currentFavorites: userFavorites.map(f => ({
+                pinnedActivityId: f.pinned_activity?.id || f.pinned_activity_id,
+                name: f.pinned_activity?.title || f.pinned_activity?.name || f.title || f.name
+            }))
+        });
+
         if (isAlreadyFavorited) {
             // For now, we don't handle unfavoriting
             Alert.alert('Already Favorited', 'This recommendation is already in your favorites.');
@@ -1175,12 +830,18 @@ export default function AIRecommendations({
         setFavoriteLoading(prev => ({ ...prev, [recommendation.id]: true }));
 
         try {
+            logger.debug('🚀 Calling toggle_favorite API:', {
+                url: `${API_URL}/pinned_activities/${recommendation.id}/toggle_favorite`
+            });
+
             // Make immediate API call to toggle favorite
-            await safeAuthApiCall(
+            const result = await safeAuthApiCall(
                 `${API_URL}/pinned_activities/${recommendation.id}/toggle_favorite`,
                 user.token,
                 { method: 'POST' }
             );
+
+            logger.debug('✅ Toggle favorite API response:', result);
 
             // Refresh favorites from server to ensure consistency
             await fetchUserFavorites();
@@ -1284,15 +945,21 @@ export default function AIRecommendations({
                         const successMessage = favoritesCount > 0
                             ? `Activity completed with ${favoritesCount} favorite${favoritesCount !== 1 ? 's' : ''}!`
                             : 'Activity completed successfully!';
-                        
-                        // Navigate to home
-                        setRefreshTrigger(f => !f);
-                        navigation.navigate('/');
-                        
-                        // Show success message after a brief delay
-                        setTimeout(() => {
-                            Alert.alert('Success!', successMessage);
-                        }, 500);
+
+                        // Show success message and navigate on dismiss
+                        logger.debug('✅ Activity completed successfully, showing alert');
+                        Alert.alert('Success!', successMessage, [
+                            {
+                                text: 'OK',
+                                onPress: () => {
+                                    logger.debug('🔙 Navigating back after completion');
+                                    setRefreshTrigger(f => !f);
+                                    setTimeout(() => {
+                                        navigation.goBack();
+                                    }, 100);
+                                }
+                            }
+                        ]);
                     } catch (error) {
                         logger.error('Favorites save error:', {
                             details: error,
@@ -1946,7 +1613,7 @@ export default function AIRecommendations({
                         recommendation={selectedRec}
                         onClose={closeDetail}
                         onFavorite={handleFavorite}
-                        isFavorited={isRecommendationFavorited(selectedRec?.id)}
+                        isFavorited={isRecommendationFavorited(selectedRec)}
                         favoriteLoading={favoriteLoading[selectedRec?.id]}
                         onFlag={(rec) => {
                             const isFlagged = flaggedRecommendations.some(r => r.id === rec?.id);
@@ -1981,39 +1648,6 @@ export default function AIRecommendations({
                                     You've selected {getFavoritedRecommendationsFromCurrent().length} recommendation{getFavoritedRecommendationsFromCurrent().length > 1 ? 's' : ''}.
                                 </Text>
 
-                                {isOwner && (
-                                    <View style={styles.actionButtons}>
-                                        <TouchableOpacity 
-                                            style={styles.primaryActionButton} 
-                                            onPress={() => {
-                                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                                                Alert.alert(
-                                                    'What would you like to do?',
-                                                    '',
-                                                    [
-                                                        {
-                                                            text: "I'm done here",
-                                                            onPress: handleCompleteActivity,
-                                                            style: 'default'
-                                                        },
-                                                        {
-                                                            text: 'Share plan with friends',
-                                                            onPress: onEdit,
-                                                            style: 'default'
-                                                        },
-                                                        {
-                                                            text: 'Cancel',
-                                                            style: 'cancel'
-                                                        }
-                                                    ]
-                                                );
-                                            }}
-                                        >
-                                            <Text style={styles.primaryActionButtonText}>Continue Planning</Text>
-                                            <Icons.ChevronRight color="#fff" size={20} />
-                                        </TouchableOpacity>
-                                    </View>
-                                )}
                             </View>
 
                             {/* Stats card - moved below great choices */}
@@ -2085,46 +1719,17 @@ export default function AIRecommendations({
                 {/* Map or Cards View - force cards for Game Night */}
                 {viewMode === 'map' && !isGameNightActivity ? (
                     /* Map View - takes up most of screen */
-                    <View style={styles.mapViewContainer}>
-                        <NativeMapView
-                            recommendations={mapRecommendations}
-                            activityType={activity?.activity_type || 'Restaurant'}
-                            onMarkerPress={(marker) => {
-                                setSelectedMapMarker(marker);
-                                setShowMapBottomSheet(true);
-                            }}
-                        />
-                        
-                        {/* View Mode Toggle overlay - only show for non-Game Night activities */}
-                        {!isGameNightActivity && (
-                            <View style={styles.viewModeToggleOverlay}>
-                                <TouchableOpacity
-                                    style={[styles.viewModeButton, viewMode === 'map' && styles.viewModeButtonActive]}
-                                    onPress={() => {
-                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                        setViewMode('map');
-                                    }}
-                                >
-                                    <Icons.Map color={viewMode === 'map' ? '#fff' : '#666'} size={18} />
-                                    <Text style={[styles.viewModeButtonText, viewMode === 'map' && styles.viewModeButtonTextActive]}>
-                                        Map
-                                    </Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity
-                                    style={[styles.viewModeButton, viewMode === 'cards' && styles.viewModeButtonActive]}
-                                    onPress={() => {
-                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                        setViewMode('cards');
-                                    }}
-                                >
-                                    <Icons.Grid color={viewMode === 'cards' ? '#fff' : '#666'} size={18} />
-                                    <Text style={[styles.viewModeButtonText, viewMode === 'cards' && styles.viewModeButtonTextActive]}>
-                                        List
-                                    </Text>
-                                </TouchableOpacity>
-                            </View>
-                        )}
-                    </View>
+                    <MapViewContainer
+                        recommendations={mapRecommendations}
+                        activityType={activity?.activity_type || 'Restaurant'}
+                        onMarkerPress={(marker) => {
+                            setSelectedMapMarker(marker);
+                            setShowMapBottomSheet(true);
+                        }}
+                        viewMode={viewMode}
+                        onViewModeChange={setViewMode}
+                        isGameNightActivity={isGameNightActivity}
+                    />
                 ) : (
                     /* Card View */
                     <ScrollView style={styles.cardsContainer} showsVerticalScrollIndicator={false}>
@@ -2162,277 +1767,49 @@ export default function AIRecommendations({
                             isGameNightActivity && styles.recommendationsGridNoToggle
                         ]}>
                             {pinnedActivities.map((recommendation) => {
-                        const isFavorited = isRecommendationFavorited(recommendation.id);
-                        const isFlagged = flaggedRecommendations.some(rec => rec.id === recommendation.id);
-                        
-                        return (
-                            <TouchableOpacity 
-                                key={recommendation.id}
-                                style={[
-                                    styles.recommendationCard,
-                                    isFavorited && styles.recommendationCardFavorited
-                                ]}
-                                onPress={() => openDetail(recommendation)}
-                                activeOpacity={0.7}
-                            >
-                                <LinearGradient
-                                    colors={isFavorited ? ['rgba(212, 175, 55, 0.15)', 'rgba(212, 175, 55, 0.08)'] : ['rgba(204, 49, 232, 0.08)', 'rgba(155, 29, 189, 0.05)']}
-                                    style={styles.recCardGradient}
-                                >
-                                    <View style={styles.recCardContent}>
-                                        {/* Header with Title and Price */}
-                                        <View style={styles.recCardHeader}>
-                                            <Text style={styles.recCardTitle} numberOfLines={1}>
-                                                {recommendation.title}
-                                            </Text>
-                                            <Text style={styles.recCardPrice}>
-                                                {recommendation.price_range || '$'}
-                                            </Text>
-                                        </View>
-                                        
-                                        {/* Description or Keywords */}
-                                        {recommendation.reason && isKeywordFormat(recommendation.reason) ? (
-                                            <KeywordTags keywords={recommendation.reason} style={styles.recCardTags} />
-                                        ) : (
-                                            (recommendation.description || recommendation.reason) && (
-                                                <Text style={styles.recCardDescription} numberOfLines={2}>
-                                                    {recommendation.description || recommendation.reason}
-                                                </Text>
-                                            )
-                                        )}
-                                        
-                                        {/* Address */}
-                                        {recommendation.address && (
-                                            <View style={styles.recCardAddressRow}>
-                                                <Icons.MapPin color="#B8A5C4" size={14} />
-                                                <Text style={styles.recCardAddressText} numberOfLines={1}>
-                                                    {recommendation.address}
-                                                </Text>
-                                            </View>
-                                        )}
-                                    </View>
-                                    
-                                    {/* Chevron indicator */}
-                                    <View style={styles.recCardChevron}>
-                                        <Icons.ChevronRight color="#B8A5C4" size={20} />
-                                    </View>
-                                </LinearGradient>
-                            </TouchableOpacity>
-                        );
-                    })}
-                </View>
-                        
-                        {/* Bottom actions for card view - Inside ScrollView */}
-                        {isOwner && (
-                    <View style={styles.bottomActionsContainer}>
-                        <TouchableOpacity 
-                            style={styles.primaryActionButton} 
-                            onPress={() => {
-                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                                Alert.alert(
-                                    'What would you like to do?',
-                                    '',
-                                    [
-                                        {
-                                            text: "I'm done here",
-                                            onPress: handleCompleteActivity,
-                                            style: 'default'
-                                        },
-                                        {
-                                            text: 'Share plan with friends',
-                                            onPress: onEdit,
-                                            style: 'default'
-                                        },
-                                        {
-                                            text: 'Cancel',
-                                            style: 'cancel'
-                                        }
-                                    ]
+                                const isFavorited = isRecommendationFavorited(recommendation);
+
+                                return (
+                                    <RecommendationCard
+                                        key={recommendation.id}
+                                        recommendation={recommendation}
+                                        onPress={openDetail}
+                                        isFavorited={isFavorited}
+                                        isGameNightActivity={isGameNightActivity}
+                                    />
                                 );
-                            }}
-                        >
-                            <Text style={styles.primaryActionButtonText}>Continue Planning</Text>
-                            <Icons.ChevronRight color="#fff" size={20} />
-                        </TouchableOpacity>
-                            </View>
-                        )}
+                            })}
+                        </View>
+                        
                     </ScrollView>
                 )}
 
-                {/* Detail Modal - Same as before */}
-                    <Modal
+                {/* Detail Modal - Extracted Component */}
+                    <RecommendationDetailModal
                         visible={showDetailModal}
-                        animationType="slide"
-                        onRequestClose={closeDetail}
-                    >
-                        <SafeAreaView style={styles.detailModal}>
-                            <View style={styles.detailModalHeader}>
-                                <Text style={styles.detailModalTitle}>{selectedRec?.title || selectedRec?.name}</Text>
-                                <TouchableOpacity style={styles.detailCloseButton} onPress={closeDetail}>
-                                    <Icons.X />
-                                </TouchableOpacity>
-                            </View>
-
-                            <ScrollView style={styles.detailModalBody}>
-                                <View style={styles.detailGrid}>
-                                    {isGameNightActivity ? (
-                                        <>
-                                            <View style={styles.detailItem}>
-                                                <Icons.Users />
-                                                <Text style={styles.detailLabel}>Players:</Text>
-                                                <Text style={styles.detailValue}>{selectedRec?.address || 'N/A'}</Text>
-                                            </View>
-                                            <View style={styles.detailItem}>
-                                                <Icons.Clock />
-                                                <Text style={styles.detailLabel}>Play Time:</Text>
-                                                <HoursDisplay hours={selectedRec?.hours} style={styles.detailValue} />
-                                            </View>
-                                            <View style={styles.detailItem}>
-                                                <Icons.DollarSign />
-                                                <Text style={styles.detailLabel}>Price:</Text>
-                                                <Text style={styles.detailValue}>{selectedRec?.price_range || 'N/A'}</Text>
-                                            </View>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <View style={styles.detailItem}>
-                                                <Icons.DollarSign />
-                                                <Text style={styles.detailLabel}>Price:</Text>
-                                                <Text style={styles.detailValue}>{selectedRec?.price_range || 'N/A'}</Text>
-                                            </View>
-                                            <View style={styles.detailItem}>
-                                                <Icons.Clock />
-                                                <Text style={styles.detailLabel}>Hours:</Text>
-                                                <HoursDisplay hours={selectedRec?.hours} style={styles.detailValue} />
-                                            </View>
-                                        </>
-                                    )}
-                                </View>
-
-                                {selectedRec?.description && (
-                                    <View style={styles.section}>
-                                        <View style={styles.sectionHeader}>
-                                            <Icons.HelpCircle />
-                                            <Text style={styles.sectionTitle}>About</Text>
-                                        </View>
-                                        <Text style={styles.description}>{selectedRec.description}</Text>
-                                        {selectedRec.website && (
-                                            <TouchableOpacity
-                                                style={styles.websiteLink}
-                                                onPress={() => Linking.openURL(selectedRec.website)}
-                                            >
-                                                <Icons.Globe />
-                                                <Text style={styles.websiteLinkText}>Visit Website</Text>
-                                                <Icons.ExternalLink />
-                                            </TouchableOpacity>
-                                        )}
-                                    </View>
-                                )}
-
-                                {selectedRec?.reason && (
-                                    <View style={styles.reason}>
-                                        {isKeywordFormat(selectedRec.reason) ? (
-                                            <KeywordTags keywords={selectedRec.reason} style={styles.detailTags} />
-                                        ) : (
-                                            <>
-                                                <Text style={styles.reasonTitle}>{activityText.reasonTitle}</Text>
-                                                <Text style={styles.reasonText}>{selectedRec.reason}</Text>
-                                            </>
-                                        )}
-                                    </View>
-                                )}
-
-                                {!isGameNightActivity && selectedRec?.address && (
-                                    <View style={styles.section}>
-                                        <View style={styles.sectionHeader}>
-                                            <Icons.MapPin />
-                                            <Text style={styles.sectionTitle}>Location</Text>
-                                        </View>
-                                        <TouchableOpacity onPress={() => openMapWithAddress(selectedRec.address)}>
-                                            <Text style={[styles.description, styles.addressLink]}>
-                                                {selectedRec.address}
-                                            </Text>
-                                        </TouchableOpacity>
-                                    </View>
-                                )}
-
-                                {!isGameNightActivity && selectedRec?.photos && (
-                                    <PhotoGallery photos={safeJsonParse(selectedRec.photos, [])} />
-                                )}
-
-                                {!isGameNightActivity && selectedRec?.reviews && (() => {
-                                    const reviews = safeJsonParse(selectedRec.reviews, []);
-                                    return reviews.length > 0 && (
-                                        <View style={styles.section}>
-                                            <View style={styles.sectionHeader}>
-                                                <Icons.Star />
-                                                <Text style={styles.sectionTitle}>Reviews</Text>
-                                            </View>
-                                            {reviews.slice(0, 3).map((review, i) => (
-                                                <TruncatedReview key={i} review={review} />
-                                            ))}
-                                        </View>
-                                    );
-                                })()}
-                            </ScrollView>
-                            
-                            {/* Modal Action Buttons */}
-                            <View style={styles.modalActionButtons}>
-                                <TouchableOpacity 
-                                    style={[
-                                        styles.modalActionButton,
-                                        flaggedRecommendations.some(r => r.id === selectedRec?.id) && styles.modalActionButtonActive
-                                    ]}
-                                    onPress={() => {
-                                        const isFlagged = flaggedRecommendations.some(r => r.id === selectedRec?.id);
-                                        if (isFlagged) {
-                                            setFlaggedRecommendations(prev => 
-                                                prev.filter(item => item.id !== selectedRec?.id)
-                                            );
-                                        } else {
-                                            setFlaggedRecommendations(prev => [...prev, selectedRec]);
-                                            Alert.alert('Flagged', 'This recommendation has been flagged.');
-                                        }
-                                    }}
-                                >
-                                    <Icons.Flag color={flaggedRecommendations.some(r => r.id === selectedRec?.id) ? "#e74c3c" : "#999"} size={20} />
-                                    <Text style={[
-                                        styles.modalActionButtonText,
-                                        flaggedRecommendations.some(r => r.id === selectedRec?.id) && styles.modalActionButtonTextActive
-                                    ]}>
-                                        {flaggedRecommendations.some(r => r.id === selectedRec?.id) ? 'Flagged' : 'Flag'}
-                                    </Text>
-                                </TouchableOpacity>
-                                
-                                <TouchableOpacity 
-                                    style={[
-                                        styles.modalActionButton,
-                                        styles.modalFavoriteButton,
-                                        isRecommendationFavorited(selectedRec?.id) && styles.modalFavoriteButtonActive
-                                    ]}
-                                    onPress={async () => {
-                                        await handleFavorite(selectedRec);
-                                        closeDetail();
-                                    }}
-                                    disabled={favoriteLoading[selectedRec?.id]}
-                                >
-                                    {favoriteLoading[selectedRec?.id] ? (
-                                        <ActivityIndicator size="small" color="#D4AF37" />
-                                    ) : (
-                                        <>
-                                            <Icons.Star color={isRecommendationFavorited(selectedRec?.id) ? "#D4AF37" : "#fff"} size={20} />
-                                            <Text style={[
-                                                styles.modalFavoriteButtonText,
-                                                isRecommendationFavorited(selectedRec?.id) && styles.modalFavoriteButtonTextActive
-                                            ]}>
-                                                {isRecommendationFavorited(selectedRec?.id) ? 'Favorited' : 'Add to Favorites'}
-                                            </Text>
-                                        </>
-                                    )}
-                                </TouchableOpacity>
-                            </View>
-                        </SafeAreaView>
-                    </Modal>
+                        recommendation={selectedRec}
+                        onClose={closeDetail}
+                        isGameNightActivity={isGameNightActivity}
+                        activityText={activityText}
+                        isFlagged={flaggedRecommendations.some(r => r.id === selectedRec?.id)}
+                        onFlagToggle={() => {
+                            const isFlagged = flaggedRecommendations.some(r => r.id === selectedRec?.id);
+                            if (isFlagged) {
+                                setFlaggedRecommendations(prev =>
+                                    prev.filter(item => item.id !== selectedRec?.id)
+                                );
+                            } else {
+                                setFlaggedRecommendations(prev => [...prev, selectedRec]);
+                                Alert.alert('Flagged', 'This recommendation has been flagged.');
+                            }
+                        }}
+                        isFavorited={isRecommendationFavorited(selectedRec)}
+                        favoriteLoading={favoriteLoading[selectedRec?.id]}
+                        onFavorite={async () => {
+                            await handleFavorite(selectedRec);
+                            closeDetail();
+                        }}
+                    />
 
                     {/* Map Marker Bottom Sheet - rendered at component level to avoid clipping */}
                     <DraggableBottomSheet
@@ -2444,7 +1821,7 @@ export default function AIRecommendations({
                             recommendation={selectedMapMarker}
                             onClose={() => setShowMapBottomSheet(false)}
                             onFavorite={handleFavorite}
-                            isFavorited={isRecommendationFavorited(selectedMapMarker?.id)}
+                            isFavorited={isRecommendationFavorited(selectedMapMarker)}
                             favoriteLoading={favoriteLoading[selectedMapMarker?.id]}
                             onFlag={(rec) => {
                                 const isFlagged = flaggedRecommendations.some(r => r.id === rec?.id);
@@ -2651,181 +2028,32 @@ export default function AIRecommendations({
                     </View>
                 </View>
 
-                {/* Detail Modal - Same as voting phase */}
-                <Modal
+                {/* Detail Modal - Extracted Component */}
+                <RecommendationDetailModal
                     visible={showDetailModal}
-                    animationType="slide"
-                    onRequestClose={closeDetail}
-                >
-                    <SafeAreaView style={styles.detailModal}>
-                        <View style={styles.detailModalHeader}>
-                            <Text style={styles.detailModalTitle}>{selectedRec?.title || selectedRec?.name}</Text>
-                            <TouchableOpacity style={styles.detailCloseButton} onPress={closeDetail}>
-                                <Icons.X />
-                            </TouchableOpacity>
-                        </View>
-
-                        <ScrollView style={styles.detailModalBody}>
-                            {/* Same content as voting phase detail modal */}
-                            <View style={styles.detailGrid}>
-                                {isGameNightActivity ? (
-                                    <>
-                                        <View style={styles.detailItem}>
-                                            <Icons.Users />
-                                            <Text style={styles.detailLabel}>Players:</Text>
-                                            <Text style={styles.detailValue}>{selectedRec?.address || 'N/A'}</Text>
-                                        </View>
-                                        <View style={styles.detailItem}>
-                                            <Icons.Clock />
-                                            <Text style={styles.detailLabel}>Play Time:</Text>
-                                            <Text style={styles.detailValue}>{formatHours(selectedRec?.hours)}</Text>
-                                        </View>
-                                        <View style={styles.detailItem}>
-                                            <Icons.DollarSign />
-                                            <Text style={styles.detailLabel}>Price:</Text>
-                                            <Text style={styles.detailValue}>{selectedRec?.price_range || 'N/A'}</Text>
-                                        </View>
-                                    </>
-                                ) : (
-                                    <>
-                                        <View style={styles.detailItem}>
-                                            <Icons.DollarSign />
-                                            <Text style={styles.detailLabel}>Price:</Text>
-                                            <Text style={styles.detailValue}>{selectedRec?.price_range || 'N/A'}</Text>
-                                        </View>
-                                        <View style={styles.detailItem}>
-                                            <Icons.Clock />
-                                            <Text style={styles.detailLabel}>Hours:</Text>
-                                            <Text style={styles.detailValue}>{formatHours(selectedRec?.hours)}</Text>
-                                        </View>
-                                    </>
-                                )}
-                            </View>
-
-                            {selectedRec?.description && (
-                                <View style={styles.section}>
-                                    <View style={styles.sectionHeader}>
-                                        <Icons.HelpCircle />
-                                        <Text style={styles.sectionTitle}>About</Text>
-                                    </View>
-                                    <Text style={styles.description}>{selectedRec.description}</Text>
-                                    {selectedRec.website && (
-                                        <TouchableOpacity
-                                            style={styles.websiteLink}
-                                            onPress={() => Linking.openURL(selectedRec.website)}
-                                        >
-                                            <Icons.Globe />
-                                            <Text style={styles.websiteLinkText}>Visit Website</Text>
-                                            <Icons.ExternalLink />
-                                        </TouchableOpacity>
-                                    )}
-                                </View>
-                            )}
-
-                            {selectedRec?.reason && (
-                                <View style={styles.reason}>
-                                    {isKeywordFormat(selectedRec.reason) ? (
-                                        <KeywordTags keywords={selectedRec.reason} style={styles.detailTags} />
-                                    ) : (
-                                        <>
-                                            <Text style={styles.reasonTitle}>{activityText.reasonTitle}</Text>
-                                            <Text style={styles.reasonText}>{selectedRec.reason}</Text>
-                                        </>
-                                    )}
-                                </View>
-                            )}
-
-                            {!isGameNightActivity && selectedRec?.address && (
-                                <View style={styles.section}>
-                                    <View style={styles.sectionHeader}>
-                                        <Icons.MapPin />
-                                        <Text style={styles.sectionTitle}>Location</Text>
-                                    </View>
-                                    <TouchableOpacity onPress={() => openMapWithAddress(selectedRec.address)}>
-                                        <Text style={[styles.description, styles.addressLink]}>
-                                            {selectedRec.address}
-                                        </Text>
-                                    </TouchableOpacity>
-                                </View>
-                            )}
-
-                            {!isGameNightActivity && selectedRec?.photos && (
-                                <PhotoGallery photos={safeJsonParse(selectedRec.photos, [])} />
-                            )}
-
-                            {!isGameNightActivity && selectedRec?.reviews && (() => {
-                                const reviews = safeJsonParse(selectedRec.reviews, []);
-                                return reviews.length > 0 && (
-                                    <View style={styles.section}>
-                                        <View style={styles.sectionHeader}>
-                                            <Icons.Star />
-                                            <Text style={styles.sectionTitle}>Reviews</Text>
-                                        </View>
-                                        {reviews.slice(0, 3).map((review, i) => (
-                                            <TruncatedReview key={i} review={review} />
-                                        ))}
-                                    </View>
-                                );
-                            })()}
-                        </ScrollView>
-                        
-                        {/* Modal Action Buttons for FINALIZED phase */}
-                        <View style={styles.modalActionButtons}>
-                            <TouchableOpacity 
-                                style={[
-                                    styles.modalActionButton,
-                                    flaggedRecommendations.some(r => r.id === selectedRec?.id) && styles.modalActionButtonActive
-                                ]}
-                                onPress={() => {
-                                    const isFlagged = flaggedRecommendations.some(r => r.id === selectedRec?.id);
-                                    if (isFlagged) {
-                                        setFlaggedRecommendations(prev => 
-                                            prev.filter(item => item.id !== selectedRec?.id)
-                                        );
-                                    } else {
-                                        setFlaggedRecommendations(prev => [...prev, selectedRec]);
-                                        Alert.alert('Flagged', 'This recommendation has been flagged.');
-                                    }
-                                }}
-                            >
-                                <Icons.Flag color={flaggedRecommendations.some(r => r.id === selectedRec?.id) ? "#e74c3c" : "#999"} size={20} />
-                                <Text style={[
-                                    styles.modalActionButtonText,
-                                    flaggedRecommendations.some(r => r.id === selectedRec?.id) && styles.modalActionButtonTextActive
-                                ]}>
-                                    {flaggedRecommendations.some(r => r.id === selectedRec?.id) ? 'Flagged' : 'Flag'}
-                                </Text>
-                            </TouchableOpacity>
-                            
-                            <TouchableOpacity 
-                                style={[
-                                    styles.modalActionButton,
-                                    styles.modalFavoriteButton,
-                                    isRecommendationFavorited(selectedRec?.id) && styles.modalFavoriteButtonActive
-                                ]}
-                                onPress={async () => {
-                                    await handleFavorite(selectedRec);
-                                    closeDetail();
-                                }}
-                                disabled={favoriteLoading[selectedRec?.id]}
-                            >
-                                {favoriteLoading[selectedRec?.id] ? (
-                                    <ActivityIndicator size="small" color="#D4AF37" />
-                                ) : (
-                                    <>
-                                        <Icons.Star color={isRecommendationFavorited(selectedRec?.id) ? "#D4AF37" : "#fff"} size={20} />
-                                        <Text style={[
-                                            styles.modalFavoriteButtonText,
-                                            isRecommendationFavorited(selectedRec?.id) && styles.modalFavoriteButtonTextActive
-                                        ]}>
-                                            {isRecommendationFavorited(selectedRec?.id) ? 'Favorited' : 'Add to Favorites'}
-                                        </Text>
-                                    </>
-                                )}
-                            </TouchableOpacity>
-                        </View>
-                    </SafeAreaView>
-                </Modal>
+                    recommendation={selectedRec}
+                    onClose={closeDetail}
+                    isGameNightActivity={isGameNightActivity}
+                    activityText={activityText}
+                    isFlagged={flaggedRecommendations.some(r => r.id === selectedRec?.id)}
+                    onFlagToggle={() => {
+                        const isFlagged = flaggedRecommendations.some(r => r.id === selectedRec?.id);
+                        if (isFlagged) {
+                            setFlaggedRecommendations(prev =>
+                                prev.filter(item => item.id !== selectedRec?.id)
+                            );
+                        } else {
+                            setFlaggedRecommendations(prev => [...prev, selectedRec]);
+                            Alert.alert('Flagged', 'This recommendation has been flagged.');
+                        }
+                    }}
+                    isFavorited={isRecommendationFavorited(selectedRec)}
+                    favoriteLoading={favoriteLoading[selectedRec?.id]}
+                    onFavorite={async () => {
+                        await handleFavorite(selectedRec);
+                        closeDetail();
+                    }}
+                />
             </ScrollView>
         );
     }

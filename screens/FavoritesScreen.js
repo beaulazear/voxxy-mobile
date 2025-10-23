@@ -12,6 +12,7 @@ import {
     Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { UserContext } from '../context/UserContext';
 import { useNavigation } from '@react-navigation/native';
 import {
@@ -116,9 +117,48 @@ export default function FavoritesScreen({ route }) {
         }
     }, [user?.token]);
 
+    // Load cached favorites on mount
+    useEffect(() => {
+        loadCachedFavorites();
+    }, []);
+
+    const FAVORITES_CACHE_KEY = '@voxxy_favorites';
+    const CACHE_EXPIRY_MS = 5 * 60 * 1000; // 5 minutes
+
+    const loadCachedFavorites = async () => {
+        try {
+            const cached = await AsyncStorage.getItem(FAVORITES_CACHE_KEY);
+            if (cached) {
+                const { data, timestamp } = JSON.parse(cached);
+                const age = Date.now() - timestamp;
+
+                // Use cache if less than 5 minutes old
+                if (age < CACHE_EXPIRY_MS) {
+                    setUserFavorites(data);
+                    logger.debug('Loaded favorites from cache');
+                }
+            }
+        } catch (error) {
+            logger.error('Error loading cached favorites:', error);
+        }
+    };
+
+    const saveFavoritesToCache = async (favorites) => {
+        try {
+            const cacheData = {
+                data: favorites,
+                timestamp: Date.now()
+            };
+            await AsyncStorage.setItem(FAVORITES_CACHE_KEY, JSON.stringify(cacheData));
+            logger.debug('Saved favorites to cache');
+        } catch (error) {
+            logger.error('Error saving favorites to cache:', error);
+        }
+    };
+
     const fetchUserFavorites = async () => {
         if (!user?.token) return;
-        
+
         setLoadingFavorites(true);
         try {
             const data = await safeAuthApiCall(
@@ -126,9 +166,11 @@ export default function FavoritesScreen({ route }) {
                 user.token,
                 { method: 'GET' }
             );
-            
+
             if (data) {
                 setUserFavorites(data);
+                // Save to cache
+                await saveFavoritesToCache(data);
 
                 // Calculate optimal map region to show all favorites
                 // Only override the region if we don't already have user location set
@@ -171,16 +213,19 @@ export default function FavoritesScreen({ route }) {
     // Delete a favorite
     const deleteFavorite = async (favoriteId) => {
         if (!user?.token) return;
-        
+
         try {
             await safeAuthApiCall(
                 `${API_URL}/user_activities/${favoriteId}`,
                 user.token,
                 { method: 'DELETE' }
             );
-            
+
             // Update local state
-            setUserFavorites(prev => prev.filter(f => f.id !== favoriteId));
+            const updatedFavorites = userFavorites.filter(f => f.id !== favoriteId);
+            setUserFavorites(updatedFavorites);
+            // Update cache
+            await saveFavoritesToCache(updatedFavorites);
         } catch (error) {
             Alert.alert('Error', 'Failed to remove favorite');
         }

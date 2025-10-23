@@ -16,45 +16,18 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { UserContext } from '../context/UserContext'
 import { useNavigation } from '@react-navigation/native';
 import { API_URL } from '../config';
-import { ArrowLeft, Settings, Edit3, Camera, MapPin, Calendar, X, Activity, Users, ChevronRight, Heart } from 'react-native-feather';
-import { Hamburger, Martini, Dices, Pizza, Coffee, Beef, Fish, Salad, Soup, Sandwich } from 'lucide-react-native';
+import { ArrowLeft, Settings, Edit3, MapPin, Calendar, X, Activity, Users, ChevronRight } from 'react-native-feather';
+import { Hamburger, Martini, Dices } from 'lucide-react-native';
 import { logger } from '../utils/logger';
 import { getUserDisplayImage } from '../utils/avatarManager';
 import * as ImagePicker from 'expo-image-picker';
-import LocationPicker from '../components/LocationPicker';
 import colors from '../styles/Colors';
 import PreferencesModal from '../components/PreferencesModal';
-
-// Food options with icons (matching PreferencesModal)
-const FOOD_OPTIONS = [
-    { label: 'Pizza', value: 'Pizza', icon: Pizza, color: '#FF6B6B' },
-    { label: 'Sushi', value: 'Sushi', icon: Fish, color: '#4ECDC4' },
-    { label: 'Burgers', value: 'Burgers', icon: Sandwich, color: '#FFD93D' },
-    { label: 'Tacos', value: 'Tacos', icon: Soup, color: '#FF9A3D' },
-    { label: 'Pasta', value: 'Pasta', icon: Coffee, color: '#A8E6CF' },
-    { label: 'Steak', value: 'Steak', icon: Beef, color: '#FF6B9D' },
-    { label: 'Thai', value: 'Thai', icon: Soup, color: '#F4A460' },
-    { label: 'Chinese', value: 'Chinese', icon: Coffee, color: '#FF7F50' },
-    { label: 'Indian', value: 'Indian', icon: Soup, color: '#FFA500' },
-    { label: 'Salads', value: 'Salads', icon: Salad, color: '#90EE90' },
-    { label: 'BBQ', value: 'BBQ', icon: Beef, color: '#8B4513' },
-    { label: 'Seafood', value: 'Seafood', icon: Fish, color: '#4682B4' },
-];
-
-const DIETARY_OPTIONS = [
-    { label: 'Vegan', value: 'Vegan', color: '#90EE90' },
-    { label: 'Vegetarian', value: 'Vegetarian', color: '#A8E6CF' },
-    { label: 'Gluten-Free', value: 'Gluten-Free', color: '#FFD93D' },
-    { label: 'Dairy-Free', value: 'Dairy-Free', color: '#4ECDC4' },
-    { label: 'Nut Allergy', value: 'Nut Allergy', color: '#FF9A3D' },
-    { label: 'Shellfish Allergy', value: 'Shellfish Allergy', color: '#FF6B9D' },
-    { label: 'Kosher', value: 'Kosher', color: '#B8A5C4' },
-    { label: 'Halal', value: 'Halal', color: '#9261E5' },
-    { label: 'Pescatarian', value: 'Pescatarian', color: '#4682B4' },
-    { label: 'Keto', value: 'Keto', color: '#FF6B6B' },
-    { label: 'Paleo', value: 'Paleo', color: '#A0522D' },
-    { label: 'Low-Carb', value: 'Low-Carb', color: '#DDA15E' },
-];
+import ProfileHeaderCard from '../components/ProfileHeaderCard';
+import ProfileCompletionBanner from '../components/ProfileCompletionBanner';
+import FoodPreferencesSection from '../components/FoodPreferencesSection';
+import CommunityMembersSection from '../components/CommunityMembersSection';
+import PastActivitiesSection from '../components/PastActivitiesSection';
 
 const ACTIVITY_CONFIG = {
   'Restaurant': {
@@ -90,36 +63,6 @@ const getActivityDisplayInfo = (activityType) => {
     icon: Activity,
     iconColor: '#B8A5C4'
   };
-};
-
-// Helper to match preference strings (case-insensitive, ignores hyphens/spaces)
-const matchesOption = (input, optionValue) => {
-    const normalizedInput = input.toLowerCase().trim();
-    const normalizedOption = optionValue.toLowerCase().trim();
-    if (normalizedInput === normalizedOption) return true;
-    const inputNoSpaces = normalizedInput.replace(/[-\s]/g, '');
-    const optionNoSpaces = normalizedOption.replace(/[-\s]/g, '');
-    return inputNoSpaces === optionNoSpaces;
-};
-
-// Parse comma-separated preferences into structured items
-const parsePreferences = (prefsString, optionsArray) => {
-    if (!prefsString) return { matched: [], custom: [] };
-
-    const items = prefsString.split(',').map(item => item.trim()).filter(item => item.length > 0);
-    const matched = [];
-    const custom = [];
-
-    items.forEach(item => {
-        const matchedOption = optionsArray.find(opt => matchesOption(item, opt.value));
-        if (matchedOption) {
-            matched.push(matchedOption);
-        } else {
-            custom.push(item);
-        }
-    });
-
-    return { matched, custom };
 };
 
 const formatDate = (dateString) => {
@@ -589,269 +532,45 @@ export default function ProfileScreen() {
                 contentContainerStyle={styles.container}
                 showsVerticalScrollIndicator={false}
             >
-                {/* Profile Header Card - LinkedIn style */}
-                <View style={styles.profileHeaderCard}>
-                    {/* Profile Info */}
-                    <View style={styles.profileInfo}>
-                        {/* Info Row with Avatar and Details */}
-                        <View style={styles.profileInfoRow}>
-                            {/* Avatar */}
-                            <TouchableOpacity
-                                style={styles.avatarContainerInline}
-                                onPress={handlePickImage}
-                                disabled={uploadingPhoto}
-                            >
-                                <Image
-                                    source={getDisplayImage(user)}
-                                    style={styles.avatar}
-                                    onError={() => logger.debug(`❌ Photo failed to load for ${user?.name}`)}
-                                    onLoad={() => logger.debug(`✅ Photo loaded for ${user?.name}`)}
-                                />
-                                <View style={styles.avatarEditIndicator}>
-                                    {uploadingPhoto ? (
-                                        <Text style={styles.uploadingText}>...</Text>
-                                    ) : (
-                                        <Camera stroke="#fff" width={14} height={14} strokeWidth={2} />
-                                    )}
-                                </View>
-                            </TouchableOpacity>
-
-                            {/* Email and Location */}
-                            <View style={styles.profileDetails}>
-                                <View style={styles.detailItem}>
-                                    <Text style={styles.detailText}>{user?.email}</Text>
-                                </View>
-                                <View style={styles.locationRow}>
-                                    {userLocation?.formatted ? (
-                                        <Text style={styles.detailText}>{userLocation.formatted}</Text>
-                                    ) : (
-                                        <Text style={[styles.detailText, { color: '#9261E5' }]}>Add location</Text>
-                                    )}
-                                    <TouchableOpacity
-                                        style={styles.locationEditButton}
-                                        onPress={() => setIsEditingLocation(!isEditingLocation)}
-                                        activeOpacity={0.7}
-                                    >
-                                        <Edit3 stroke="#9261E5" width={16} height={16} strokeWidth={2} />
-                                    </TouchableOpacity>
-                                </View>
-                            </View>
-                        </View>
-
-                        {/* Location Editor Dropdown - Below entire row */}
-                        {isEditingLocation && (
-                            <View style={styles.locationEditorDropdown}>
-                                <LocationPicker
-                                    onLocationSelect={handleLocationSelect}
-                                    currentLocation={userLocation}
-                                />
-                                <View style={styles.locationEditorActions}>
-                                    <TouchableOpacity
-                                        style={styles.locationSaveButton}
-                                        onPress={() => {
-                                            handleSaveLocation();
-                                        }}
-                                        disabled={!userLocation}
-                                    >
-                                        <Text style={styles.locationSaveText}>Save</Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity
-                                        style={styles.locationCancelButton}
-                                        onPress={handleCancelLocationEdit}
-                                    >
-                                        <Text style={styles.locationCancelText}>Cancel</Text>
-                                    </TouchableOpacity>
-                                </View>
-                            </View>
-                        )}
-
-                        {/* Stats Row */}
-                        <View style={styles.statsRow}>
-                            <View style={styles.statItem}>
-                                <Text style={styles.statNumber}>{completedActivitiesList.length}</Text>
-                                <Text style={styles.statLabel}>Activities</Text>
-                            </View>
-                            <View style={styles.statDivider} />
-                            <View style={styles.statItem}>
-                                <Text style={styles.statNumber}>{Math.round(profileCompletion.percentage)}%</Text>
-                                <Text style={styles.statLabel}>Complete</Text>
-                            </View>
-                        </View>
-                    </View>
-                </View>
+                {/* Profile Header Card */}
+                <ProfileHeaderCard
+                    user={user}
+                    completedActivitiesCount={completedActivitiesList.length}
+                    profileCompletion={profileCompletion}
+                    userLocation={userLocation}
+                    isEditingLocation={isEditingLocation}
+                    uploadingPhoto={uploadingPhoto}
+                    onPickImage={handlePickImage}
+                    onLocationEditToggle={() => setIsEditingLocation(!isEditingLocation)}
+                    onLocationSelect={handleLocationSelect}
+                    onSaveLocation={handleSaveLocation}
+                    onCancelLocationEdit={handleCancelLocationEdit}
+                />
 
                 {/* Profile Completion Banner */}
-                {profileCompletion.percentage < 100 && (
-                    <View style={styles.completionBanner}>
-                        <View style={styles.completionHeader}>
-                            <Text style={styles.completionTitle}>
-                                Complete Your Profile
-                            </Text>
-                            <Text style={styles.completionSubtitle}>
-                                Get better recommendations for your groups!
-                            </Text>
-                        </View>
-
-                        {/* Progress bar */}
-                        <View style={styles.completionBarContainer}>
-                            <View style={styles.completionBar}>
-                                <View
-                                    style={[
-                                        styles.completionFill,
-                                        { width: `${profileCompletion.percentage}%` }
-                                    ]}
-                                />
-                            </View>
-                        </View>
-
-                        {/* Missing items */}
-                        {profileCompletion.missing.length > 0 && (
-                            <View style={styles.missingItems}>
-                                {profileCompletion.missing.map((item, index) => (
-                                    <View key={index} style={styles.missingItem}>
-                                        <Text style={styles.missingItemBullet}>•</Text>
-                                        <Text style={styles.missingItemText}>{item}</Text>
-                                    </View>
-                                ))}
-                            </View>
-                        )}
-                    </View>
-                )}
+                <ProfileCompletionBanner profileCompletion={profileCompletion} />
 
                 {/* Food Preferences Section */}
-                <TouchableOpacity
-                    style={styles.sectionCard}
+                <FoodPreferencesSection
+                    favoriteFood={favoriteFood}
+                    preferences={preferences}
                     onPress={() => {
                         logger.debug('Opening preferences modal with:', { favoriteFood, preferences });
                         setShowPreferencesModal(true);
                     }}
-                    activeOpacity={0.8}
-                >
-                    <View style={styles.sectionHeader}>
-                        <Text style={styles.sectionTitle}>Food Preferences</Text>
-                        <ChevronRight stroke="#9261E5" width={20} height={20} strokeWidth={2} />
-                    </View>
-
-                    {favoriteFood || preferences ? (
-                        <>
-                            {favoriteFood && (() => {
-                                const { matched, custom } = parsePreferences(favoriteFood, FOOD_OPTIONS);
-                                return (
-                                    <View style={styles.preferenceSection}>
-                                        <Text style={styles.preferenceSectionLabel}>Favorites</Text>
-                                        <View style={styles.preferencePillsContainer}>
-                                            {matched.map((option, index) => {
-                                                const IconComponent = option.icon;
-                                                return (
-                                                    <View
-                                                        key={`food-${index}`}
-                                                        style={[styles.preferencePill, { borderColor: option.color }]}
-                                                    >
-                                                        {IconComponent && (
-                                                            <IconComponent
-                                                                color={option.color}
-                                                                size={16}
-                                                                strokeWidth={2}
-                                                            />
-                                                        )}
-                                                        <Text style={styles.preferencePillText}>{option.label}</Text>
-                                                    </View>
-                                                );
-                                            })}
-                                            {custom.map((item, index) => (
-                                                <View
-                                                    key={`custom-food-${index}`}
-                                                    style={[styles.preferencePill, styles.customPreferencePill]}
-                                                >
-                                                    <Text style={styles.preferencePillText}>{item}</Text>
-                                                </View>
-                                            ))}
-                                        </View>
-                                    </View>
-                                );
-                            })()}
-                            {preferences && (() => {
-                                const { matched, custom } = parsePreferences(preferences, DIETARY_OPTIONS);
-                                return (
-                                    <View style={[styles.preferenceSection, favoriteFood && { marginTop: 16 }]}>
-                                        <Text style={styles.preferenceSectionLabel}>Dietary</Text>
-                                        <View style={styles.preferencePillsContainer}>
-                                            {matched.map((option, index) => (
-                                                <View
-                                                    key={`dietary-${index}`}
-                                                    style={[styles.preferencePill, { borderColor: option.color }]}
-                                                >
-                                                    <Text style={styles.preferencePillText}>{option.label}</Text>
-                                                </View>
-                                            ))}
-                                            {custom.map((item, index) => (
-                                                <View
-                                                    key={`custom-dietary-${index}`}
-                                                    style={[styles.preferencePill, styles.customPreferencePill]}
-                                                >
-                                                    <Text style={styles.preferencePillText}>{item}</Text>
-                                                </View>
-                                            ))}
-                                        </View>
-                                    </View>
-                                );
-                            })()}
-                        </>
-                    ) : (
-                        <Text style={styles.preferencesPlaceholder}>
-                            Tap to set your food preferences
-                        </Text>
-                    )}
-                </TouchableOpacity>
+                />
 
                 {/* Community Members Section */}
-                <TouchableOpacity
-                    style={styles.sectionCard}
+                <CommunityMembersSection
+                    communityMembers={communityMembers}
                     onPress={() => setShowCommunityModal(true)}
-                    activeOpacity={0.8}
-                >
-                    <View style={styles.sectionHeader}>
-                        <Users stroke="#FF6B6B" width={20} height={20} strokeWidth={2} />
-                        <Text style={[styles.sectionTitle, { marginLeft: 12, flex: 1 }]}>Your Community</Text>
-                        <View style={styles.activityBadge}>
-                            <Text style={styles.activityBadgeText}>{communityMembers.length}</Text>
-                        </View>
-                        {communityMembers.length > 0 && (
-                            <View style={styles.avatarPreviewContainer}>
-                                {communityMembers.slice(0, 3).map((member, index) => (
-                                    <Image
-                                        key={member.id}
-                                        source={getUserDisplayImage(member, API_URL)}
-                                        style={[styles.avatarPreview, { marginLeft: index > 0 ? -8 : 0 }]}
-                                    />
-                                ))}
-                            </View>
-                        )}
-                        <ChevronRight stroke="#FF6B6B" width={20} height={20} strokeWidth={2} />
-                    </View>
-                    <Text style={styles.sectionSubtitle}>
-                        See everyone you've connected with on Voxxy
-                    </Text>
-                </TouchableOpacity>
+                />
 
                 {/* Past Activities Section */}
-                <TouchableOpacity
-                    style={styles.sectionCard}
+                <PastActivitiesSection
+                    completedActivitiesCount={completedActivitiesList.length}
                     onPress={() => setShowPastActivitiesModal(true)}
-                    activeOpacity={0.8}
-                >
-                    <View style={styles.sectionHeader}>
-                        <Calendar stroke="#4ECDC4" width={20} height={20} strokeWidth={2} />
-                        <Text style={[styles.sectionTitle, { marginLeft: 12, flex: 1 }]}>Past Activities</Text>
-                        <View style={styles.activityBadge}>
-                            <Text style={styles.activityBadgeText}>{completedActivitiesList.length}</Text>
-                        </View>
-                        <ChevronRight stroke="#4ECDC4" width={20} height={20} strokeWidth={2} />
-                    </View>
-                    <Text style={styles.sectionSubtitle}>
-                        View your activity history
-                    </Text>
-                </TouchableOpacity>
+                />
 
                 {/* Upload Loading Modal */}
                 <Modal
@@ -1174,376 +893,6 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
     },
 
-    // LinkedIn-style Profile Header Card
-    profileHeaderCard: {
-        backgroundColor: '#2A1E30',
-        borderRadius: 20,
-        marginBottom: 20,
-        overflow: 'hidden',
-        shadowColor: '#000',
-        shadowOpacity: 0.2,
-        shadowRadius: 16,
-        shadowOffset: { width: 0, height: 8 },
-        elevation: 12,
-        borderWidth: 1,
-        borderColor: 'rgba(185, 84, 236, 0.2)',
-    },
-
-
-    avatarContainerInline: {
-        position: 'relative',
-        marginRight: 16,
-    },
-
-    avatar: {
-        width: 100,
-        height: 100,
-        borderRadius: 50,
-        borderWidth: 4,
-        borderColor: '#2A1E30',
-    },
-
-    avatarEditIndicator: {
-        position: 'absolute',
-        bottom: 2,
-        right: 2,
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        backgroundColor: '#9261E5',
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderWidth: 3,
-        borderColor: '#2A1E30',
-    },
-
-    uploadingText: {
-        color: '#fff',
-        fontSize: 12,
-        fontWeight: 'bold',
-    },
-
-    profileInfo: {
-        paddingTop: 12,
-        paddingHorizontal: 20,
-        paddingBottom: 20,
-    },
-
-    profileInfoRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 16,
-    },
-
-    profileDetails: {
-        flex: 1,
-        gap: 8,
-        justifyContent: 'center',
-    },
-
-    detailItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-        flexShrink: 1,
-    },
-
-    detailText: {
-        color: '#B8A5C4',
-        fontSize: 14,
-        fontWeight: '500',
-        flexShrink: 1,
-        flexWrap: 'wrap',
-    },
-
-    locationRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-        flexShrink: 1,
-    },
-
-    locationEditButton: {
-        padding: 4,
-    },
-
-    locationEditorDropdown: {
-        marginTop: 12,
-        backgroundColor: 'rgba(0, 0, 0, 0.3)',
-        borderRadius: 12,
-        padding: 16,
-        borderWidth: 1,
-        borderColor: '#9261E5',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-        elevation: 8,
-    },
-
-    locationEditorActions: {
-        flexDirection: 'row',
-        gap: 12,
-        marginTop: 12,
-    },
-
-    locationSaveButton: {
-        backgroundColor: '#9261E5',
-        paddingVertical: 8,
-        paddingHorizontal: 20,
-        borderRadius: 8,
-        flex: 1,
-        alignItems: 'center',
-    },
-
-    locationSaveText: {
-        color: '#fff',
-        fontWeight: '600',
-        fontSize: 14,
-    },
-
-    locationCancelButton: {
-        backgroundColor: 'rgba(255, 255, 255, 0.1)',
-        paddingVertical: 8,
-        paddingHorizontal: 20,
-        borderRadius: 8,
-        flex: 1,
-        alignItems: 'center',
-    },
-
-    locationCancelText: {
-        color: '#fff',
-        fontWeight: '600',
-        fontSize: 14,
-    },
-
-    statsRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingTop: 16,
-        borderTopWidth: 1,
-        borderTopColor: 'rgba(255, 255, 255, 0.1)',
-    },
-
-    statItem: {
-        flex: 1,
-        alignItems: 'center',
-    },
-
-    statNumber: {
-        fontSize: 20,
-        fontWeight: '700',
-        color: '#9261E5',
-        marginBottom: 4,
-        fontFamily: 'Montserrat_700Bold',
-    },
-
-    statLabel: {
-        fontSize: 13,
-        color: '#B8A5C4',
-        fontWeight: '500',
-    },
-
-    statDivider: {
-        width: 1,
-        height: 40,
-        backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    },
-
-    // Section Cards
-    sectionCard: {
-        backgroundColor: '#2A1E30',
-        borderRadius: 16,
-        padding: 20,
-        marginBottom: 16,
-        borderWidth: 1,
-        borderColor: 'rgba(185, 84, 236, 0.15)',
-    },
-
-    sectionHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 12,
-    },
-
-    sectionTitle: {
-        fontSize: 18,
-        fontWeight: '700',
-        color: '#fff',
-        fontFamily: 'Montserrat_700Bold',
-    },
-
-    sectionSubtitle: {
-        fontSize: 14,
-        color: '#B8A5C4',
-        marginTop: 4,
-    },
-
-    // About Section
-    aboutItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: 8,
-    },
-
-    aboutItemContent: {
-        flex: 1,
-        marginLeft: 12,
-    },
-
-    aboutItemLabel: {
-        fontSize: 12,
-        fontWeight: '600',
-        color: '#9261E5',
-        marginBottom: 4,
-    },
-
-    aboutItemValue: {
-        fontSize: 15,
-        color: '#fff',
-        fontWeight: '500',
-    },
-
-    locationEditContainer: {
-        flex: 1,
-        marginLeft: 12,
-    },
-
-    // Preferences - New Pill Style
-    preferenceSection: {
-        marginTop: 8,
-    },
-
-    preferenceSectionLabel: {
-        fontSize: 12,
-        fontWeight: '600',
-        color: '#9261E5',
-        marginBottom: 8,
-        textTransform: 'uppercase',
-        letterSpacing: 0.5,
-    },
-
-    preferencePillsContainer: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 8,
-    },
-
-    preferencePill: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: 'rgba(146, 97, 229, 0.12)',
-        paddingVertical: 8,
-        paddingHorizontal: 12,
-        borderRadius: 16,
-        borderWidth: 1.5,
-        borderColor: '#9261E5',
-        gap: 6,
-    },
-
-    customPreferencePill: {
-        backgroundColor: 'rgba(184, 165, 196, 0.15)',
-        borderColor: '#B8A5C4',
-    },
-
-    preferencePillText: {
-        fontSize: 13,
-        fontWeight: '600',
-        color: '#fff',
-    },
-
-    preferencesPlaceholder: {
-        fontSize: 14,
-        color: '#B8A5C4',
-        fontStyle: 'italic',
-    },
-
-    // Activity Badge
-    activityBadge: {
-        backgroundColor: 'rgba(78, 205, 196, 0.2)',
-        paddingHorizontal: 12,
-        paddingVertical: 4,
-        borderRadius: 12,
-        marginRight: 8,
-    },
-
-    activityBadgeText: {
-        color: '#4ECDC4',
-        fontSize: 14,
-        fontWeight: '700',
-        fontFamily: 'Montserrat_700Bold',
-    },
-
-    // Profile Completion Banner
-    completionBanner: {
-        backgroundColor: 'rgba(255, 230, 109, 0.08)',
-        borderRadius: 16,
-        padding: 20,
-        marginBottom: 20,
-        borderWidth: 2,
-        borderColor: 'rgba(255, 230, 109, 0.3)',
-    },
-
-    completionHeader: {
-        marginBottom: 16,
-    },
-
-    completionTitle: {
-        fontSize: 16,
-        fontWeight: '700',
-        color: '#FFE66D',
-        marginBottom: 6,
-        fontFamily: 'Montserrat_700Bold',
-    },
-
-    completionSubtitle: {
-        fontSize: 14,
-        color: 'rgba(255, 255, 255, 0.8)',
-        fontWeight: '500',
-        lineHeight: 20,
-    },
-
-    completionBarContainer: {
-        marginBottom: 16,
-    },
-
-    completionBar: {
-        height: 8,
-        backgroundColor: 'rgba(255, 255, 255, 0.15)',
-        borderRadius: 4,
-        overflow: 'hidden',
-    },
-
-    completionFill: {
-        height: '100%',
-        backgroundColor: '#FFE66D',
-        borderRadius: 4,
-    },
-
-    missingItems: {
-        gap: 8,
-    },
-
-    missingItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-    },
-
-    missingItemBullet: {
-        color: '#FFE66D',
-        fontSize: 18,
-        lineHeight: 20,
-        fontWeight: '700',
-    },
-
-    missingItemText: {
-        color: 'rgba(255, 255, 255, 0.9)',
-        fontSize: 14,
-        fontWeight: '500',
-        flex: 1,
-    },
-
     // Loading Overlay
     loadingOverlay: {
         flex: 1,
@@ -1718,21 +1067,7 @@ const styles = StyleSheet.create({
         fontWeight: '500',
     },
 
-    // Community Members Styles
-    avatarPreviewContainer: {
-        flexDirection: 'row',
-        marginLeft: 8,
-        marginRight: 8,
-    },
-
-    avatarPreview: {
-        width: 28,
-        height: 28,
-        borderRadius: 14,
-        borderWidth: 2,
-        borderColor: '#201925',
-    },
-
+    // Community Members Modal Styles
     communityMemberItem: {
         flexDirection: 'row',
         padding: 16,

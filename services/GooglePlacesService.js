@@ -129,7 +129,7 @@ class GooglePlacesService {
 
         components.forEach((component) => {
             const types = component.types;
-            
+
             if (types.includes('neighborhood') || types.includes('sublocality')) {
                 neighborhood = component.long_name;
             } else if (types.includes('locality')) {
@@ -141,8 +141,9 @@ class GooglePlacesService {
             }
         });
 
-        // Fallback to parsing from description if components aren't available
-        if (!city && place.structured_formatting) {
+        // Always parse structured_formatting to enhance or override address_components
+        // This ensures neighborhood names like "West Village" are captured correctly
+        if (place.structured_formatting) {
             const mainText = place.structured_formatting.main_text;
             const secondary = place.structured_formatting.secondary_text;
 
@@ -150,24 +151,31 @@ class GooglePlacesService {
             // then main_text is likely a neighborhood
             if (secondary && secondary.includes(',')) {
                 const secondaryParts = secondary.split(', ');
-                // First part of secondary is likely the city (e.g., "Brooklyn")
+                // First part of secondary is likely the city (e.g., "Brooklyn" or "Manhattan")
                 if (secondaryParts.length >= 2) {
-                    neighborhood = mainText; // Main text is the neighborhood
-                    city = secondaryParts[0]; // First part of secondary is city
-                    state = secondaryParts[1]; // Second part is state
+                    // Override with structured_formatting data as it's more specific
+                    neighborhood = mainText; // Main text is the neighborhood (e.g., "West Village")
+                    city = secondaryParts[0]; // First part of secondary is city (e.g., "Manhattan")
+                    state = secondaryParts[1]; // Second part is state (e.g., "NY")
                     if (secondaryParts.length > 2) {
-                        country = secondaryParts[2]; // Third part is country
+                        country = secondaryParts[2]; // Third part is country (e.g., "USA")
                     }
                 } else {
                     // Just one part in secondary, main_text is probably city
-                    city = mainText;
-                    state = secondaryParts[0];
+                    // Only override if we didn't get better data from address_components
+                    if (!city) {
+                        city = mainText;
+                        state = secondaryParts[0];
+                    }
                 }
             } else {
                 // No commas in secondary, main_text is probably the city
-                city = mainText;
-                if (secondary) {
-                    state = secondary;
+                // Only override if we didn't get data from address_components
+                if (!city) {
+                    city = mainText;
+                    if (secondary) {
+                        state = secondary;
+                    }
                 }
             }
         }
