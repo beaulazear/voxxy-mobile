@@ -14,7 +14,7 @@ import { logger } from './logger';
  */
 export const trackEvent = async (event, properties = {}) => {
   if (!IS_PRODUCTION) {
-    logger.debug('Analytics: Skipping track in non-production', { event, properties });
+    logger.info('📊 Analytics [DEV]:', { event, properties });
     return;
   }
 
@@ -141,8 +141,13 @@ export const trackActivityCreated = async (activity) => {
   await trackEvent('Activity Created', {
     activityId: activity.id,
     activityType: activity.activity_type || activity.type,
-    activityName: activity.name,
-    date: activity.date,
-    location: activity.location
+    activityName: activity.activity_name || activity.name,
+    date: activity.date_day || activity.date,
+    dateTime: activity.date_time,
+    location: activity.activity_location || activity.location,
+    isSolo: activity.is_solo || false,
+    groupType: activity.is_solo ? 'solo' : 'group',
+    timeOfDay: activity.time_of_day,
+    welcomeMessage: activity.welcome_message
   });
 };

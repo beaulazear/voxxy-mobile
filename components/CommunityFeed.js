@@ -87,11 +87,14 @@ export default function CommunityFeed({ communityMembers, onFavoritePress }) {
     );
   }
 
+  // Show up to 30 most recent items
+  const displayedItems = feedData.slice(0, 30);
+
   return (
     <View style={styles.container}>
       {/* Feed List */}
       <FlatList
-        data={feedData.slice(0, 3)} // Show only first 3 items
+        data={displayedItems}
         keyExtractor={(item) => String(item.id)}
         renderItem={({ item }) => (
           <CommunityFeedItem item={item} onPress={onFavoritePress} />
@@ -106,19 +109,14 @@ export default function CommunityFeed({ communityMembers, onFavoritePress }) {
         }
         scrollEnabled={false} // Disable scroll since it's nested
         ListFooterComponent={
-          feedData.length > 3 ? (
-            <TouchableOpacity
-              style={styles.seeAllButton}
-              onPress={() => {
-                // TODO: Navigate to full feed screen
-                logger.debug('See all feed items');
-              }}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.seeAllText}>
-                See All Activity ({feedData.length})
+          displayedItems.length > 0 ? (
+            <View style={styles.endOfFeedContainer}>
+              <Text style={styles.endOfFeedText}>
+                {feedData.length > 30
+                  ? `Showing 30 most recent • ${feedData.length - 30} more from your community`
+                  : 'End of recent community activity'}
               </Text>
-            </TouchableOpacity>
+            </View>
           ) : null
         }
       />
@@ -167,18 +165,20 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 18,
   },
-  seeAllButton: {
-    padding: 16,
-    backgroundColor: 'rgba(185, 84, 236, 0.08)',
+  endOfFeedContainer: {
+    padding: 20,
+    backgroundColor: 'rgba(42, 30, 46, 0.3)',
     borderRadius: 0,
     borderBottomWidth: 1,
     borderTopWidth: 1,
-    borderColor: 'rgba(185, 84, 236, 0.3)',
+    borderColor: 'rgba(185, 84, 236, 0.15)',
     alignItems: 'center',
   },
-  seeAllText: {
-    color: '#B954EC',
-    fontSize: 14,
-    fontWeight: '600',
+  endOfFeedText: {
+    color: 'rgba(255, 255, 255, 0.5)',
+    fontSize: 13,
+    fontWeight: '500',
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
 });

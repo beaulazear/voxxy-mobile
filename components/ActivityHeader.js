@@ -32,7 +32,7 @@ import {
 import { useNavigation } from '@react-navigation/native'
 import { UserContext } from '../context/UserContext'
 
-import DefaultIcon from '../assets/icon.png'
+import DefaultIcon from '../assets/pfp-placeholder.png'
 import { logger } from '../utils/logger';
 import { avatarMap } from '../utils/avatarManager';
 

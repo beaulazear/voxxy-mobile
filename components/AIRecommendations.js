@@ -27,7 +27,7 @@ import { modalStyles, modalColors } from '../styles/modalStyles';
 import NativeMapView from './NativeMapView';
 import DraggableBottomSheet from './DraggableBottomSheet';
 import RecommendationDetails from './RecommendationDetails';
-import DefaultIcon from '../assets/icon.png';
+import DefaultIcon from '../assets/pfp-placeholder.png';
 import { avatarMap } from '../utils/avatarManager';
 import { Icons } from '../constants/featherIcons';
 import CuisineResponseForm from './CuisineResponseForm';
