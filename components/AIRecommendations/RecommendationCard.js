@@ -1,6 +1,5 @@
 import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Icons } from '../../constants/featherIcons';
 import KeywordTags from './KeywordTags';
 import { isKeywordFormat } from '../../utils/recommendationsUtils';
@@ -33,51 +32,52 @@ const RecommendationCard = ({
             onPress={() => onPress(recommendation)}
             activeOpacity={0.7}
         >
-            <LinearGradient
-                colors={isFavorited
-                    ? ['rgba(212, 175, 55, 0.15)', 'rgba(212, 175, 55, 0.08)']
-                    : ['rgba(204, 49, 232, 0.08)', 'rgba(155, 29, 189, 0.05)']
-                }
-                style={styles.recCardGradient}
-            >
-                <View style={styles.recCardContent}>
-                    {/* Header with Title and Price */}
-                    <View style={styles.recCardHeader}>
+            <View style={styles.recCardContent}>
+                {/* Title and Price Row */}
+                <View style={styles.recCardHeader}>
+                    <View style={styles.recCardTitleRow}>
+                        {isFavorited && (
+                            <Icons.Star color="#D4AF37" size={14} fill="#D4AF37" style={{ marginRight: 6 }} />
+                        )}
                         <Text style={styles.recCardTitle} numberOfLines={1}>
                             {recommendation.title}
                         </Text>
-                        <Text style={styles.recCardPrice}>
-                            {recommendation.price_range || '$'}
-                        </Text>
                     </View>
-
-                    {/* Description or Keywords */}
-                    {recommendation.reason && isKeywordFormat(recommendation.reason) ? (
-                        <KeywordTags keywords={recommendation.reason} style={styles.recCardTags} />
-                    ) : (
-                        (recommendation.description || recommendation.reason) && (
-                            <Text style={styles.recCardDescription} numberOfLines={2}>
-                                {recommendation.description || recommendation.reason}
-                            </Text>
-                        )
-                    )}
-
-                    {/* Address */}
-                    {recommendation.address && (
-                        <View style={styles.recCardAddressRow}>
-                            <Icons.MapPin color="#B8A5C4" size={14} />
-                            <Text style={styles.recCardAddressText} numberOfLines={1}>
-                                {recommendation.address}
+                    {recommendation.price_range && (
+                        <View style={styles.recCardPriceTag}>
+                            <Text style={styles.recCardPrice}>
+                                {recommendation.price_range}
                             </Text>
                         </View>
                     )}
                 </View>
 
-                {/* Chevron indicator */}
-                <View style={styles.recCardChevron}>
-                    <Icons.ChevronRight color="#B8A5C4" size={20} />
-                </View>
-            </LinearGradient>
+                {/* Description or Keywords */}
+                {recommendation.reason && isKeywordFormat(recommendation.reason) ? (
+                    <KeywordTags keywords={recommendation.reason} style={styles.recCardTags} />
+                ) : (
+                    (recommendation.description || recommendation.reason) && (
+                        <Text style={styles.recCardDescription} numberOfLines={2}>
+                            {recommendation.description || recommendation.reason}
+                        </Text>
+                    )
+                )}
+
+                {/* Address */}
+                {recommendation.address && (
+                    <View style={styles.recCardAddressRow}>
+                        <Icons.MapPin color="rgba(255, 255, 255, 0.5)" size={13} />
+                        <Text style={styles.recCardAddressText} numberOfLines={1}>
+                            {recommendation.address}
+                        </Text>
+                    </View>
+                )}
+            </View>
+
+            {/* Chevron indicator */}
+            <View style={styles.recCardChevron}>
+                <Icons.ChevronRight color="rgba(255, 255, 255, 0.3)" size={20} />
+            </View>
         </TouchableOpacity>
     );
 };

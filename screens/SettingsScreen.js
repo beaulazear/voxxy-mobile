@@ -16,7 +16,7 @@ import { UserContext } from '../context/UserContext';
 import { useNavigation } from '@react-navigation/native';
 import { API_URL } from '../config';
 import NotificationSettings from '../components/NotificationSettings';
-import { ArrowLeft, ChevronRight, LogOut, Trash2 } from 'react-native-feather';
+import { ArrowLeft, ChevronRight, LogOut, Trash2, HelpCircle } from 'react-native-feather';
 import { Shield } from 'lucide-react-native';
 import { logger } from '../utils/logger';
 import colors from '../styles/Colors';
@@ -174,6 +174,13 @@ export default function SettingsScreen() {
                     <Text style={styles.headerTitle}>Settings</Text>
                     <Text style={styles.headerSubtitle}>Manage your account preferences</Text>
                 </View>
+                <TouchableOpacity
+                    style={styles.helpButton}
+                    onPress={() => navigation.navigate('FAQ')}
+                    activeOpacity={0.7}
+                >
+                    <HelpCircle color="#fff" size={22} strokeWidth={2} />
+                </TouchableOpacity>
             </View>
 
             <ScrollView
@@ -326,6 +333,18 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         marginRight: 16,
+    },
+
+    helpButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: 'rgba(204, 49, 232, 0.3)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(204, 49, 232, 0.5)',
+        marginLeft: 16,
     },
 
     headerContent: {

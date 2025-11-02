@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useMemo, useRef } from 'react';
 import {
     View,
     Text,
@@ -10,6 +10,7 @@ import {
     TextInput,
     Linking,
     Keyboard,
+    Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -26,7 +27,7 @@ import {
     Heart,
     Calendar,
 } from 'react-native-feather';
-import { LinearGradient } from 'expo-linear-gradient';
+import { LinearGradient } from 'expo-linear-gradient'; // Still used for header border
 import NativeMapView from '../components/NativeMapView';
 import FavoriteDetailModal from '../components/FavoriteDetailModal';
 import ShareFavoriteModal from '../components/ShareFavoriteModal';
@@ -50,6 +51,12 @@ export default function FavoritesScreen({ route }) {
     const [selectedCategory, setSelectedCategory] = useState('all');
     const [shareModalVisible, setShareModalVisible] = useState(false);
     const [favoriteToShare, setFavoriteToShare] = useState(null);
+
+    // Search bar animation
+    const searchBarHeight = useRef(new Animated.Value(1)).current; // 1 = visible, 0 = hidden
+    const lastScrollY = useRef(0);
+    const isSearchBarVisible = useRef(true);
+    const lastToggleTime = useRef(0);
 
     // Handle shared favorite from deep link
     useEffect(() => {
@@ -247,9 +254,10 @@ export default function FavoritesScreen({ route }) {
     };
 
     // Convert favorites to map markers
-    const getMapMarkers = () => {
+    // Memoize to prevent map reload on modal open/close
+    const mapMarkers = useMemo(() => {
         const markers = [];
-        
+
         userFavorites.forEach(fav => {
             // Data should be directly on the favorite from /user_activities/favorited endpoint
             if (fav.latitude && fav.longitude) {
@@ -278,9 +286,9 @@ export default function FavoritesScreen({ route }) {
                 });
             }
         });
-        
+
         return markers;
-    };
+    }, [userFavorites]); // Only recalculate when userFavorites changes
 
     // Filter favorites based on search and category
     const getFilteredFavorites = () => {
@@ -370,6 +378,42 @@ export default function FavoritesScreen({ route }) {
         setShareModalVisible(true);
     };
 
+    // Handle scroll to show/hide search bar
+    const handleScroll = (event) => {
+        const currentScrollY = event.nativeEvent.contentOffset.y;
+        const delta = Math.abs(currentScrollY - lastScrollY.current);
+
+        // Ignore very small movements
+        if (delta < 2) {
+            return;
+        }
+
+        const scrollingDown = currentScrollY > lastScrollY.current;
+
+        // Determine if search bar should be visible
+        const shouldShowSearchBar = currentScrollY <= 20 || !scrollingDown;
+
+        // Only animate if state needs to change AND enough time has passed (prevent bounce toggling)
+        if (shouldShowSearchBar !== isSearchBarVisible.current) {
+            const now = Date.now();
+            const timeSinceLastToggle = now - lastToggleTime.current;
+
+            // Require 250ms cooldown between toggles
+            if (timeSinceLastToggle > 250) {
+                isSearchBarVisible.current = shouldShowSearchBar;
+                lastToggleTime.current = now;
+
+                Animated.timing(searchBarHeight, {
+                    toValue: shouldShowSearchBar ? 1 : 0,
+                    duration: 200,
+                    useNativeDriver: false,
+                }).start();
+            }
+        }
+
+        lastScrollY.current = currentScrollY;
+    };
+
     const renderListItem = ({ item }) => {
         return (
             <TouchableOpacity
@@ -377,82 +421,83 @@ export default function FavoritesScreen({ route }) {
                 onPress={() => setSelectedFavorite(item)}
                 activeOpacity={0.7}
             >
-                <LinearGradient
-                    colors={['rgba(42, 30, 46, 0.8)', 'rgba(32, 25, 37, 0.9)']}
-                    style={styles.listItemGradient}
-                >
-                    <View style={styles.listItemContent}>
-                        <View style={styles.listItemHeader}>
+                <View style={styles.listItemContent}>
+                    <View style={styles.listItemHeader}>
+                        <View style={styles.listItemTitleRow}>
+                            <Heart color="#D4AF37" size={14} fill="#D4AF37" style={{ marginRight: 6 }} />
                             <Text style={styles.listItemTitle} numberOfLines={2}>
                                 {item.title || item.name || item.activity_name || 'Unnamed'}
                             </Text>
-                            {item.price_range && (
-                                <View style={styles.priceTag}>
-                                    <Text style={styles.priceTagText}>{item.price_range}</Text>
-                                </View>
-                            )}
                         </View>
-
-                        {item.description && (
-                            <Text style={styles.listItemDescription} numberOfLines={2}>
-                                {item.description}
-                            </Text>
-                        )}
-
-                        <View style={styles.listItemMeta}>
-                            <MapPin color="rgba(255, 255, 255, 0.5)" size={14} />
-                            <Text style={styles.listItemAddress} numberOfLines={1}>
-                                {item.address ? item.address.split(',').slice(0, 2).join(',') : 'Location not specified'}
-                            </Text>
-                        </View>
-
-                        {item.created_at && (
-                            <View style={styles.listItemFooter}>
-                                <Calendar color="rgba(255, 255, 255, 0.4)" size={12} />
-                                <Text style={styles.listItemDate}>
-                                    {new Date(item.created_at).toLocaleDateString('en-US', {
-                                        month: 'short',
-                                        day: 'numeric',
-                                        year: 'numeric',
-                                    })}
-                                </Text>
+                        {item.price_range && (
+                            <View style={styles.priceTag}>
+                                <Text style={styles.priceTagText}>{item.price_range}</Text>
                             </View>
                         )}
                     </View>
 
-                    {/* Quick Actions */}
-                    <View style={styles.listItemActions}>
+                    {item.description && (
+                        <Text style={styles.listItemDescription} numberOfLines={2}>
+                            {item.description}
+                        </Text>
+                    )}
+
+                    <View style={styles.listItemMeta}>
+                        <MapPin color="rgba(255, 255, 255, 0.5)" size={13} />
+                        <Text style={styles.listItemAddress} numberOfLines={1}>
+                            {item.address ? item.address.split(',').slice(0, 2).join(',') : 'Location not specified'}
+                        </Text>
+                    </View>
+
+                    {item.created_at && (
+                        <View style={styles.listItemFooter}>
+                            <Calendar color="rgba(255, 255, 255, 0.4)" size={12} />
+                            <Text style={styles.listItemDate}>
+                                {new Date(item.created_at).toLocaleDateString('en-US', {
+                                    month: 'short',
+                                    day: 'numeric',
+                                    year: 'numeric',
+                                })}
+                            </Text>
+                        </View>
+                    )}
+
+                    {/* Quick Actions Row at Bottom */}
+                    <View style={styles.listItemActionsRow}>
                         <TouchableOpacity
-                            style={styles.actionIcon}
+                            style={styles.actionButton}
                             onPress={(e) => {
                                 e.stopPropagation();
                                 handleNavigate(item);
                             }}
                         >
-                            <Navigation color="#9333ea" size={18} />
+                            <Navigation color="#9333ea" size={16} />
+                            <Text style={styles.actionButtonText}>Directions</Text>
                         </TouchableOpacity>
 
                         <TouchableOpacity
-                            style={styles.actionIcon}
+                            style={styles.actionButton}
                             onPress={(e) => {
                                 e.stopPropagation();
                                 handleShare(item);
                             }}
                         >
-                            <Share2 color="#3b82f6" size={18} />
+                            <Share2 color="#3b82f6" size={16} />
+                            <Text style={styles.actionButtonText}>Share</Text>
                         </TouchableOpacity>
 
                         <TouchableOpacity
-                            style={[styles.actionIcon, styles.deleteIcon]}
+                            style={[styles.actionButton, styles.deleteButton]}
                             onPress={(e) => {
                                 e.stopPropagation();
                                 handleDeleteFavorite(item);
                             }}
                         >
-                            <X color="#ef4444" size={18} />
+                            <X color="#ef4444" size={16} />
+                            <Text style={[styles.actionButtonText, styles.deleteButtonText]}>Remove</Text>
                         </TouchableOpacity>
                     </View>
-                </LinearGradient>
+                </View>
             </TouchableOpacity>
         );
     };
@@ -497,12 +542,32 @@ export default function FavoritesScreen({ route }) {
 
             {/* Search Bar - Only show in list view */}
             {viewMode === 'list' && !loadingFavorites && (
-                <View style={styles.searchBarContainer}>
+                <Animated.View
+                    style={[
+                        styles.searchBarContainer,
+                        {
+                            maxHeight: searchBarHeight.interpolate({
+                                inputRange: [0, 1],
+                                outputRange: [0, 100],
+                            }),
+                            paddingTop: searchBarHeight.interpolate({
+                                inputRange: [0, 1],
+                                outputRange: [0, 12],
+                            }),
+                            paddingBottom: searchBarHeight.interpolate({
+                                inputRange: [0, 1],
+                                outputRange: [0, 12],
+                            }),
+                            opacity: searchBarHeight,
+                            overflow: 'hidden',
+                        },
+                    ]}
+                >
                     <View style={styles.searchBar}>
                         <Search color="rgba(255, 255, 255, 0.5)" size={18} />
                         <TextInput
                             style={styles.searchInput}
-                            placeholder="Search favorites..."
+                            placeholder="Search your favorites..."
                             placeholderTextColor="rgba(255, 255, 255, 0.4)"
                             value={searchQuery}
                             onChangeText={setSearchQuery}
@@ -513,7 +578,7 @@ export default function FavoritesScreen({ route }) {
                             </TouchableOpacity>
                         )}
                     </View>
-                </View>
+                </Animated.View>
             )}
 
             {/* Content */}
@@ -526,7 +591,7 @@ export default function FavoritesScreen({ route }) {
             ) : viewMode === 'map' ? (
                 <View style={styles.mapContainer}>
                     <NativeMapView
-                        recommendations={getMapMarkers()}
+                        recommendations={mapMarkers}
                         initialRegion={mapRegion}
                         onMarkerPress={(marker) => {
                             const favorite = userFavorites.find((f) => f.id === marker.id);
@@ -562,7 +627,9 @@ export default function FavoritesScreen({ route }) {
                     renderItem={renderListItem}
                     contentContainerStyle={styles.listContainer}
                     showsVerticalScrollIndicator={false}
-                    ItemSeparatorComponent={() => <View style={styles.listSeparator} />}
+                    bounces={false}
+                    onScroll={handleScroll}
+                    scrollEventThrottle={16}
                     keyboardShouldPersistTaps="handled"
                     keyboardDismissMode="on-drag"
                     onScrollBeginDrag={() => Keyboard.dismiss()}
@@ -678,8 +745,6 @@ const styles = StyleSheet.create({
 
     searchBarContainer: {
         paddingHorizontal: 20,
-        paddingTop: 12,
-        paddingBottom: 12,
     },
     headerBorder: {
         height: 2,
@@ -751,25 +816,17 @@ const styles = StyleSheet.create({
         padding: 20,
     },
     listContainer: {
-        padding: 20,
         paddingBottom: 100, // Add padding for fixed footer
         flexGrow: 1,
     },
     listItem: {
-        borderRadius: 16,
-        overflow: 'hidden',
-        elevation: 3,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.2,
-        shadowRadius: 4,
-    },
-    listItemGradient: {
         flexDirection: 'row',
+        backgroundColor: 'rgba(42, 30, 46, 0.6)',
+        borderRadius: 0,
         padding: 16,
-        borderWidth: 1,
-        borderColor: 'rgba(147, 51, 234, 0.2)',
-        borderRadius: 16,
+        marginBottom: 0,
+        borderBottomWidth: 1,
+        borderColor: 'rgba(185, 84, 236, 0.25)',
     },
     listItemContent: {
         flex: 1,
@@ -780,29 +837,36 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         marginBottom: 8,
     },
+    listItemTitleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flex: 1,
+        marginRight: 8,
+    },
     listItemTitle: {
-        fontSize: 18,
+        fontSize: 17,
         fontWeight: '700',
+        fontFamily: 'Montserrat_700Bold',
         color: '#fff',
         flex: 1,
-        marginRight: 12,
     },
     priceTag: {
         backgroundColor: 'rgba(251, 191, 36, 0.15)',
-        paddingHorizontal: 10,
-        paddingVertical: 6,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
         borderRadius: 8,
     },
     priceTagText: {
         color: '#fbbf24',
-        fontSize: 14,
+        fontSize: 12,
         fontWeight: '700',
+        fontFamily: 'Montserrat_700Bold',
     },
     listItemDescription: {
         color: 'rgba(255, 255, 255, 0.7)',
         fontSize: 14,
-        lineHeight: 20,
-        marginBottom: 10,
+        lineHeight: 19,
+        marginBottom: 8,
     },
     listItemMeta: {
         flexDirection: 'row',
@@ -814,40 +878,49 @@ const styles = StyleSheet.create({
         color: 'rgba(255, 255, 255, 0.6)',
         fontSize: 13,
         flex: 1,
-        lineHeight: 18,
     },
     listItemFooter: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 6,
+        marginBottom: 12,
     },
     listItemDate: {
         color: 'rgba(255, 255, 255, 0.4)',
         fontSize: 12,
     },
-    listItemActions: {
-        flexDirection: 'column',
-        justifyContent: 'space-around',
+    listItemActionsRow: {
+        flexDirection: 'row',
         alignItems: 'center',
-        marginLeft: 12,
         gap: 8,
+        marginTop: 8,
+        paddingTop: 12,
+        borderTopWidth: 1,
+        borderTopColor: 'rgba(255, 255, 255, 0.08)',
     },
-    actionIcon: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-        backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    actionButton: {
+        flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'center',
+        gap: 6,
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        borderRadius: 8,
         borderWidth: 1,
         borderColor: 'rgba(255, 255, 255, 0.1)',
+        flex: 1,
     },
-    deleteIcon: {
-        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    actionButtonText: {
+        color: 'rgba(255, 255, 255, 0.8)',
+        fontSize: 13,
+        fontWeight: '600',
+    },
+    deleteButton: {
+        backgroundColor: 'rgba(239, 68, 68, 0.08)',
         borderColor: 'rgba(239, 68, 68, 0.3)',
     },
-    listSeparator: {
-        height: 12,
+    deleteButtonText: {
+        color: '#ef4444',
     },
     emptyContainer: {
         flex: 1,

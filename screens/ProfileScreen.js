@@ -82,11 +82,15 @@ export default function ProfileScreen() {
     const [showPreferencesModal, setShowPreferencesModal] = useState(false);
 
     // Profile editing states
-    const [isEditingName, setIsEditingName] = useState(false);
-    const [newName, setNewName] = useState(user?.name || '');
     const [preferences, setPreferences] = useState(user?.preferences || '');
     const [favoriteFood, setFavoriteFood] = useState(user?.favorite_food || '');
+    const [barPreferences, setBarPreferences] = useState(user?.bar_preferences || '');
     const [savingPreferences, setSavingPreferences] = useState(false);
+
+    // Name editing states
+    const [showEditNameModal, setShowEditNameModal] = useState(false);
+    const [editedName, setEditedName] = useState(user?.name || '');
+    const [savingName, setSavingName] = useState(false);
 
     // Location state
     const [userLocation, setUserLocation] = useState(
@@ -202,13 +206,14 @@ export default function ProfileScreen() {
     // Calculate profile completion
     const profileCompletion = useMemo(() => {
         let completed = 0;
-        const total = 5;
+        const total = 6;
 
         if (user?.name) completed++;
         if (user?.email) completed++;
         if (user?.city && user?.state) completed++;
         if (user?.favorite_food) completed++;
         if (user?.preferences) completed++;
+        if (user?.bar_preferences) completed++;
 
         const percentage = (completed / total) * 100;
 
@@ -216,6 +221,7 @@ export default function ProfileScreen() {
         if (!user?.city || !user?.state) missing.push('Set your location');
         if (!user?.favorite_food) missing.push('Add favorite foods');
         if (!user?.preferences) missing.push('Set dietary preferences');
+        if (!user?.bar_preferences) missing.push('Add bar preferences');
 
         return { completed, total, percentage, missing };
     }, [user]);
@@ -225,54 +231,22 @@ export default function ProfileScreen() {
     };
 
     useEffect(() => {
-        setNewName(user?.name || '');
         setPreferences(user?.preferences || '');
         setFavoriteFood(user?.favorite_food || '');
+        setBarPreferences(user?.bar_preferences || '');
+        setEditedName(user?.name || '');
     }, [user]);
 
-    const handleSaveName = () => {
-        if (!newName.trim()) {
-            Alert.alert('Error', 'Name cannot be empty.');
-            return;
-        }
-
-        fetch(`${API_URL}/users/${user.id}`, {
-            method: 'PATCH',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`,
-            },
-            body: JSON.stringify({ name: newName }),
-        })
-            .then((res) => {
-                if (!res.ok) throw new Error('Failed to update user');
-                return res.json();
-            })
-            .then((updatedUser) => {
-                setUser({ ...user, name: updatedUser.name });
-                setIsEditingName(false);
-                Alert.alert('Success', 'Name updated!');
-            })
-            .catch((err) => {
-                logger.error('Update error:', err);
-                Alert.alert('Error', 'Failed to update name.');
-            });
-    };
-
-    const handleCancelEdit = () => {
-        setNewName(user?.name || '');
-        setIsEditingName(false);
-    };
-
-    const handleSavePreferences = async (favoritesString, dietaryString) => {
+    const handleSavePreferences = async (favoritesString, dietaryString, barPreferencesString) => {
         setSavingPreferences(true);
 
         try {
-            logger.debug('Saving preferences:', { favoritesString, dietaryString });
+            logger.debug('Saving preferences:', { favoritesString, dietaryString, barPreferencesString });
 
             const updatedUser = await updateUser({
                 preferences: dietaryString,
                 favorite_food: favoritesString,
+                bar_preferences: barPreferencesString,
             });
 
             logger.debug('Updated user response:', updatedUser);
@@ -280,10 +254,12 @@ export default function ProfileScreen() {
             if (updatedUser) {
                 setPreferences(updatedUser.preferences || '');
                 setFavoriteFood(updatedUser.favorite_food || '');
+                setBarPreferences(updatedUser.bar_preferences || '');
 
                 logger.debug('Local state updated:', {
                     preferences: updatedUser.preferences,
-                    favorite_food: updatedUser.favorite_food
+                    favorite_food: updatedUser.favorite_food,
+                    bar_preferences: updatedUser.bar_preferences
                 });
 
                 setShowPreferencesModal(false);
@@ -465,6 +441,31 @@ export default function ProfileScreen() {
         }
     };
 
+    const handleSaveName = async () => {
+        if (!editedName.trim()) {
+            Alert.alert('Error', 'Name cannot be empty');
+            return;
+        }
+
+        setSavingName(true);
+
+        try {
+            const updatedUser = await updateUser({ name: editedName.trim() });
+
+            if (updatedUser) {
+                setShowEditNameModal(false);
+                Alert.alert('Success', 'Your name has been updated!');
+            } else {
+                Alert.alert('Error', 'Failed to update name. Please try again.');
+            }
+        } catch (error) {
+            logger.error('Name update error:', error);
+            Alert.alert('Error', 'Failed to update name. Please check your connection and try again.');
+        } finally {
+            setSavingName(false);
+        }
+    };
+
     return (
         <SafeAreaView style={styles.safe} edges={['top']}>
             <StatusBar barStyle="light-content" />
@@ -479,45 +480,19 @@ export default function ProfileScreen() {
                     <ArrowLeft stroke="#fff" width={24} height={24} strokeWidth={2} />
                 </TouchableOpacity>
                 <View style={styles.headerContent}>
-                    {!isEditingName ? (
-                        <View style={styles.headerNameContainer}>
-                            <Text style={styles.headerTitle}>{user?.name || 'User'}</Text>
-                            <TouchableOpacity
-                                style={styles.headerEditButton}
-                                onPress={() => setIsEditingName(true)}
-                                activeOpacity={0.7}
-                            >
-                                <Edit3 stroke="#9261E5" width={20} height={20} strokeWidth={2} />
-                            </TouchableOpacity>
+                    <TouchableOpacity
+                        style={styles.headerNameContainer}
+                        onPress={() => {
+                            setEditedName(user?.name || '');
+                            setShowEditNameModal(true);
+                        }}
+                        activeOpacity={0.7}
+                    >
+                        <Text style={styles.headerTitle}>{user?.name || 'User'}</Text>
+                        <View style={styles.editIconContainer}>
+                            <Edit3 stroke="#B8A5C4" width={18} height={18} strokeWidth={2} />
                         </View>
-                    ) : (
-                        <View style={styles.headerEditContainer}>
-                            <TextInput
-                                style={styles.headerNameInput}
-                                value={newName}
-                                onChangeText={setNewName}
-                                placeholder="Enter your name"
-                                placeholderTextColor="#666"
-                                autoFocus
-                            />
-                            <View style={styles.headerEditActions}>
-                                <TouchableOpacity
-                                    style={styles.headerSaveButton}
-                                    onPress={handleSaveName}
-                                    activeOpacity={0.7}
-                                >
-                                    <Text style={styles.headerSaveText}>Save</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity
-                                    style={styles.headerCancelButton}
-                                    onPress={handleCancelEdit}
-                                    activeOpacity={0.7}
-                                >
-                                    <Text style={styles.headerCancelText}>Cancel</Text>
-                                </TouchableOpacity>
-                            </View>
-                        </View>
-                    )}
+                    </TouchableOpacity>
                 </View>
                 <TouchableOpacity
                     style={styles.settingsButton}
@@ -550,12 +525,13 @@ export default function ProfileScreen() {
                 {/* Profile Completion Banner */}
                 <ProfileCompletionBanner profileCompletion={profileCompletion} />
 
-                {/* Food Preferences Section */}
+                {/* Food & Bar Preferences Section */}
                 <FoodPreferencesSection
                     favoriteFood={favoriteFood}
                     preferences={preferences}
+                    barPreferences={barPreferences}
                     onPress={() => {
-                        logger.debug('Opening preferences modal with:', { favoriteFood, preferences });
+                        logger.debug('Opening preferences modal with:', { favoriteFood, preferences, barPreferences });
                         setShowPreferencesModal(true);
                     }}
                 />
@@ -772,8 +748,60 @@ export default function ProfileScreen() {
                 onSave={handleSavePreferences}
                 initialFavorites={favoriteFood}
                 initialDietary={preferences}
+                initialBarPreferences={barPreferences}
                 saving={savingPreferences}
             />
+
+            {/* Edit Name Modal */}
+            <Modal
+                visible={showEditNameModal}
+                animationType="slide"
+                presentationStyle="pageSheet"
+                onRequestClose={() => setShowEditNameModal(false)}
+            >
+                <SafeAreaView style={styles.modalContainer} edges={['top']}>
+                    <View style={styles.modalHeader}>
+                        <TouchableOpacity
+                            style={styles.modalCloseButton}
+                            onPress={() => setShowEditNameModal(false)}
+                        >
+                            <X stroke="#fff" width={20} height={20} strokeWidth={2.5} />
+                        </TouchableOpacity>
+                        <Text style={styles.modalTitle}>Edit Name</Text>
+                        <View style={styles.modalHeaderSpacer} />
+                    </View>
+
+                    <View style={styles.editNameContent}>
+                        <Text style={styles.editNameLabel}>Your Name</Text>
+                        <TextInput
+                            style={styles.editNameInput}
+                            value={editedName}
+                            onChangeText={setEditedName}
+                            placeholder="Enter your name"
+                            placeholderTextColor="#666"
+                            autoFocus
+                            returnKeyType="done"
+                            onSubmitEditing={handleSaveName}
+                        />
+                        <Text style={styles.editNameHint}>
+                            This is how your name will appear to other users
+                        </Text>
+
+                        <TouchableOpacity
+                            style={[styles.saveNameButton, savingName && styles.saveNameButtonDisabled]}
+                            onPress={handleSaveName}
+                            disabled={savingName}
+                            activeOpacity={0.8}
+                        >
+                            {savingName ? (
+                                <ActivityIndicator color="#fff" />
+                            ) : (
+                                <Text style={styles.saveNameButtonText}>Save Name</Text>
+                            )}
+                        </TouchableOpacity>
+                    </View>
+                </SafeAreaView>
+            </Modal>
         </SafeAreaView>
     );
 }
@@ -800,6 +828,7 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(255, 255, 255, 0.1)',
         justifyContent: 'center',
         alignItems: 'center',
+        marginRight: 16,
     },
 
     settingsButton: {
@@ -811,11 +840,11 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         borderWidth: 1,
         borderColor: 'rgba(146, 97, 229, 0.3)',
+        marginLeft: 16,
     },
 
     headerContent: {
         flex: 1,
-        alignItems: 'center',
         justifyContent: 'center',
     },
 
@@ -832,58 +861,21 @@ const styles = StyleSheet.create({
         fontFamily: 'Montserrat_700Bold',
     },
 
-    headerEditButton: {
-        padding: 4,
-    },
-
-    headerEditContainer: {
-        width: '100%',
+    editIconContainer: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: 'rgba(184, 165, 196, 0.15)',
+        justifyContent: 'center',
         alignItems: 'center',
-        gap: 8,
-    },
-
-    headerNameInput: {
-        backgroundColor: 'rgba(0, 0, 0, 0.2)',
-        color: '#fff',
         borderWidth: 1,
-        borderColor: '#9261E5',
-        borderRadius: 8,
-        padding: 8,
-        fontSize: 18,
-        textAlign: 'center',
-        width: '80%',
-        fontFamily: 'Montserrat_700Bold',
+        borderColor: 'rgba(184, 165, 196, 0.3)',
     },
 
-    headerEditActions: {
-        flexDirection: 'row',
-        gap: 8,
-    },
-
-    headerSaveButton: {
-        backgroundColor: '#9261E5',
-        paddingVertical: 6,
-        paddingHorizontal: 16,
-        borderRadius: 8,
-    },
-
-    headerSaveText: {
-        color: '#fff',
-        fontWeight: '600',
-        fontSize: 12,
-    },
-
-    headerCancelButton: {
-        backgroundColor: 'rgba(255, 255, 255, 0.1)',
-        paddingVertical: 6,
-        paddingHorizontal: 16,
-        borderRadius: 8,
-    },
-
-    headerCancelText: {
-        color: '#fff',
-        fontWeight: '600',
-        fontSize: 12,
+    headerSubtitle: {
+        fontSize: 14,
+        color: '#B8A5C4',
+        fontWeight: '500',
     },
 
     container: {
@@ -1127,5 +1119,57 @@ const styles = StyleSheet.create({
         color: 'rgba(255, 255, 255, 0.7)',
         fontSize: 12,
         fontWeight: '500',
+    },
+
+    // Edit Name Modal Styles
+    editNameContent: {
+        padding: 24,
+    },
+
+    editNameLabel: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#fff',
+        marginBottom: 12,
+        fontFamily: 'Montserrat_600SemiBold',
+    },
+
+    editNameInput: {
+        backgroundColor: 'rgba(42, 30, 46, 0.8)',
+        borderRadius: 12,
+        padding: 16,
+        fontSize: 16,
+        color: '#fff',
+        borderWidth: 1,
+        borderColor: 'rgba(185, 84, 236, 0.3)',
+        marginBottom: 12,
+        fontFamily: 'Montserrat_500Medium',
+    },
+
+    editNameHint: {
+        fontSize: 13,
+        color: '#B8A5C4',
+        marginBottom: 24,
+        lineHeight: 18,
+    },
+
+    saveNameButton: {
+        backgroundColor: '#9261E5',
+        paddingVertical: 16,
+        borderRadius: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: 52,
+    },
+
+    saveNameButtonDisabled: {
+        opacity: 0.6,
+    },
+
+    saveNameButtonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '600',
+        fontFamily: 'Montserrat_600SemiBold',
     },
 });

@@ -3,9 +3,6 @@ import {
     View,
     Text,
     StyleSheet,
-    Modal,
-    SafeAreaView,
-    ScrollView,
     TouchableOpacity,
     Linking,
     Alert,
@@ -16,7 +13,6 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
-    X,
     MapPin,
     DollarSign,
     Clock,
@@ -29,38 +25,19 @@ import {
     Calendar,
 } from 'react-native-feather';
 import { modalStyles, modalColors } from '../styles/modalStyles';
+import DraggableBottomSheet from './DraggableBottomSheet';
+import { getUserDisplayImage } from '../utils/avatarManager';
+import { API_URL } from '../config';
 
-export default function FavoriteDetailModal({ visible, onClose, favorite, onToggleFavorite, isFavorited }) {
+export default function FavoriteDetailModal({ visible, onClose, favorite, savedByUser, onToggleFavorite, isFavorited }) {
     const [expandedHours, setExpandedHours] = useState(false);
     const [imageErrors, setImageErrors] = useState({});
 
-    // Debug logging
-    React.useEffect(() => {
-        if (visible && favorite) {
-            console.log('FavoriteDetailModal received favorite:', {
-                hasTitle: !!favorite.title,
-                hasAddress: !!favorite.address,
-                hasPhotos: !!favorite.photos,
-                hasReason: !!favorite.reason,
-                reasonType: typeof favorite.reason,
-                keys: Object.keys(favorite)
-            });
-        }
-    }, [visible, favorite]);
+    // Debug logging removed for production
 
-    // Early return with empty modal if no favorite
+    // Early return if no favorite
     if (!favorite) {
-        return (
-            <Modal visible={visible} transparent={false} animationType="slide" onRequestClose={onClose}>
-                <SafeAreaView style={styles.container}>
-                    <View style={styles.header}>
-                        <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-                            <X color="#fff" size={20} />
-                        </TouchableOpacity>
-                    </View>
-                </SafeAreaView>
-            </Modal>
-        );
+        return null;
     }
 
     const handleNavigate = () => {
@@ -154,42 +131,12 @@ export default function FavoriteDetailModal({ visible, onClose, favorite, onTogg
     const photos = parsePhotos(favorite?.photos || []);
 
     return (
-        <Modal
+        <DraggableBottomSheet
             visible={visible}
-            transparent={false}
-            animationType="slide"
-            onRequestClose={onClose}
+            onClose={onClose}
+            title={favorite.title || 'Favorite Place'}
         >
-            <SafeAreaView style={styles.container}>
-                {/* Header */}
-                <View style={styles.header}>
-                    <View style={styles.headerLeft}>
-                        <TouchableOpacity
-                            style={styles.closeButton}
-                            onPress={onClose}
-                        >
-                            <X color="#fff" size={20} />
-                        </TouchableOpacity>
-                    </View>
-                    <Text style={styles.headerTitle} numberOfLines={1}>
-                        {favorite.title || 'Favorite Place'}
-                    </Text>
-                    <View style={styles.headerRight}>
-                        <TouchableOpacity
-                            style={[styles.favoriteButton, isFavorited && styles.favoriteButtonActive]}
-                            onPress={onToggleFavorite}
-                        >
-                            <Heart
-                                color={isFavorited ? '#D4AF37' : '#fff'}
-                                fill={isFavorited ? '#D4AF37' : 'transparent'}
-                                size={20}
-                            />
-                        </TouchableOpacity>
-                    </View>
-                </View>
-
-                <ScrollView style={styles.content} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-                    {/* Hero Photo Section */}
+            {/* Hero Photo Section */}
                     {photos.length > 0 ? (
                         <View style={styles.heroPhotoSection}>
                             <FlatList
@@ -222,11 +169,55 @@ export default function FavoriteDetailModal({ visible, onClose, favorite, onTogg
                                     <Text style={styles.photoCounterText}>{photos.length} photos</Text>
                                 </View>
                             )}
+                            {/* Saved By User - Overlay on photos */}
+                            {savedByUser && (
+                                <View style={styles.savedByOverlay}>
+                                    <Image
+                                        source={getUserDisplayImage(savedByUser, API_URL)}
+                                        style={styles.savedByAvatar}
+                                    />
+                                    <View style={styles.savedByTextContainer}>
+                                        <Text style={styles.savedByLabel}>Saved by</Text>
+                                        <Text style={styles.savedByName}>{savedByUser.name}</Text>
+                                        {favorite.created_at && (
+                                            <Text style={styles.savedByDate}>
+                                                {new Date(favorite.created_at).toLocaleDateString('en-US', {
+                                                    month: 'short',
+                                                    day: 'numeric',
+                                                    year: 'numeric',
+                                                })}
+                                            </Text>
+                                        )}
+                                    </View>
+                                </View>
+                            )}
                         </View>
                     ) : (
                         <View style={styles.noPhotoPlaceholder}>
                             <Globe color="rgba(255, 255, 255, 0.2)" size={48} />
                             <Text style={styles.noPhotoText}>No photos</Text>
+                            {/* Saved By User - Overlay on no photo placeholder */}
+                            {savedByUser && (
+                                <View style={styles.savedByOverlay}>
+                                    <Image
+                                        source={getUserDisplayImage(savedByUser, API_URL)}
+                                        style={styles.savedByAvatar}
+                                    />
+                                    <View style={styles.savedByTextContainer}>
+                                        <Text style={styles.savedByLabel}>Saved by</Text>
+                                        <Text style={styles.savedByName}>{savedByUser.name}</Text>
+                                        {favorite.created_at && (
+                                            <Text style={styles.savedByDate}>
+                                                {new Date(favorite.created_at).toLocaleDateString('en-US', {
+                                                    month: 'short',
+                                                    day: 'numeric',
+                                                    year: 'numeric',
+                                                })}
+                                            </Text>
+                                        )}
+                                    </View>
+                                </View>
+                            )}
                         </View>
                     )}
 
@@ -308,6 +299,24 @@ export default function FavoriteDetailModal({ visible, onClose, favorite, onTogg
                                 </LinearGradient>
                             </TouchableOpacity>
                         )}
+
+                        {onToggleFavorite && (
+                            <TouchableOpacity style={styles.quickActionButton} onPress={onToggleFavorite}>
+                                <LinearGradient
+                                    colors={isFavorited ? ['#D4AF37', '#B8941F'] : ['#ef4444', '#dc2626']}
+                                    style={styles.quickActionGradient}
+                                >
+                                    <Heart
+                                        color="#fff"
+                                        fill={isFavorited ? '#fff' : 'transparent'}
+                                        size={18}
+                                    />
+                                    <Text style={styles.quickActionText}>
+                                        {isFavorited ? 'Saved' : 'Save'}
+                                    </Text>
+                                </LinearGradient>
+                            </TouchableOpacity>
+                        )}
                     </View>
 
                     {/* Compact Details Grid */}
@@ -378,70 +387,61 @@ export default function FavoriteDetailModal({ visible, onClose, favorite, onTogg
                             </Text>
                         </View>
                     )}
-                </ScrollView>
-            </SafeAreaView>
-        </Modal>
+        </DraggableBottomSheet>
     );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#201925',
-    },
-    header: {
+    // Saved By User - Overlay on photos
+    savedByOverlay: {
+        position: 'absolute',
+        top: 12,
+        left: 12,
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        borderBottomWidth: 1,
-        borderBottomColor: 'rgba(255, 255, 255, 0.1)',
-    },
-    headerLeft: {
-        width: 44,
-    },
-    headerRight: {
-        width: 44,
-        alignItems: 'flex-end',
-    },
-    closeButton: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-        backgroundColor: 'rgba(255, 255, 255, 0.1)',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    favoriteButton: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-        backgroundColor: 'rgba(255, 255, 255, 0.1)',
-        alignItems: 'center',
-        justifyContent: 'center',
+        backgroundColor: 'rgba(32, 25, 37, 0.85)',
+        paddingHorizontal: 10,
+        paddingVertical: 8,
+        borderRadius: 12,
         borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.1)',
+        borderColor: 'rgba(146, 97, 229, 0.4)',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+        elevation: 5,
+        maxWidth: '70%',
     },
-    favoriteButtonActive: {
-        backgroundColor: 'rgba(212, 175, 55, 0.15)',
-        borderColor: '#D4AF37',
+    savedByAvatar: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        marginRight: 8,
+        borderWidth: 2,
+        borderColor: '#B954EC',
     },
-    headerTitle: {
-        flex: 1,
-        fontSize: 18,
-        fontWeight: '700',
+    savedByTextContainer: {
+        flexShrink: 1,
+    },
+    savedByLabel: {
+        fontSize: 9,
+        color: 'rgba(255, 255, 255, 0.6)',
+        textTransform: 'uppercase',
+        fontWeight: '600',
+        letterSpacing: 0.5,
+        marginBottom: 1,
+    },
+    savedByName: {
+        fontSize: 13,
         color: '#fff',
-        textAlign: 'center',
-        paddingHorizontal: 8,
+        fontWeight: '700',
+        fontFamily: 'Montserrat_700Bold',
     },
-    content: {
-        flex: 1,
-    },
-    scrollContent: {
-        paddingHorizontal: 16,
-        paddingTop: 12,
-        paddingBottom: 40,
+    savedByDate: {
+        fontSize: 10,
+        color: 'rgba(255, 255, 255, 0.5)',
+        marginTop: 1,
+        fontStyle: 'italic',
     },
     // Hero Photo Section
     heroPhotoSection: {

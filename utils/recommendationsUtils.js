@@ -23,11 +23,21 @@ export const safeJsonParse = (data, fallback = []) => {
 /**
  * Check if user has any profile preferences set
  * @param {Object} user - User object
- * @returns {boolean} Whether user has preferences
+ * @param {String} activityType - Activity type (e.g. 'Restaurant', 'Cocktails')
+ * @returns {boolean} Whether user has preferences appropriate for this activity type
  */
-export const userHasProfilePreferences = (user) => {
+export const userHasProfilePreferences = (user, activityType = 'Restaurant') => {
     if (!user) return false;
 
+    const isBarActivity = activityType === 'Cocktails' || activityType === 'Night Out';
+
+    // For bar/cocktail activities, check bar_preferences
+    if (isBarActivity) {
+        const hasBarPreferences = user.bar_preferences && user.bar_preferences.trim().length > 0;
+        return hasBarPreferences;
+    }
+
+    // For restaurant activities, check favorite_food and dietary preferences
     const hasFavoriteFood = user.favorite_food && user.favorite_food.trim().length > 0;
     const hasPreferencesField = user.preferences && user.preferences.trim().length > 0;
     const hasDietaryPreferences = user.dairy_free === true ||

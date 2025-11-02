@@ -510,8 +510,8 @@ export default function FinalizeActivityModal({
 
                     {/* Content */}
                     <View style={modalStyles.modalContent}>
-                        <Text style={modalStyles.modernTitle}>Review & Finalize</Text>
-                        <Text style={modalStyles.modernDescription}>Complete your activity setup</Text>
+                        <Text style={modalStyles.modernTitle}>Share Your Plans</Text>
+                        <Text style={modalStyles.modernDescription}>Already made a reservation? Add your details here and we'll notify the group!</Text>
 
                         {/* Scrollable Content */}
                         <ScrollView

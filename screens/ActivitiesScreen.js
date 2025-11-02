@@ -1,4 +1,4 @@
-import React, { useState, useContext, useMemo } from 'react';
+import React, { useState, useContext, useMemo, useRef } from 'react';
 import {
     View,
     Text,
@@ -8,6 +8,7 @@ import {
     ScrollView,
     Image,
     ActivityIndicator,
+    Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { UserContext } from '../context/UserContext';
@@ -140,6 +141,77 @@ export default function ActivitiesScreen() {
     const navigation = useNavigation();
     const [filter, setFilter] = useState('groups'); // 'groups', 'solo', 'finalized'
     const [showActivityCreation, setShowActivityCreation] = useState(false);
+
+    // Filter tabs animation
+    const tabsHeight = useRef(new Animated.Value(1)).current; // 1 = visible, 0 = hidden
+    const lastScrollY = useRef(0);
+    const isTabsVisible = useRef(true);
+    const lastToggleTime = useRef(0);
+    const contentHeight = useRef(0);
+    const scrollViewHeight = useRef(0);
+    const isScrollable = useRef(true);
+
+    // Check if content is scrollable
+    const handleContentSizeChange = (width, height) => {
+        contentHeight.current = height;
+        isScrollable.current = height > scrollViewHeight.current + 50; // 50px buffer
+
+        // If not scrollable, always show tabs
+        if (!isScrollable.current && !isTabsVisible.current) {
+            isTabsVisible.current = true;
+            Animated.timing(tabsHeight, {
+                toValue: 1,
+                duration: 200,
+                useNativeDriver: false,
+            }).start();
+        }
+    };
+
+    const handleLayout = (event) => {
+        scrollViewHeight.current = event.nativeEvent.layout.height;
+        isScrollable.current = contentHeight.current > scrollViewHeight.current + 50; // 50px buffer
+    };
+
+    // Handle scroll to show/hide tabs
+    const handleScroll = (event) => {
+        // Don't animate if content isn't scrollable
+        if (!isScrollable.current) {
+            return;
+        }
+
+        const currentScrollY = event.nativeEvent.contentOffset.y;
+        const delta = Math.abs(currentScrollY - lastScrollY.current);
+
+        // Ignore very small movements
+        if (delta < 2) {
+            return;
+        }
+
+        const scrollingDown = currentScrollY > lastScrollY.current;
+
+        // Determine if tabs should be visible
+        const shouldShowTabs = currentScrollY <= 20 || !scrollingDown;
+
+        // Only animate if state needs to change AND enough time has passed
+        if (shouldShowTabs !== isTabsVisible.current) {
+            const now = Date.now();
+            const timeSinceLastToggle = now - lastToggleTime.current;
+
+            // Require 250ms cooldown between toggles
+            if (timeSinceLastToggle > 250) {
+                isTabsVisible.current = shouldShowTabs;
+                lastToggleTime.current = now;
+
+                Animated.timing(tabsHeight, {
+                    toValue: shouldShowTabs ? 1 : 0,
+                    duration: 200,
+                    useNativeDriver: false,
+                }).start();
+            }
+        }
+
+        lastScrollY.current = currentScrollY;
+    };
 
     // Handle activity creation completion
     const handleActivityCreated = (newActivityId) => {
@@ -299,6 +371,7 @@ export default function ActivitiesScreen() {
                 style={[
                     styles.listItem,
                     isInvite && styles.listItemInvite,
+                    isUserHost && styles.listItemUserHost,
                 ]}
                 onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -306,22 +379,12 @@ export default function ActivitiesScreen() {
                 }}
                 activeOpacity={0.7}
             >
-                <LinearGradient
-                    colors={
-                        isInvite
-                            ? ['rgba(211, 148, 245, 0.15)', 'rgba(185, 84, 236, 0.1)']
-                            : isUserHost
-                            ? ['rgba(139, 92, 246, 0.12)', 'rgba(139, 92, 246, 0.05)']
-                            : ['rgba(42, 30, 46, 0.8)', 'rgba(32, 25, 37, 0.9)']
-                    }
-                    style={styles.listItemGradient}
-                >
-                    {/* Invite badge */}
-                    {isInvite && (
-                        <View style={styles.inviteBadge}>
-                            <Mail color="#fff" size={16} strokeWidth={2.5} />
-                        </View>
-                    )}
+                {/* Invite badge */}
+                {isInvite && (
+                    <View style={styles.inviteBadge}>
+                        <Mail color="#fff" size={16} strokeWidth={2.5} />
+                    </View>
+                )}
 
                     <View style={styles.listItemContent}>
                         {/* Title and Status Badge */}
@@ -449,7 +512,6 @@ export default function ActivitiesScreen() {
                             </View>
                         )}
                     </View>
-                </LinearGradient>
             </TouchableOpacity>
         );
     };
@@ -483,8 +545,28 @@ export default function ActivitiesScreen() {
                 />
             </View>
 
-            {/* Filter Tabs */}
-            <View style={styles.filterContainer}>
+            {/* Filter Tabs - Animated */}
+            <Animated.View
+                style={[
+                    styles.filterContainer,
+                    {
+                        maxHeight: tabsHeight.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [0, 100],
+                        }),
+                        paddingTop: tabsHeight.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [0, 12],
+                        }),
+                        paddingBottom: tabsHeight.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [0, 12],
+                        }),
+                        opacity: tabsHeight,
+                        overflow: 'hidden',
+                    },
+                ]}
+            >
                 <TouchableOpacity
                     style={[styles.filterTab, filter === 'groups' && styles.filterTabActive]}
                     onPress={() => setFilter('groups')}
@@ -520,7 +602,7 @@ export default function ActivitiesScreen() {
                         <Text style={styles.filterBadgeText}>{finalizedActivities.length}</Text>
                     </View>
                 </TouchableOpacity>
-            </View>
+            </Animated.View>
 
             {/* Activities List */}
             <FlatList
@@ -529,7 +611,11 @@ export default function ActivitiesScreen() {
                 renderItem={renderActivityItem}
                 contentContainerStyle={styles.listContainer}
                 showsVerticalScrollIndicator={false}
-                ItemSeparatorComponent={() => <View style={styles.listSeparator} />}
+                bounces={false}
+                onScroll={handleScroll}
+                scrollEventThrottle={16}
+                onContentSizeChange={handleContentSizeChange}
+                onLayout={handleLayout}
                 ListEmptyComponent={() => (
                     <View style={styles.emptyContainer}>
                         <Activity stroke="#666" width={48} height={48} strokeWidth={1.5} />
@@ -603,36 +689,35 @@ const styles = StyleSheet.create({
     },
     filterContainer: {
         flexDirection: 'row',
-        marginHorizontal: 20,
-        marginVertical: 12,
-        backgroundColor: 'rgba(255, 255, 255, 0.05)',
-        borderRadius: 12,
-        padding: 4,
-        gap: 6,
+        backgroundColor: '#201925',
+        borderBottomWidth: 1,
+        borderBottomColor: 'rgba(185, 84, 236, 0.2)',
     },
     filterTab: {
         flex: 1,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        paddingVertical: 10,
+        paddingVertical: 14,
         paddingHorizontal: 8,
-        borderRadius: 8,
+        borderBottomWidth: 2,
+        borderBottomColor: 'transparent',
         gap: 6,
     },
     filterTabActive: {
-        backgroundColor: 'rgba(204, 49, 232, 0.2)',
+        borderBottomColor: '#B954EC',
     },
     filterTabText: {
-        color: 'rgba(255, 255, 255, 0.6)',
-        fontSize: 13,
+        color: 'rgba(255, 255, 255, 0.5)',
+        fontSize: 14,
         fontWeight: '600',
+        fontFamily: 'Montserrat_600SemiBold',
     },
     filterTabTextActive: {
         color: '#fff',
     },
     filterBadge: {
-        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+        backgroundColor: 'rgba(255, 255, 255, 0.08)',
         borderRadius: 10,
         minWidth: 20,
         height: 20,
@@ -641,60 +726,50 @@ const styles = StyleSheet.create({
         paddingHorizontal: 6,
     },
     filterBadgeActive: {
-        backgroundColor: '#CC31E8',
+        backgroundColor: 'rgba(185, 84, 236, 0.3)',
     },
     filterBadgeText: {
         color: '#ffffff',
         fontSize: 11,
         fontWeight: '700',
+        fontFamily: 'Montserrat_700Bold',
     },
     listContainer: {
-        padding: 20,
         paddingBottom: 100, // Add padding for fixed footer
         flexGrow: 1,
     },
     listItem: {
-        borderRadius: 16,
-        overflow: 'hidden',
-        elevation: 3,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.2,
-        shadowRadius: 4,
-    },
-    listItemGradient: {
         flexDirection: 'row',
-        padding: 16,
-        borderWidth: 1,
-        borderColor: 'rgba(147, 51, 234, 0.2)',
-        borderRadius: 16,
-        minHeight: 110,
+        backgroundColor: 'rgba(42, 30, 46, 0.6)',
+        borderRadius: 0,
+        padding: 18,
+        marginBottom: 0,
+        borderBottomWidth: 1,
+        borderColor: 'rgba(185, 84, 236, 0.2)',
+        minHeight: 120,
+    },
+    listItemUserHost: {
+        backgroundColor: 'rgba(139, 92, 246, 0.1)',
+        borderLeftWidth: 2,
+        borderLeftColor: 'rgba(139, 92, 246, 0.4)',
     },
     listItemInvite: {
-        borderWidth: 2,
-        shadowColor: 'rgba(211, 148, 245, 0.5)',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 1,
-        shadowRadius: 12,
-        elevation: 8,
+        backgroundColor: 'rgba(211, 148, 245, 0.1)',
+        borderLeftWidth: 3,
+        borderLeftColor: '#d394f5',
     },
     inviteBadge: {
         position: 'absolute',
-        top: 8,
-        right: 8,
-        width: 36,
-        height: 36,
-        borderRadius: 18,
+        top: 12,
+        right: 12,
+        width: 32,
+        height: 32,
+        borderRadius: 16,
         backgroundColor: '#d394f5',
         justifyContent: 'center',
         alignItems: 'center',
-        borderWidth: 3,
-        borderColor: '#201925',
-        shadowColor: '#d394f5',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.6,
-        shadowRadius: 8,
-        elevation: 10,
+        borderWidth: 2,
+        borderColor: 'rgba(42, 30, 46, 0.6)',
         zIndex: 10,
     },
     listItemContent: {
@@ -751,18 +826,20 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         alignSelf: 'flex-start',
-        paddingHorizontal: 10,
+        paddingHorizontal: 12,
         paddingVertical: 6,
-        borderRadius: 8,
+        borderRadius: 6,
         gap: 6,
-        marginBottom: 10,
+        marginBottom: 12,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.1)',
     },
     statusText: {
         fontSize: 11,
         fontWeight: '700',
         fontFamily: 'Montserrat_700Bold',
         textTransform: 'uppercase',
-        letterSpacing: 0.5,
+        letterSpacing: 0.8,
     },
     rightSection: {
         justifyContent: 'center',
@@ -770,13 +847,13 @@ const styles = StyleSheet.create({
         marginLeft: 16,
     },
     activityIconContainer: {
-        width: 56,
-        height: 56,
-        borderRadius: 16,
+        width: 60,
+        height: 60,
+        borderRadius: 12,
         justifyContent: 'center',
         alignItems: 'center',
         borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.1)',
+        borderColor: 'rgba(255, 255, 255, 0.08)',
     },
     participantsRow: {
         flexDirection: 'row',
@@ -838,10 +915,15 @@ const styles = StyleSheet.create({
     countdownContainer: {
         alignItems: 'center',
         justifyContent: 'center',
-        minWidth: 70,
+        minWidth: 75,
+        backgroundColor: 'rgba(255, 230, 109, 0.08)',
+        borderRadius: 10,
+        padding: 10,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 230, 109, 0.2)',
     },
     countdownLabel: {
-        color: 'rgba(255, 255, 255, 0.5)',
+        color: 'rgba(255, 255, 255, 0.6)',
         fontSize: 10,
         fontWeight: '600',
         marginBottom: 4,
@@ -851,13 +933,10 @@ const styles = StyleSheet.create({
     },
     countdownText: {
         color: '#FFE66D',
-        fontSize: 16,
+        fontSize: 17,
         fontWeight: '700',
         fontFamily: 'Montserrat_700Bold',
         textAlign: 'center',
-    },
-    listSeparator: {
-        height: 12,
     },
     emptyContainer: {
         flex: 1,

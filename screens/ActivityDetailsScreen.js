@@ -27,6 +27,7 @@ import UpdateDetailsModal from '../components/UpdateDetailsModal'
 import FinalizeActivityModal from '../components/FinalizeActivityModal'
 import ReportModal from '../components/ReportModal'
 import SoloActivityDecision from '../components/SoloActivityDecision'
+import AIGenerationLoader from '../components/AIGenerationLoader'
 import { API_URL } from '../config'
 import { logger } from '../utils/logger';
 import { TOUCH_TARGETS, SPACING } from '../styles/AccessibilityStyles';
@@ -114,8 +115,18 @@ export default function ActivityDetailsScreen({ route }) {
     const pollingRef = useRef(null)
     const hasAutoShownInviteModal = useRef(false)
 
+    // Header animation refs
+    const headerHeight = useRef(new Animated.Value(1)).current // 1 = visible, 0 = hidden
+    const lastScrollY = useRef(0)
+    const isHeaderVisible = useRef(true)
+    const lastToggleTime = useRef(0)
+    const contentHeight = useRef(0)
+    const scrollViewHeight = useRef(0)
+    const isScrollable = useRef(true)
+
     // State for controlling invite modal from parent
     const [showInviteModal, setShowInviteModal] = useState(false)
+    const [viewMode, setViewMode] = useState('cards') // 'map' or 'cards'
 
     // Token - match ProfileScreen pattern exactly
     const token = user?.token
@@ -123,6 +134,68 @@ export default function ActivityDetailsScreen({ route }) {
     logger.debug('💬 User in ActivityDetailsScreen:', user?.id)
     logger.debug('💬 Token in ActivityDetailsScreen:', !!token)
     logger.debug('💬 Activity ID:', activityId)
+
+    // Check if content is scrollable
+    const handleContentSizeChange = (width, height) => {
+        contentHeight.current = height;
+        isScrollable.current = height > scrollViewHeight.current + 50; // 50px buffer
+
+        // If not scrollable, always show header
+        if (!isScrollable.current && !isHeaderVisible.current) {
+            isHeaderVisible.current = true;
+            Animated.timing(headerHeight, {
+                toValue: 1,
+                duration: 200,
+                useNativeDriver: false,
+            }).start();
+        }
+    };
+
+    const handleLayout = (event) => {
+        scrollViewHeight.current = event.nativeEvent.layout.height;
+        isScrollable.current = contentHeight.current > scrollViewHeight.current + 50; // 50px buffer
+    };
+
+    // Handle scroll to show/hide header
+    const handleScroll = (event) => {
+        // Don't animate if content isn't scrollable
+        if (!isScrollable.current) {
+            return;
+        }
+
+        const currentScrollY = event.nativeEvent.contentOffset.y;
+        const delta = Math.abs(currentScrollY - lastScrollY.current);
+
+        // Ignore very small movements
+        if (delta < 2) {
+            return;
+        }
+
+        const scrollingDown = currentScrollY > lastScrollY.current;
+
+        // Determine if header should be visible
+        const shouldShowHeader = currentScrollY <= 20 || !scrollingDown;
+
+        // Only animate if state needs to change AND enough time has passed
+        if (shouldShowHeader !== isHeaderVisible.current) {
+            const now = Date.now();
+            const timeSinceLastToggle = now - lastToggleTime.current;
+
+            // Require 250ms cooldown between toggles
+            if (timeSinceLastToggle > 250) {
+                isHeaderVisible.current = shouldShowHeader;
+                lastToggleTime.current = now;
+
+                Animated.timing(headerHeight, {
+                    toValue: shouldShowHeader ? 1 : 0,
+                    duration: 200,
+                    useNativeDriver: false,
+                }).start();
+            }
+        }
+
+        lastScrollY.current = currentScrollY;
+    };
 
     // Early return if no activityId
     if (!activityId) {
@@ -1100,22 +1173,37 @@ export default function ActivityDetailsScreen({ route }) {
         <SafeAreaView style={styles.safe} edges={['top']}>
             <StatusBar backgroundColor="#201925" barStyle="light-content" />
             
-            {/* When in voting phase (map view), don't use ScrollView */}
-            {currentActivity.voting ? (
+            {/* When in voting or finalized phase (recommendations view), use fixed layout */}
+            {currentActivity.voting || currentActivity.finalized ? (
                 <View style={styles.fixedContainer}>
-                    {/* Sticky header */}
-                    <ActivityStickyHeader
-                        activity={currentActivity}
-                        isOwner={isOwner}
-                        onBack={handleBack}
-                        onEdit={() => setShowUpdateModal(true)}
-                        onDelete={() => handleDelete(currentActivity.id)}
-                        onLeave={handleLeaveActivity}
-                        onReport={handleReportActivity}
-                        onComplete={handleFinalize}
-                        onSoloComplete={handleSoloComplete}
-                    />
-                    
+                    {/* Animated header for voting phase */}
+                    <Animated.View
+                        style={{
+                            height: headerHeight.interpolate({
+                                inputRange: [0, 1],
+                                outputRange: [0, 72],
+                            }),
+                            opacity: headerHeight,
+                            overflow: 'hidden',
+                            paddingBottom: 12,
+                        }}
+                    >
+                        <ActivityStickyHeader
+                            activity={currentActivity}
+                            isOwner={isOwner}
+                            onBack={handleBack}
+                            onEdit={() => setShowUpdateModal(true)}
+                            onDelete={() => handleDelete(currentActivity.id)}
+                            onLeave={handleLeaveActivity}
+                            onReport={handleReportActivity}
+                            onComplete={handleFinalize}
+                            onSoloComplete={handleSoloComplete}
+                            viewMode={viewMode}
+                            onViewModeChange={setViewMode}
+                            showViewToggle={currentActivity?.activity_type !== 'Game Night'}
+                        />
+                    </Animated.View>
+
                     {/* Map view takes remaining space */}
                     <View style={styles.mapViewContent}>
                         <AIRecommendations
@@ -1125,7 +1213,17 @@ export default function ActivityDetailsScreen({ route }) {
                             setPinned={setPinned}
                             setRefreshTrigger={setRefreshTrigger}
                             isOwner={isOwner}
-                            onEdit={() => handleFinalize()}
+                            onEdit={() => setShowUpdateModal(true)}
+                            onDelete={() => handleDelete(currentActivity.id)}
+                            onReport={handleReportActivity}
+                            onLeave={handleLeaveActivity}
+                            onFinalize={handleFinalize}
+                            onSoloComplete={handleSoloComplete}
+                            viewMode={viewMode}
+                            onViewModeChange={setViewMode}
+                            onScroll={handleScroll}
+                            onContentSizeChange={handleContentSizeChange}
+                            onLayout={handleLayout}
                         />
                     </View>
                 </View>
@@ -1139,12 +1237,26 @@ export default function ActivityDetailsScreen({ route }) {
                         style={styles.scrollView}
                         showsVerticalScrollIndicator={false}
                         contentContainerStyle={styles.contentContainer}
-                        stickyHeaderIndices={[0]}
                         keyboardShouldPersistTaps="handled"
                         keyboardDismissMode="on-drag"
+                        bounces={false}
+                        onScroll={handleScroll}
+                        scrollEventThrottle={16}
+                        onContentSizeChange={handleContentSizeChange}
+                        onLayout={handleLayout}
                     >
-                        {/* Sticky header - only the top buttons */}
-                        <View>
+                        {/* Animated header - hides on scroll down */}
+                        <Animated.View
+                            style={{
+                                height: headerHeight.interpolate({
+                                    inputRange: [0, 1],
+                                    outputRange: [0, 72],
+                                }),
+                                opacity: headerHeight,
+                                overflow: 'hidden',
+                                paddingBottom: 12,
+                            }}
+                        >
                             <ActivityStickyHeader
                                 activity={currentActivity}
                                 isOwner={isOwner}
@@ -1155,8 +1267,11 @@ export default function ActivityDetailsScreen({ route }) {
                                 onReport={handleReportActivity}
                                 onComplete={handleFinalize}
                                 onSoloComplete={handleSoloComplete}
+                                viewMode={viewMode}
+                                onViewModeChange={setViewMode}
+                                showViewToggle={currentActivity?.activity_type !== 'Game Night'}
                             />
-                        </View>
+                        </Animated.View>
 
                         {/* Main header content that scrolls */}
                         <ActivityHeader
@@ -1189,7 +1304,14 @@ export default function ActivityDetailsScreen({ route }) {
                                         setPinned={setPinned}
                                         setRefreshTrigger={setRefreshTrigger}
                                         isOwner={isOwner}
-                                        onEdit={() => handleFinalize()}
+                                        onEdit={() => setShowUpdateModal(true)}
+                                        onDelete={() => handleDelete(currentActivity.id)}
+                                        onReport={handleReportActivity}
+                                        onLeave={handleLeaveActivity}
+                                        onFinalize={handleFinalize}
+                                        onSoloComplete={handleSoloComplete}
+                                        viewMode={viewMode}
+                                        onViewModeChange={setViewMode}
                                     />
 
                                     <ParticipantsSection
@@ -1207,9 +1329,9 @@ export default function ActivityDetailsScreen({ route }) {
                                         parentScrollRef={scrollViewRef}
                                     />
 
-                                    {/* Delete/Leave Activity Button Section */}
+                                    {/* Delete/Report/Leave Activity Button Section */}
                                     <View style={styles.deleteActivitySection}>
-                                        {/* Report/Flag Activity Button */}
+                                        {/* Report/Flag Activity Button - Always visible */}
                                         <TouchableOpacity
                                             style={styles.reportActivityButton}
                                             onPress={handleReportActivity}
@@ -1219,14 +1341,18 @@ export default function ActivityDetailsScreen({ route }) {
                                             </Text>
                                         </TouchableOpacity>
 
-                                        {isOwner ? (
+                                        {/* Delete button - Only for host/owner */}
+                                        {isOwner && (
                                             <TouchableOpacity
                                                 style={styles.deleteActivityButton}
                                                 onPress={() => handleDelete(currentActivity.id)}
                                             >
                                                 <Text style={styles.deleteActivityButtonText}>Delete</Text>
                                             </TouchableOpacity>
-                                        ) : (
+                                        )}
+
+                                        {/* Leave button - Only for participants */}
+                                        {!isOwner && (
                                             <TouchableOpacity
                                                 style={styles.leaveActivityButton}
                                                 onPress={handleLeaveActivity}
@@ -1242,15 +1368,8 @@ export default function ActivityDetailsScreen({ route }) {
                 </KeyboardAvoidingView>
             )}
 
-            {/* Loading Overlay */}
-            {isUpdating && (
-                <View style={styles.loadingOverlay}>
-                    <View style={styles.loadingContainer}>
-                        <ActivityIndicator size="large" color="#cc31e8" />
-                        <Text style={styles.loadingText}>Updating activity...</Text>
-                    </View>
-                </View>
-            )}
+            {/* AI Generation Loading Modal */}
+            <AIGenerationLoader visible={isUpdating} isSolo={true} />
 
             {/* Pending Invite Overlay */}
             {pendingInvite && (

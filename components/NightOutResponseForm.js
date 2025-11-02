@@ -81,6 +81,7 @@ export default function NightOutResponseForm({
 
     // Night out options - optimized for Google Places categories
     const drinkOptions = [
+        { label: 'No preference', icon: Target, desc: 'Any place works' },
         { label: 'Cocktail Bar', icon: Wine, desc: 'Craft cocktails & mixology' },
         { label: 'Wine Bar', icon: Wine, desc: 'Wine bars & tastings' },
         { label: 'Brewery', icon: Beer, desc: 'Craft beer & breweries' },
@@ -93,6 +94,7 @@ export default function NightOutResponseForm({
     ]
 
     const atmosphereOptions = [
+        { label: 'No preference', icon: Target, desc: 'Any vibe works' },
         { label: 'LGBTQ+ Friendly', icon: Flag, desc: 'Inclusive & welcoming' },
         { label: 'Live Music', icon: Music, desc: 'Bands & performances' },
         { label: 'DJ/Dancing', icon: Music, desc: 'Dance floor & nightlife' },
@@ -194,22 +196,40 @@ export default function NightOutResponseForm({
     const handleDrinkSelect = (drink) => {
         setSelectedDrinks(prev => {
             const isSelected = prev.includes(drink)
+
+            // If deselecting, just remove it
             if (isSelected) {
                 return prev.filter(d => d !== drink)
-            } else {
-                return [...prev, drink]
             }
+
+            // If selecting "No preference", clear all other selections
+            if (drink === 'No preference') {
+                return ['No preference']
+            }
+
+            // If selecting any other option, remove "No preference" and add the new selection
+            const withoutNoPreference = prev.filter(d => d !== 'No preference')
+            return [...withoutNoPreference, drink]
         })
     }
 
     const handleAtmosphereSelect = (atmosphere) => {
         setSelectedAtmospheres(prev => {
             const isSelected = prev.includes(atmosphere)
+
+            // If deselecting, just remove it
             if (isSelected) {
                 return prev.filter(a => a !== atmosphere)
-            } else {
-                return [...prev, atmosphere]
             }
+
+            // If selecting "No preference", clear all other selections
+            if (atmosphere === 'No preference') {
+                return ['No preference']
+            }
+
+            // If selecting any other option, remove "No preference" and add the new selection
+            const withoutNoPreference = prev.filter(a => a !== 'No preference')
+            return [...withoutNoPreference, atmosphere]
         })
     }
 
@@ -247,10 +267,12 @@ export default function NightOutResponseForm({
 
     // Validation - updated for multiple selections
     const isNextDisabled = () => {
+        // All steps are optional now - users can skip with "No Preference" button
+        // Only require selections when user explicitly tries to "Next" instead of skip
         if (step === 1) return selectedDrinks.length === 0
         if (step === 2) return selectedAtmospheres.length === 0
         if (step === 3) return !selectedBudget  // Budget remains single-select
-        if (step === 4) return false
+        if (step === 4) return false // Preferences is always optional
         if (step === 5 && activity?.allow_participant_time_selection) {
             return Object.keys(availability).length === 0
         }
@@ -264,6 +286,30 @@ export default function NightOutResponseForm({
         } catch (e) {
             // Haptics not available
         }
+        const totalSteps = getTotalSteps()
+        if (step < totalSteps) {
+            fadeAnim.setValue(0)
+            setStep(step + 1)
+        } else {
+            handleSubmit()
+        }
+    }
+
+    // Skip/No Preference handler - clears current step and moves forward
+    const handleSkip = () => {
+        try {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+        } catch (e) {
+            // Haptics not available
+        }
+
+        // Clear current step's selections
+        if (step === 1) setSelectedDrinks([])
+        if (step === 2) setSelectedAtmospheres([])
+        if (step === 3) setSelectedBudget('No preference') // Set to "No preference" option
+        if (step === 5) setAvailability({})
+
+        // Move to next step
         const totalSteps = getTotalSteps()
         if (step < totalSteps) {
             fadeAnim.setValue(0)
@@ -1275,6 +1321,25 @@ const styles = StyleSheet.create({
     closeButtonText: {
         color: '#ff4545',
         fontSize: 16,
+        fontWeight: '600',
+        fontFamily: 'Montserrat_600SemiBold',
+        textAlign: 'center',
+    },
+
+    skipButton: {
+        backgroundColor: 'rgba(103, 126, 234, 0.12)',
+        borderWidth: 1.5,
+        borderColor: 'rgba(103, 126, 234, 0.4)',
+        borderRadius: 16,
+        paddingVertical: 16,
+        paddingHorizontal: 16,
+        minHeight: 52,
+        justifyContent: 'center',
+    },
+
+    skipButtonText: {
+        color: '#667eea',
+        fontSize: 14,
         fontWeight: '600',
         fontFamily: 'Montserrat_600SemiBold',
         textAlign: 'center',

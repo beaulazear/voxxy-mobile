@@ -13,13 +13,12 @@ import { logger } from './logger';
  * @param {Object} properties - Event properties
  */
 export const trackEvent = async (event, properties = {}) => {
-  if (!IS_PRODUCTION) {
-    logger.info('📊 Analytics [DEV]:', { event, properties });
-    return;
-  }
+  logger.error('🔍 DEBUG: trackEvent called, event:', event, 'IS_PRODUCTION:', IS_PRODUCTION);
 
+  // Allow tracking in development for testing (backend will handle Mixpanel logic)
   try {
     const token = await AsyncStorage.getItem('jwt');
+    logger.error('🔍 DEBUG: Got token, about to fetch:', API_URL + '/analytics/track');
 
     const response = await fetch(`${API_URL}/analytics/track`, {
       method: 'POST',
@@ -33,12 +32,16 @@ export const trackEvent = async (event, properties = {}) => {
       })
     });
 
+    logger.error('🔍 DEBUG: Fetch completed, status:', response.status);
+
     if (!response.ok) {
-      logger.error('Analytics track failed:', response.status);
+      const errorText = await response.text();
+      logger.error('❌ Analytics track failed:', response.status, errorText);
+    } else {
+      logger.error('✅ Analytics event tracked successfully:', event);
     }
   } catch (error) {
-    // Fail silently - don't disrupt user experience for analytics
-    logger.error('Analytics track error:', error);
+    logger.error('❌ Analytics track error:', error.message, error);
   }
 };
 
@@ -48,10 +51,7 @@ export const trackEvent = async (event, properties = {}) => {
  * @param {Object} properties - Additional properties
  */
 export const trackPageView = async (page, properties = {}) => {
-  if (!IS_PRODUCTION) {
-    logger.debug('Analytics: Skipping page view in non-production', { page });
-    return;
-  }
+  // Allow tracking in development for testing
 
   try {
     const token = await AsyncStorage.getItem('jwt');
@@ -81,18 +81,17 @@ export const trackPageView = async (page, properties = {}) => {
  * @param {boolean} trackLogin - Whether to also track login event
  */
 export const identifyUser = async (trackLogin = false) => {
-  if (!IS_PRODUCTION) {
-    logger.debug('Analytics: Skipping identify in non-production');
-    return;
-  }
+  logger.error('🔍 DEBUG: identifyUser called, trackLogin:', trackLogin, 'IS_PRODUCTION:', IS_PRODUCTION);
 
   try {
     const token = await AsyncStorage.getItem('jwt');
 
     if (!token) {
-      logger.debug('Analytics: No token available for identify');
+      logger.error('❌ Analytics: No token available for identify');
       return;
     }
+
+    logger.error('🔍 DEBUG: Got token, about to identify user');
 
     const response = await fetch(`${API_URL}/analytics/identify`, {
       method: 'POST',
@@ -105,11 +104,16 @@ export const identifyUser = async (trackLogin = false) => {
       })
     });
 
+    logger.error('🔍 DEBUG: Identify fetch completed, status:', response.status);
+
     if (!response.ok) {
-      logger.error('Analytics identify failed:', response.status);
+      const errorText = await response.text();
+      logger.error('❌ Analytics identify failed:', response.status, errorText);
+    } else {
+      logger.error('✅ Analytics identify successful, trackLogin:', trackLogin);
     }
   } catch (error) {
-    logger.error('Analytics identify error:', error);
+    logger.error('❌ Analytics identify error:', error.message, error);
   }
 };
 
@@ -138,6 +142,15 @@ export const trackSignup = async (userData) => {
  * @param {Object} activity - Activity data from creation response
  */
 export const trackActivityCreated = async (activity) => {
+  logger.error('🔍 DEBUG: trackActivityCreated called with activity:', activity ? activity.id : 'null');
+
+  if (!activity) {
+    logger.error('❌ trackActivityCreated called with null/undefined activity');
+    return;
+  }
+
+  logger.error('🔍 DEBUG: About to call trackEvent for Activity Created');
+
   await trackEvent('Activity Created', {
     activityId: activity.id,
     activityType: activity.activity_type || activity.type,
@@ -147,7 +160,8 @@ export const trackActivityCreated = async (activity) => {
     location: activity.activity_location || activity.location,
     isSolo: activity.is_solo || false,
     groupType: activity.is_solo ? 'solo' : 'group',
-    timeOfDay: activity.time_of_day,
     welcomeMessage: activity.welcome_message
   });
+
+  logger.error('🔍 DEBUG: trackEvent completed for Activity Created');
 };

@@ -47,13 +47,13 @@ export default function VoxxyFooter({ onPlusPress, hasPendingInvites }) {
 
             <View style={styles.content}>
                 <TouchableOpacity
-                    style={[styles.iconButton, isActive('FAQ') && styles.iconButtonActive]}
-                    onPress={() => navigation.navigate('FAQ')}
+                    style={[styles.iconButton, isActive('Explore') && styles.iconButtonActive]}
+                    onPress={() => navigation.navigate('Explore')}
                 >
                     <Ionicons
-                        name={isActive('FAQ') ? "help-circle" : "help-circle-outline"}
+                        name={isActive('Explore') ? "globe" : "globe-outline"}
                         size={26}
-                        color={isActive('FAQ') ? "#CC31E8" : "#fff"}
+                        color={isActive('Explore') ? "#CC31E8" : "#fff"}
                     />
                 </TouchableOpacity>
 

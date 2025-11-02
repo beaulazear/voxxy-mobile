@@ -1,17 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-
-const isKeywordFormat = (reason) => {
-    if (!reason || typeof reason !== 'string') return false;
-    const trimmed = reason.trim();
-    if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
-        return true;
-    }
-    if (!trimmed.includes('.') && !trimmed.includes(',') && trimmed.length < 50) {
-        return true;
-    }
-    return false;
-};
+import { isKeywordFormat } from '../../utils/recommendationsUtils';
 
 export default function KeywordTags({ keywords, style }) {
     if (!keywords) return null;

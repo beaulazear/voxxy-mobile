@@ -19,6 +19,9 @@ export const UserProvider = ({ children }) => {
   const [moderationStatus, setModerationStatus] = useState(null); // null, 'suspended', 'banned'
   const [suspendedUntil, setSuspendedUntil] = useState(null);
   const [needsPolicyAcceptance, setNeedsPolicyAcceptance] = useState(false);
+  const [isRateLimited, setIsRateLimited] = useState(false);
+  const [rateLimitBackoffTime, setRateLimitBackoffTime] = useState(0);
+  const [autoLoginError, setAutoLoginError] = useState(null); // Stores any auto-login errors
 
   // Retry pending push token on app startup
   const retryPendingPushToken = async (token) => {
@@ -46,11 +49,19 @@ export const UserProvider = ({ children }) => {
         if (lastRateLimit) {
           const timeSinceRateLimit = Date.now() - parseInt(lastRateLimit);
           const backoffTime = Math.min(30000, 1000 * Math.pow(2, rateLimitRetryCount)); // Max 30 seconds
-          
+
           if (timeSinceRateLimit < backoffTime) {
-            logger.warn(`Rate limit backoff: waiting ${(backoffTime - timeSinceRateLimit) / 1000}s before retry`);
+            const remainingTime = Math.ceil((backoffTime - timeSinceRateLimit) / 1000);
+            logger.warn(`Rate limit backoff: waiting ${remainingTime}s before retry`);
+            setIsRateLimited(true);
+            setRateLimitBackoffTime(remainingTime);
             setLoading(false);
             return;
+          } else {
+            // Backoff time has passed, clear the rate limit
+            await AsyncStorage.removeItem('lastRateLimit');
+            setIsRateLimited(false);
+            setRateLimitBackoffTime(0);
           }
         }
 
@@ -166,15 +177,37 @@ export const UserProvider = ({ children }) => {
         }
       } catch (err) {
         logger.error('Failed to auto-login:', err);
-        // Remove invalid token only for auth errors, not rate limits
+        // Remove invalid token only for auth errors, not rate limits or server errors
         if (err.status === 401 || err.status === 403) {
           await AsyncStorage.removeItem('jwt');
           await AsyncStorage.removeItem('lastRateLimit');
+          setIsRateLimited(false);
+          setRateLimitBackoffTime(0);
+          setAutoLoginError(null); // Clear error since we're removing the token
         } else if (err.status === 429 || err.message?.includes('Rate limit')) {
           // For rate limit errors, store timestamp and increment retry count
           await AsyncStorage.setItem('lastRateLimit', Date.now().toString());
-          setRateLimitRetryCount(prev => prev + 1);
+          const newRetryCount = rateLimitRetryCount + 1;
+          setRateLimitRetryCount(newRetryCount);
+          const backoffTime = Math.min(30, Math.pow(2, newRetryCount));
+          setIsRateLimited(true);
+          setRateLimitBackoffTime(backoffTime);
+          setAutoLoginError({
+            type: 'rate_limit',
+            status: 429,
+            message: 'Too many sign-in attempts. Please wait a moment.',
+          });
           logger.warn('Rate limit hit during auto-login, implementing backoff');
+        } else {
+          // For all other errors (500, network errors, etc.), store error details
+          // Keep the token in case it's a transient error
+          setAutoLoginError({
+            type: 'server_error',
+            status: err.status || 500,
+            message: err.message || 'Unable to connect to server. Please try again.',
+            details: err.statusText || '',
+          });
+          logger.error('Auto-login failed with error:', { status: err.status, message: err.message });
         }
       } finally {
         setLoading(false);
@@ -406,8 +439,66 @@ export const UserProvider = ({ children }) => {
       // Also clear rate limit tracking on logout
       await AsyncStorage.removeItem('lastRateLimit');
       setRateLimitRetryCount(0);
+      setIsRateLimited(false);
+      setRateLimitBackoffTime(0);
     } catch (error) {
       logger.error('Error during logout:', error);
+    }
+  };
+
+  // Clear rate limit and allow user to proceed
+  const clearRateLimit = async () => {
+    try {
+      await AsyncStorage.removeItem('lastRateLimit');
+      await AsyncStorage.removeItem('jwt'); // Also clear token to allow fresh login
+      setRateLimitRetryCount(0);
+      setIsRateLimited(false);
+      setRateLimitBackoffTime(0);
+      setAutoLoginError(null);
+      logger.info('Rate limit cleared by user');
+    } catch (error) {
+      logger.error('Error clearing rate limit:', error);
+    }
+  };
+
+  // Retry auto-login (useful for transient errors)
+  const retryAutoLogin = async () => {
+    try {
+      setLoading(true);
+      setAutoLoginError(null);
+
+      const token = await AsyncStorage.getItem('jwt');
+      if (!token) {
+        setLoading(false);
+        return;
+      }
+
+      const userData = await safeAuthApiCall(
+        `${API_URL}/me`,
+        token,
+        { method: 'GET' }
+      );
+
+      const userWithToken = { ...userData, token };
+      setUser(userWithToken);
+
+      // Clear rate limit tracking on successful login
+      await AsyncStorage.removeItem('lastRateLimit');
+      setRateLimitRetryCount(0);
+      setIsRateLimited(false);
+      setRateLimitBackoffTime(0);
+
+      logger.info('Auto-login retry successful');
+    } catch (error) {
+      logger.error('Auto-login retry failed:', error);
+      setAutoLoginError({
+        type: 'server_error',
+        status: error.status || 500,
+        message: error.message || 'Unable to connect to server. Please try again.',
+        details: error.statusText || '',
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -599,6 +690,11 @@ export const UserProvider = ({ children }) => {
       moderationStatus,
       suspendedUntil,
       needsPolicyAcceptance,
+      isRateLimited,
+      rateLimitBackoffTime,
+      clearRateLimit,
+      autoLoginError,
+      retryAutoLogin,
     }}>
       {children}
     </UserContext.Provider>

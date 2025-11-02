@@ -10,7 +10,7 @@ import {
     ActivityIndicator,
 } from 'react-native';
 import { X } from 'react-native-feather';
-import { Pizza, Coffee, Beef, Fish, Salad, Dessert, Soup, Sandwich } from 'lucide-react-native';
+import { Pizza, Coffee, Beef, Fish, Salad, Dessert, Soup, Sandwich, Wine, Beer, Martini } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 
 const FOOD_OPTIONS = [
@@ -43,18 +43,34 @@ const DIETARY_OPTIONS = [
     { label: 'Low-Carb', value: 'Low-Carb', color: '#DDA15E' },
 ];
 
+const BAR_OPTIONS = [
+    { label: 'Cocktail Bar', value: 'Cocktail Bar', icon: Martini, color: '#FF6B9D' },
+    { label: 'Wine Bar', value: 'Wine Bar', icon: Wine, color: '#9261E5' },
+    { label: 'Brewery', value: 'Brewery', icon: Beer, color: '#FFD93D' },
+    { label: 'Whiskey Bar', value: 'Whiskey Bar', icon: Wine, color: '#A0522D' },
+    { label: 'Rooftop Bar', value: 'Rooftop Bar', icon: Wine, color: '#4ECDC4' },
+    { label: 'Dive Bar', value: 'Dive Bar', icon: Beer, color: '#FF9A3D' },
+    { label: 'Sports Bar', value: 'Sports Bar', icon: Beer, color: '#4682B4' },
+    { label: 'Lounge', value: 'Lounge', icon: Martini, color: '#B8A5C4' },
+    { label: 'Speakeasy', value: 'Speakeasy', icon: Martini, color: '#8B4513' },
+    { label: 'Live Music', value: 'Live Music', icon: Wine, color: '#A8E6CF' },
+];
+
 export default function PreferencesModal({
     visible,
     onClose,
     onSave,
     initialFavorites = '',
     initialDietary = '',
+    initialBarPreferences = '',
     saving = false
 }) {
     const [selectedFoods, setSelectedFoods] = useState([]);
     const [selectedDietary, setSelectedDietary] = useState([]);
+    const [selectedBars, setSelectedBars] = useState([]);
     const [customFoods, setCustomFoods] = useState([]);
     const [customDietary, setCustomDietary] = useState([]);
+    const [customBars, setCustomBars] = useState([]);
 
     // Helper function to match strings case-insensitively and with variations
     const matchesOption = (input, optionValue) => {
@@ -116,8 +132,29 @@ export default function PreferencesModal({
 
             setSelectedDietary(recognizedDietary);
             setCustomDietary(unrecognizedDietary);
+
+            // Parse bar preferences
+            const barsArray = initialBarPreferences
+                .split(',')
+                .map(b => b.trim())
+                .filter(b => b.length > 0);
+
+            const recognizedBars = [];
+            const unrecognizedBars = [];
+
+            barsArray.forEach(bar => {
+                const matchedOption = BAR_OPTIONS.find(opt => matchesOption(bar, opt.value));
+                if (matchedOption) {
+                    recognizedBars.push(matchedOption.value);
+                } else {
+                    unrecognizedBars.push(bar);
+                }
+            });
+
+            setSelectedBars(recognizedBars);
+            setCustomBars(unrecognizedBars);
         }
-    }, [visible, initialFavorites, initialDietary]);
+    }, [visible, initialFavorites, initialDietary, initialBarPreferences]);
 
     const toggleFood = (value) => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -137,20 +174,32 @@ export default function PreferencesModal({
         );
     };
 
+    const toggleBar = (value) => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        setSelectedBars(prev =>
+            prev.includes(value)
+                ? prev.filter(b => b !== value)
+                : [...prev, value]
+        );
+    };
+
     const handleSave = () => {
         // Combine selected options with custom legacy values
         const allFoods = [...selectedFoods, ...customFoods];
         const allDietary = [...selectedDietary, ...customDietary];
+        const allBars = [...selectedBars, ...customBars];
 
         const favoritesString = allFoods.join(', ');
         const dietaryString = allDietary.join(', ');
-        onSave(favoritesString, dietaryString);
+        const barPreferencesString = allBars.join(', ');
+        onSave(favoritesString, dietaryString, barPreferencesString);
     };
 
     const hasChanges = () => {
         const currentFavorites = [...selectedFoods, ...customFoods].join(', ');
         const currentDietary = [...selectedDietary, ...customDietary].join(', ');
-        return currentFavorites !== initialFavorites || currentDietary !== initialDietary;
+        const currentBars = [...selectedBars, ...customBars].join(', ');
+        return currentFavorites !== initialFavorites || currentDietary !== initialDietary || currentBars !== initialBarPreferences;
     };
 
     const removeCustomFood = (food) => {
@@ -161,6 +210,11 @@ export default function PreferencesModal({
     const removeCustomDietary = (dietary) => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         setCustomDietary(prev => prev.filter(d => d !== dietary));
+    };
+
+    const removeCustomBar = (bar) => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        setCustomBars(prev => prev.filter(b => b !== bar));
     };
 
     return (
@@ -180,7 +234,7 @@ export default function PreferencesModal({
                     >
                         <X stroke="#fff" width={20} height={20} strokeWidth={2.5} />
                     </TouchableOpacity>
-                    <Text style={styles.headerTitle}>Food Preferences</Text>
+                    <Text style={styles.headerTitle}>Food & Bar Preferences</Text>
                     <View style={{ width: 32 }} />
                 </View>
 
@@ -299,8 +353,68 @@ export default function PreferencesModal({
                         )}
                     </View>
 
+                    {/* Bar Preferences Section */}
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>Bar & Drink Preferences</Text>
+                        <Text style={styles.sectionDesc}>What's your go-to vibe for drinks?</Text>
+
+                        <View style={styles.optionsGrid}>
+                            {BAR_OPTIONS.map((option) => {
+                                const isSelected = selectedBars.includes(option.value);
+                                const IconComponent = option.icon;
+
+                                return (
+                                    <TouchableOpacity
+                                        key={option.value}
+                                        style={[
+                                            styles.chip,
+                                            isSelected && [styles.chipSelected, { borderColor: option.color }]
+                                        ]}
+                                        onPress={() => toggleBar(option.value)}
+                                        activeOpacity={0.7}
+                                        disabled={saving}
+                                    >
+                                        <IconComponent
+                                            color={isSelected ? option.color : '#B8A5C4'}
+                                            size={20}
+                                            strokeWidth={2}
+                                        />
+                                        <Text style={[
+                                            styles.chipLabel,
+                                            isSelected && styles.chipLabelSelected
+                                        ]}>
+                                            {option.label}
+                                        </Text>
+                                    </TouchableOpacity>
+                                );
+                            })}
+                        </View>
+
+                        {/* Custom Bar Items */}
+                        {customBars.length > 0 && (
+                            <View style={styles.customItemsContainer}>
+                                <Text style={styles.customItemsTitle}>Custom/Legacy Items:</Text>
+                                <View style={styles.customItemsGrid}>
+                                    {customBars.map((bar, index) => (
+                                        <TouchableOpacity
+                                            key={`custom-bar-${index}`}
+                                            style={styles.customChip}
+                                            onPress={() => removeCustomBar(bar)}
+                                            activeOpacity={0.7}
+                                            disabled={saving}
+                                        >
+                                            <Text style={styles.customChipLabel}>{bar}</Text>
+                                            <Text style={styles.customChipX}>×</Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+                                <Text style={styles.customItemsHelp}>Tap to remove custom items</Text>
+                            </View>
+                        )}
+                    </View>
+
                     {/* Selection Summary */}
-                    {(selectedFoods.length > 0 || selectedDietary.length > 0 || customFoods.length > 0 || customDietary.length > 0) && (
+                    {(selectedFoods.length > 0 || selectedDietary.length > 0 || selectedBars.length > 0 || customFoods.length > 0 || customDietary.length > 0 || customBars.length > 0) && (
                         <View style={styles.summarySection}>
                             <Text style={styles.summaryTitle}>Your Selections</Text>
                             {(selectedFoods.length > 0 || customFoods.length > 0) && (
@@ -313,6 +427,12 @@ export default function PreferencesModal({
                                 <Text style={styles.summaryText}>
                                     <Text style={styles.summaryLabel}>Dietary: </Text>
                                     {[...selectedDietary, ...customDietary].join(', ')}
+                                </Text>
+                            )}
+                            {(selectedBars.length > 0 || customBars.length > 0) && (
+                                <Text style={styles.summaryText}>
+                                    <Text style={styles.summaryLabel}>Bar Preferences: </Text>
+                                    {[...selectedBars, ...customBars].join(', ')}
                                 </Text>
                             )}
                         </View>

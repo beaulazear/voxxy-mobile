@@ -32,7 +32,10 @@ import {
     Fish,
     Salad,
     Soup,
-    Sandwich
+    Sandwich,
+    Wine,
+    Beer,
+    Martini
 } from 'lucide-react-native';
 import { API_URL } from '../config';
 import { safeAuthApiCall, handleApiError } from '../utils/safeApiCall';
@@ -74,6 +77,19 @@ const DIETARY_OPTIONS = [
     { label: 'Low-Carb', value: 'Low-Carb', color: '#DDA15E' },
 ];
 
+const BAR_OPTIONS = [
+    { label: 'Cocktail Bar', value: 'Cocktail Bar', icon: Martini, color: '#FF6B9D' },
+    { label: 'Wine Bar', value: 'Wine Bar', icon: Wine, color: '#9261E5' },
+    { label: 'Brewery', value: 'Brewery', icon: Beer, color: '#FFD93D' },
+    { label: 'Whiskey Bar', value: 'Whiskey Bar', icon: Wine, color: '#A0522D' },
+    { label: 'Rooftop Bar', value: 'Rooftop Bar', icon: Wine, color: '#4ECDC4' },
+    { label: 'Dive Bar', value: 'Dive Bar', icon: Beer, color: '#FF9A3D' },
+    { label: 'Sports Bar', value: 'Sports Bar', icon: Beer, color: '#4682B4' },
+    { label: 'Lounge', value: 'Lounge', icon: Martini, color: '#B8A5C4' },
+    { label: 'Speakeasy', value: 'Speakeasy', icon: Martini, color: '#8B4513' },
+    { label: 'Live Music', value: 'Live Music', icon: Wine, color: '#A8E6CF' },
+];
+
 export default function WelcomeScreen({ onComplete }) {
     const navigation = useNavigation();
     const { user, setUser, updateUser } = useContext(UserContext);
@@ -89,6 +105,7 @@ export default function WelcomeScreen({ onComplete }) {
     const [userLocation, setUserLocation] = useState(null);
     const [selectedFoods, setSelectedFoods] = useState([]);
     const [selectedDietary, setSelectedDietary] = useState([]);
+    const [selectedBars, setSelectedBars] = useState([]);
 
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const slideAnim = useRef(new Animated.Value(50)).current;
@@ -203,11 +220,12 @@ export default function WelcomeScreen({ onComplete }) {
                 }
 
                 // Save profile data if any was provided
-                if (userLocation || selectedFoods.length > 0 || selectedDietary.length > 0) {
+                if (userLocation || selectedFoods.length > 0 || selectedDietary.length > 0 || selectedBars.length > 0) {
                     logger.debug('Saving profile preferences from onboarding');
                     logger.debug('userLocation state:', userLocation);
                     logger.debug('selectedFoods:', selectedFoods);
                     logger.debug('selectedDietary:', selectedDietary);
+                    logger.debug('selectedBars:', selectedBars);
 
                     const profileData = {};
 
@@ -229,6 +247,11 @@ export default function WelcomeScreen({ onComplete }) {
                     // Add dietary preferences if selected
                     if (selectedDietary.length > 0) {
                         profileData.preferences = selectedDietary.join(', ');
+                    }
+
+                    // Add bar preferences if selected
+                    if (selectedBars.length > 0) {
+                        profileData.bar_preferences = selectedBars.join(', ');
                     }
 
                     logger.debug('Complete profileData being sent to backend:', profileData);
@@ -554,6 +577,15 @@ export default function WelcomeScreen({ onComplete }) {
         );
     };
 
+    const toggleBar = (value) => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        setSelectedBars(prev =>
+            prev.includes(value)
+                ? prev.filter(b => b !== value)
+                : [...prev, value]
+        );
+    };
+
     const handleLocationSelect = (locationData) => {
         setUserLocation(locationData);
     };
@@ -561,7 +593,7 @@ export default function WelcomeScreen({ onComplete }) {
     const renderWelcomeStep = () => (
         <Animated.View style={{ opacity: fadeAnim }}>
             <View style={styles.iconContainer}>
-                <Sparkles size={48} color="#9261E5" />
+                <Sparkles size={36} color="#9261E5" />
             </View>
 
             <Text style={styles.stepTitle}>Complete Your Profile</Text>
@@ -572,7 +604,7 @@ export default function WelcomeScreen({ onComplete }) {
             {/* Location Section */}
             <View style={styles.profileSection}>
                 <View style={styles.sectionHeader}>
-                    <MapPin size={20} color="#4ECDC4" />
+                    <MapPin size={16} color="#4ECDC4" />
                     <Text style={styles.sectionTitle}>Your Location</Text>
                 </View>
                 <Text style={styles.sectionDesc}>Where do you want to explore?</Text>
@@ -587,7 +619,7 @@ export default function WelcomeScreen({ onComplete }) {
             {/* Favorite Foods Section */}
             <View style={styles.profileSection}>
                 <View style={styles.sectionHeader}>
-                    <Pizza size={20} color="#FF6B6B" />
+                    <Pizza size={16} color="#FF6B6B" />
                     <Text style={styles.sectionTitle}>Favorite Foods</Text>
                 </View>
                 <Text style={styles.sectionDesc}>Select your favorite cuisines</Text>
@@ -608,7 +640,7 @@ export default function WelcomeScreen({ onComplete }) {
                             >
                                 <IconComponent
                                     color={isSelected ? option.color : '#B8A5C4'}
-                                    size={18}
+                                    size={14}
                                     strokeWidth={2}
                                 />
                                 <Text style={[
@@ -626,7 +658,7 @@ export default function WelcomeScreen({ onComplete }) {
             {/* Dietary Restrictions Section */}
             <View style={styles.profileSection}>
                 <View style={styles.sectionHeader}>
-                    <Salad size={20} color="#90EE90" />
+                    <Salad size={16} color="#90EE90" />
                     <Text style={styles.sectionTitle}>Dietary Preferences</Text>
                 </View>
                 <Text style={styles.sectionDesc}>Any restrictions or allergies?</Text>
@@ -644,6 +676,45 @@ export default function WelcomeScreen({ onComplete }) {
                                 onPress={() => toggleDietary(option.value)}
                                 activeOpacity={0.7}
                             >
+                                <Text style={[
+                                    styles.chipLabel,
+                                    isSelected && styles.chipLabelSelected
+                                ]}>
+                                    {option.label}
+                                </Text>
+                            </TouchableOpacity>
+                        );
+                    })}
+                </View>
+            </View>
+
+            {/* Bar Preferences Section */}
+            <View style={styles.profileSection}>
+                <View style={styles.sectionHeader}>
+                    <Martini size={16} color="#FF6B9D" />
+                    <Text style={styles.sectionTitle}>Bar & Drink Preferences</Text>
+                </View>
+                <Text style={styles.sectionDesc}>What's your go-to vibe for drinks?</Text>
+                <View style={styles.chipsGrid}>
+                    {BAR_OPTIONS.map((option) => {
+                        const isSelected = selectedBars.includes(option.value);
+                        const IconComponent = option.icon;
+
+                        return (
+                            <TouchableOpacity
+                                key={option.value}
+                                style={[
+                                    styles.chip,
+                                    isSelected && [styles.chipSelected, { borderColor: option.color }]
+                                ]}
+                                onPress={() => toggleBar(option.value)}
+                                activeOpacity={0.7}
+                            >
+                                <IconComponent
+                                    color={isSelected ? option.color : '#B8A5C4'}
+                                    size={14}
+                                    strokeWidth={2}
+                                />
                                 <Text style={[
                                     styles.chipLabel,
                                     isSelected && styles.chipLabelSelected
@@ -781,23 +852,23 @@ const styles = StyleSheet.create({
     },
     iconContainer: {
         alignItems: 'center',
-        marginTop: 40,
-        marginBottom: 30,
+        marginTop: 20,
+        marginBottom: 16,
     },
     stepTitle: {
-        fontSize: 28,
+        fontSize: 22,
         fontWeight: '700',
         color: colors.textPrimary,
         textAlign: 'center',
-        marginBottom: 12,
+        marginBottom: 6,
         fontFamily: 'Montserrat_700Bold',
     },
     stepSubtitle: {
-        fontSize: 16,
+        fontSize: 14,
         color: colors.textSecondary,
         textAlign: 'center',
-        lineHeight: 24,
-        marginBottom: 30,
+        lineHeight: 20,
+        marginBottom: 20,
         paddingHorizontal: 10,
     },
     highlightBox: {
@@ -897,23 +968,25 @@ const styles = StyleSheet.create({
         fontStyle: 'italic',
     },
     profileSection: {
-        marginBottom: 30,
+        marginBottom: 20,
     },
     sectionHeader: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 8,
-        gap: 8,
+        marginBottom: 6,
+        gap: 6,
     },
     sectionTitle: {
-        fontSize: 18,
-        fontWeight: '600',
+        fontSize: 15,
+        fontWeight: '700',
         color: colors.textPrimary,
+        fontFamily: 'Montserrat_700Bold',
     },
     sectionDesc: {
-        fontSize: 14,
+        fontSize: 12,
         color: colors.textSecondary,
-        marginBottom: 12,
+        marginBottom: 10,
+        lineHeight: 16,
     },
     locationContainer: {
         marginTop: 8,
@@ -921,25 +994,25 @@ const styles = StyleSheet.create({
     chipsGrid: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        gap: 10,
+        gap: 8,
     },
     chip: {
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: 'rgba(42, 30, 46, 0.6)',
-        paddingVertical: 8,
-        paddingHorizontal: 14,
-        borderRadius: 20,
-        borderWidth: 2,
+        paddingVertical: 6,
+        paddingHorizontal: 12,
+        borderRadius: 18,
+        borderWidth: 1.5,
         borderColor: 'rgba(64, 51, 71, 0.5)',
-        gap: 6,
+        gap: 5,
     },
     chipSelected: {
         backgroundColor: 'rgba(185, 84, 236, 0.15)',
-        borderWidth: 2,
+        borderWidth: 1.5,
     },
     chipLabel: {
-        fontSize: 13,
+        fontSize: 12,
         fontWeight: '500',
         color: '#B8A5C4',
     },
@@ -949,17 +1022,17 @@ const styles = StyleSheet.create({
     },
     skipBox: {
         backgroundColor: 'rgba(78, 205, 196, 0.1)',
-        borderRadius: 12,
-        padding: 16,
-        marginTop: 20,
+        borderRadius: 10,
+        padding: 12,
+        marginTop: 12,
         borderWidth: 1,
         borderColor: 'rgba(78, 205, 196, 0.2)',
     },
     skipText: {
-        fontSize: 13,
+        fontSize: 11,
         color: colors.textSecondary,
         textAlign: 'center',
-        lineHeight: 20,
+        lineHeight: 16,
         fontStyle: 'italic',
     },
     linkButton: {

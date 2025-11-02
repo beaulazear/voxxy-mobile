@@ -5,16 +5,13 @@ import {
     StyleSheet,
     TouchableOpacity,
     Alert,
-    ActivityIndicator,
-    Modal,
-    Animated,
-    Image,
 } from 'react-native';
 import { UserContext } from '../context/UserContext';
 import { User, MessageCircle } from 'lucide-react-native';
 import { API_URL } from '../config';
 import { logger } from '../utils/logger';
 import { safeAuthApiCall, handleApiError } from '../utils/safeApiCall';
+import AIGenerationLoader from './AIGenerationLoader';
 
 export default function SoloActivityDecision({
     activity,
@@ -23,122 +20,10 @@ export default function SoloActivityDecision({
 }) {
     const { user } = useContext(UserContext);
     const [loading, setLoading] = useState(false);
-    const [loadingType, setLoadingType] = useState(null); // 'profile' or 'custom'
 
     // Check if user has complete preferences
     const hasPreferences = user?.preferences && user.preferences.trim().length > 0;
     const hasFavoriteFoods = user?.favorite_food && user.favorite_food.trim().length > 0;
-
-    // Loading animations
-    const spinValue1 = React.useRef(new Animated.Value(0)).current;
-    const pulseValue = React.useRef(new Animated.Value(0.8)).current;
-    const pulseOpacity = React.useRef(new Animated.Value(0.8)).current;
-    const bounceValue1 = React.useRef(new Animated.Value(0)).current;
-    const bounceValue2 = React.useRef(new Animated.Value(0)).current;
-    const bounceValue3 = React.useRef(new Animated.Value(0)).current;
-
-    // Start animations when loading
-    React.useEffect(() => {
-        if (loading) {
-            // Spinning and pulsing triangle
-            const spinAnimation1 = Animated.loop(
-                Animated.timing(spinValue1, {
-                    toValue: 1,
-                    duration: 2000,
-                    useNativeDriver: true,
-                })
-            );
-
-            const pulseAnimation = Animated.loop(
-                Animated.sequence([
-                    Animated.parallel([
-                        Animated.timing(pulseValue, {
-                            toValue: 1.2,
-                            duration: 1000,
-                            useNativeDriver: true,
-                        }),
-                        Animated.timing(pulseOpacity, {
-                            toValue: 1,
-                            duration: 1000,
-                            useNativeDriver: true,
-                        }),
-                    ]),
-                    Animated.parallel([
-                        Animated.timing(pulseValue, {
-                            toValue: 0.8,
-                            duration: 1000,
-                            useNativeDriver: true,
-                        }),
-                        Animated.timing(pulseOpacity, {
-                            toValue: 0.5,
-                            duration: 1000,
-                            useNativeDriver: true,
-                        }),
-                    ]),
-                ])
-            );
-
-            // Bouncing dots
-            const bounceAnimation1 = Animated.loop(
-                Animated.sequence([
-                    Animated.timing(bounceValue1, {
-                        toValue: -10,
-                        duration: 400,
-                        useNativeDriver: true,
-                    }),
-                    Animated.timing(bounceValue1, {
-                        toValue: 0,
-                        duration: 400,
-                        useNativeDriver: true,
-                    }),
-                ])
-            );
-            const bounceAnimation2 = Animated.loop(
-                Animated.sequence([
-                    Animated.delay(200),
-                    Animated.timing(bounceValue2, {
-                        toValue: -10,
-                        duration: 400,
-                        useNativeDriver: true,
-                    }),
-                    Animated.timing(bounceValue2, {
-                        toValue: 0,
-                        duration: 400,
-                        useNativeDriver: true,
-                    }),
-                ])
-            );
-            const bounceAnimation3 = Animated.loop(
-                Animated.sequence([
-                    Animated.delay(400),
-                    Animated.timing(bounceValue3, {
-                        toValue: -10,
-                        duration: 400,
-                        useNativeDriver: true,
-                    }),
-                    Animated.timing(bounceValue3, {
-                        toValue: 0,
-                        duration: 400,
-                        useNativeDriver: true,
-                    }),
-                ])
-            );
-
-            spinAnimation1.start();
-            pulseAnimation.start();
-            bounceAnimation1.start();
-            bounceAnimation2.start();
-            bounceAnimation3.start();
-
-            return () => {
-                spinAnimation1.stop();
-                pulseAnimation.stop();
-                bounceAnimation1.stop();
-                bounceAnimation2.stop();
-                bounceAnimation3.stop();
-            };
-        }
-    }, [loading]);
 
     const handleUseProfilePreferences = async () => {
         if (!hasPreferences && !hasFavoriteFoods) {
@@ -151,7 +36,6 @@ export default function SoloActivityDecision({
         }
 
         setLoading(true);
-        setLoadingType('profile');
 
         try {
             // Create a response using profile preferences
@@ -185,7 +69,6 @@ export default function SoloActivityDecision({
             const userMessage = handleApiError(error, 'Failed to use profile preferences.');
             Alert.alert('Error', userMessage);
             setLoading(false);
-            setLoadingType(null);
         }
     };
 
@@ -325,82 +208,13 @@ export default function SoloActivityDecision({
             throw error;
         } finally {
             setLoading(false);
-            setLoadingType(null);
         }
     };
 
     return (
         <View style={styles.container}>
-            {/* Exciting Loading Modal */}
-            <Modal
-                visible={loading}
-                transparent
-                animationType="fade"
-            >
-                <View style={styles.loadingModalOverlay}>
-                    <View style={styles.loadingModalContainer}>
-                        <View style={styles.loadingAnimation}>
-                            <Animated.View
-                                style={[
-                                    styles.voxxyTriangleContainer,
-                                    {
-                                        transform: [
-                                            {
-                                                scale: pulseValue
-                                            },
-                                            {
-                                                rotate: spinValue1.interpolate({
-                                                    inputRange: [0, 1],
-                                                    outputRange: ['0deg', '360deg']
-                                                })
-                                            }
-                                        ],
-                                        opacity: pulseOpacity
-                                    }
-                                ]}
-                            >
-                                <Image
-                                    source={require('../assets/voxxy-triangle.png')}
-                                    style={styles.voxxyTriangle}
-                                    resizeMode="contain"
-                                />
-                            </Animated.View>
-                        </View>
-                        <Text style={styles.loadingModalTitle}>Crafting Your Perfect Experience</Text>
-                        <Text style={styles.loadingModalSubtitle}>
-                            {loadingType === 'profile'
-                                ? 'Voxxy is using your profile preferences to find the best venues...'
-                                : 'Voxxy is analyzing venues and personalizing recommendations...'}
-                        </Text>
-                        <Text style={styles.loadingModalTimeEstimate}>
-                            This may take 10-20 seconds
-                        </Text>
-                        <View style={styles.loadingDots}>
-                            <Animated.View
-                                style={[
-                                    styles.loadingDot,
-                                    styles.loadingDot1,
-                                    { transform: [{ translateY: bounceValue1 }] }
-                                ]}
-                            />
-                            <Animated.View
-                                style={[
-                                    styles.loadingDot,
-                                    styles.loadingDot2,
-                                    { transform: [{ translateY: bounceValue2 }] }
-                                ]}
-                            />
-                            <Animated.View
-                                style={[
-                                    styles.loadingDot,
-                                    styles.loadingDot3,
-                                    { transform: [{ translateY: bounceValue3 }] }
-                                ]}
-                            />
-                        </View>
-                    </View>
-                </View>
-            </Modal>
+            {/* AI Generation Loading Modal */}
+            <AIGenerationLoader visible={loading} isSolo={true} />
 
             <View style={styles.optionsContainer}>
                     {/* Use Profile Preferences Option */}
@@ -533,84 +347,5 @@ const styles = StyleSheet.create({
         fontSize: 12,
         color: '#ff9800',
         fontWeight: '600',
-    },
-    // Loading Modal Styles
-    loadingModalOverlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0, 0, 0, 0.85)',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    loadingModalContainer: {
-        backgroundColor: 'rgba(44, 30, 51, 0.98)',
-        borderRadius: 32,
-        padding: 48,
-        alignItems: 'center',
-        width: '85%',
-        maxWidth: 400,
-        borderWidth: 2,
-        borderColor: 'rgba(204, 49, 232, 0.4)',
-        shadowColor: '#cc31e8',
-        shadowOffset: { width: 0, height: 12 },
-        shadowOpacity: 0.6,
-        shadowRadius: 24,
-        elevation: 12,
-    },
-    loadingAnimation: {
-        marginBottom: 32,
-    },
-    voxxyTriangleContainer: {
-        width: 120,
-        height: 120,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    voxxyTriangle: {
-        width: 100,
-        height: 100,
-    },
-    loadingModalTitle: {
-        fontSize: 24,
-        fontWeight: '700',
-        color: '#fff',
-        textAlign: 'center',
-        marginBottom: 16,
-        letterSpacing: 0.5,
-    },
-    loadingModalSubtitle: {
-        fontSize: 16,
-        color: 'rgba(255, 255, 255, 0.8)',
-        textAlign: 'center',
-        lineHeight: 24,
-        marginBottom: 12,
-        paddingHorizontal: 8,
-    },
-    loadingModalTimeEstimate: {
-        fontSize: 14,
-        color: 'rgba(204, 49, 232, 0.9)',
-        textAlign: 'center',
-        fontWeight: '600',
-        marginBottom: 24,
-    },
-    loadingDots: {
-        flexDirection: 'row',
-        justifyContent: 'center',
-        alignItems: 'center',
-        gap: 12,
-    },
-    loadingDot: {
-        width: 12,
-        height: 12,
-        borderRadius: 6,
-        backgroundColor: '#cc31e8',
-    },
-    loadingDot1: {
-        backgroundColor: '#cc31e8',
-    },
-    loadingDot2: {
-        backgroundColor: '#9f25b3',
-    },
-    loadingDot3: {
-        backgroundColor: '#721a7f',
     },
 });

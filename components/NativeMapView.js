@@ -362,38 +362,52 @@ export default function NativeMapView({
                         key={`${recommendation.id || index}-${recommendation.isFavorite ? 'fav' : 'unfav'}`}
                         coordinate={recommendation.coordinate}
                         onPress={() => handleMarkerPress(recommendation)}
-                        tracksViewChanges={recommendation.isFavorite}
+                        tracksViewChanges={false}
                         stopPropagation={true}
                     >
-                        <View style={[
-                            styles.vLogoMarkerContainer,
-                            recommendation.isFavorite && styles.favoriteMarkerContainer
-                        ]}>
-                            <View style={[
-                                styles.vLogoMarkerOuter,
-                                recommendation.isFavorite && styles.favoriteMarkerOuter
-                            ]}>
-                                <View style={[
-                                    styles.vLogoMarkerInner,
-                                    recommendation.isFavorite && styles.favoriteMarkerInner
-                                ]}>
-                                    <Image 
-                                        source={require('../assets/voxxy-triangle.png')} 
-                                        style={styles.vLogoImage}
-                                        resizeMode="contain"
+                        {/* Show profile photo marker if profilePhoto is provided, otherwise show V logo */}
+                        {recommendation.profilePhoto ? (
+                            <View style={styles.profileMarkerContainer}>
+                                <View style={styles.profileMarkerOuter}>
+                                    <Image
+                                        source={{ uri: recommendation.profilePhoto }}
+                                        style={styles.profileMarkerImage}
+                                        resizeMode="cover"
                                     />
                                 </View>
+                                <View style={styles.profileMarkerPointer} />
                             </View>
+                        ) : (
                             <View style={[
-                                styles.vLogoMarkerPointer,
-                                recommendation.isFavorite && styles.favoriteMarkerPointer
-                            ]} />
-                            {recommendation.isFavorite && (
-                                <View style={styles.favoriteStarBadge}>
-                                    <Icon name="star" size={10} color="#FFD700" />
+                                styles.vLogoMarkerContainer,
+                                recommendation.isFavorite && styles.favoriteMarkerContainer
+                            ]}>
+                                <View style={[
+                                    styles.vLogoMarkerOuter,
+                                    recommendation.isFavorite && styles.favoriteMarkerOuter
+                                ]}>
+                                    <View style={[
+                                        styles.vLogoMarkerInner,
+                                        recommendation.isFavorite && styles.favoriteMarkerInner
+                                    ]}>
+                                        <Image
+                                            source={require('../assets/voxxy-triangle.png')}
+                                            style={styles.vLogoImage}
+                                            resizeMode="contain"
+                                        />
+                                    </View>
                                 </View>
-                            )}
-                        </View>
+                                <View style={[
+                                    styles.vLogoMarkerPointer,
+                                    recommendation.isFavorite && styles.favoriteMarkerPointer
+                                ]} />
+                                {recommendation.isFavorite && (
+                                    <View style={styles.favoriteStarBadge}>
+                                        <Icon name="star" size={10} color="#FFD700" />
+                                    </View>
+                                )}
+                            </View>
+                        )}
                     </Marker>
                 ))}
             </MapView>
@@ -669,5 +683,49 @@ const styles = StyleSheet.create({
         elevation: 5,
         borderWidth: 1,
         borderColor: 'rgba(0,0,0,0.05)'
+    },
+    // Profile photo marker styles
+    profileMarkerContainer: {
+        alignItems: 'center',
+        justifyContent: 'center'
+    },
+    profileMarkerOuter: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: 'white',
+        justifyContent: 'center',
+        alignItems: 'center',
+        shadowColor: '#B954EC',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.5,
+        shadowRadius: 12,
+        elevation: 12,
+        borderWidth: 3,
+        borderColor: '#B954EC',
+        overflow: 'hidden',
+    },
+    profileMarkerImage: {
+        width: '100%',
+        height: '100%',
+        borderRadius: 22,
+    },
+    profileMarkerPointer: {
+        width: 0,
+        height: 0,
+        borderLeftWidth: 8,
+        borderRightWidth: 8,
+        borderTopWidth: 10,
+        borderStyle: 'solid',
+        backgroundColor: 'transparent',
+        borderLeftColor: 'transparent',
+        borderRightColor: 'transparent',
+        borderTopColor: '#B954EC',
+        marginTop: -2,
+        shadowColor: '#B954EC',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+        elevation: 4
     }
 });

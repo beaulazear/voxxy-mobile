@@ -738,7 +738,10 @@ export default function UnifiedActivityChat({ visible, onClose }) {
             const data = await response.json()
 
             // Track activity creation
-            trackActivityCreated(data)
+            logger.error('🔍 DEBUG: About to track activity creation, data:', JSON.stringify({ id: data.id, type: data.activity_type }))
+            trackActivityCreated(data).catch(err => {
+                logger.error('❌ Failed to track activity creation:', err.message, err)
+            })
 
             // Update user context
             setUser((prev) => ({

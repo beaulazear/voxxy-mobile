@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { ChevronRight } from 'react-native-feather';
-import { Pizza, Fish, Sandwich, Soup, Coffee, Beef, Salad } from 'lucide-react-native';
+import { Pizza, Fish, Sandwich, Soup, Coffee, Beef, Salad, Wine, Beer, Martini } from 'lucide-react-native';
 
 const FOOD_OPTIONS = [
     { label: 'Pizza', value: 'Pizza', icon: Pizza, color: '#FF6B6B' },
@@ -31,6 +31,19 @@ const DIETARY_OPTIONS = [
     { label: 'Keto', value: 'Keto', color: '#FF6B6B' },
     { label: 'Paleo', value: 'Paleo', color: '#A0522D' },
     { label: 'Low-Carb', value: 'Low-Carb', color: '#DDA15E' },
+];
+
+const BAR_OPTIONS = [
+    { label: 'Cocktail Bar', value: 'Cocktail Bar', icon: Martini, color: '#FF6B9D' },
+    { label: 'Wine Bar', value: 'Wine Bar', icon: Wine, color: '#9261E5' },
+    { label: 'Brewery', value: 'Brewery', icon: Beer, color: '#FFD93D' },
+    { label: 'Whiskey Bar', value: 'Whiskey Bar', icon: Wine, color: '#A0522D' },
+    { label: 'Rooftop Bar', value: 'Rooftop Bar', icon: Wine, color: '#4ECDC4' },
+    { label: 'Dive Bar', value: 'Dive Bar', icon: Beer, color: '#FF9A3D' },
+    { label: 'Sports Bar', value: 'Sports Bar', icon: Beer, color: '#4682B4' },
+    { label: 'Lounge', value: 'Lounge', icon: Martini, color: '#B8A5C4' },
+    { label: 'Speakeasy', value: 'Speakeasy', icon: Martini, color: '#8B4513' },
+    { label: 'Live Music', value: 'Live Music', icon: Wine, color: '#A8E6CF' },
 ];
 
 // Helper to match preference strings
@@ -63,7 +76,7 @@ const parsePreferences = (prefsString, optionsArray) => {
     return { matched, custom };
 };
 
-export default function FoodPreferencesSection({ favoriteFood, preferences, onPress }) {
+export default function FoodPreferencesSection({ favoriteFood, preferences, barPreferences, onPress }) {
     return (
         <TouchableOpacity
             style={styles.sectionCard}
@@ -71,11 +84,11 @@ export default function FoodPreferencesSection({ favoriteFood, preferences, onPr
             activeOpacity={0.8}
         >
             <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>Food Preferences</Text>
+                <Text style={styles.sectionTitle}>Food & Bar Preferences</Text>
                 <ChevronRight stroke="#9261E5" width={20} height={20} strokeWidth={2} />
             </View>
 
-            {favoriteFood || preferences ? (
+            {favoriteFood || preferences || barPreferences ? (
                 <>
                     {favoriteFood && (() => {
                         const { matched, custom } = parsePreferences(favoriteFood, FOOD_OPTIONS);
@@ -139,10 +152,46 @@ export default function FoodPreferencesSection({ favoriteFood, preferences, onPr
                             </View>
                         );
                     })()}
+                    {barPreferences && (() => {
+                        const { matched, custom } = parsePreferences(barPreferences, BAR_OPTIONS);
+                        return (
+                            <View style={[styles.preferenceSection, (favoriteFood || preferences) && { marginTop: 16 }]}>
+                                <Text style={styles.preferenceSectionLabel}>Bar Preferences</Text>
+                                <View style={styles.preferencePillsContainer}>
+                                    {matched.map((option, index) => {
+                                        const IconComponent = option.icon;
+                                        return (
+                                            <View
+                                                key={`bar-${index}`}
+                                                style={[styles.preferencePill, { borderColor: option.color }]}
+                                            >
+                                                {IconComponent && (
+                                                    <IconComponent
+                                                        color={option.color}
+                                                        size={16}
+                                                        strokeWidth={2}
+                                                    />
+                                                )}
+                                                <Text style={styles.preferencePillText}>{option.label}</Text>
+                                            </View>
+                                        );
+                                    })}
+                                    {custom.map((item, index) => (
+                                        <View
+                                            key={`custom-bar-${index}`}
+                                            style={[styles.preferencePill, styles.customPreferencePill]}
+                                        >
+                                            <Text style={styles.preferencePillText}>{item}</Text>
+                                        </View>
+                                    ))}
+                                </View>
+                            </View>
+                        );
+                    })()}
                 </>
             ) : (
                 <Text style={styles.preferencesPlaceholder}>
-                    Tap to set your food preferences
+                    Tap to set your food and bar preferences
                 </Text>
             )}
         </TouchableOpacity>

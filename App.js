@@ -23,6 +23,9 @@ import FavoritesScreen from './screens/FavoritesScreen';
 import NotificationsScreen from './screens/NotificationsScreen';
 import PrivacyPolicyScreen from './screens/PrivacyPolicyScreen';
 import SuspendedScreen from './screens/SuspendedScreen';
+import ComingSoonScreen from './screens/ComingSoonScreen';
+import ExploreScreen from './screens/ExploreScreen';
+import RateLimitScreen from './screens/RateLimitScreen';
 const WelcomeScreen = React.lazy(() => import('./screens/WelcomeScreen'));
 
 import { InvitationNotificationProvider } from './services/InvitationNotificationService';
@@ -48,7 +51,7 @@ export function navigate(name, params) {
 }
 
 const AppNavigator = () => {
-  const { user, loading, moderationStatus, refreshUser } = useContext(UserContext);
+  const { user, loading, moderationStatus, refreshUser, isRateLimited, autoLoginError } = useContext(UserContext);
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
   const [policiesLoading, setPoliciesLoading] = useState(true);
 
@@ -160,6 +163,16 @@ const AppNavigator = () => {
     );
   }
 
+  // Show error screen if there's an auto-login error and no user
+  if (autoLoginError && !user) {
+    return (
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="RateLimit" component={RateLimitScreen} />
+        <Stack.Screen name="Login" component={LoginScreen} />
+      </Stack.Navigator>
+    );
+  }
+
   // Determine the initial route based on user state
   const getInitialRouteName = () => {
     if (needsOnboarding) {
@@ -221,6 +234,22 @@ const AppNavigator = () => {
       <Stack.Screen
         name="FAQ"
         component={FAQScreen}
+        options={{
+          animation: 'fade',
+          animationDuration: 150
+        }}
+      />
+      <Stack.Screen
+        name="ComingSoon"
+        component={ComingSoonScreen}
+        options={{
+          animation: 'fade',
+          animationDuration: 150
+        }}
+      />
+      <Stack.Screen
+        name="Explore"
+        component={ExploreScreen}
         options={{
           animation: 'fade',
           animationDuration: 150

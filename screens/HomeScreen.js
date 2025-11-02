@@ -30,7 +30,7 @@ import { getUserDisplayImage } from '../utils/avatarManager'
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window')
 
 const HEADER_HEIGHT = 60 // Matches ProfileSnippet height
-const HEADER_SPACING = 16 // Space between ProfileSnippet and content
+const HEADER_SPACING = 4 // Space between ProfileSnippet and content
 
 const PREVIEW_PAST = 3
 const CARD_MARGIN = 12
@@ -152,12 +152,16 @@ function FloatingIcon({ icon: Icon, color, delay = 0, duration = 3000 }) {
 }
 
 // Compact Twitter-style CTA Card
-function CompactStartActivityCard({ onPress, userName, communityMembers = [] }) {
+function CompactStartActivityCard({ onPress, userName, communityMembers = [], isFirstTimeUser = false }) {
   const firstName = userName ? userName.split(' ')[0] : 'there'
   const hasEstablishedCommunity = communityMembers.length >= 3
 
   // Pulsing glow animation for icon
   const glowAnim = useRef(new Animated.Value(0)).current
+
+  // Icon flip animation - switches between dining and drinks icons
+  const [showDiningIcon, setShowDiningIcon] = useState(true)
+  const iconOpacity = useRef(new Animated.Value(1)).current
 
   useEffect(() => {
     const pulseAnimation = Animated.loop(
@@ -180,6 +184,31 @@ function CompactStartActivityCard({ onPress, userName, communityMembers = [] }) 
     return () => pulseAnimation.stop()
   }, [])
 
+  // Icon flip effect - switch icons every 2 seconds
+  useEffect(() => {
+    const flipInterval = setInterval(() => {
+      Animated.sequence([
+        Animated.timing(iconOpacity, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.timing(iconOpacity, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+      ]).start()
+
+      // Switch icon in the middle of the fade
+      setTimeout(() => {
+        setShowDiningIcon(prev => !prev)
+      }, 300)
+    }, 2000)
+
+    return () => clearInterval(flipInterval)
+  }, [])
+
   const glowOpacity = glowAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [0.3, 1]
@@ -194,27 +223,29 @@ function CompactStartActivityCard({ onPress, userName, communityMembers = [] }) 
       }}
       activeOpacity={0.8}
     >
-      {/* Smaller animated icon in top left */}
+      {/* Smaller animated icon in top left - alternates between dining and drinks */}
       <View style={styles.compactCTAIconCircle}>
-        <Animated.View style={[
-          styles.compactCTAIconGlow,
-          { opacity: glowOpacity }
-        ]} />
-        <Image
-          source={require('../assets/voxxy-triangle.png')}
-          style={styles.compactCTAIcon}
-          resizeMode="contain"
-        />
+        <Animated.View style={{ opacity: iconOpacity }}>
+          {showDiningIcon ? (
+            <Hamburger color="#cc31e8" size={24} strokeWidth={2.5} />
+          ) : (
+            <Martini color="#cc31e8" size={24} strokeWidth={2.5} />
+          )}
+        </Animated.View>
       </View>
 
       <View style={styles.compactCTAContent}>
         <Text style={styles.compactCTAPrompt}>
-          {hasEstablishedCommunity
+          {isFirstTimeUser
+            ? `Welcome, ${firstName}!`
+            : hasEstablishedCommunity
             ? `Let's get started, ${firstName}!`
             : `Start something fun, ${firstName}!`}
         </Text>
         <Text style={styles.compactCTASubtext}>
-          {hasEstablishedCommunity
+          {isFirstTimeUser
+            ? 'Find amazing restaurants and bars to visit with friends'
+            : hasEstablishedCommunity
             ? 'Find your next favorite spot for you & your group'
             : 'Discover amazing places together'}
         </Text>
@@ -241,10 +272,17 @@ function CompactStartActivityCard({ onPress, userName, communityMembers = [] }) 
         )}
 
         {/* Button with Zap icon */}
-        <View style={styles.compactCTAButton}>
+        <LinearGradient
+          colors={['#B954EC', '#8B35C4']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.compactCTAButton}
+        >
           <Zap color="#ffffff" size={18} strokeWidth={2.5} />
-          <Text style={styles.compactCTAButtonText}>Let's go</Text>
-        </View>
+          <Text style={styles.compactCTAButtonText}>
+            {isFirstTimeUser ? 'Start your first search' : 'Search for favorites'}
+          </Text>
+        </LinearGradient>
       </View>
     </TouchableOpacity>
   )
@@ -389,6 +427,11 @@ export default function HomeScreen({ route }) {
 
     return Array.from(memberMap.values())
   }, [user, activities])
+
+  // Detect first-time user (no activities, no community)
+  const isFirstTimeUser = useMemo(() => {
+    return activities.length === 0 && communityMembers.length === 0
+  }, [activities, communityMembers])
 
   if (user && !user.confirmed_at) {
     return <AccountCreatedScreen />
@@ -619,8 +662,72 @@ export default function HomeScreen({ route }) {
       >
         <ListHeader />
 
-        {/* Profile Completion Notice */}
-        {profileCompletion.percentage < 100 && (
+        {/* Profile Completion Notice - Show at top for incomplete profiles */}
+        {profileCompletion.percentage < 60 && (
+          <TouchableOpacity
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+              navigation.navigate('Profile')
+            }}
+            activeOpacity={0.8}
+          >
+            <LinearGradient
+              colors={isFirstTimeUser
+                ? ['rgba(255, 230, 109, 0.15)', 'rgba(255, 230, 109, 0.05)']
+                : ['rgba(255, 230, 109, 0.12)', 'rgba(255, 230, 109, 0.04)']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={[styles.homeCompletionBanner, styles.homeCompletionBannerPriority]}
+            >
+              <View style={styles.homeCompletionIconBadge}>
+                <Text style={styles.homeCompletionIconEmoji}>
+                  {isFirstTimeUser ? '👋' : '⭐'}
+                </Text>
+              </View>
+              <View style={styles.homeCompletionContent}>
+                <View style={styles.homeCompletionHeader}>
+                  <Text style={styles.homeCompletionTitle}>
+                    {isFirstTimeUser ? 'Let\'s set up your profile!' : 'Complete Your Profile'}
+                  </Text>
+                  <Text style={styles.homeCompletionSubtitle}>
+                    {isFirstTimeUser
+                      ? 'We need a few details to give you personalized recommendations'
+                      : 'Get better recommendations!'}
+                  </Text>
+                </View>
+
+                {/* Progress bar */}
+                <View style={styles.homeCompletionBarContainer}>
+                  <View style={styles.homeCompletionBar}>
+                    <LinearGradient
+                      colors={['#FFE66D', '#FFC700']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={[
+                        styles.homeCompletionFill,
+                        { width: `${profileCompletion.percentage}%` }
+                      ]}
+                    />
+                  </View>
+                  <Text style={styles.homeCompletionPercentage}>
+                    {Math.round(profileCompletion.percentage)}%
+                  </Text>
+                </View>
+              </View>
+            </LinearGradient>
+          </TouchableOpacity>
+        )}
+
+        {/* Compact Start Activity Card - Twitter-style */}
+        <CompactStartActivityCard
+          onPress={() => setShowActivityCreation(true)}
+          userName={user?.name}
+          communityMembers={communityMembers}
+          isFirstTimeUser={isFirstTimeUser}
+        />
+
+        {/* Profile Completion Notice - Show after CTA for nearly complete profiles */}
+        {profileCompletion.percentage >= 60 && profileCompletion.percentage < 100 && (
           <TouchableOpacity
             style={styles.homeCompletionBanner}
             onPress={() => navigation.navigate('Profile')}
@@ -652,19 +759,16 @@ export default function HomeScreen({ route }) {
           </TouchableOpacity>
         )}
 
-        {/* Compact Start Activity Card - Twitter-style */}
-        <CompactStartActivityCard
-          onPress={() => setShowActivityCreation(true)}
-          userName={user?.name}
-          communityMembers={communityMembers}
-        />
-
         {/* Community Feed */}
         <CommunityFeed
           communityMembers={communityMembers}
           onFavoritePress={(favorite) => {
             setSelectedFavorite(favorite);
           }}
+          limit={4}
+          showViewAll={true}
+          onViewAll={() => navigation.navigate('Explore')}
+          isFirstTimeUser={isFirstTimeUser}
         />
         <ListFooter />
       </ScrollView>
@@ -699,7 +803,8 @@ const styles = StyleSheet.create({
   },
 
   grid: {
-    paddingVertical: CARD_MARGIN,
+    paddingTop: 0,
+    paddingBottom: CARD_MARGIN,
   },
 
   horizontalGrid: {
@@ -1564,17 +1669,58 @@ const styles = StyleSheet.create({
   // Wide Start Activity Button Styles
   // Home Completion Banner Styles
   homeCompletionBanner: {
-    backgroundColor: 'rgba(255, 230, 109, 0.08)',
-    borderRadius: 16,
-    padding: 16,
-    marginHorizontal: 20,
-    marginBottom: 8,
-    borderWidth: 2,
+    borderRadius: 0,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    marginHorizontal: 0,
+    marginBottom: 0,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderLeftWidth: 0,
+    borderRightWidth: 0,
     borderColor: 'rgba(255, 230, 109, 0.3)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    overflow: 'hidden',
+  },
+
+  homeCompletionBannerPriority: {
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: 'rgba(255, 230, 109, 0.4)',
+    shadowColor: '#FFE66D',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+
+  homeCompletionIconBadge: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 230, 109, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 230, 109, 0.4)',
+    shadowColor: '#FFE66D',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+  },
+
+  homeCompletionIconEmoji: {
+    fontSize: 22,
+  },
+
+  homeCompletionContent: {
+    flex: 1,
   },
 
   homeCompletionHeader: {
-    marginBottom: 12,
+    marginBottom: 10,
   },
 
   homeCompletionTitle: {
@@ -1583,74 +1729,90 @@ const styles = StyleSheet.create({
     color: '#FFE66D',
     marginBottom: 4,
     fontFamily: 'Montserrat_700Bold',
+    letterSpacing: 0.2,
   },
 
   homeCompletionSubtitle: {
-    fontSize: 13,
+    fontSize: 12,
     color: 'rgba(255, 255, 255, 0.8)',
     fontWeight: '500',
+    lineHeight: 16,
   },
 
   homeCompletionBarContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
   },
 
   homeCompletionBar: {
     flex: 1,
     height: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
     borderRadius: 3,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 230, 109, 0.2)',
   },
 
   homeCompletionFill: {
     height: '100%',
-    backgroundColor: '#FFE66D',
     borderRadius: 3,
   },
 
   homeCompletionPercentage: {
     color: '#FFE66D',
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '800',
     fontFamily: 'Montserrat_700Bold',
     minWidth: 40,
+    textAlign: 'right',
+    textShadowColor: 'rgba(255, 230, 109, 0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
 
   // Compact CTA Card Styles (Twitter-style)
   compactCTACard: {
-    backgroundColor: 'rgba(42, 30, 46, 0.6)',
+    backgroundColor: 'rgba(42, 30, 46, 0.7)',
     borderRadius: 0,
-    paddingVertical: 24,
+    paddingVertical: 28,
     paddingHorizontal: 24,
     marginBottom: 0,
     borderTopWidth: 1,
     borderBottomWidth: 1,
-    borderColor: 'rgba(185, 84, 236, 0.25)',
+    borderColor: 'rgba(185, 84, 236, 0.3)',
     position: 'relative',
+    shadowColor: 'rgba(0, 0, 0, 0.3)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 4,
   },
 
   compactCTAIconCircle: {
     position: 'absolute',
-    top: 16,
-    left: 16,
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: 'rgba(185, 84, 236, 0.15)',
+    top: 20,
+    left: 20,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#ffffff',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2,
-    borderColor: 'rgba(185, 84, 236, 0.4)',
+    borderWidth: 2.5,
+    borderColor: '#B954EC',
+    shadowColor: '#B954EC',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 8,
   },
 
   compactCTAIconGlow: {
     position: 'absolute',
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     backgroundColor: '#ffffff',
     shadowColor: '#ffffff',
     shadowOffset: { width: 0, height: 0 },
@@ -1660,31 +1822,32 @@ const styles = StyleSheet.create({
   },
 
   compactCTAIcon: {
-    width: 24,
-    height: 24,
+    width: 26,
+    height: 26,
     tintColor: '#B954EC',
   },
 
   compactCTAContent: {
-    paddingLeft: 64,
+    paddingLeft: 72,
   },
 
   compactCTAPrompt: {
     color: '#fff',
-    fontSize: 20,
+    fontSize: 21,
     fontWeight: '700',
-    marginBottom: 6,
+    marginBottom: 8,
     fontFamily: 'Montserrat_700Bold',
-    lineHeight: 26,
+    lineHeight: 28,
+    letterSpacing: 0.3,
   },
 
   compactCTASubtext: {
-    color: 'rgba(255, 255, 255, 0.6)',
+    color: 'rgba(255, 255, 255, 0.7)',
     fontSize: 15,
     fontWeight: '500',
-    marginBottom: 10,
+    marginBottom: 14,
     fontFamily: 'Montserrat_500Medium',
-    lineHeight: 20,
+    lineHeight: 21,
   },
 
   compactCTAAvatars: {
@@ -1714,21 +1877,23 @@ const styles = StyleSheet.create({
   },
 
   compactCTAButton: {
-    backgroundColor: '#B954EC',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 24,
+    paddingHorizontal: 28,
+    paddingVertical: 14,
+    borderRadius: 28,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
     shadowColor: '#B954EC',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.5,
-    shadowRadius: 12,
-    elevation: 8,
-    alignSelf: 'flex-start',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+    elevation: 10,
+    alignSelf: 'center',
     marginTop: 4,
+    marginLeft: -36,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
   },
 
   compactCTAButtonText: {
@@ -1736,7 +1901,10 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     fontFamily: 'Montserrat_700Bold',
-    letterSpacing: 0.3,
+    letterSpacing: 0.5,
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
 
   // Full Screen CTA Styles (Legacy - can be removed if not needed elsewhere)

@@ -1,14 +1,14 @@
-import React, { useState, useEffect, useRef, useContext } from 'react'
+import React, { useState, useEffect, useContext } from 'react'
 import {
     View,
     Text,
     StyleSheet,
     TouchableOpacity,
     Image,
-    Animated,
     Alert,
     ActivityIndicator
 } from 'react-native'
+import * as Haptics from 'expo-haptics'
 import { safeAuthApiCall } from '../utils/safeApiCall';
 import { API_URL } from '../config';
 import {
@@ -29,6 +29,7 @@ import {
     Users,
     Dices
 } from 'lucide-react-native'
+import { Map, List } from 'react-native-feather'
 import { useNavigation } from '@react-navigation/native'
 import { UserContext } from '../context/UserContext'
 
@@ -144,13 +145,8 @@ const getAvatarFromMap = (filename) => {
 }
 
 // Export sticky header component
-export function ActivityStickyHeader({ activity, isOwner, onBack, onEdit, onDelete, onLeave, onReport, onComplete, onSoloComplete }) {
+export function ActivityStickyHeader({ activity, isOwner, onBack, onEdit, onDelete, onLeave, onReport, onComplete, onSoloComplete, viewMode, onViewModeChange, showViewToggle }) {
     const { user } = useContext(UserContext)
-    const [isBouncing, setIsBouncing] = useState(true)
-    const [isCheckingFavorites, setIsCheckingFavorites] = useState(false)
-    const bounceAnim = useRef(new Animated.Value(0)).current
-    const checkmarkPulseAnim = useRef(new Animated.Value(1)).current
-    const checkmarkGlowAnim = useRef(new Animated.Value(0)).current
     const navigation = useNavigation()
 
     // Early return if activity is null/undefined
@@ -279,106 +275,6 @@ export function ActivityStickyHeader({ activity, isOwner, onBack, onEdit, onDele
         }
     ]
 
-    useEffect(() => {
-        const bounceDuration = 3000
-        const inactivityDelay = 10000
-        let bounceTimeout, inactivityTimeout
-
-        const stopBounce = () => {
-            setIsBouncing(false)
-            Animated.timing(bounceAnim, {
-                toValue: 0,
-                duration: 300,
-                useNativeDriver: true,
-            }).start()
-        }
-
-        const startBounce = () => {
-            setIsBouncing(true)
-            Animated.loop(
-                Animated.sequence([
-                    Animated.timing(bounceAnim, {
-                        toValue: -8,
-                        duration: 400,
-                        useNativeDriver: true,
-                    }),
-                    Animated.timing(bounceAnim, {
-                        toValue: 0,
-                        duration: 400,
-                        useNativeDriver: true,
-                    }),
-                ]),
-                { iterations: 3 }
-            ).start()
-
-            clearTimeout(bounceTimeout)
-            bounceTimeout = setTimeout(stopBounce, bounceDuration)
-        }
-
-        const resetInactivity = () => {
-            clearTimeout(inactivityTimeout)
-            inactivityTimeout = setTimeout(startBounce, inactivityDelay)
-        }
-
-        startBounce()
-        resetInactivity()
-
-        return () => {
-            clearTimeout(bounceTimeout)
-            clearTimeout(inactivityTimeout)
-        }
-    }, [])
-
-    // Checkmark pulse animation effect
-    useEffect(() => {
-        // Only animate if button should be visible (voting phase only, not finalized or completed)
-        if (!isOwner || !activity.voting || activity.finalized || activity.completed) {
-            return;
-        }
-
-        // Pulse animation - scale up and down
-        const pulseAnimation = Animated.loop(
-            Animated.sequence([
-                Animated.timing(checkmarkPulseAnim, {
-                    toValue: 1.15,
-                    duration: 800,
-                    useNativeDriver: true,
-                }),
-                Animated.timing(checkmarkPulseAnim, {
-                    toValue: 1,
-                    duration: 800,
-                    useNativeDriver: true,
-                }),
-            ])
-        );
-
-        // Glow animation - opacity pulsing
-        const glowAnimation = Animated.loop(
-            Animated.sequence([
-                Animated.timing(checkmarkGlowAnim, {
-                    toValue: 1,
-                    duration: 1200,
-                    useNativeDriver: true,
-                }),
-                Animated.timing(checkmarkGlowAnim, {
-                    toValue: 0,
-                    duration: 1200,
-                    useNativeDriver: true,
-                }),
-            ])
-        );
-
-        pulseAnimation.start();
-        glowAnimation.start();
-
-        return () => {
-            pulseAnimation.stop();
-            glowAnimation.stop();
-            // Reset animation values to prevent visual glitches
-            checkmarkPulseAnim.setValue(1);
-            checkmarkGlowAnim.setValue(0);
-        };
-    }, [isOwner, activity.voting, activity.finalized, activity.completed])
 
 
     return (
@@ -393,70 +289,52 @@ export function ActivityStickyHeader({ activity, isOwner, onBack, onEdit, onDele
 
                     <View style={styles.centerContent}>
                         <View style={styles.activityNameContainer}>
-                            <Text style={styles.activityNameHeader} numberOfLines={2} ellipsizeMode="tail">
-                                {activity.activity_name || 'Untitled Activity'}
-                            </Text>
-                            {isOwner && !activity.completed && (
-                                <TouchableOpacity
-                                    style={styles.editActivityButton}
-                                    onPress={onEdit}
-                                    activeOpacity={0.7}
-                                >
-                                    <Edit3 stroke="#8b5cf6" width={14} height={14} />
-                                </TouchableOpacity>
+                            {activity.finalized ? (
+                                <Text style={styles.activityNameHeader}>
+                                    You're all set! 🎉
+                                </Text>
+                            ) : (
+                                <>
+                                    <Text style={styles.activityNameHeader}>
+                                        {activity.activity_name || 'Untitled Activity'}
+                                    </Text>
+                                    {isOwner && !activity.completed && (
+                                        <TouchableOpacity
+                                            style={styles.editActivityButton}
+                                            onPress={onEdit}
+                                            activeOpacity={0.7}
+                                        >
+                                            <Edit3 stroke="#8b5cf6" width={14} height={14} />
+                                        </TouchableOpacity>
+                                    )}
+                                </>
                             )}
                         </View>
                     </View>
 
                     <View style={styles.rightActions}>
-                        {/* Different completion buttons for solo vs group activities - only show in voting phase */}
-                        {isOwner && activity.voting && !activity.finalized && !activity.completed && (
-                            activity.is_solo ? (
-                                // Solo: CheckCircle for completion confirmation
-                                onSoloComplete && (
-                                    <Animated.View style={{
-                                        transform: [{ scale: checkmarkPulseAnim }]
-                                    }}>
-                                        {/* Glow effect behind button */}
-                                        <Animated.View style={[
-                                            styles.checkmarkGlow,
-                                            { opacity: checkmarkGlowAnim }
-                                        ]} />
-                                        <TouchableOpacity
-                                            style={styles.completeButton}
-                                            onPress={handleSoloComplete}
-                                            activeOpacity={0.7}
-                                            disabled={isCheckingFavorites}
-                                        >
-                                            {isCheckingFavorites ? (
-                                                <ActivityIndicator size="small" color="#10b981" />
-                                            ) : (
-                                                <CheckCircle stroke="#10b981" width={20} height={20} />
-                                            )}
-                                        </TouchableOpacity>
-                                    </Animated.View>
-                                )
-                            ) : (
-                                // Group: CheckCircle for finalize modal
-                                onComplete && (
-                                    <Animated.View style={{
-                                        transform: [{ scale: checkmarkPulseAnim }]
-                                    }}>
-                                        {/* Glow effect behind button */}
-                                        <Animated.View style={[
-                                            styles.checkmarkGlow,
-                                            { opacity: checkmarkGlowAnim }
-                                        ]} />
-                                        <TouchableOpacity
-                                            style={styles.completeButton}
-                                            onPress={onComplete}
-                                            activeOpacity={0.7}
-                                        >
-                                            <CheckCircle stroke="#10b981" width={20} height={20} />
-                                        </TouchableOpacity>
-                                    </Animated.View>
-                                )
-                            )
+                        {/* View Mode Toggle - show in voting phase when enabled */}
+                        {showViewToggle && activity.voting && !activity.finalized && !activity.completed && (
+                            <View style={styles.headerViewModeToggle}>
+                                <TouchableOpacity
+                                    style={[styles.headerToggleButton, viewMode === 'cards' && styles.headerToggleButtonActive]}
+                                    onPress={() => {
+                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                        onViewModeChange?.('cards');
+                                    }}
+                                >
+                                    <List stroke={viewMode === 'cards' ? '#fff' : 'rgba(255, 255, 255, 0.6)'} width={18} height={18} />
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={[styles.headerToggleButton, viewMode === 'map' && styles.headerToggleButtonActive]}
+                                    onPress={() => {
+                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                        onViewModeChange?.('map');
+                                    }}
+                                >
+                                    <Map stroke={viewMode === 'map' ? '#fff' : 'rgba(255, 255, 255, 0.6)'} width={18} height={18} />
+                                </TouchableOpacity>
+                            </View>
                         )}
                     </View>
                 </View>
@@ -696,33 +574,6 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
 
-    completeButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: 'rgba(16, 185, 129, 0.15)',
-        borderWidth: 1,
-        borderColor: 'rgba(16, 185, 129, 0.3)',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-
-    checkmarkGlow: {
-        position: 'absolute',
-        width: 50,
-        height: 50,
-        borderRadius: 25,
-        backgroundColor: '#10b981',
-        top: -5,
-        left: -5,
-        zIndex: -1,
-        shadowColor: '#10b981',
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.8,
-        shadowRadius: 10,
-        elevation: 8,
-    },
-
     helpButtonContainer: {
         // Container for animation
     },
@@ -764,14 +615,13 @@ const styles = StyleSheet.create({
     },
 
     activityNameHeader: {
-        fontSize: 24,
+        fontSize: 20,
         fontWeight: '700',
         color: '#fff',
         textAlign: 'center',
         fontFamily: 'Montserrat_700Bold',
-        flexShrink: 1,
-        lineHeight: 28,
-        flexWrap: 'wrap',
+        lineHeight: 24,
+        flex: 1,
     },
 
     editActivityButton: {
@@ -1369,5 +1219,26 @@ const styles = StyleSheet.create({
         fontSize: 12,
         color: 'rgba(255, 255, 255, 0.6)',
         fontWeight: '500',
+    },
+
+    // Header View Mode Toggle Styles
+    headerViewModeToggle: {
+        flexDirection: 'row',
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        borderRadius: 10,
+        padding: 3,
+        gap: 4,
+    },
+
+    headerToggleButton: {
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        borderRadius: 8,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+
+    headerToggleButtonActive: {
+        backgroundColor: 'rgba(147, 51, 234, 0.3)',
     },
 })

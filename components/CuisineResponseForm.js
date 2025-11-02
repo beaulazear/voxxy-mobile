@@ -85,6 +85,7 @@ export default function CuisineResponseForm({
 
     // Cuisine options - optimized for Google Places categories
     const cuisineOptions = [
+        { label: 'No preference', icon: Target, desc: 'Any cuisine works' },
         { label: 'Italian', icon: Pizza, desc: 'Pasta, pizza, risotto' },
         { label: 'Japanese', icon: Fish, desc: 'Sushi, ramen, tempura' },
         { label: 'Mexican', icon: ChefHat, desc: 'Tacos, burritos, quesadillas' },
@@ -100,6 +101,7 @@ export default function CuisineResponseForm({
     ]
 
     const atmosphereOptions = [
+        { label: 'No preference', icon: Target, desc: 'Any atmosphere works' },
         { label: 'Casual Dining', icon: Coffee, desc: 'Relaxed & comfortable' },
         { label: 'Fine Dining', icon: Crown, desc: 'Upscale & sophisticated' },
         { label: 'Fast Casual', icon: Utensils, desc: 'Quick but quality' },
@@ -203,22 +205,40 @@ export default function CuisineResponseForm({
     const handleCuisineSelect = (cuisine) => {
         setSelectedCuisines(prev => {
             const isSelected = prev.includes(cuisine)
+
+            // If deselecting, just remove it
             if (isSelected) {
                 return prev.filter(c => c !== cuisine)
-            } else {
-                return [...prev, cuisine]
             }
+
+            // If selecting "No preference", clear all other selections
+            if (cuisine === 'No preference') {
+                return ['No preference']
+            }
+
+            // If selecting any other option, remove "No preference" and add the new selection
+            const withoutNoPreference = prev.filter(c => c !== 'No preference')
+            return [...withoutNoPreference, cuisine]
         })
     }
 
     const handleAtmosphereSelect = (atmosphere) => {
         setSelectedAtmospheres(prev => {
             const isSelected = prev.includes(atmosphere)
+
+            // If deselecting, just remove it
             if (isSelected) {
                 return prev.filter(a => a !== atmosphere)
-            } else {
-                return [...prev, atmosphere]
             }
+
+            // If selecting "No preference", clear all other selections
+            if (atmosphere === 'No preference') {
+                return ['No preference']
+            }
+
+            // If selecting any other option, remove "No preference" and add the new selection
+            const withoutNoPreference = prev.filter(a => a !== 'No preference')
+            return [...withoutNoPreference, atmosphere]
         })
     }
 
@@ -256,10 +276,12 @@ export default function CuisineResponseForm({
 
     // Validation - updated for multiple selections
     const isNextDisabled = () => {
+        // All steps are optional now - users can skip with "No Preference" button
+        // Only require selections when user explicitly tries to "Next" instead of skip
         if (step === 1) return selectedCuisines.length === 0
         if (step === 2) return selectedAtmospheres.length === 0
         if (step === 3) return !selectedBudget  // Budget remains single-select
-        if (step === 4) return false
+        if (step === 4) return false // Dietary is always optional
         if (step === 5 && activity?.allow_participant_time_selection) {
             return Object.keys(availability).length === 0
         }
@@ -273,6 +295,30 @@ export default function CuisineResponseForm({
         } catch (e) {
             // Haptics not available
         }
+        const totalSteps = getTotalSteps()
+        if (step < totalSteps) {
+            fadeAnim.setValue(0)
+            setStep(step + 1)
+        } else {
+            handleSubmit()
+        }
+    }
+
+    // Skip/No Preference handler - clears current step and moves forward
+    const handleSkip = () => {
+        try {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+        } catch (e) {
+            // Haptics not available
+        }
+
+        // Clear current step's selections
+        if (step === 1) setSelectedCuisines([])
+        if (step === 2) setSelectedAtmospheres([])
+        if (step === 3) setSelectedBudget('No preference') // Set to "No preference" option
+        if (step === 5) setAvailability({})
+
+        // Move to next step
         const totalSteps = getTotalSteps()
         if (step < totalSteps) {
             fadeAnim.setValue(0)
@@ -1284,6 +1330,25 @@ const styles = StyleSheet.create({
     closeButtonText: {
         color: '#ff4545',
         fontSize: 16,
+        fontWeight: '600',
+        fontFamily: 'Montserrat_600SemiBold',
+        textAlign: 'center',
+    },
+
+    skipButton: {
+        backgroundColor: 'rgba(103, 126, 234, 0.12)',
+        borderWidth: 1.5,
+        borderColor: 'rgba(103, 126, 234, 0.4)',
+        borderRadius: 16,
+        paddingVertical: 16,
+        paddingHorizontal: 16,
+        minHeight: 52,
+        justifyContent: 'center',
+    },
+
+    skipButtonText: {
+        color: '#667eea',
+        fontSize: 14,
         fontWeight: '600',
         fontFamily: 'Montserrat_600SemiBold',
         textAlign: 'center',
