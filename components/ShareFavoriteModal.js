@@ -11,6 +11,7 @@ import {
     Image,
     Platform,
     Alert,
+    ScrollView,
 } from 'react-native';
 import { X, Copy, MessageCircle, Mail, Link as LinkIcon } from 'react-native-feather';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -68,46 +69,112 @@ export default function ShareFavoriteModal({ visible, onClose, favorite }) {
         return `${baseUrl}/${shareId}?${params.toString()}`;
     };
 
+    // Get context-based message elements
+    const getContextualElements = () => {
+        const activityType = favorite?.activity_type?.toLowerCase();
+        const priceRange = favorite?.price_range || '';
+        const isUpscale = priceRange.includes('$$$') || priceRange.includes('$$$$');
+        const isBudget = priceRange === '$' || priceRange === '$$';
+
+        // Determine place context
+        let context = {
+            emoji: '✨',
+            intro: 'Just found this spot',
+            vibe: 'you might like',
+            cardBorder: '─',
+            cornerTopLeft: '╭',
+            cornerTopRight: '╮',
+            cornerBottomLeft: '╰',
+            cornerBottomRight: '╯',
+        };
+
+        // Cocktail Bars
+        if (activityType?.includes('cocktail') || activityType?.includes('bar')) {
+            context.emoji = '🍸';
+            context.intro = isUpscale
+                ? 'Found a cocktail spot with serious vibes'
+                : 'Discovered this bar you need to check out';
+            context.vibe = isUpscale ? 'Perfect for a fancy night out' : 'Great for drinks with the crew';
+        }
+        // Restaurants & Dinner
+        else if (activityType?.includes('restaurant') || activityType?.includes('dinner')) {
+            context.emoji = '🍽️';
+            context.intro = isUpscale
+                ? 'This restaurant is calling your name'
+                : 'Found a spot with incredible food';
+            context.vibe = isUpscale ? 'Date night worthy for sure' : 'Perfect for our next dinner';
+        }
+        // Brunch
+        else if (activityType?.includes('brunch')) {
+            context.emoji = '🥂';
+            context.intro = 'Brunch spot alert';
+            context.vibe = 'Weekend plans incoming?';
+        }
+        // Coffee
+        else if (activityType?.includes('coffee') || activityType?.includes('cafe')) {
+            context.emoji = '☕';
+            context.intro = 'New coffee spot unlocked';
+            context.vibe = 'Perfect for catching up';
+        }
+        // Default
+        else {
+            context.emoji = '💜';
+            context.intro = 'Just saved this gem on Voxxy';
+            context.vibe = 'Thought you\'d want to know about it';
+        }
+
+        return context;
+    };
+
     // Generate shareable content with personality
     const generateShareContent = () => {
         const voxxyLink = generateShareLink();
+        const context = getContextualElements();
 
-        // Create engaging, personal message
-        let content = `💜 I found this gem on Voxxy and thought you'd love it!\n\n`;
-        content += `✨ ${title}\n\n`;
+        // Build the message - simple and clean
+        let content = `${context.emoji} ${context.intro}\n\n`;
 
-        if (favorite.description) {
-            // Truncate description if too long
-            const desc = favorite.description.length > 100
-                ? favorite.description.substring(0, 97) + '...'
-                : favorite.description;
-            content += `${desc}\n\n`;
-        }
+        // Title
+        content += `🎯 ${title}\n`;
 
-        if (favorite.address) {
-            content += `📍 ${favorite.address}\n`;
-        }
-
+        // Price range
         if (favorite.price_range) {
             content += `💰 ${favorite.price_range}\n`;
         }
 
-        // Add the Voxxy share link prominently
-        content += `\n🔗 View on Voxxy:\n${voxxyLink}\n`;
+        // Address
+        if (favorite.address) {
+            const shortAddress = favorite.address.split(',').slice(0, 2).join(',');
+            content += `📍 ${shortAddress}\n`;
+        }
 
-        // Add map link as backup
+        // Description
+        if (favorite.description) {
+            const desc = favorite.description.length > 100
+                ? favorite.description.substring(0, 97) + '...'
+                : favorite.description;
+            content += `\n💭 ${desc}\n`;
+        }
+
+        // Closing vibe
+        content += `\n${context.vibe}\n\n`;
+
+        // Voxxy link
+        content += `💜 View on Voxxy:\n${voxxyLink}\n`;
+
+        // Add map link
         if (favorite.latitude && favorite.longitude) {
             const mapsUrl = Platform.select({
                 ios: `https://maps.apple.com/?ll=${favorite.latitude},${favorite.longitude}&q=${encodeURIComponent(title)}`,
                 android: `https://www.google.com/maps/search/?api=1&query=${favorite.latitude},${favorite.longitude}`,
             });
-            content += `\n🗺️ Directions: ${mapsUrl}`;
+            content += `\n🗺️ Get Directions:\n${mapsUrl}`;
         } else if (favorite.address) {
             const mapsUrl = Platform.select({
                 ios: `https://maps.apple.com/?address=${encodeURIComponent(favorite.address)}`,
                 android: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(favorite.address)}`,
             });
-            content += `\n🗺️ Directions: ${mapsUrl}`;
+            content += `\n🗺️ Get Directions:\n${mapsUrl}`;
         }
 
         return content;
@@ -269,6 +336,9 @@ export default function ShareFavoriteModal({ visible, onClose, favorite }) {
                         <Text style={styles.placeName} numberOfLines={2}>
                             {title}
                         </Text>
+                        <Text style={styles.contextNote}>
+                            Personalized for {favorite?.activity_type || 'this place'}
+                        </Text>
 
                         {/* Shareable Link Highlight */}
                         <View style={styles.linkHighlight}>
@@ -290,10 +360,15 @@ export default function ShareFavoriteModal({ visible, onClose, favorite }) {
 
                         {/* Preview Content */}
                         <View style={styles.previewContainer}>
-                            <Text style={styles.previewLabel}>Message Preview</Text>
-                            <Text style={styles.previewText} numberOfLines={6}>
-                                {shareContent}
-                            </Text>
+                            <Text style={styles.previewLabel}>Your Personalized Message</Text>
+                            <ScrollView
+                                style={styles.previewScroll}
+                                showsVerticalScrollIndicator={false}
+                            >
+                                <Text style={styles.previewText}>
+                                    {shareContent}
+                                </Text>
+                            </ScrollView>
                         </View>
 
                         {/* Share Options */}
@@ -419,8 +494,15 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         color: '#9333ea',
         textAlign: 'center',
-        marginBottom: 20,
+        marginBottom: 8,
         paddingHorizontal: 20,
+    },
+    contextNote: {
+        fontSize: 12,
+        color: 'rgba(255, 255, 255, 0.5)',
+        textAlign: 'center',
+        marginBottom: 20,
+        fontStyle: 'italic',
     },
     linkHighlight: {
         backgroundColor: 'rgba(147, 51, 234, 0.1)',
@@ -476,10 +558,13 @@ const styles = StyleSheet.create({
         letterSpacing: 0.5,
         marginBottom: 10,
     },
+    previewScroll: {
+        maxHeight: 180,
+    },
     previewText: {
-        color: 'rgba(255, 255, 255, 0.7)',
+        color: 'rgba(255, 255, 255, 0.8)',
         fontSize: 13,
-        lineHeight: 19,
+        lineHeight: 20,
     },
     shareOptions: {
         gap: 12,

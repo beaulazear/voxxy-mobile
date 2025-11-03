@@ -20,11 +20,11 @@ import LandingScreen from './screens/LandingScreen';
 import ActivityDetailsScreen from './screens/ActivityDetailsScreen';
 import ActivitiesScreen from './screens/ActivitiesScreen';
 import FavoritesScreen from './screens/FavoritesScreen';
+import ExploreScreen from './screens/ExploreScreen';
 import NotificationsScreen from './screens/NotificationsScreen';
 import PrivacyPolicyScreen from './screens/PrivacyPolicyScreen';
 import SuspendedScreen from './screens/SuspendedScreen';
 import ComingSoonScreen from './screens/ComingSoonScreen';
-import ExploreScreen from './screens/ExploreScreen';
 import RateLimitScreen from './screens/RateLimitScreen';
 const WelcomeScreen = React.lazy(() => import('./screens/WelcomeScreen'));
 
@@ -213,6 +213,9 @@ const AppNavigator = () => {
                 : HomeScreen)
             : LandingScreen
         }
+        options={{
+          gestureEnabled: false, // Disable swipe back gesture
+        }}
         key={user ? (moderationStatus ? 'suspended' : 'home') : 'login'}
       />
 
@@ -235,8 +238,9 @@ const AppNavigator = () => {
         name="FAQ"
         component={FAQScreen}
         options={{
-          animation: 'fade',
-          animationDuration: 150
+          animation: 'slide_from_right',
+          animationDuration: 250,
+          gestureDirection: 'horizontal'
         }}
       />
       <Stack.Screen
@@ -252,7 +256,26 @@ const AppNavigator = () => {
         component={ExploreScreen}
         options={{
           animation: 'fade',
-          animationDuration: 150
+          animationDuration: 150,
+          gestureEnabled: false, // Disable swipe back gesture
+        }}
+      />
+      <Stack.Screen
+        name="Activities"
+        component={ActivitiesScreen}
+        options={{
+          animation: 'fade',
+          animationDuration: 150,
+          gestureEnabled: false, // Disable swipe back gesture
+        }}
+      />
+      <Stack.Screen
+        name="Favorites"
+        component={FavoritesScreen}
+        options={{
+          animation: 'fade',
+          animationDuration: 150,
+          gestureEnabled: false, // Disable swipe back gesture
         }}
       />
       <Stack.Screen
@@ -271,22 +294,6 @@ const AppNavigator = () => {
           animation: 'slide_from_right',
           animationDuration: 250,
           gestureDirection: 'horizontal'
-        }}
-      />
-      <Stack.Screen
-        name="Activities"
-        component={ActivitiesScreen}
-        options={{
-          animation: 'fade',
-          animationDuration: 150
-        }}
-      />
-      <Stack.Screen
-        name="Favorites"
-        component={FavoritesScreen}
-        options={{
-          animation: 'fade',
-          animationDuration: 150
         }}
       />
       <Stack.Screen

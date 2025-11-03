@@ -10,11 +10,12 @@ import {
     StyleSheet,
     TouchableWithoutFeedback,
 } from 'react-native';
+import Icon from 'react-native-vector-icons/Feather';
 import * as Haptics from 'expo-haptics';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
-const COLLAPSED_HEIGHT = SCREEN_HEIGHT * 0.4; // 40% of screen
-const EXPANDED_HEIGHT = SCREEN_HEIGHT * 0.9; // 90% of screen
+const COLLAPSED_HEIGHT = SCREEN_HEIGHT * 0.45; // 45% of screen
+const EXPANDED_HEIGHT = SCREEN_HEIGHT * 0.92; // 92% of screen
 const HANDLE_HEIGHT = 60;
 const SWIPE_THRESHOLD = 50;
 
@@ -24,12 +25,12 @@ export default function DraggableBottomSheet({
     children,
     title = "Details"
 }) {
-    const translateY = useRef(new Animated.Value(0)).current;
+    const translateY = useRef(new Animated.Value(COLLAPSED_HEIGHT)).current;
+    const backdropOpacity = useRef(new Animated.Value(0)).current;
     const [isExpanded, setIsExpanded] = useState(false);
     const scrollViewRef = useRef(null);
     const scrollOffset = useRef(0);
-    const isExpandedRef = useRef(false); // Ref for PanResponder closure
-    const [backdropReady, setBackdropReady] = useState(false); // Prevent immediate backdrop tap
+    const isExpandedRef = useRef(false);
 
     // Keep ref in sync with state
     useEffect(() => {
@@ -38,19 +39,38 @@ export default function DraggableBottomSheet({
 
     useEffect(() => {
         if (visible) {
-            // Show immediately in collapsed state
+            // Animate in
             setIsExpanded(false);
             isExpandedRef.current = false;
-            translateY.setValue(0); // Set immediately, no animation
-            setBackdropReady(true); // Enable immediately
+            scrollOffset.current = 0;
+
+            Animated.parallel([
+                Animated.spring(translateY, {
+                    toValue: 0,
+                    tension: 65,
+                    friction: 11,
+                    useNativeDriver: true,
+                }),
+                Animated.timing(backdropOpacity, {
+                    toValue: 0.6,
+                    duration: 300,
+                    useNativeDriver: true,
+                })
+            ]).start();
         } else {
-            // Animate out - move down by sheet height
-            setBackdropReady(false);
-            Animated.timing(translateY, {
-                toValue: COLLAPSED_HEIGHT,
-                duration: 250,
-                useNativeDriver: true,
-            }).start();
+            // Animate out
+            Animated.parallel([
+                Animated.timing(translateY, {
+                    toValue: COLLAPSED_HEIGHT,
+                    duration: 250,
+                    useNativeDriver: true,
+                }),
+                Animated.timing(backdropOpacity, {
+                    toValue: 0,
+                    duration: 250,
+                    useNativeDriver: true,
+                })
+            ]).start();
         }
     }, [visible]);
 
@@ -58,7 +78,6 @@ export default function DraggableBottomSheet({
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         setIsExpanded(true);
         isExpandedRef.current = true;
-        // No transform needed - just change height
     };
 
     const collapseSheet = () => {
@@ -67,10 +86,9 @@ export default function DraggableBottomSheet({
         isExpandedRef.current = false;
         // Reset scroll position when collapsing
         if (scrollViewRef.current) {
-            scrollViewRef.current.scrollTo({ y: 0, animated: false });
+            scrollViewRef.current.scrollTo({ y: 0, animated: true });
         }
         scrollOffset.current = 0;
-        // No transform needed - just change height
     };
 
     const closeSheet = () => {
@@ -78,11 +96,19 @@ export default function DraggableBottomSheet({
         setIsExpanded(false);
         isExpandedRef.current = false;
         scrollOffset.current = 0;
-        Animated.timing(translateY, {
-            toValue: COLLAPSED_HEIGHT,
-            duration: 250,
-            useNativeDriver: true,
-        }).start(() => {
+
+        Animated.parallel([
+            Animated.timing(translateY, {
+                toValue: COLLAPSED_HEIGHT,
+                duration: 250,
+                useNativeDriver: true,
+            }),
+            Animated.timing(backdropOpacity, {
+                toValue: 0,
+                duration: 250,
+                useNativeDriver: true,
+            })
+        ]).start(() => {
             if (onClose) onClose();
         });
     };
@@ -92,21 +118,22 @@ export default function DraggableBottomSheet({
             onStartShouldSetPanResponder: () => true,
             onMoveShouldSetPanResponder: (_, gestureState) => {
                 const { dy } = gestureState;
-                return Math.abs(dy) > 5; // Only capture if moved more than 5 pixels
+                // Only capture vertical swipes
+                return Math.abs(dy) > 5 && scrollOffset.current === 0;
             },
             onPanResponderRelease: (_, gestureState) => {
                 const { dy, vy } = gestureState;
 
-                // Simple gesture detection
+                // Swiped down with velocity or distance
                 if (dy > SWIPE_THRESHOLD || vy > 0.5) {
-                    // Swiped down
                     if (isExpandedRef.current) {
                         collapseSheet();
                     } else {
                         closeSheet();
                     }
-                } else if (dy < -SWIPE_THRESHOLD || vy < -0.5) {
-                    // Swiped up
+                }
+                // Swiped up with velocity or distance
+                else if (dy < -SWIPE_THRESHOLD || vy < -0.5) {
                     if (!isExpandedRef.current) {
                         expandSheet();
                     }
@@ -123,6 +150,18 @@ export default function DraggableBottomSheet({
 
     return (
         <View style={styles.overlay} pointerEvents="box-none">
+            {/* Backdrop */}
+            <TouchableWithoutFeedback onPress={closeSheet}>
+                <Animated.View
+                    style={[
+                        styles.backdrop,
+                        {
+                            opacity: backdropOpacity,
+                        }
+                    ]}
+                />
+            </TouchableWithoutFeedback>
+
             {/* Bottom Sheet */}
             <Animated.View
                 style={[
@@ -138,7 +177,7 @@ export default function DraggableBottomSheet({
                     <View style={styles.handle} />
                     <Text style={styles.title} numberOfLines={1}>{title}</Text>
 
-                    {/* Tap to expand/collapse */}
+                    {/* Expand/Collapse Button */}
                     <TouchableOpacity
                         style={styles.expandButton}
                         onPress={() => {
@@ -150,9 +189,11 @@ export default function DraggableBottomSheet({
                         }}
                         activeOpacity={0.7}
                     >
-                        <Text style={styles.expandButtonText}>
-                            {isExpanded ? '−' : '+'}
-                        </Text>
+                        <Icon
+                            name={isExpanded ? "chevron-down" : "chevron-up"}
+                            size={20}
+                            color="#9333ea"
+                        />
                     </TouchableOpacity>
                 </View>
 
@@ -189,7 +230,7 @@ const styles = StyleSheet.create({
         top: 0,
         left: 0,
         right: 0,
-        bottom: COLLAPSED_HEIGHT, // Don't cover the bottom sheet area!
+        bottom: 0,
         backgroundColor: '#000',
     },
     container: {
@@ -205,6 +246,7 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.3,
         shadowRadius: 12,
         elevation: 20,
+        overflow: 'hidden',
     },
     handleContainer: {
         height: HANDLE_HEIGHT,
@@ -228,7 +270,8 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         color: '#fff',
         marginTop: 8,
-        paddingHorizontal: 60, // Space for button
+        paddingHorizontal: 60,
+        fontFamily: 'Montserrat_700Bold',
     },
     expandButton: {
         position: 'absolute',
@@ -243,12 +286,6 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: 'rgba(147, 51, 234, 0.3)',
         zIndex: 10,
-    },
-    expandButtonText: {
-        fontSize: 24,
-        fontWeight: '600',
-        color: '#9333ea',
-        lineHeight: 24,
     },
     scrollView: {
         flex: 1,

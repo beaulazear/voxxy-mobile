@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
     View,
     Text,
@@ -6,8 +6,9 @@ import {
     StyleSheet,
     Image,
     ActivityIndicator,
+    TextInput,
 } from 'react-native';
-import { Camera, Edit3 } from 'react-native-feather';
+import { Camera, Edit3, Check, X } from 'react-native-feather';
 import LocationPicker from './LocationPicker';
 import { logger } from '../utils/logger';
 import { getUserDisplayImage } from '../utils/avatarManager';
@@ -25,7 +26,12 @@ export default function ProfileHeaderCard({
     onLocationSelect,
     onSaveLocation,
     onCancelLocationEdit,
+    editedName,
+    onNameChange,
+    onSaveName,
+    savingName,
 }) {
+    const [isEditingName, setIsEditingName] = useState(false);
     const getDisplayImage = (userObj) => {
         return getUserDisplayImage(userObj, API_URL);
     };
@@ -56,11 +62,65 @@ export default function ProfileHeaderCard({
                         </View>
                     </TouchableOpacity>
 
-                    {/* Email and Location */}
+                    {/* Name, Email and Location */}
                     <View style={styles.profileDetails}>
+                        {/* Name Row */}
+                        {isEditingName ? (
+                            <View style={styles.nameEditRow}>
+                                <TextInput
+                                    style={styles.nameInput}
+                                    value={editedName}
+                                    onChangeText={onNameChange}
+                                    placeholder="Enter your name"
+                                    placeholderTextColor="#666"
+                                    autoFocus
+                                />
+                                <View style={styles.nameEditActions}>
+                                    <TouchableOpacity
+                                        style={styles.nameActionButton}
+                                        onPress={() => {
+                                            onSaveName();
+                                            setIsEditingName(false);
+                                        }}
+                                        disabled={savingName}
+                                    >
+                                        {savingName ? (
+                                            <ActivityIndicator size="small" color="#4ECDC4" />
+                                        ) : (
+                                            <Check stroke="#4ECDC4" width={16} height={16} strokeWidth={2.5} />
+                                        )}
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        style={styles.nameActionButton}
+                                        onPress={() => {
+                                            onNameChange(user?.name || '');
+                                            setIsEditingName(false);
+                                        }}
+                                        disabled={savingName}
+                                    >
+                                        <X stroke="#FF6B6B" width={16} height={16} strokeWidth={2.5} />
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
+                        ) : (
+                            <View style={styles.nameRow}>
+                                <Text style={styles.nameText}>{user?.name || 'Add name'}</Text>
+                                <TouchableOpacity
+                                    style={styles.nameEditButton}
+                                    onPress={() => setIsEditingName(true)}
+                                    activeOpacity={0.7}
+                                >
+                                    <Edit3 stroke="#9261E5" width={16} height={16} strokeWidth={2} />
+                                </TouchableOpacity>
+                            </View>
+                        )}
+
+                        {/* Email */}
                         <View style={styles.detailItem}>
                             <Text style={styles.detailText}>{user?.email}</Text>
                         </View>
+
+                        {/* Location Row */}
                         <View style={styles.locationRow}>
                             {userLocation?.formatted ? (
                                 <Text style={styles.detailText}>{userLocation.formatted}</Text>
@@ -190,6 +250,53 @@ const styles = StyleSheet.create({
         fontWeight: '500',
         flexShrink: 1,
         flexWrap: 'wrap',
+    },
+    nameRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        flexShrink: 1,
+    },
+    nameText: {
+        color: '#FFFFFF',
+        fontSize: 18,
+        fontWeight: '700',
+        fontFamily: 'Montserrat_700Bold',
+        flexShrink: 1,
+        flexWrap: 'wrap',
+    },
+    nameEditButton: {
+        padding: 4,
+    },
+    nameEditRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        flexShrink: 1,
+    },
+    nameInput: {
+        flex: 1,
+        backgroundColor: 'rgba(42, 30, 46, 0.8)',
+        borderRadius: 8,
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        fontSize: 16,
+        color: '#fff',
+        borderWidth: 1,
+        borderColor: 'rgba(185, 84, 236, 0.3)',
+        fontFamily: 'Montserrat_600SemiBold',
+    },
+    nameEditActions: {
+        flexDirection: 'row',
+        gap: 6,
+    },
+    nameActionButton: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     locationRow: {
         flexDirection: 'row',

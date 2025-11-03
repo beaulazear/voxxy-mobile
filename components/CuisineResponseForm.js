@@ -83,44 +83,55 @@ export default function CuisineResponseForm({
     const [selectedDate, setSelectedDate] = useState('')
     const [selectedTimes, setSelectedTimes] = useState([])
 
-    // Cuisine options - optimized for Google Places categories
+    // Cuisine options - optimized for Google Places API keywords
     const cuisineOptions = [
-        { label: 'No preference', icon: Target, desc: 'Any cuisine works' },
-        { label: 'Italian', icon: Pizza, desc: 'Pasta, pizza, risotto' },
-        { label: 'Japanese', icon: Fish, desc: 'Sushi, ramen, tempura' },
-        { label: 'Mexican', icon: ChefHat, desc: 'Tacos, burritos, quesadillas' },
-        { label: 'Chinese', icon: Utensils, desc: 'Dim sum, noodles, stir-fry' },
-        { label: 'Thai', icon: Cherry, desc: 'Pad thai, curry, tom yum' },
-        { label: 'Indian', icon: ChefHat, desc: 'Curry, tandoori, biryani' },
-        { label: 'Mediterranean', icon: Cherry, desc: 'Greek, Lebanese, Turkish' },
-        { label: 'Korean', icon: Beef, desc: 'BBQ, kimchi, bibimbap' },
-        { label: 'Vietnamese', icon: Utensils, desc: 'Pho, banh mi, spring rolls' },
-        { label: 'American', icon: Beef, desc: 'Burgers, steaks, BBQ' },
-        { label: 'French', icon: Wine, desc: 'Bistro, pastries, wine' },
-        { label: 'Spanish', icon: Wine, desc: 'Tapas, paella, sangria' }
+        { label: 'No preference', value: 'no preference', icon: Target, desc: 'Any cuisine works' },
+        { label: 'Italian', value: 'italian', icon: Pizza, desc: 'Pasta, pizza, risotto' },
+        { label: 'Pizza', value: 'pizza', icon: Pizza, desc: 'Pizza restaurants' },
+        { label: 'Japanese', value: 'japanese', icon: Fish, desc: 'Sushi, ramen, tempura' },
+        { label: 'Sushi', value: 'sushi', icon: Fish, desc: 'Sushi restaurants' },
+        { label: 'Ramen', value: 'ramen', icon: Utensils, desc: 'Ramen shops' },
+        { label: 'Mexican', value: 'mexican', icon: ChefHat, desc: 'Tacos, burritos, quesadillas' },
+        { label: 'Chinese', value: 'chinese', icon: Utensils, desc: 'Dim sum, noodles, stir-fry' },
+        { label: 'Thai', value: 'thai', icon: Cherry, desc: 'Pad thai, curry, tom yum' },
+        { label: 'Indian', value: 'indian', icon: ChefHat, desc: 'Curry, tandoori, biryani' },
+        { label: 'Mediterranean', value: 'mediterranean', icon: Cherry, desc: 'Greek, Lebanese, Turkish' },
+        { label: 'Greek', value: 'greek', icon: Cherry, desc: 'Greek cuisine' },
+        { label: 'Korean', value: 'korean', icon: Beef, desc: 'BBQ, kimchi, bibimbap' },
+        { label: 'Vietnamese', value: 'vietnamese', icon: Utensils, desc: 'Pho, banh mi, spring rolls' },
+        { label: 'American', value: 'american', icon: Beef, desc: 'Burgers, steaks, BBQ' },
+        { label: 'Burgers', value: 'burger', icon: Beef, desc: 'Burger joints' },
+        { label: 'BBQ', value: 'bbq', icon: Beef, desc: 'Barbecue' },
+        { label: 'Steakhouse', value: 'steakhouse', icon: Beef, desc: 'Steakhouses' },
+        { label: 'French', value: 'french', icon: Wine, desc: 'Bistro, pastries, wine' },
+        { label: 'Spanish', value: 'spanish', icon: Wine, desc: 'Tapas, paella, sangria' },
+        { label: 'Seafood', value: 'seafood', icon: Fish, desc: 'Seafood restaurants' },
+        { label: 'Breakfast', value: 'breakfast', icon: Coffee, desc: 'Breakfast spots' },
+        { label: 'Brunch', value: 'brunch', icon: Coffee, desc: 'Brunch restaurants' }
     ]
 
     const atmosphereOptions = [
-        { label: 'No preference', icon: Target, desc: 'Any atmosphere works' },
-        { label: 'Casual Dining', icon: Coffee, desc: 'Relaxed & comfortable' },
-        { label: 'Fine Dining', icon: Crown, desc: 'Upscale & sophisticated' },
-        { label: 'Fast Casual', icon: Utensils, desc: 'Quick but quality' },
-        { label: 'Romantic', icon: Heart, desc: 'Date night ambiance' },
-        { label: 'Outdoor Seating', icon: Trees, desc: 'Patio & al fresco' },
-        { label: 'Family Friendly', icon: Users, desc: 'Kids welcome' },
-        { label: 'Trendy/Hip', icon: Wine, desc: 'Instagram-worthy spots' },
-        { label: 'Local Favorite', icon: Home, desc: 'Neighborhood gems' },
-        { label: 'Vegetarian/Vegan', icon: Cherry, desc: 'Plant-based options' },
-        { label: 'Gluten-Free', icon: Heart, desc: 'Celiac friendly' },
-        { label: 'Brunch Spot', icon: Coffee, desc: 'Weekend brunch' },
-        { label: 'Late Night', icon: Building, desc: 'Open late hours' }
+        { label: 'No preference', value: 'no preference', icon: Target, desc: 'Any atmosphere works' },
+        { label: 'Casual Dining', value: 'casual', icon: Coffee, desc: 'Relaxed & comfortable' },
+        { label: 'Fine Dining', value: 'fine dining', icon: Crown, desc: 'Upscale & sophisticated' },
+        { label: 'Fast Casual', value: 'fast food', icon: Utensils, desc: 'Quick but quality' },
+        { label: 'Romantic', value: 'romantic', icon: Heart, desc: 'Date night ambiance' },
+        { label: 'Outdoor Seating', value: 'outdoor', icon: Trees, desc: 'Patio & al fresco' },
+        { label: 'Family Friendly', value: 'family friendly', icon: Users, desc: 'Kids welcome' },
+        { label: 'Trendy/Hip', value: 'trendy', icon: Wine, desc: 'Instagram-worthy spots' },
+        { label: 'Local Favorite', value: 'local', icon: Home, desc: 'Neighborhood gems' },
+        { label: 'Vegetarian/Vegan', value: 'vegetarian', icon: Cherry, desc: 'Plant-based options' },
+        { label: 'Gluten-Free', value: 'gluten-free', icon: Heart, desc: 'Celiac friendly' },
+        { label: 'Brunch Spot', value: 'brunch', icon: Coffee, desc: 'Weekend brunch' },
+        { label: 'Late Night', value: 'late night', icon: Building, desc: 'Open late hours' }
     ]
 
     const budgetOptions = [
-        { label: 'No preference', icon: Target, desc: 'Any price range' },
-        { label: 'Budget-friendly', icon: DollarSign, desc: 'Value dining' },
-        { label: 'Mid-range', icon: CreditCard, desc: 'Nice sit-down meals' },
-        { label: 'Prefer upscale', icon: Crown, desc: 'Fine dining experience' }
+        { label: 'No preference', value: 'no preference', icon: Target, desc: 'Any price range' },
+        { label: 'Budget ($)', value: '$', icon: DollarSign, desc: 'Cheap eats & casual' },
+        { label: 'Moderate ($$)', value: '$$', icon: CreditCard, desc: 'Nice sit-down meals' },
+        { label: 'Upscale ($$$)', value: '$$$', icon: Crown, desc: 'Fine dining' },
+        { label: 'Luxury ($$$$)', value: '$$$$', icon: Crown, desc: 'Premium experience' }
     ]
 
     const timeSlots = [
@@ -212,12 +223,12 @@ export default function CuisineResponseForm({
             }
 
             // If selecting "No preference", clear all other selections
-            if (cuisine === 'No preference') {
-                return ['No preference']
+            if (cuisine === 'no preference') {
+                return ['no preference']
             }
 
             // If selecting any other option, remove "No preference" and add the new selection
-            const withoutNoPreference = prev.filter(c => c !== 'No preference')
+            const withoutNoPreference = prev.filter(c => c !== 'no preference')
             return [...withoutNoPreference, cuisine]
         })
     }
@@ -232,12 +243,12 @@ export default function CuisineResponseForm({
             }
 
             // If selecting "No preference", clear all other selections
-            if (atmosphere === 'No preference') {
-                return ['No preference']
+            if (atmosphere === 'no preference') {
+                return ['no preference']
             }
 
             // If selecting any other option, remove "No preference" and add the new selection
-            const withoutNoPreference = prev.filter(a => a !== 'No preference')
+            const withoutNoPreference = prev.filter(a => a !== 'no preference')
             return [...withoutNoPreference, atmosphere]
         })
     }
@@ -340,16 +351,20 @@ export default function CuisineResponseForm({
         }
     }
 
-    // Submission - updated for multiple selections
+    // Submission - updated for multiple selections and keyword-based format
     const handleSubmit = async () => {
         // Use saved preferences if the user hasn't changed them
         const finalDietary = useSavedPreferences && user?.preferences ? user.preferences : dietary
 
-        const notes = `Dining Preferences:
-🍽️ Cuisine: ${selectedCuisines.join(', ')}
-🏠 Atmosphere: ${selectedAtmospheres.join(', ')}
-💰 Budget: ${selectedBudget}
-🥗 Dietary Needs: ${finalDietary || 'None'}`.trim()
+        // Create keyword-based format for better backend parsing
+        const keywords = [
+            ...selectedCuisines,
+            ...selectedAtmospheres,
+            selectedBudget,
+            ...(finalDietary ? finalDietary.split(',').map(d => d.trim().toLowerCase()) : [])
+        ].filter(k => k && k !== 'no preference' && k.toLowerCase() !== 'none');
+
+        const notes = keywords.join(', ');
 
         try {
             let endpoint, requestOptions
@@ -487,15 +502,15 @@ export default function CuisineResponseForm({
                         <Text style={styles.multiSelectHint}>Select all cuisines you enjoy</Text>
                         <View style={styles.singleSelectGrid}>
                             {cuisineOptions.map(option => {
-                                const isSelected = selectedCuisines.includes(option.label)
+                                const isSelected = selectedCuisines.includes(option.value)
                                 return (
                                     <TouchableOpacity
-                                        key={option.label}
+                                        key={option.value}
                                         style={[
                                             styles.singleSelectCard,
                                             isSelected && styles.singleSelectCardSelected
                                         ]}
-                                        onPress={() => handleCuisineSelect(option.label)}
+                                        onPress={() => handleCuisineSelect(option.value)}
                                     >
                                         {isSelected && (
                                             <View style={styles.checkmark}>
@@ -523,15 +538,15 @@ export default function CuisineResponseForm({
                         <Text style={styles.multiSelectHint}>Select all that apply to your preferences</Text>
                         <View style={styles.singleSelectGrid}>
                             {atmosphereOptions.map(option => {
-                                const isSelected = selectedAtmospheres.includes(option.label)
+                                const isSelected = selectedAtmospheres.includes(option.value)
                                 return (
                                     <TouchableOpacity
-                                        key={option.label}
+                                        key={option.value}
                                         style={[
                                             styles.singleSelectCard,
                                             isSelected && styles.singleSelectCardSelected
                                         ]}
-                                        onPress={() => handleAtmosphereSelect(option.label)}
+                                        onPress={() => handleAtmosphereSelect(option.value)}
                                     >
                                         {isSelected && (
                                             <View style={styles.checkmark}>
@@ -559,17 +574,17 @@ export default function CuisineResponseForm({
                         <View style={styles.singleSelectGrid}>
                             {budgetOptions.map(option => (
                                 <TouchableOpacity
-                                    key={option.label}
+                                    key={option.value}
                                     style={[
                                         styles.singleSelectCard,
-                                        selectedBudget === option.label && styles.singleSelectCardSelected
+                                        selectedBudget === option.value && styles.singleSelectCardSelected
                                     ]}
-                                    onPress={() => setSelectedBudget(option.label)}
+                                    onPress={() => setSelectedBudget(option.value)}
                                 >
                                     <option.icon color="#fff" size={20} style={{ marginBottom: 8 }} />
                                     <Text style={[
                                         styles.singleSelectLabel,
-                                        selectedBudget === option.label && styles.singleSelectLabelSelected
+                                        selectedBudget === option.value && styles.singleSelectLabelSelected
                                     ]}>
                                         {option.label}
                                     </Text>

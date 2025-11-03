@@ -2,27 +2,23 @@ import React from 'react';
 import {
     View,
     Text,
-    ScrollView,
     TouchableOpacity,
     Modal,
-    Alert,
-    ActivityIndicator,
-    Linking,
     SafeAreaView,
+    StyleSheet,
+    ScrollView,
 } from 'react-native';
 import { Icons } from '../../constants/featherIcons';
-import KeywordTags from './KeywordTags';
-import TruncatedReview from './TruncatedReview';
-import PhotoGallery from './PhotoGallery';
-import HoursDisplay from './HoursDisplay';
-import { safeJsonParse, isKeywordFormat } from '../../utils/recommendationsUtils';
-import styles from '../../styles/AIRecommendationsStyles';
+import * as Haptics from 'expo-haptics';
+import RecommendationContent from './RecommendationContent';
 
 /**
  * RecommendationDetailModal - Full-screen modal for detailed recommendation view
  *
- * Used in both voting and finalized phases to show comprehensive details
- * about a recommendation including description, photos, reviews, and actions.
+ * Used when tapping a recommendation card in list/cards view.
+ * Provides immersive full-screen experience with slide-up animation.
+ *
+ * For map markers, use DraggableBottomSheet instead.
  */
 const RecommendationDetailModal = ({
     visible,
@@ -38,218 +34,108 @@ const RecommendationDetailModal = ({
     favoriteLoading = false,
     onFavorite,
 }) => {
-    if (!recommendation) return null;
-
-    const openMapWithAddress = (address) => {
-        if (!address) return;
-        const encodedAddress = encodeURIComponent(address);
-        const url = `https://maps.apple.com/?address=${encodedAddress}`;
-        Linking.openURL(url);
+    const handleClose = () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        onClose();
     };
+
+    if (!recommendation) return null;
 
     return (
         <Modal
             visible={visible}
             animationType="slide"
-            onRequestClose={onClose}
+            presentationStyle="pageSheet"
+            onRequestClose={handleClose}
         >
-            <SafeAreaView style={styles.detailModal}>
-                <View style={styles.detailModalHeader}>
-                    <Text style={styles.detailModalTitle}>
-                        {recommendation?.title || recommendation?.name}
-                    </Text>
-                    <TouchableOpacity style={styles.detailCloseButton} onPress={onClose}>
-                        <Icons.X />
+            <SafeAreaView style={styles.safeArea}>
+                {/* Header */}
+                <View style={styles.header}>
+                    <View style={styles.headerContent}>
+                        <Text style={styles.title} numberOfLines={2}>
+                            {recommendation?.title || recommendation?.name}
+                        </Text>
+                    </View>
+                    <TouchableOpacity
+                        style={styles.closeButton}
+                        onPress={handleClose}
+                        activeOpacity={0.7}
+                    >
+                        <View style={styles.closeButtonCircle}>
+                            <Icons.X color="#fff" size={20} />
+                        </View>
                     </TouchableOpacity>
                 </View>
 
-                <ScrollView style={styles.detailModalBody}>
-                    {/* Quick Info Grid */}
-                    <View style={styles.detailGrid}>
-                        {isGameNightActivity ? (
-                            <>
-                                <View style={styles.detailItem}>
-                                    <Icons.Users />
-                                    <Text style={styles.detailLabel}>Players:</Text>
-                                    <Text style={styles.detailValue}>
-                                        {recommendation?.address || 'N/A'}
-                                    </Text>
-                                </View>
-                                <View style={styles.detailItem}>
-                                    <Icons.Clock />
-                                    <Text style={styles.detailLabel}>Play Time:</Text>
-                                    <HoursDisplay
-                                        hours={recommendation?.hours}
-                                        style={styles.detailValue}
-                                    />
-                                </View>
-                                <View style={styles.detailItem}>
-                                    <Icons.DollarSign />
-                                    <Text style={styles.detailLabel}>Price:</Text>
-                                    <Text style={styles.detailValue}>
-                                        {recommendation?.price_range || 'N/A'}
-                                    </Text>
-                                </View>
-                            </>
-                        ) : (
-                            <>
-                                <View style={styles.detailItem}>
-                                    <Icons.DollarSign />
-                                    <Text style={styles.detailLabel}>Price:</Text>
-                                    <Text style={styles.detailValue}>
-                                        {recommendation?.price_range || 'N/A'}
-                                    </Text>
-                                </View>
-                                <View style={styles.detailItem}>
-                                    <Icons.Clock />
-                                    <Text style={styles.detailLabel}>Hours:</Text>
-                                    <HoursDisplay
-                                        hours={recommendation?.hours}
-                                        style={styles.detailValue}
-                                    />
-                                </View>
-                            </>
-                        )}
-                    </View>
-
-                    {/* About Section */}
-                    {recommendation?.description && (
-                        <View style={styles.section}>
-                            <View style={styles.sectionHeader}>
-                                <Icons.HelpCircle />
-                                <Text style={styles.sectionTitle}>About</Text>
-                            </View>
-                            <Text style={styles.description}>{recommendation.description}</Text>
-                            {recommendation.website && (
-                                <TouchableOpacity
-                                    style={styles.websiteLink}
-                                    onPress={() => Linking.openURL(recommendation.website)}
-                                >
-                                    <Icons.Globe />
-                                    <Text style={styles.websiteLinkText}>Visit Website</Text>
-                                    <Icons.ExternalLink />
-                                </TouchableOpacity>
-                            )}
-                        </View>
-                    )}
-
-                    {/* Why This Place? */}
-                    {recommendation?.reason && (
-                        <View style={styles.reason}>
-                            {isKeywordFormat(recommendation.reason) ? (
-                                <KeywordTags
-                                    keywords={recommendation.reason}
-                                    style={styles.detailTags}
-                                />
-                            ) : (
-                                <>
-                                    <Text style={styles.reasonTitle}>
-                                        {activityText.reasonTitle}
-                                    </Text>
-                                    <Text style={styles.reasonText}>{recommendation.reason}</Text>
-                                </>
-                            )}
-                        </View>
-                    )}
-
-                    {/* Location */}
-                    {!isGameNightActivity && recommendation?.address && (
-                        <View style={styles.section}>
-                            <View style={styles.sectionHeader}>
-                                <Icons.MapPin />
-                                <Text style={styles.sectionTitle}>Location</Text>
-                            </View>
-                            <TouchableOpacity
-                                onPress={() => openMapWithAddress(recommendation.address)}
-                            >
-                                <Text style={[styles.description, styles.addressLink]}>
-                                    {recommendation.address}
-                                </Text>
-                            </TouchableOpacity>
-                        </View>
-                    )}
-
-                    {/* Photos */}
-                    {!isGameNightActivity && recommendation?.photos && (
-                        <PhotoGallery
-                            photos={safeJsonParse(recommendation.photos, [])}
-                        />
-                    )}
-
-                    {/* Reviews */}
-                    {!isGameNightActivity && recommendation?.reviews && (() => {
-                        const reviews = safeJsonParse(recommendation.reviews, []);
-                        return reviews.length > 0 && (
-                            <View style={styles.section}>
-                                <View style={styles.sectionHeader}>
-                                    <Icons.Star />
-                                    <Text style={styles.sectionTitle}>Reviews</Text>
-                                </View>
-                                {reviews.slice(0, 3).map((review, i) => (
-                                    <TruncatedReview key={i} review={review} />
-                                ))}
-                            </View>
-                        );
-                    })()}
+                {/* Scrollable Content */}
+                <ScrollView
+                    style={styles.scrollView}
+                    contentContainerStyle={styles.scrollContent}
+                    showsVerticalScrollIndicator={true}
+                    bounces={true}
+                >
+                    <RecommendationContent
+                        recommendation={recommendation}
+                        onFavorite={onFavorite}
+                        isFavorited={isFavorited}
+                        favoriteLoading={favoriteLoading}
+                        onFlag={onFlagToggle}
+                        isFlagged={isFlagged}
+                        isGameNightActivity={isGameNightActivity}
+                        showActions={true}
+                        showQuickActions={true}
+                    />
                 </ScrollView>
-
-                {/* Action Buttons */}
-                <View style={styles.modalActionButtons}>
-                    {/* Flag Button */}
-                    {onFlagToggle && (
-                        <TouchableOpacity
-                            style={[
-                                styles.modalActionButton,
-                                isFlagged && styles.modalActionButtonActive
-                            ]}
-                            onPress={onFlagToggle}
-                        >
-                            <Icons.Flag
-                                color={isFlagged ? "#e74c3c" : "#999"}
-                                size={20}
-                            />
-                            <Text style={[
-                                styles.modalActionButtonText,
-                                isFlagged && styles.modalActionButtonTextActive
-                            ]}>
-                                {isFlagged ? 'Flagged' : 'Flag'}
-                            </Text>
-                        </TouchableOpacity>
-                    )}
-
-                    {/* Favorite Button */}
-                    {onFavorite && (
-                        <TouchableOpacity
-                            style={[
-                                styles.modalActionButton,
-                                styles.modalFavoriteButton,
-                                isFavorited && styles.modalFavoriteButtonActive
-                            ]}
-                            onPress={onFavorite}
-                            disabled={favoriteLoading}
-                        >
-                            {favoriteLoading ? (
-                                <ActivityIndicator size="small" color="#D4AF37" />
-                            ) : (
-                                <>
-                                    <Icons.Star
-                                        color={isFavorited ? "#D4AF37" : "#fff"}
-                                        size={20}
-                                    />
-                                    <Text style={[
-                                        styles.modalFavoriteButtonText,
-                                        isFavorited && styles.modalFavoriteButtonTextActive
-                                    ]}>
-                                        {isFavorited ? 'Favorited' : 'Add to Favorites'}
-                                    </Text>
-                                </>
-                            )}
-                        </TouchableOpacity>
-                    )}
-                </View>
             </SafeAreaView>
         </Modal>
     );
 };
+
+const styles = StyleSheet.create({
+    safeArea: {
+        flex: 1,
+        backgroundColor: '#201925',
+    },
+    header: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 20,
+        paddingVertical: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+        gap: 12,
+    },
+    headerContent: {
+        flex: 1,
+    },
+    title: {
+        fontSize: 22,
+        fontWeight: '700',
+        color: '#fff',
+        fontFamily: 'Montserrat_700Bold',
+    },
+    closeButton: {
+        padding: 4,
+    },
+    closeButtonCircle: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: 'rgba(147, 51, 234, 0.2)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(147, 51, 234, 0.3)',
+    },
+    scrollView: {
+        flex: 1,
+    },
+    scrollContent: {
+        paddingHorizontal: 16,
+        paddingTop: 8,
+        paddingBottom: 40,
+    },
+});
 
 export default RecommendationDetailModal;

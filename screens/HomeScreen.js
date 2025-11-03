@@ -769,6 +769,7 @@ export default function HomeScreen({ route }) {
           showViewAll={true}
           onViewAll={() => navigation.navigate('Explore')}
           isFirstTimeUser={isFirstTimeUser}
+          onStartSearch={() => setShowActivityCreation(true)}
         />
         <ListFooter />
       </ScrollView>

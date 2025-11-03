@@ -16,7 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { UserContext } from '../context/UserContext'
 import { useNavigation } from '@react-navigation/native';
 import { API_URL } from '../config';
-import { ArrowLeft, Settings, Edit3, MapPin, Calendar, X, Activity, Users, ChevronRight } from 'react-native-feather';
+import { ArrowLeft, Settings, Edit3, MapPin, Calendar, X, Activity, Users, ChevronRight, HelpCircle } from 'react-native-feather';
 import { Hamburger, Martini, Dices } from 'lucide-react-native';
 import { logger } from '../utils/logger';
 import { getUserDisplayImage } from '../utils/avatarManager';
@@ -88,7 +88,6 @@ export default function ProfileScreen() {
     const [savingPreferences, setSavingPreferences] = useState(false);
 
     // Name editing states
-    const [showEditNameModal, setShowEditNameModal] = useState(false);
     const [editedName, setEditedName] = useState(user?.name || '');
     const [savingName, setSavingName] = useState(false);
 
@@ -470,7 +469,7 @@ export default function ProfileScreen() {
         <SafeAreaView style={styles.safe} edges={['top']}>
             <StatusBar barStyle="light-content" />
 
-            {/* Header with back and settings button */}
+            {/* Header with back, FAQ, and settings button */}
             <View style={styles.header}>
                 <TouchableOpacity
                     style={styles.backButton}
@@ -480,27 +479,24 @@ export default function ProfileScreen() {
                     <ArrowLeft stroke="#fff" width={24} height={24} strokeWidth={2} />
                 </TouchableOpacity>
                 <View style={styles.headerContent}>
+                    <Text style={styles.headerTitle}>Your Profile</Text>
+                </View>
+                <View style={styles.headerRightButtons}>
                     <TouchableOpacity
-                        style={styles.headerNameContainer}
-                        onPress={() => {
-                            setEditedName(user?.name || '');
-                            setShowEditNameModal(true);
-                        }}
+                        style={styles.faqButton}
+                        onPress={() => navigation.navigate('FAQ')}
                         activeOpacity={0.7}
                     >
-                        <Text style={styles.headerTitle}>{user?.name || 'User'}</Text>
-                        <View style={styles.editIconContainer}>
-                            <Edit3 stroke="#B8A5C4" width={18} height={18} strokeWidth={2} />
-                        </View>
+                        <HelpCircle stroke="#fff" width={24} height={24} strokeWidth={2} />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={styles.settingsButton}
+                        onPress={() => navigation.navigate('Settings')}
+                        activeOpacity={0.7}
+                    >
+                        <Settings stroke="#fff" width={24} height={24} strokeWidth={2} />
                     </TouchableOpacity>
                 </View>
-                <TouchableOpacity
-                    style={styles.settingsButton}
-                    onPress={() => navigation.navigate('Settings')}
-                    activeOpacity={0.7}
-                >
-                    <Settings stroke="#fff" width={24} height={24} strokeWidth={2} />
-                </TouchableOpacity>
             </View>
 
             <ScrollView
@@ -520,6 +516,10 @@ export default function ProfileScreen() {
                     onLocationSelect={handleLocationSelect}
                     onSaveLocation={handleSaveLocation}
                     onCancelLocationEdit={handleCancelLocationEdit}
+                    editedName={editedName}
+                    onNameChange={setEditedName}
+                    onSaveName={handleSaveName}
+                    savingName={savingName}
                 />
 
                 {/* Profile Completion Banner */}
@@ -752,56 +752,6 @@ export default function ProfileScreen() {
                 saving={savingPreferences}
             />
 
-            {/* Edit Name Modal */}
-            <Modal
-                visible={showEditNameModal}
-                animationType="slide"
-                presentationStyle="pageSheet"
-                onRequestClose={() => setShowEditNameModal(false)}
-            >
-                <SafeAreaView style={styles.modalContainer} edges={['top']}>
-                    <View style={styles.modalHeader}>
-                        <TouchableOpacity
-                            style={styles.modalCloseButton}
-                            onPress={() => setShowEditNameModal(false)}
-                        >
-                            <X stroke="#fff" width={20} height={20} strokeWidth={2.5} />
-                        </TouchableOpacity>
-                        <Text style={styles.modalTitle}>Edit Name</Text>
-                        <View style={styles.modalHeaderSpacer} />
-                    </View>
-
-                    <View style={styles.editNameContent}>
-                        <Text style={styles.editNameLabel}>Your Name</Text>
-                        <TextInput
-                            style={styles.editNameInput}
-                            value={editedName}
-                            onChangeText={setEditedName}
-                            placeholder="Enter your name"
-                            placeholderTextColor="#666"
-                            autoFocus
-                            returnKeyType="done"
-                            onSubmitEditing={handleSaveName}
-                        />
-                        <Text style={styles.editNameHint}>
-                            This is how your name will appear to other users
-                        </Text>
-
-                        <TouchableOpacity
-                            style={[styles.saveNameButton, savingName && styles.saveNameButtonDisabled]}
-                            onPress={handleSaveName}
-                            disabled={savingName}
-                            activeOpacity={0.8}
-                        >
-                            {savingName ? (
-                                <ActivityIndicator color="#fff" />
-                            ) : (
-                                <Text style={styles.saveNameButtonText}>Save Name</Text>
-                            )}
-                        </TouchableOpacity>
-                    </View>
-                </SafeAreaView>
-            </Modal>
         </SafeAreaView>
     );
 }
@@ -831,6 +781,24 @@ const styles = StyleSheet.create({
         marginRight: 16,
     },
 
+    headerRightButtons: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        marginLeft: 16,
+    },
+
+    faqButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: 'rgba(146, 97, 229, 0.15)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(146, 97, 229, 0.3)',
+    },
+
     settingsButton: {
         width: 40,
         height: 40,
@@ -840,18 +808,12 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         borderWidth: 1,
         borderColor: 'rgba(146, 97, 229, 0.3)',
-        marginLeft: 16,
     },
 
     headerContent: {
         flex: 1,
         justifyContent: 'center',
-    },
-
-    headerNameContainer: {
-        flexDirection: 'row',
         alignItems: 'center',
-        gap: 8,
     },
 
     headerTitle: {
@@ -859,23 +821,6 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         color: '#fff',
         fontFamily: 'Montserrat_700Bold',
-    },
-
-    editIconContainer: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        backgroundColor: 'rgba(184, 165, 196, 0.15)',
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderWidth: 1,
-        borderColor: 'rgba(184, 165, 196, 0.3)',
-    },
-
-    headerSubtitle: {
-        fontSize: 14,
-        color: '#B8A5C4',
-        fontWeight: '500',
     },
 
     container: {
@@ -1119,57 +1064,5 @@ const styles = StyleSheet.create({
         color: 'rgba(255, 255, 255, 0.7)',
         fontSize: 12,
         fontWeight: '500',
-    },
-
-    // Edit Name Modal Styles
-    editNameContent: {
-        padding: 24,
-    },
-
-    editNameLabel: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: '#fff',
-        marginBottom: 12,
-        fontFamily: 'Montserrat_600SemiBold',
-    },
-
-    editNameInput: {
-        backgroundColor: 'rgba(42, 30, 46, 0.8)',
-        borderRadius: 12,
-        padding: 16,
-        fontSize: 16,
-        color: '#fff',
-        borderWidth: 1,
-        borderColor: 'rgba(185, 84, 236, 0.3)',
-        marginBottom: 12,
-        fontFamily: 'Montserrat_500Medium',
-    },
-
-    editNameHint: {
-        fontSize: 13,
-        color: '#B8A5C4',
-        marginBottom: 24,
-        lineHeight: 18,
-    },
-
-    saveNameButton: {
-        backgroundColor: '#9261E5',
-        paddingVertical: 16,
-        borderRadius: 12,
-        alignItems: 'center',
-        justifyContent: 'center',
-        minHeight: 52,
-    },
-
-    saveNameButtonDisabled: {
-        opacity: 0.6,
-    },
-
-    saveNameButtonText: {
-        color: '#fff',
-        fontSize: 16,
-        fontWeight: '600',
-        fontFamily: 'Montserrat_600SemiBold',
     },
 });

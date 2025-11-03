@@ -1,10 +1,8 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { HelpCircle, BookOpen, ChevronDown, ChevronUp, Mail } from 'react-native-feather';
-import { LinearGradient } from 'expo-linear-gradient';
-import VoxxyFooter from '../components/VoxxyFooter';
-import VoxxyLogo from '../assets/header.svg';
+import { HelpCircle, BookOpen, ChevronDown, ChevronUp, Mail, ArrowLeft } from 'react-native-feather';
+import { useNavigation } from '@react-navigation/native';
 import ContactModal from '../components/ContactModal';
 
 const colors = {
@@ -77,6 +75,7 @@ const steps = [
 ];
 
 export default function FAQScreen() {
+    const navigation = useNavigation();
     const [selectedTab, setSelectedTab] = useState('faq');
     const [expanded, setExpanded] = useState({});
     const [showContactModal, setShowContactModal] = useState(false);
@@ -90,27 +89,25 @@ export default function FAQScreen() {
             <StatusBar barStyle="light-content" />
 
             {/* Header */}
-            <View style={styles.headerContainer}>
-                <View style={styles.header}>
-                    <View style={styles.logoContainer}>
-                        <View style={styles.logoGlow}>
-                            <VoxxyLogo height={36} width={120} />
-                        </View>
-                    </View>
-                    <TouchableOpacity
-                        style={styles.contactButton}
-                        onPress={() => setShowContactModal(true)}
-                        activeOpacity={0.7}
-                    >
-                        <Mail color="#fff" size={20} strokeWidth={2} />
-                    </TouchableOpacity>
+            <View style={styles.header}>
+                <TouchableOpacity
+                    style={styles.backButton}
+                    onPress={() => navigation.goBack()}
+                    activeOpacity={0.7}
+                >
+                    <ArrowLeft color="#fff" size={24} strokeWidth={2} />
+                </TouchableOpacity>
+                <View style={styles.headerContent}>
+                    <Text style={styles.headerTitle}>FAQ & Help</Text>
+                    <Text style={styles.headerSubtitle}>Get answers and quick tips</Text>
                 </View>
-                <LinearGradient
-                    colors={['#B954EC', '#667eea', '#B954EC']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={styles.headerBorder}
-                />
+                <TouchableOpacity
+                    style={styles.contactButton}
+                    onPress={() => setShowContactModal(true)}
+                    activeOpacity={0.7}
+                >
+                    <Mail color="#fff" size={20} strokeWidth={2} />
+                </TouchableOpacity>
             </View>
 
             <View style={styles.container}>
@@ -192,8 +189,6 @@ export default function FAQScreen() {
                 </ScrollView>
             </View>
 
-            <VoxxyFooter />
-
             {/* Contact Modal */}
             <ContactModal
                 visible={showContactModal}
@@ -209,22 +204,41 @@ const styles = StyleSheet.create({
         backgroundColor: '#201925',
     },
 
-    headerContainer: {
-        backgroundColor: '#201925',
-    },
-
     header: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between',
-        height: 60,
         paddingHorizontal: 20,
+        paddingVertical: 16,
+        paddingTop: 20,
         backgroundColor: '#201925',
     },
 
-    logoContainer: {
+    backButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: 'rgba(255, 255, 255, 0.1)',
         justifyContent: 'center',
-        alignItems: 'flex-start',
+        alignItems: 'center',
+        marginRight: 16,
+    },
+
+    headerContent: {
+        flex: 1,
+    },
+
+    headerTitle: {
+        fontSize: 24,
+        fontWeight: '700',
+        color: '#fff',
+        marginBottom: 4,
+        fontFamily: 'Montserrat_700Bold',
+    },
+
+    headerSubtitle: {
+        fontSize: 14,
+        color: '#B8A5C4',
+        fontWeight: '500',
     },
 
     contactButton: {
@@ -236,23 +250,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         borderWidth: 1,
         borderColor: 'rgba(204, 49, 232, 0.5)',
-    },
-
-    logoGlow: {
-        shadowColor: '#9f2fce',
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.6,
-        shadowRadius: 12,
-        elevation: 12,
-    },
-
-    headerBorder: {
-        height: 2,
-        shadowColor: '#B954EC',
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.8,
-        shadowRadius: 8,
-        elevation: 8,
+        marginLeft: 16,
     },
 
     container: {
@@ -293,7 +291,7 @@ const styles = StyleSheet.create({
     },
     scrollContainer: {
         padding: 20,
-        paddingBottom: 120,
+        paddingBottom: 40,
     },
     card: {
         backgroundColor: '#2A1E30',

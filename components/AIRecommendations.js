@@ -912,149 +912,158 @@ export default function AIRecommendations({
     if (collecting) {
         return (
             <>
-                <ScrollView style={styles.transparentContainer} contentContainerStyle={styles.contentContainer}>
+                <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
                     {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
                     {/* User Action Section */}
                     {user && !currentUserResponse ? (
-                        <Animated.View
-                            style={[
-                                styles.actionCard,
-                                {
-                                    transform: [{ translateY: showGenerateModal ? 5 : 0 }]
-                                }
-                            ]}
-                        >
-                            <View style={styles.socialActionContainer}>
-                                {/* Two Options */}
-                                <View style={styles.optionsContainer}>
-                                    {/* Option 1: Use Profile - Active by default if user has preferences */}
-                                    <View
-                                        style={[
-                                            styles.optionCard,
-                                            !userHasProfilePreferences(user, activityType) && styles.optionCardDisabled,
-                                            userHasProfilePreferences(user, activityType) && styles.optionCardActive
-                                        ]}
-                                    >
-                                        <View style={[
-                                            styles.optionIconContainer,
-                                            userHasProfilePreferences(user, activityType) && styles.optionIconActive
-                                        ]}>
-                                            <Icon
-                                                name="user"
-                                                size={20}
-                                                color={userHasProfilePreferences(user, activityType) ? "#ffffff" : "#6b7280"}
-                                            />
+                        <View style={{ marginHorizontal: 16, marginTop: 16, marginBottom: 12 }}>
+                            <LinearGradient
+                                colors={['#cc31e8', '#667eea', '#cc31e8']}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 1 }}
+                                style={styles.collectingCardGradientBorder}
+                            >
+                                <View style={styles.collectingCardInner}>
+                                    {/* Section Header */}
+                                    <View style={styles.collectingSectionHeader}>
+                                        <View style={styles.collectingIconWrapper}>
+                                            <Icons.MessageCircle color="#9333ea" size={20} />
                                         </View>
-                                        <Text style={[
-                                            styles.optionTitle,
-                                            !userHasProfilePreferences(user, activityType) && styles.optionTitleDisabled
-                                        ]}>
-                                            Use My Profile
-                                        </Text>
-                                        {userHasProfilePreferences(user, activityType) && (
-                                            <View style={styles.activeIndicator}>
-                                                <Icon name="check" size={14} color="#8b5cf6" />
-                                                <Text style={styles.activeIndicatorText}>Selected by default</Text>
-                                            </View>
-                                        )}
+                                        <Text style={styles.collectingSectionTitle}>Share Your Preferences</Text>
                                     </View>
 
-                                    {/* Option 2: Custom Preferences */}
-                                    <TouchableOpacity
-                                        style={styles.optionCard}
-                                        onPress={handleStartChat}
-                                    >
-                                        <View style={styles.optionIconContainer}>
-                                            <Icon name="edit-3" size={20} color="#8b5cf6" />
+                                    {/* Two Options */}
+                                    <View style={styles.optionsContainer}>
+                                        {/* Option 1: Use Profile - Active by default if user has preferences */}
+                                        <View
+                                            style={[
+                                                styles.optionCard,
+                                                !userHasProfilePreferences(user, activityType) && styles.optionCardDisabled,
+                                                userHasProfilePreferences(user, activityType) && styles.optionCardActive
+                                            ]}
+                                        >
+                                            <View style={[
+                                                styles.optionIconContainer,
+                                                userHasProfilePreferences(user, activityType) && styles.optionIconActive
+                                            ]}>
+                                                <Icon
+                                                    name="user"
+                                                    size={18}
+                                                    color={userHasProfilePreferences(user, activityType) ? "#ffffff" : "#6b7280"}
+                                                />
+                                            </View>
+                                            <Text style={[
+                                                styles.optionTitle,
+                                                !userHasProfilePreferences(user, activityType) && styles.optionTitleDisabled
+                                            ]}>
+                                                Use My Profile
+                                            </Text>
+                                            {userHasProfilePreferences(user, activityType) && (
+                                                <View style={styles.activeIndicatorCompact}>
+                                                    <Icon name="check-circle" size={16} color="#10b981" />
+                                                </View>
+                                            )}
                                         </View>
-                                        <Text style={styles.optionTitle}>Submit New Preferences</Text>
-                                    </TouchableOpacity>
+
+                                        {/* Option 2: Custom Preferences */}
+                                        <TouchableOpacity
+                                            style={styles.optionCard}
+                                            onPress={handleStartChat}
+                                            activeOpacity={0.7}
+                                        >
+                                            <View style={styles.optionIconContainer}>
+                                                <Icon name="edit-3" size={18} color="#8b5cf6" />
+                                            </View>
+                                            <Text style={styles.optionTitle}>Custom Preferences</Text>
+                                        </TouchableOpacity>
+                                    </View>
                                 </View>
-                            </View>
-                        </Animated.View>
+                            </LinearGradient>
+                        </View>
                     ) : user && currentUserResponse ? (
-                        <View style={styles.actionCard}>
-                            <View style={styles.socialActionContainer}>
-                                {/* Two Options - Show which one is active */}
-                                <View style={styles.optionsContainer}>
-                                    {/* Option 1: Use Profile - Show if NO custom response */}
-                                    <View
-                                        style={[
-                                            styles.optionCard,
-                                            !currentUserResponse.notes && userHasProfilePreferences(user, activityType) && styles.optionCardActive
-                                        ]}
-                                    >
-                                        <View style={[
-                                            styles.optionIconContainer,
-                                            !currentUserResponse.notes && userHasProfilePreferences(user, activityType) && styles.optionIconActive
-                                        ]}>
-                                            <Icon
-                                                name="user"
-                                                size={20}
-                                                color={!currentUserResponse.notes && userHasProfilePreferences(user, activityType) ? "#ffffff" : "#6b7280"}
-                                            />
+                        <View style={{ marginHorizontal: 16, marginTop: 16, marginBottom: 12 }}>
+                            <LinearGradient
+                                colors={['#cc31e8', '#667eea', '#cc31e8']}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 1 }}
+                                style={styles.collectingCardGradientBorder}
+                            >
+                                <View style={styles.collectingCardInner}>
+                                    {/* Section Header */}
+                                    <View style={styles.collectingSectionHeader}>
+                                        <View style={styles.collectingIconWrapper}>
+                                            <Icons.CheckCircle color="#10b981" size={20} />
                                         </View>
-                                        <Text style={[
-                                            styles.optionTitle,
-                                            (currentUserResponse.notes || !userHasProfilePreferences(user, activityType)) && styles.optionTitleDisabled
-                                        ]}>
-                                            Use My Profile
-                                        </Text>
-                                        <Text style={[
-                                            styles.optionDescription,
-                                            (currentUserResponse.notes || !userHasProfilePreferences(user, activityType)) && styles.optionDescriptionDisabled
-                                        ]}>
-                                            Use saved preferences from your profile
-                                        </Text>
-                                        {!currentUserResponse.notes && userHasProfilePreferences(user, activityType) && (
-                                            <View style={styles.activeIndicator}>
-                                                <Icon name="check" size={14} color="#8b5cf6" />
-                                                <Text style={styles.activeIndicatorText}>Currently using</Text>
-                                            </View>
-                                        )}
+                                        <Text style={styles.collectingSectionTitle}>Your Preferences</Text>
                                     </View>
 
-                                    {/* Option 2: Custom Preferences - Show if custom response exists */}
-                                    <TouchableOpacity
-                                        style={[
-                                            styles.optionCard,
-                                            currentUserResponse.notes && styles.optionCardActive
-                                        ]}
-                                        onPress={handleStartChat}
-                                        activeOpacity={0.7}
-                                    >
-                                        <View style={[
-                                            styles.optionIconContainer,
-                                            currentUserResponse.notes && styles.optionIconActive
-                                        ]}>
-                                            <Icon
-                                                name="edit-3"
-                                                size={20}
-                                                color={currentUserResponse.notes ? "#ffffff" : "#6b7280"}
-                                            />
-                                        </View>
-                                        <Text style={[
-                                            styles.optionTitle,
-                                            !currentUserResponse.notes && styles.optionTitleDisabled
-                                        ]}>
-                                            {currentUserResponse.notes ? "Custom Preferences" : "Feeling Something Different?"}
-                                        </Text>
-                                        <Text style={[
-                                            styles.optionDescription,
-                                            !currentUserResponse.notes && styles.optionDescriptionDisabled
-                                        ]}>
-                                            {currentUserResponse.notes ? "Tap to resubmit preferences" : "Take a quick survey and let us know the vibe"}
-                                        </Text>
-                                        {currentUserResponse.notes && (
-                                            <View style={styles.activeIndicator}>
-                                                <Icon name="check" size={14} color="#8b5cf6" />
-                                                <Text style={styles.activeIndicatorText}>Currently using</Text>
+                                    {/* Two Options - Show which one is active */}
+                                    <View style={styles.optionsContainer}>
+                                        {/* Option 1: Use Profile - Show if NO custom response */}
+                                        <View
+                                            style={[
+                                                styles.optionCard,
+                                                !currentUserResponse.notes && userHasProfilePreferences(user, activityType) && styles.optionCardActive
+                                            ]}
+                                        >
+                                            <View style={[
+                                                styles.optionIconContainer,
+                                                !currentUserResponse.notes && userHasProfilePreferences(user, activityType) && styles.optionIconActive
+                                            ]}>
+                                                <Icon
+                                                    name="user"
+                                                    size={18}
+                                                    color={!currentUserResponse.notes && userHasProfilePreferences(user, activityType) ? "#ffffff" : "#6b7280"}
+                                                />
                                             </View>
-                                        )}
-                                    </TouchableOpacity>
+                                            <Text style={[
+                                                styles.optionTitle,
+                                                (currentUserResponse.notes || !userHasProfilePreferences(user, activityType)) && styles.optionTitleDisabled
+                                            ]}>
+                                                Use My Profile
+                                            </Text>
+                                            {!currentUserResponse.notes && userHasProfilePreferences(user, activityType) && (
+                                                <View style={styles.activeIndicatorCompact}>
+                                                    <Icon name="check-circle" size={16} color="#10b981" />
+                                                </View>
+                                            )}
+                                        </View>
+
+                                        {/* Option 2: Custom Preferences - Show if custom response exists */}
+                                        <TouchableOpacity
+                                            style={[
+                                                styles.optionCard,
+                                                currentUserResponse.notes && styles.optionCardActive
+                                            ]}
+                                            onPress={handleStartChat}
+                                            activeOpacity={0.7}
+                                        >
+                                            <View style={[
+                                                styles.optionIconContainer,
+                                                currentUserResponse.notes && styles.optionIconActive
+                                            ]}>
+                                                <Icon
+                                                    name="edit-3"
+                                                    size={18}
+                                                    color={currentUserResponse.notes ? "#ffffff" : "#6b7280"}
+                                                />
+                                            </View>
+                                            <Text style={[
+                                                styles.optionTitle,
+                                                !currentUserResponse.notes && styles.optionTitleDisabled
+                                            ]}>
+                                                Custom Preferences
+                                            </Text>
+                                            {currentUserResponse.notes && (
+                                                <View style={styles.activeIndicatorCompact}>
+                                                    <Icon name="check-circle" size={16} color="#10b981" />
+                                                </View>
+                                            )}
+                                        </TouchableOpacity>
+                                    </View>
                                 </View>
-                            </View>
+                            </LinearGradient>
                         </View>
                     ) : null}
 
@@ -1062,68 +1071,69 @@ export default function AIRecommendations({
 
                     {/* Generate Recommendations Button */}
                     {isOwner && (
-                        <TouchableOpacity
-                            onPress={() => totalWithInput > 0 && setShowGenerateModal(true)}
-                            activeOpacity={0.85}
-                            disabled={totalWithInput === 0}
-                            style={styles.generateButtonContainer}
-                        >
-                            {/* Gradient Border */}
-                            <LinearGradient
-                                colors={totalWithInput === 0 ? ['#4b5563', '#374151'] : ['#cc31e8', '#667eea', '#cc31e8']}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 1 }}
-                                style={styles.generateButtonGradientBorder}
+                        <View style={{ marginHorizontal: 16, marginTop: 8, marginBottom: 20 }}>
+                            <TouchableOpacity
+                                onPress={() => totalWithInput > 0 && setShowGenerateModal(true)}
+                                activeOpacity={0.85}
+                                disabled={totalWithInput === 0}
                             >
-                                <View style={styles.generateButtonInner}>
-                                    <View style={styles.generateButtonContent}>
-                                        {/* Icon with glow */}
-                                        <View style={styles.generateButtonIconContainer}>
-                                            <View style={styles.generateIconGlow} />
-                                            <Icons.Zap color="#ffffff" size={28} />
-                                        </View>
+                                {/* Gradient Border */}
+                                <LinearGradient
+                                    colors={totalWithInput === 0 ? ['#4b5563', '#374151'] : ['#cc31e8', '#667eea', '#cc31e8']}
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 1 }}
+                                    style={styles.generateButtonGradientBorder}
+                                >
+                                    <View style={styles.generateButtonInner}>
+                                        <View style={styles.generateButtonContent}>
+                                            {/* Icon with glow */}
+                                            <View style={styles.generateButtonIconContainer}>
+                                                <View style={styles.generateIconGlow} />
+                                                <Icons.Zap color="#ffffff" size={28} />
+                                            </View>
 
-                                        {/* Text */}
-                                        <View style={styles.generateTextContainer}>
-                                            <Text style={styles.generateButtonText}>
-                                                Generate Recommendations
-                                            </Text>
-                                            {(() => {
-                                                // Check if any participant is missing both response and profile preferences
-                                                const participantsWithoutPreferences = (activity?.activity_participants || []).filter(ap => {
-                                                    if (!ap.confirmed) return false; // Skip unconfirmed invites
+                                            {/* Text */}
+                                            <View style={styles.generateTextContainer}>
+                                                <Text style={styles.generateButtonText}>
+                                                    Generate Recommendations
+                                                </Text>
+                                                {(() => {
+                                                    // Check if any participant is missing both response and profile preferences
+                                                    const participantsWithoutPreferences = (activity?.activity_participants || []).filter(ap => {
+                                                        if (!ap.confirmed) return false; // Skip unconfirmed invites
 
-                                                    // Check if they have a response
-                                                    const hasResponse = responses.some(r => r.user_id === ap.apId);
-                                                    if (hasResponse) return false;
+                                                        // Check if they have a response
+                                                        const hasResponse = responses.some(r => r.user_id === ap.apId);
+                                                        if (hasResponse) return false;
 
-                                                    // Check if they have profile preferences
-                                                    const participant = activity.participants?.find(p => p.id === ap.apId);
-                                                    if (userHasProfilePreferences(participant, activityType)) return false;
+                                                        // Check if they have profile preferences
+                                                        const participant = activity.participants?.find(p => p.id === ap.apId);
+                                                        if (userHasProfilePreferences(participant, activityType)) return false;
 
-                                                    return true; // Missing both
-                                                });
+                                                        return true; // Missing both
+                                                    });
 
-                                                if (totalWithInput === 0) {
-                                                    return (
-                                                        <Text style={styles.generateButtonSubtext}>
-                                                            Invite your friends and gather their preferences to get your group's recommendations ✨
-                                                        </Text>
-                                                    );
-                                                } else if (participantsWithoutPreferences.length > 0) {
-                                                    return (
-                                                        <Text style={styles.generateButtonSubtext}>
-                                                            ⚠️ {participantsWithoutPreferences.length} participant{participantsWithoutPreferences.length === 1 ? '' : 's'} missing preferences
-                                                        </Text>
-                                                    );
-                                                }
-                                                return null; // No subtitle when ready
-                                            })()}
+                                                    if (totalWithInput === 0) {
+                                                        return (
+                                                            <Text style={styles.generateButtonSubtext}>
+                                                                Invite your friends and gather their preferences to get your group's recommendations ✨
+                                                            </Text>
+                                                        );
+                                                    } else if (participantsWithoutPreferences.length > 0) {
+                                                        return (
+                                                            <Text style={styles.generateButtonSubtext}>
+                                                                ⚠️ {participantsWithoutPreferences.length} participant{participantsWithoutPreferences.length === 1 ? '' : 's'} missing preferences
+                                                            </Text>
+                                                        );
+                                                    }
+                                                    return null; // No subtitle when ready
+                                                })()}
+                                            </View>
                                         </View>
                                     </View>
-                                </View>
-                            </LinearGradient>
-                        </TouchableOpacity>
+                                </LinearGradient>
+                            </TouchableOpacity>
+                        </View>
                     )}
 
                     {/* Generate Recommendations Modal */}
@@ -1913,13 +1923,15 @@ export default function AIRecommendations({
                         {/* Date and Time if available */}
                         {(activity.date_day || activity.date_time) && (
                             <View style={styles.eventDateBanner}>
-                                <Icons.Calendar color="#9333ea" size={22} />
+                                <View style={styles.eventDateIconCircle}>
+                                    <Icons.Calendar color="#9333ea" size={20} />
+                                </View>
                                 <View style={styles.eventDateTextContainer}>
                                     {activity.date_day && (
                                         <Text style={styles.eventDateText}>
                                             {new Date(activity.date_day).toLocaleDateString('en-US', {
-                                                weekday: 'long',
-                                                month: 'long',
+                                                weekday: 'short',
+                                                month: 'short',
                                                 day: 'numeric',
                                                 year: 'numeric'
                                             })}
@@ -1971,16 +1983,11 @@ export default function AIRecommendations({
                                 <Text style={styles.finalizedVenueSectionTitle}>Location Details</Text>
                             </View>
 
-                            {/* Venue Header with Title and Price */}
+                            {/* Venue Header with Title */}
                             <View style={styles.finalizedVenueHeader}>
                                 <Text style={styles.finalizedVenueTitle} numberOfLines={2}>
                                     {selectedPlace.title}
                                 </Text>
-                                {selectedPlace.price_range && (
-                                    <View style={styles.finalizedPriceTag}>
-                                        <Text style={styles.finalizedPriceText}>{selectedPlace.price_range}</Text>
-                                    </View>
-                                )}
                             </View>
 
                             {/* Description */}
@@ -1990,15 +1997,64 @@ export default function AIRecommendations({
                                 </Text>
                             )}
 
-                            {/* Address Meta - Enhanced background */}
-                            {selectedPlace.address && (
-                                <View style={styles.finalizedVenueMeta}>
-                                    <Icons.Navigation color="#9333ea" size={16} />
-                                    <Text style={styles.finalizedVenueAddress} numberOfLines={2}>
-                                        {selectedPlace.address}
-                                    </Text>
-                                </View>
-                            )}
+                            {/* Venue Details Grid */}
+                            <View style={styles.finalizedDetailsGrid}>
+                                {/* Address */}
+                                {selectedPlace.address && (
+                                    <View style={styles.finalizedDetailCard}>
+                                        <View style={styles.finalizedDetailIconContainer}>
+                                            <Icons.MapPin color="#a855f7" size={18} />
+                                        </View>
+                                        <View style={styles.finalizedDetailContent}>
+                                            <Text style={styles.finalizedDetailLabel}>Address</Text>
+                                            <Text style={styles.finalizedDetailValue} numberOfLines={2}>
+                                                {selectedPlace.address}
+                                            </Text>
+                                        </View>
+                                    </View>
+                                )}
+
+                                {/* Phone */}
+                                {selectedPlace.phone && (
+                                    <View style={styles.finalizedDetailCard}>
+                                        <View style={[styles.finalizedDetailIconContainer, { backgroundColor: 'rgba(16, 185, 129, 0.15)' }]}>
+                                            <Icons.Phone color="#10b981" size={18} />
+                                        </View>
+                                        <View style={styles.finalizedDetailContent}>
+                                            <Text style={styles.finalizedDetailLabel}>Phone</Text>
+                                            <Text style={styles.finalizedDetailValue}>{selectedPlace.phone}</Text>
+                                        </View>
+                                    </View>
+                                )}
+
+                                {/* Hours */}
+                                {selectedPlace.hours && (
+                                    <View style={styles.finalizedDetailCard}>
+                                        <View style={[styles.finalizedDetailIconContainer, { backgroundColor: 'rgba(245, 158, 11, 0.15)' }]}>
+                                            <Icons.Clock color="#f59e0b" size={18} />
+                                        </View>
+                                        <View style={styles.finalizedDetailContent}>
+                                            <Text style={styles.finalizedDetailLabel}>Hours</Text>
+                                            <Text style={styles.finalizedDetailValue} numberOfLines={2}>
+                                                {selectedPlace.hours}
+                                            </Text>
+                                        </View>
+                                    </View>
+                                )}
+
+                                {/* Price Range */}
+                                {selectedPlace.price_range && (
+                                    <View style={styles.finalizedDetailCard}>
+                                        <View style={[styles.finalizedDetailIconContainer, { backgroundColor: 'rgba(234, 179, 8, 0.15)' }]}>
+                                            <Icons.DollarSign color="#eab308" size={18} />
+                                        </View>
+                                        <View style={styles.finalizedDetailContent}>
+                                            <Text style={styles.finalizedDetailLabel}>Price</Text>
+                                            <Text style={styles.finalizedDetailValue}>{selectedPlace.price_range}</Text>
+                                        </View>
+                                    </View>
+                                )}
+                            </View>
 
                             {/* Action Buttons Row - Modernized with text labels and distinct colors */}
                             <View style={styles.finalizedVenueActions}>

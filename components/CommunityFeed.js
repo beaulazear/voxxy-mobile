@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,9 +8,11 @@ import {
   StyleSheet,
   TouchableOpacity,
   Dimensions,
+  Animated,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Users, Globe, Search, Share2, Heart } from 'react-native-feather';
+import * as Haptics from 'expo-haptics';
 import { UserContext } from '../context/UserContext';
 import CommunityFeedItem from './CommunityFeedItem';
 import { fetchCommunityFavorites } from '../utils/api';
@@ -18,7 +20,62 @@ import { logger } from '../utils/logger';
 
 const { height: screenHeight } = Dimensions.get('window');
 
-export default function CommunityFeed({ communityMembers, onFavoritePress, limit = 30, showViewAll = false, onViewAll, isFirstTimeUser = false }) {
+// Shimmer Animation Component
+function ShimmerIcon({ children, delay = 0 }) {
+  const shimmerAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    const shimmerLoop = Animated.loop(
+      Animated.sequence([
+        Animated.delay(delay),
+        Animated.parallel([
+          Animated.sequence([
+            Animated.timing(shimmerAnim, {
+              toValue: 1,
+              duration: 1500,
+              useNativeDriver: true,
+            }),
+            Animated.timing(shimmerAnim, {
+              toValue: 0,
+              duration: 1500,
+              useNativeDriver: true,
+            }),
+          ]),
+          Animated.sequence([
+            Animated.timing(scaleAnim, {
+              toValue: 1.08,
+              duration: 1500,
+              useNativeDriver: true,
+            }),
+            Animated.timing(scaleAnim, {
+              toValue: 1,
+              duration: 1500,
+              useNativeDriver: true,
+            }),
+          ]),
+        ]),
+      ])
+    );
+
+    shimmerLoop.start();
+
+    return () => shimmerLoop.stop();
+  }, [delay]);
+
+  const opacity = shimmerAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.7, 1],
+  });
+
+  return (
+    <Animated.View style={{ transform: [{ scale: scaleAnim }], opacity }}>
+      {children}
+    </Animated.View>
+  );
+}
+
+export default function CommunityFeed({ communityMembers, onFavoritePress, limit = 30, showViewAll = false, onViewAll, isFirstTimeUser = false, onStartSearch }) {
   const { user } = useContext(UserContext);
   const [feedData, setFeedData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -66,66 +123,103 @@ export default function CommunityFeed({ communityMembers, onFavoritePress, limit
       return (
         <View style={styles.firstTimeUserContainer}>
           <LinearGradient
-            colors={['rgba(185, 84, 236, 0.08)', 'rgba(185, 84, 236, 0.02)']}
+            colors={['rgba(185, 84, 236, 0.12)', 'rgba(78, 205, 196, 0.08)', 'rgba(255, 230, 109, 0.08)']}
             start={{ x: 0, y: 0 }}
             end={{ x: 0, y: 1 }}
             style={styles.firstTimeUserGradient}
           >
-            <View style={styles.firstTimeUserIconContainer}>
-              <LinearGradient
-                colors={['#B954EC', '#8B35C4']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.firstTimeUserIconGradient}
-              >
-                <Users color="#ffffff" size={32} strokeWidth={2.5} />
-              </LinearGradient>
-            </View>
-            <Text style={styles.firstTimeUserTitle}>Build Your Community</Text>
-            <Text style={styles.firstTimeUserText}>
-              Once you create your first activity and invite friends, you'll see their favorite spots here!
-            </Text>
-            <View style={styles.firstTimeUserSteps}>
-              <View style={styles.firstTimeUserStep}>
-                <LinearGradient
-                  colors={['#B954EC', '#8B35C4']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.firstTimeUserStepIcon}
-                >
-                  <Search color="#ffffff" size={18} strokeWidth={2.5} />
-                </LinearGradient>
-                <View style={styles.firstTimeUserStepContent}>
-                  <Text style={styles.firstTimeUserStepTitle}>Search for Places</Text>
-                  <Text style={styles.firstTimeUserStepText}>Tap the button above to find restaurants & bars</Text>
+            <View style={styles.firstTimeUserContent}>
+              <View style={styles.firstTimeUserHeroSection}>
+                <View style={styles.firstTimeUserIconCircle}>
+                  <LinearGradient
+                    colors={['#B954EC', '#8B35C4']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.firstTimeUserIconGradient}
+                  >
+                    <Users color="#ffffff" size={32} strokeWidth={2.5} />
+                  </LinearGradient>
                 </View>
+                <Text style={styles.firstTimeUserTitle}>Build Your Community! 🎉</Text>
+                <Text style={styles.firstTimeUserSubtitle}>
+                  Your adventure starts here
+                </Text>
               </View>
-              <View style={styles.firstTimeUserStep}>
-                <LinearGradient
-                  colors={['#4ECDC4', '#3AB5AD']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.firstTimeUserStepIcon}
-                >
-                  <Share2 color="#ffffff" size={18} strokeWidth={2.5} />
-                </LinearGradient>
-                <View style={styles.firstTimeUserStepContent}>
-                  <Text style={styles.firstTimeUserStepTitle}>Invite Friends</Text>
-                  <Text style={styles.firstTimeUserStepText}>Share your plans with friends via invite link</Text>
-                </View>
-              </View>
-              <View style={styles.firstTimeUserStep}>
-                <LinearGradient
-                  colors={['#FFE66D', '#FFC700']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.firstTimeUserStepIcon}
-                >
-                  <Heart color="#ffffff" size={18} strokeWidth={2.5} />
-                </LinearGradient>
-                <View style={styles.firstTimeUserStepContent}>
-                  <Text style={styles.firstTimeUserStepTitle}>Discover Together</Text>
-                  <Text style={styles.firstTimeUserStepText}>See places your community loves</Text>
+
+              <View style={styles.firstTimeUserStepsContainer}>
+                <View style={styles.firstTimeUserSteps}>
+                  <TouchableOpacity
+                    style={styles.firstTimeUserStep}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                      onStartSearch?.();
+                    }}
+                    activeOpacity={0.6}
+                  >
+                    <ShimmerIcon delay={0}>
+                      <LinearGradient
+                        colors={['#B954EC', '#8B35C4']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={styles.firstTimeUserStepIcon}
+                      >
+                        <Search color="#ffffff" size={20} strokeWidth={2.5} />
+                      </LinearGradient>
+                    </ShimmerIcon>
+                    <View style={styles.firstTimeUserStepBadge}>
+                      <Text style={styles.firstTimeUserStepBadgeText}>1</Text>
+                    </View>
+                    <Text style={styles.firstTimeUserStepTitle}>Search 🔍</Text>
+                    <Text style={styles.firstTimeUserStepText}>Find amazing spots</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.firstTimeUserStep}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                      onStartSearch?.();
+                    }}
+                    activeOpacity={0.6}
+                  >
+                    <ShimmerIcon delay={500}>
+                      <LinearGradient
+                        colors={['#4ECDC4', '#3AB5AD']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={styles.firstTimeUserStepIcon}
+                      >
+                        <Share2 color="#ffffff" size={20} strokeWidth={2.5} />
+                      </LinearGradient>
+                    </ShimmerIcon>
+                    <View style={styles.firstTimeUserStepBadge}>
+                      <Text style={styles.firstTimeUserStepBadgeText}>2</Text>
+                    </View>
+                    <Text style={styles.firstTimeUserStepTitle}>Invite 👋</Text>
+                    <Text style={styles.firstTimeUserStepText}>Bring your friends</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.firstTimeUserStep}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                      onStartSearch?.();
+                    }}
+                    activeOpacity={0.6}
+                  >
+                    <ShimmerIcon delay={1000}>
+                      <LinearGradient
+                        colors={['#FFE66D', '#FFC700']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={styles.firstTimeUserStepIcon}
+                      >
+                        <Heart color="#ffffff" size={20} strokeWidth={2.5} />
+                      </LinearGradient>
+                    </ShimmerIcon>
+                    <View style={styles.firstTimeUserStepBadge}>
+                      <Text style={styles.firstTimeUserStepBadgeText}>3</Text>
+                    </View>
+                    <Text style={styles.firstTimeUserStepTitle}>Discover 💫</Text>
+                    <Text style={styles.firstTimeUserStepText}>Save & share</Text>
+                  </TouchableOpacity>
                 </View>
               </View>
             </View>
@@ -215,98 +309,123 @@ const styles = StyleSheet.create({
   firstTimeUserContainer: {
     borderTopWidth: 1,
     borderBottomWidth: 1,
-    borderColor: 'rgba(185, 84, 236, 0.25)',
+    borderColor: 'rgba(185, 84, 236, 0.3)',
     overflow: 'hidden',
   },
   firstTimeUserGradient: {
-    padding: 32,
-    alignItems: 'center',
+    paddingVertical: 32,
+    paddingHorizontal: 24,
   },
-  firstTimeUserIconContainer: {
-    marginBottom: 20,
-    shadowColor: '#B954EC',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.4,
-    shadowRadius: 16,
-    elevation: 12,
+  firstTimeUserContent: {
+    gap: 32,
+  },
+  firstTimeUserHeroSection: {
+    alignItems: 'center',
+    gap: 12,
+  },
+  firstTimeUserIconCircle: {
+    marginBottom: 8,
   },
   firstTimeUserIconGradient: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 3,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    shadowColor: '#B954EC',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.6,
+    shadowRadius: 20,
+    elevation: 15,
   },
   firstTimeUserTitle: {
     color: '#fff',
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: '700',
-    marginBottom: 12,
     fontFamily: 'Montserrat_700Bold',
+    letterSpacing: 0.5,
     textAlign: 'center',
-    letterSpacing: 0.3,
+    textShadowColor: 'rgba(185, 84, 236, 0.4)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
   },
-  firstTimeUserText: {
-    color: 'rgba(255, 255, 255, 0.75)',
+  firstTimeUserSubtitle: {
+    color: 'rgba(255, 255, 255, 0.85)',
     fontSize: 15,
+    fontWeight: '600',
     textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: 28,
-    paddingHorizontal: 8,
+    fontStyle: 'italic',
+  },
+  firstTimeUserStepsContainer: {
+    // Container for the steps
   },
   firstTimeUserSteps: {
-    width: '100%',
-    gap: 14,
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'flex-start',
+    gap: 12,
   },
   firstTimeUserStep: {
-    flexDirection: 'row',
+    flex: 1,
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
-    padding: 18,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    gap: 16,
-    shadowColor: 'rgba(0, 0, 0, 0.3)',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 1,
-    shadowRadius: 8,
-    elevation: 4,
+    gap: 10,
+    position: 'relative',
   },
   firstTimeUserStepIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: 'rgba(255, 255, 255, 0.4)',
+    shadowColor: 'rgba(0, 0, 0, 0.5)',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.6,
+    shadowRadius: 12,
+    elevation: 10,
+  },
+  firstTimeUserStepBadge: {
+    position: 'absolute',
+    top: -4,
+    right: '28%',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#FF6B6B',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-    shadowColor: 'rgba(0, 0, 0, 0.3)',
+    borderColor: '#fff',
+    shadowColor: '#FF6B6B',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
+    shadowOpacity: 0.6,
     shadowRadius: 4,
+    elevation: 8,
+    zIndex: 10,
   },
-  firstTimeUserStepContent: {
-    flex: 1,
-    flexShrink: 1,
+  firstTimeUserStepBadgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '800',
+    fontFamily: 'Montserrat_700Bold',
   },
   firstTimeUserStepTitle: {
     color: '#fff',
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
+    textAlign: 'center',
+    letterSpacing: 0.3,
     fontFamily: 'Montserrat_700Bold',
-    marginBottom: 4,
-    letterSpacing: 0.2,
-    flexWrap: 'wrap',
   },
   firstTimeUserStepText: {
     color: 'rgba(255, 255, 255, 0.7)',
-    fontSize: 13,
-    lineHeight: 18,
-    flexWrap: 'wrap',
-    flexShrink: 1,
+    fontSize: 12,
+    textAlign: 'center',
+    lineHeight: 16,
+    fontWeight: '500',
   },
   loadingContainer: {
     padding: 24,

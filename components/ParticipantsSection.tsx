@@ -875,23 +875,32 @@ export default function ParticipantsSection({
     }
 
     return (
-        <View style={styles.container}>
-            {/* Participants Header */}
-            <View style={styles.participantsHeader}>
-                <View style={styles.participantsTitle}>
-                    <Users stroke="#8b5cf6" width={20} height={20} />
-                    <Text style={styles.participantsTitleText}>
-                        {allParticipants.length === 1 ? 'Invite Your Friends' : `${allParticipants.length} Community Member${allParticipants.length === 1 ? '' : 's'}`}
-                    </Text>
-                </View>
-                {/* Invite Button - only show during collecting phase */}
-                {isOwner && !activity?.finalized && !activity?.completed && !activity?.voting && (
-                    <TouchableOpacity style={styles.inviteButtonCompact} onPress={handleInviteClick}>
-                        <Plus stroke="#8b5cf6" width={18} height={18} />
-                        <Text style={styles.inviteButtonCompactText}>Invite</Text>
-                    </TouchableOpacity>
-                )}
-            </View>
+        <View style={{ marginHorizontal: 16, marginBottom: 20 }}>
+            <LinearGradient
+                colors={['#cc31e8', '#667eea', '#cc31e8']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.gradientBorder}
+            >
+                <View style={styles.container}>
+                    {/* Participants Header */}
+                    <View style={styles.participantsHeader}>
+                        <View style={styles.participantsTitle}>
+                            <View style={styles.iconWrapper}>
+                                <Users stroke="#9333ea" width={20} height={20} />
+                            </View>
+                            <Text style={styles.participantsTitleText}>
+                                {allParticipants.length === 1 ? 'Invite Your Friends' : `${allParticipants.length} Community Member${allParticipants.length === 1 ? '' : 's'}`}
+                            </Text>
+                        </View>
+                        {/* Invite Button - only show during collecting phase */}
+                        {isOwner && !activity?.finalized && !activity?.completed && !activity?.voting && (
+                            <TouchableOpacity style={styles.inviteButtonCompact} onPress={handleInviteClick}>
+                                <Plus stroke="#8b5cf6" width={18} height={18} />
+                                <Text style={styles.inviteButtonCompactText}>Invite</Text>
+                            </TouchableOpacity>
+                        )}
+                    </View>
 
             {/* All Participants List - Show all members inline */}
             <View style={styles.participantsListInline}>
@@ -975,12 +984,14 @@ export default function ParticipantsSection({
                 })}
             </View>
 
-            {/* Custom Footer Button */}
-            {footerButton && (
-                <View style={styles.footerButtonContainer}>
-                    {footerButton}
+                    {/* Custom Footer Button */}
+                    {footerButton && (
+                        <View style={styles.footerButtonContainer}>
+                            {footerButton}
+                        </View>
+                    )}
                 </View>
-            )}
+            </LinearGradient>
 
             {/* Invite Modal */}
             <Modal
@@ -1044,13 +1055,27 @@ export default function ParticipantsSection({
 }
 
 const styles = StyleSheet.create({
+    gradientBorder: {
+        borderRadius: 24,
+        padding: 2,
+        shadowColor: 'rgba(147, 51, 234, 0.3)',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 1,
+        shadowRadius: 12,
+        elevation: 8,
+    },
     container: {
-        backgroundColor: 'rgba(255, 255, 255, 0.03)',
-        padding: 12,
-        borderRadius: 16,
-        borderWidth: 1,
-        borderColor: 'rgba(64, 51, 71, 0.3)',
-        margin: 16,
+        backgroundColor: 'rgba(32, 25, 37, 0.95)',
+        padding: 20,
+        borderRadius: 22,
+    },
+    iconWrapper: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: 'rgba(147, 51, 234, 0.15)',
+        alignItems: 'center',
+        justifyContent: 'center',
     },
 
     // Header Styles
@@ -1066,14 +1091,14 @@ const styles = StyleSheet.create({
     participantsTitle: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 8,
+        gap: 10,
     },
 
     participantsTitleText: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: '#fff',
-        fontFamily: 'Montserrat_600SemiBold',
+        fontSize: 18,
+        fontWeight: '700',
+        color: '#ffffff',
+        fontFamily: 'Montserrat_700Bold',
     },
 
     responseBadge: {
@@ -1121,12 +1146,12 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingVertical: 10,
-        paddingHorizontal: 8,
-        backgroundColor: 'rgba(255, 255, 255, 0.02)',
+        paddingVertical: 12,
+        paddingHorizontal: 12,
+        backgroundColor: 'rgba(255, 255, 255, 0.03)',
         borderRadius: 12,
         borderWidth: 1,
-        borderColor: 'rgba(64, 51, 71, 0.2)',
+        borderColor: 'rgba(139, 92, 246, 0.2)',
     },
 
     participantLeftSection: {

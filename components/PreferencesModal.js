@@ -13,47 +13,69 @@ import { X } from 'react-native-feather';
 import { Pizza, Coffee, Beef, Fish, Salad, Dessert, Soup, Sandwich, Wine, Beer, Martini } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 
+// Food options - optimized for Google Places API keywords
 const FOOD_OPTIONS = [
-    { label: 'Pizza', value: 'Pizza', icon: Pizza, color: '#FF6B6B' },
-    { label: 'Sushi', value: 'Sushi', icon: Fish, color: '#4ECDC4' },
-    { label: 'Burgers', value: 'Burgers', icon: Sandwich, color: '#FFD93D' },
-    { label: 'Tacos', value: 'Tacos', icon: Soup, color: '#FF9A3D' },
-    { label: 'Pasta', value: 'Pasta', icon: Coffee, color: '#A8E6CF' },
-    { label: 'Steak', value: 'Steak', icon: Beef, color: '#FF6B9D' },
-    { label: 'Thai', value: 'Thai', icon: Soup, color: '#F4A460' },
-    { label: 'Chinese', value: 'Chinese', icon: Coffee, color: '#FF7F50' },
-    { label: 'Indian', value: 'Indian', icon: Soup, color: '#FFA500' },
-    { label: 'Salads', value: 'Salads', icon: Salad, color: '#90EE90' },
-    { label: 'BBQ', value: 'BBQ', icon: Beef, color: '#8B4513' },
-    { label: 'Seafood', value: 'Seafood', icon: Fish, color: '#4682B4' },
+    { label: 'Italian', value: 'italian', icon: Pizza, color: '#FF6B6B' },
+    { label: 'Pizza', value: 'pizza', icon: Pizza, color: '#E63946' },
+    { label: 'Japanese', value: 'japanese', icon: Fish, color: '#4ECDC4' },
+    { label: 'Sushi', value: 'sushi', icon: Fish, color: '#06B6D4' },
+    { label: 'Ramen', value: 'ramen', icon: Soup, color: '#3B82F6' },
+    { label: 'Mexican', value: 'mexican', icon: Soup, color: '#FF9A3D' },
+    { label: 'Burgers', value: 'burger', icon: Sandwich, color: '#FFD93D' },
+    { label: 'Chinese', value: 'chinese', icon: Coffee, color: '#FF7F50' },
+    { label: 'Thai', value: 'thai', icon: Soup, color: '#F4A460' },
+    { label: 'Indian', value: 'indian', icon: Soup, color: '#FFA500' },
+    { label: 'Korean', value: 'korean', icon: Beef, color: '#DC2626' },
+    { label: 'Vietnamese', value: 'vietnamese', icon: Coffee, color: '#10B981' },
+    { label: 'Mediterranean', value: 'mediterranean', icon: Salad, color: '#8B5CF6' },
+    { label: 'Greek', value: 'greek', icon: Salad, color: '#3B82F6' },
+    { label: 'French', value: 'french', icon: Wine, color: '#EC4899' },
+    { label: 'Spanish', value: 'spanish', icon: Wine, color: '#F59E0B' },
+    { label: 'American', value: 'american', icon: Sandwich, color: '#6366F1' },
+    { label: 'BBQ', value: 'bbq', icon: Beef, color: '#8B4513' },
+    { label: 'Steakhouse', value: 'steakhouse', icon: Beef, color: '#7F1D1D' },
+    { label: 'Seafood', value: 'seafood', icon: Fish, color: '#4682B4' },
+    { label: 'Breakfast', value: 'breakfast', icon: Coffee, color: '#FBBF24' },
+    { label: 'Brunch', value: 'brunch', icon: Coffee, color: '#F97316' },
 ];
 
-const DIETARY_OPTIONS = [
-    { label: 'Vegan', value: 'Vegan', color: '#90EE90' },
-    { label: 'Vegetarian', value: 'Vegetarian', color: '#A8E6CF' },
-    { label: 'Gluten-Free', value: 'Gluten-Free', color: '#FFD93D' },
-    { label: 'Dairy-Free', value: 'Dairy-Free', color: '#4ECDC4' },
-    { label: 'Nut Allergy', value: 'Nut Allergy', color: '#FF9A3D' },
-    { label: 'Shellfish Allergy', value: 'Shellfish Allergy', color: '#FF6B9D' },
-    { label: 'Kosher', value: 'Kosher', color: '#B8A5C4' },
-    { label: 'Halal', value: 'Halal', color: '#9261E5' },
-    { label: 'Pescatarian', value: 'Pescatarian', color: '#4682B4' },
-    { label: 'Keto', value: 'Keto', color: '#FF6B6B' },
-    { label: 'Paleo', value: 'Paleo', color: '#A0522D' },
-    { label: 'Low-Carb', value: 'Low-Carb', color: '#DDA15E' },
+// Dietary Requirements - HARD FILTERS (venues must match these)
+const DIETARY_REQUIREMENTS = [
+    { label: 'Vegetarian', value: 'vegetarian', color: '#A8E6CF' },
+    { label: 'Vegan', value: 'vegan', color: '#90EE90' },
+    { label: 'Gluten-Free', value: 'gluten-free', color: '#FFD93D' },
+    { label: 'Halal', value: 'halal', color: '#9261E5' },
+    { label: 'Kosher', value: 'kosher', color: '#B8A5C4' },
 ];
 
+// Dietary Preferences - Informational only (not hard filters)
+const DIETARY_PREFERENCES = [
+    { label: 'Pescatarian', value: 'pescatarian', color: '#4682B4' },
+    { label: 'Keto', value: 'keto', color: '#FF6B6B' },
+    { label: 'Paleo', value: 'paleo', color: '#A0522D' },
+    { label: 'Low-Carb', value: 'low-carb', color: '#DDA15E' },
+    { label: 'Dairy-Free', value: 'dairy-free', color: '#4ECDC4' },
+    { label: 'Nut Allergy', value: 'nut allergy', color: '#FF9A3D' },
+    { label: 'Shellfish Allergy', value: 'shellfish allergy', color: '#FF6B9D' },
+];
+
+// Bar options - optimized for Google Places API keywords
 const BAR_OPTIONS = [
-    { label: 'Cocktail Bar', value: 'Cocktail Bar', icon: Martini, color: '#FF6B9D' },
-    { label: 'Wine Bar', value: 'Wine Bar', icon: Wine, color: '#9261E5' },
-    { label: 'Brewery', value: 'Brewery', icon: Beer, color: '#FFD93D' },
-    { label: 'Whiskey Bar', value: 'Whiskey Bar', icon: Wine, color: '#A0522D' },
-    { label: 'Rooftop Bar', value: 'Rooftop Bar', icon: Wine, color: '#4ECDC4' },
-    { label: 'Dive Bar', value: 'Dive Bar', icon: Beer, color: '#FF9A3D' },
-    { label: 'Sports Bar', value: 'Sports Bar', icon: Beer, color: '#4682B4' },
-    { label: 'Lounge', value: 'Lounge', icon: Martini, color: '#B8A5C4' },
-    { label: 'Speakeasy', value: 'Speakeasy', icon: Martini, color: '#8B4513' },
-    { label: 'Live Music', value: 'Live Music', icon: Wine, color: '#A8E6CF' },
+    { label: 'Cocktail Bar', value: 'cocktail', icon: Martini, color: '#FF6B9D' },
+    { label: 'Wine Bar', value: 'wine bar', icon: Wine, color: '#9261E5' },
+    { label: 'Brewery', value: 'beer', icon: Beer, color: '#FFD93D' },
+    { label: 'Pub', value: 'pub', icon: Beer, color: '#F59E0B' },
+    { label: 'Whiskey Bar', value: 'whiskey bar', icon: Wine, color: '#A0522D' },
+    { label: 'Rooftop Bar', value: 'rooftop', icon: Wine, color: '#4ECDC4' },
+    { label: 'Dive Bar', value: 'dive bar', icon: Beer, color: '#FF9A3D' },
+    { label: 'Sports Bar', value: 'sports bar', icon: Beer, color: '#4682B4' },
+    { label: 'Lounge', value: 'lounge', icon: Martini, color: '#B8A5C4' },
+    { label: 'Speakeasy', value: 'speakeasy', icon: Martini, color: '#8B4513' },
+    { label: 'Live Music', value: 'live music', icon: Wine, color: '#A8E6CF' },
+    { label: 'Tiki Bar', value: 'tiki', icon: Martini, color: '#10B981' },
+    { label: 'Karaoke', value: 'karaoke', icon: Martini, color: '#EC4899' },
+    { label: 'Jazz Bar', value: 'jazz', icon: Wine, color: '#6366F1' },
+    { label: 'Coffee Shop', value: 'coffee', icon: Coffee, color: '#8B4513' },
 ];
 
 export default function PreferencesModal({
@@ -121,8 +143,11 @@ export default function PreferencesModal({
             const recognizedDietary = [];
             const unrecognizedDietary = [];
 
+            // Combine both dietary requirements and preferences for matching
+            const allDietaryOptions = [...DIETARY_REQUIREMENTS, ...DIETARY_PREFERENCES];
+
             dietaryArray.forEach(dietary => {
-                const matchedOption = DIETARY_OPTIONS.find(opt => matchesOption(dietary, opt.value));
+                const matchedOption = allDietaryOptions.find(opt => matchesOption(dietary, opt.value));
                 if (matchedOption) {
                     recognizedDietary.push(matchedOption.value);
                 } else {
@@ -299,13 +324,45 @@ export default function PreferencesModal({
                         )}
                     </View>
 
-                    {/* Dietary Restrictions Section */}
+                    {/* Dietary Requirements Section - HARD FILTERS */}
                     <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>Dietary Restrictions & Allergies</Text>
-                        <Text style={styles.sectionDesc}>Let us know about any dietary needs</Text>
+                        <Text style={styles.sectionTitle}>Dietary Requirements</Text>
+                        <Text style={styles.sectionDesc}>⚠️ We'll ONLY show venues that meet these needs</Text>
 
                         <View style={styles.optionsGrid}>
-                            {DIETARY_OPTIONS.map((option) => {
+                            {DIETARY_REQUIREMENTS.map((option) => {
+                                const isSelected = selectedDietary.includes(option.value);
+
+                                return (
+                                    <TouchableOpacity
+                                        key={option.value}
+                                        style={[
+                                            styles.chip,
+                                            isSelected && [styles.chipSelected, { borderColor: option.color }]
+                                        ]}
+                                        onPress={() => toggleDietary(option.value)}
+                                        activeOpacity={0.7}
+                                        disabled={saving}
+                                    >
+                                        <Text style={[
+                                            styles.chipLabel,
+                                            isSelected && styles.chipLabelSelected
+                                        ]}>
+                                            {option.label}
+                                        </Text>
+                                    </TouchableOpacity>
+                                );
+                            })}
+                        </View>
+                    </View>
+
+                    {/* Dietary Preferences Section - INFORMATIONAL */}
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>Other Dietary Preferences</Text>
+                        <Text style={styles.sectionDesc}>Additional preferences (informational)</Text>
+
+                        <View style={styles.optionsGrid}>
+                            {DIETARY_PREFERENCES.map((option) => {
                                 const isSelected = selectedDietary.includes(option.value);
 
                                 return (

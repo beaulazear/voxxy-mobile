@@ -79,38 +79,42 @@ export default function NightOutResponseForm({
     const [selectedDate, setSelectedDate] = useState('')
     const [selectedTimes, setSelectedTimes] = useState([])
 
-    // Night out options - optimized for Google Places categories
+    // Drink options - optimized for Google Places API keywords
     const drinkOptions = [
-        { label: 'No preference', icon: Target, desc: 'Any place works' },
-        { label: 'Cocktail Bar', icon: Wine, desc: 'Craft cocktails & mixology' },
-        { label: 'Wine Bar', icon: Wine, desc: 'Wine bars & tastings' },
-        { label: 'Brewery', icon: Beer, desc: 'Craft beer & breweries' },
-        { label: 'Whiskey Bar', icon: Coffee, desc: 'Whiskey & premium spirits' },
-        { label: 'Rooftop Bar', icon: Building, desc: 'Drinks with a view' },
-        { label: 'Dive Bar', icon: Beer, desc: 'Casual & unpretentious' },
-        { label: 'Sports Bar', icon: Gamepad2, desc: 'Games & drinks' },
-        { label: 'Lounge', icon: Wine, desc: 'Sophisticated atmosphere' },
-        { label: 'Tiki Bar', icon: PartyPopper, desc: 'Tropical drinks & vibes' }
+        { label: 'No preference', value: 'no preference', icon: Target, desc: 'Any place works' },
+        { label: 'Cocktail Bar', value: 'cocktail', icon: Wine, desc: 'Craft cocktails & mixology' },
+        { label: 'Wine Bar', value: 'wine bar', icon: Wine, desc: 'Wine bars & tastings' },
+        { label: 'Brewery', value: 'beer', icon: Beer, desc: 'Craft beer & breweries' },
+        { label: 'Pub', value: 'pub', icon: Beer, desc: 'Casual pub atmosphere' },
+        { label: 'Whiskey Bar', value: 'whiskey bar', icon: Coffee, desc: 'Whiskey & premium spirits' },
+        { label: 'Rooftop Bar', value: 'rooftop', icon: Building, desc: 'Drinks with a view' },
+        { label: 'Dive Bar', value: 'dive bar', icon: Beer, desc: 'Casual & unpretentious' },
+        { label: 'Sports Bar', value: 'sports bar', icon: Gamepad2, desc: 'Games & drinks' },
+        { label: 'Lounge', value: 'lounge', icon: Wine, desc: 'Sophisticated atmosphere' },
+        { label: 'Tiki Bar', value: 'tiki', icon: PartyPopper, desc: 'Tropical drinks & vibes' },
+        { label: 'Speakeasy', value: 'speakeasy', icon: Coffee, desc: 'Hidden & exclusive' },
+        { label: 'Karaoke', value: 'karaoke', icon: Music, desc: 'Karaoke bars' },
+        { label: 'Jazz Bar', value: 'jazz', icon: Music, desc: 'Jazz clubs' }
     ]
 
     const atmosphereOptions = [
-        { label: 'No preference', icon: Target, desc: 'Any vibe works' },
-        { label: 'LGBTQ+ Friendly', icon: Flag, desc: 'Inclusive & welcoming' },
-        { label: 'Live Music', icon: Music, desc: 'Bands & performances' },
-        { label: 'DJ/Dancing', icon: Music, desc: 'Dance floor & nightlife' },
-        { label: 'Outdoor Seating', icon: Building, desc: 'Patio & fresh air' },
-        { label: 'Speakeasy', icon: Coffee, desc: 'Hidden & exclusive' },
-        { label: 'Happy Hour', icon: PartyPopper, desc: 'Great deals & specials' },
-        { label: 'Date Night', icon: Heart, desc: 'Romantic & intimate' },
-        { label: 'Large Groups', icon: Users, desc: 'Good for parties' },
-        { label: 'Pool/Games', icon: Gamepad2, desc: 'Pool tables & activities' }
+        { label: 'No preference', value: 'no preference', icon: Target, desc: 'Any vibe works' },
+        { label: 'LGBTQ+ Friendly', value: 'lgbtq friendly', icon: Flag, desc: 'Inclusive & welcoming' },
+        { label: 'Live Music', value: 'live music', icon: Music, desc: 'Bands & performances' },
+        { label: 'DJ/Dancing', value: 'nightclub', icon: Music, desc: 'Dance floor & nightlife' },
+        { label: 'Outdoor Seating', value: 'outdoor', icon: Building, desc: 'Patio & fresh air' },
+        { label: 'Happy Hour', value: 'happy hour', icon: PartyPopper, desc: 'Great deals & specials' },
+        { label: 'Date Night', value: 'romantic', icon: Heart, desc: 'Romantic & intimate' },
+        { label: 'Large Groups', value: 'large groups', icon: Users, desc: 'Good for parties' },
+        { label: 'Pool/Games', value: 'games', icon: Gamepad2, desc: 'Pool tables & activities' }
     ]
 
     const budgetOptions = [
-        { label: 'No preference', icon: Target, desc: 'Any price range' },
-        { label: 'Budget-friendly', icon: DollarSign, desc: 'Casual dining & drinks' },
-        { label: 'Mid-range', icon: CreditCard, desc: 'Nice dinner & cocktails' },
-        { label: 'Upscale night', icon: Crown, desc: 'Fine dining & premium drinks' }
+        { label: 'No preference', value: 'no preference', icon: Target, desc: 'Any price range' },
+        { label: 'Budget ($)', value: '$', icon: DollarSign, desc: 'Cheap drinks & casual' },
+        { label: 'Moderate ($$)', value: '$$', icon: CreditCard, desc: 'Nice cocktails & dinner' },
+        { label: 'Upscale ($$$)', value: '$$$', icon: Crown, desc: 'Premium drinks & dining' },
+        { label: 'Luxury ($$$$)', value: '$$$$', icon: Crown, desc: 'High-end experience' }
     ]
 
     // Evening/night time slots
@@ -203,12 +207,12 @@ export default function NightOutResponseForm({
             }
 
             // If selecting "No preference", clear all other selections
-            if (drink === 'No preference') {
-                return ['No preference']
+            if (drink === 'no preference') {
+                return ['no preference']
             }
 
             // If selecting any other option, remove "No preference" and add the new selection
-            const withoutNoPreference = prev.filter(d => d !== 'No preference')
+            const withoutNoPreference = prev.filter(d => d !== 'no preference')
             return [...withoutNoPreference, drink]
         })
     }
@@ -223,12 +227,12 @@ export default function NightOutResponseForm({
             }
 
             // If selecting "No preference", clear all other selections
-            if (atmosphere === 'No preference') {
-                return ['No preference']
+            if (atmosphere === 'no preference') {
+                return ['no preference']
             }
 
             // If selecting any other option, remove "No preference" and add the new selection
-            const withoutNoPreference = prev.filter(a => a !== 'No preference')
+            const withoutNoPreference = prev.filter(a => a !== 'no preference')
             return [...withoutNoPreference, atmosphere]
         })
     }
@@ -331,16 +335,20 @@ export default function NightOutResponseForm({
         }
     }
 
-    // Submission - updated for multiple selections
+    // Submission - updated for multiple selections and keyword-based format
     const handleSubmit = async () => {
         // Use saved preferences if the user hasn't changed them
         const finalPreferences = useSavedPreferences && user?.preferences ? user.preferences : preferences
 
-        const notes = `Night Out Preferences:
-🍸 Drink Preferences: ${selectedDrinks.join(', ')}
-🎉 Atmosphere: ${selectedAtmospheres.join(', ')}
-💰 Budget: ${selectedBudget}
-📝 Special Preferences: ${finalPreferences || 'None'}`.trim()
+        // Create keyword-based format for better backend parsing
+        const keywords = [
+            ...selectedDrinks,
+            ...selectedAtmospheres,
+            selectedBudget,
+            ...(finalPreferences ? finalPreferences.split(',').map(p => p.trim().toLowerCase()) : [])
+        ].filter(k => k && k !== 'no preference' && k.toLowerCase() !== 'none');
+
+        const notes = keywords.join(', ');
 
         try {
             let endpoint, requestOptions
@@ -478,15 +486,15 @@ export default function NightOutResponseForm({
                         <Text style={styles.multiSelectHint}>Select all that appeal to you</Text>
                         <View style={styles.singleSelectGrid}>
                             {drinkOptions.map(option => {
-                                const isSelected = selectedDrinks.includes(option.label)
+                                const isSelected = selectedDrinks.includes(option.value)
                                 return (
                                     <TouchableOpacity
-                                        key={option.label}
+                                        key={option.value}
                                         style={[
                                             styles.singleSelectCard,
                                             isSelected && styles.singleSelectCardSelected
                                         ]}
-                                        onPress={() => handleDrinkSelect(option.label)}
+                                        onPress={() => handleDrinkSelect(option.value)}
                                     >
                                         {isSelected && (
                                             <View style={styles.checkmark}>
@@ -514,15 +522,15 @@ export default function NightOutResponseForm({
                         <Text style={styles.multiSelectHint}>Select all that interest you</Text>
                         <View style={styles.singleSelectGrid}>
                             {atmosphereOptions.map(option => {
-                                const isSelected = selectedAtmospheres.includes(option.label)
+                                const isSelected = selectedAtmospheres.includes(option.value)
                                 return (
                                     <TouchableOpacity
-                                        key={option.label}
+                                        key={option.value}
                                         style={[
                                             styles.singleSelectCard,
                                             isSelected && styles.singleSelectCardSelected
                                         ]}
-                                        onPress={() => handleAtmosphereSelect(option.label)}
+                                        onPress={() => handleAtmosphereSelect(option.value)}
                                     >
                                         {isSelected && (
                                             <View style={styles.checkmark}>
@@ -550,17 +558,17 @@ export default function NightOutResponseForm({
                         <View style={styles.singleSelectGrid}>
                             {budgetOptions.map(option => (
                                 <TouchableOpacity
-                                    key={option.label}
+                                    key={option.value}
                                     style={[
                                         styles.singleSelectCard,
-                                        selectedBudget === option.label && styles.singleSelectCardSelected
+                                        selectedBudget === option.value && styles.singleSelectCardSelected
                                     ]}
-                                    onPress={() => setSelectedBudget(option.label)}
+                                    onPress={() => setSelectedBudget(option.value)}
                                 >
                                     <option.icon color="#fff" size={20} style={{ marginBottom: 8 }} />
                                     <Text style={[
                                         styles.singleSelectLabel,
-                                        selectedBudget === option.label && styles.singleSelectLabelSelected
+                                        selectedBudget === option.value && styles.singleSelectLabelSelected
                                     ]}>
                                         {option.label}
                                     </Text>
